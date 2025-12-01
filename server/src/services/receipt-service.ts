@@ -27,12 +27,12 @@ export class ReceiptService {
   /**
    * Generate receipt number in format RCP-YYYY-NNNNN
    */
-  static generateReceiptNumber(): string {
+  static async generateReceiptNumber(): Promise<string> {
     const year = new Date().getFullYear();
     const prefix = `RCP-${year}-`;
     
     // Get the last receipt number for this year
-    return prisma.dealReceipt.findFirst({
+    const lastReceipt = await prisma.dealReceipt.findFirst({
       where: {
         receiptNo: {
           startsWith: prefix,
@@ -41,15 +41,15 @@ export class ReceiptService {
       orderBy: {
         receiptNo: 'desc',
       },
-    }).then((lastReceipt) => {
-      if (!lastReceipt) {
-        return `${prefix}00001`;
-      }
-      
-      const lastNumber = parseInt(lastReceipt.receiptNo.replace(prefix, ''), 10);
-      const nextNumber = lastNumber + 1;
-      return `${prefix}${String(nextNumber).padStart(5, '0')}`;
     });
+    
+    if (!lastReceipt) {
+      return `${prefix}00001`;
+    }
+    
+    const lastNumber = parseInt(lastReceipt.receiptNo.replace(prefix, ''), 10);
+    const nextNumber = lastNumber + 1;
+    return `${prefix}${String(nextNumber).padStart(5, '0')}`;
   }
 
   /**
@@ -163,6 +163,7 @@ export class ReceiptService {
           installments: {
             where: { isDeleted: false },
           },
+          paymentPlan: true,
         },
       });
 

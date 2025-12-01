@@ -1,10 +1,14 @@
 import express from 'express';
 import { z } from 'zod';
+import crypto from 'crypto';
 import prisma from '../prisma/client';
 import { hashPassword, comparePassword } from '../utils/password';
 import { generateToken } from '../utils/jwt';
 import { extractDeviceInfo } from '../utils/deviceInfo';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { generateTokenPair, revokeAllUserRefreshTokens } from '../utils/refresh-token';
+import { generateCsrfToken } from '../middleware/csrf';
+import logger from '../utils/logger';
 
 const router = express.Router();
 
@@ -64,8 +68,8 @@ router.post('/login', async (req, res) => {
       deviceId: finalDeviceId,
     };
 
-    // Generate token with deviceId
-    const token = generateToken({
+    // Generate access and refresh token pair
+    const { accessToken, refreshToken } = await generateTokenPair({
       userId: user.id,
       username: user.username,
       email: user.email,
@@ -73,8 +77,15 @@ router.post('/login', async (req, res) => {
       deviceId: finalDeviceId,
     });
 
+    // Generate CSRF token
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    const csrfToken = await generateCsrfToken(sessionId, finalDeviceId, user.id);
+
     return res.json({
-      token,
+      token: accessToken,
+      refreshToken,
+      csrfToken,
+      sessionId,
       deviceId: finalDeviceId,
       user: {
         id: user.id,
@@ -89,7 +100,7 @@ router.post('/login', async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : 'Login failed';
@@ -134,14 +145,18 @@ router.post('/role-login', async (req, res) => {
     const deviceInfo = extractDeviceInfo(req);
     const finalDeviceId = clientDeviceId || deviceInfo.deviceId;
 
-    // Generate token with deviceId
-    const jwtToken = generateToken({
+    // Generate access and refresh token pair
+    const { accessToken, refreshToken } = await generateTokenPair({
       userId: user.id,
       username: user.username,
       email: user.email,
       roleId: user.roleId,
       deviceId: finalDeviceId,
     });
+
+    // Generate CSRF token
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    const csrfToken = await generateCsrfToken(sessionId, finalDeviceId, user.id);
 
     // Create login notification for all admin users
     const adminUsers = await prisma.user.findMany({
@@ -179,7 +194,10 @@ router.post('/role-login', async (req, res) => {
     );
 
     return res.json({
-      token: jwtToken,
+      token: accessToken,
+      refreshToken,
+      csrfToken,
+      sessionId,
       deviceId: finalDeviceId,
       user: {
         id: user.id,
@@ -192,14 +210,14 @@ router.post('/role-login', async (req, res) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.errors);
+      logger.warn('Validation error:', error.errors);
       return res.status(400).json({ 
         error: 'Validation error', 
         details: error.errors,
         message: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
       });
     }
-    console.error('Role login error:', error);
+    logger.error('Role login error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Role login failed';
     const errorDetails = process.env.NODE_ENV === 'development'
       ? { message: errorMessage, stack: error instanceof Error ? error.stack : undefined }
@@ -293,14 +311,18 @@ router.post('/invite-login', async (req, res) => {
     const deviceInfo = extractDeviceInfo(req);
     const finalDeviceId = (clientDeviceId as string | undefined) || deviceInfo.deviceId;
     
-    // Generate token with deviceId
-    const jwtToken = generateToken({
+    // Generate access and refresh token pair
+    const { accessToken, refreshToken } = await generateTokenPair({
       userId: user.id,
       username: user.username,
       email: user.email,
       roleId: user.roleId,
       deviceId: finalDeviceId,
     });
+
+    // Generate CSRF token
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    const csrfToken = await generateCsrfToken(sessionId, finalDeviceId, user.id);
 
     // Create login notification for all admin users (only for role-based users, not admin)
     if (user.role.name !== 'Admin' && user.role.name !== 'admin') {
@@ -340,7 +362,10 @@ router.post('/invite-login', async (req, res) => {
     }
 
     return res.json({
-      token: jwtToken,
+      token: accessToken,
+      refreshToken,
+      csrfToken,
+      sessionId,
       deviceId: finalDeviceId,
       user: {
         id: user.id,
@@ -354,15 +379,15 @@ router.post('/invite-login', async (req, res) => {
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.error('Validation error:', error.errors);
+      logger.warn('Validation error:', error.errors);
       return res.status(400).json({ 
         error: 'Validation error', 
         details: error.errors,
         message: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
       });
     }
-    console.error('Invite login error:', error);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    logger.error('Invite login error:', error);
+    logger.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     
     const errorMessage = error instanceof Error ? error.message : 'Invite login failed';
     const errorDetails = process.env.NODE_ENV === 'development'
@@ -397,8 +422,85 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
       permissions: user.role.permissions, // Include permissions
     });
   } catch (error) {
-    console.error('Get user error:', error);
+    logger.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to get user' });
+  }
+});
+
+// Refresh token endpoint
+router.post('/refresh', async (req, res) => {
+  try {
+    const { refreshToken: token } = z.object({
+      refreshToken: z.string().min(1, 'Refresh token is required'),
+    }).parse(req.body);
+
+    const { verifyRefreshToken, generateTokenPair, revokeRefreshToken } = await import('../utils/refresh-token');
+    const verification = await verifyRefreshToken(token);
+
+    if (!verification.valid || !verification.userId) {
+      return res.status(401).json({ error: 'Invalid or expired refresh token' });
+    }
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: verification.userId },
+      include: { role: true },
+    });
+
+    if (!user) {
+      return res.status(401).json({ error: 'User not found' });
+    }
+
+    // Revoke old refresh token
+    await revokeRefreshToken(token);
+
+    // Generate new token pair
+    const { accessToken, refreshToken: newRefreshToken } = await generateTokenPair({
+      userId: user.id,
+      username: user.username,
+      email: user.email,
+      roleId: user.roleId,
+      deviceId: verification.deviceId,
+    });
+
+    // Generate new CSRF token
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    const csrfToken = await generateCsrfToken(sessionId, verification.deviceId, user.id);
+
+    return res.json({
+      token: accessToken,
+      refreshToken: newRefreshToken,
+      csrfToken,
+      sessionId,
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    logger.error('Refresh token error:', error);
+    res.status(500).json({ error: 'Failed to refresh token' });
+  }
+});
+
+// Logout endpoint (revoke refresh token)
+router.post('/logout', authenticate, async (req: AuthRequest, res) => {
+  try {
+    const { refreshToken } = z.object({
+      refreshToken: z.string().optional(),
+    }).parse(req.body);
+
+    if (refreshToken) {
+      const { revokeRefreshToken } = await import('../utils/refresh-token');
+      await revokeRefreshToken(refreshToken);
+    } else {
+      // Revoke all refresh tokens for user
+      await revokeAllUserRefreshTokens(req.user!.id);
+    }
+
+    return res.json({ message: 'Logged out successfully' });
+  } catch (error) {
+    logger.error('Logout error:', error);
+    res.status(500).json({ error: 'Failed to logout' });
   }
 });
 

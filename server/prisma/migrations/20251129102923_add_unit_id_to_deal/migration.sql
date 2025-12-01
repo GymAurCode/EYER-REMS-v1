@@ -29,10 +29,18 @@ BEGIN
   END IF;
 END $$;
 
--- AlterTable
-ALTER TABLE "DealProperty" ALTER COLUMN "priceShare" SET NOT NULL,
-ALTER COLUMN "priceShare" SET DATA TYPE DOUBLE PRECISION,
-ALTER COLUMN "updatedAt" DROP DEFAULT;
+-- AlterTable (only if DealProperty table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'DealProperty'
+  ) THEN
+    ALTER TABLE "DealProperty" ALTER COLUMN "priceShare" SET NOT NULL,
+    ALTER COLUMN "priceShare" SET DATA TYPE DOUBLE PRECISION,
+    ALTER COLUMN "updatedAt" DROP DEFAULT;
+  END IF;
+END $$;
 
 -- AlterTable
 ALTER TABLE "DealerPayment" ALTER COLUMN "amount" SET DATA TYPE DOUBLE PRECISION,
@@ -99,5 +107,13 @@ BEGIN
   END IF;
 END $$;
 
--- RenameIndex
-ALTER INDEX "DealProperty_deal_property_unique" RENAME TO "DealProperty_dealId_propertyId_key";
+-- RenameIndex (only if index exists)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE indexname = 'DealProperty_deal_property_unique'
+  ) THEN
+    ALTER INDEX "DealProperty_deal_property_unique" RENAME TO "DealProperty_dealId_propertyId_key";
+  END IF;
+END $$;

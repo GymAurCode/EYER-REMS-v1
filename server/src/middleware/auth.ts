@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
+import logger from '../utils/logger';
 
 export interface AuthRequest extends Request {
   user?: {
@@ -32,7 +33,7 @@ export const authenticate = async (
         res.status(500).json({ error: 'Server configuration error' });
         return;
       }
-      console.warn('⚠️  WARNING: JWT_SECRET not set. Using default for development only.');
+      logger.warn('⚠️  WARNING: JWT_SECRET not set. Using default for development only.');
     }
     const decoded = jwt.verify(token, jwtSecret || 'CHANGE-THIS-IN-PRODUCTION-DEVELOPMENT-ONLY') as {
       userId: string;
@@ -73,7 +74,7 @@ export const authenticate = async (
 
     next();
   } catch (error) {
-    console.error('Authentication error:', error);
+    logger.error('Authentication error:', error);
     res.status(401).json({ error: 'Invalid token' });
   }
 };
@@ -103,7 +104,7 @@ export const requireAdmin = async (
 
     next();
   } catch (error) {
-    console.error('Error checking admin status:', error);
+    logger.error('Error checking admin status:', error);
     res.status(500).json({ error: 'Error checking admin status' });
   }
 };

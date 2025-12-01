@@ -35,8 +35,8 @@ model User {
   leadsAssigned          Lead[]           @relation("LeadAssignedTo")
   clientsAssigned        Client[]         @relation("ClientAssignedToUser")
   communicationsLogged   Communication[]  @relation("CommunicationAssignedTo")
-  receiptsReceived       Receipt[]        @relation("ReceiptReceivedBy")
-  dealReceiptsReceived   DealReceipt[]   @relation("DealReceiptReceivedBy")
+  dealReceiptsReceived   DealReceipt[]    @relation("DealReceiptReceivedBy")
+  refreshTokens          RefreshToken[]
 
   @@index([email])
   @@index([roleId])
@@ -1575,7 +1575,6 @@ model JournalEntry {
   invoices       Invoice[]       @relation("JournalEntryInvoices")
   vouchers       Voucher[]       @relation("JournalEntryVouchers")
   tenantPayments TenantPayment[] @relation("JournalEntryTenantPayments")
-  receipts       Receipt[]       @relation("ReceiptJournalEntry")
   dealReceipts   DealReceipt[]   @relation("DealReceiptJournalEntry")
   preparedBy     User?           @relation("JournalPreparedBy", fields: [preparedByUserId], references: [id], onDelete: SetNull)
   approvedBy     User?           @relation("JournalApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
@@ -1899,11 +1898,11 @@ model DealInstallment {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  paymentPlan        PaymentPlan      @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
-  deal               Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  client             Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  ledgerEntry        LedgerEntry?     @relation("InstallmentLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
-  payments           Payment[]        @relation("InstallmentPayments")
+  paymentPlan        PaymentPlan             @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  deal               Deal                    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  client             Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ledgerEntry        LedgerEntry?            @relation("InstallmentLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  payments           Payment[]               @relation("InstallmentPayments")
   receiptAllocations DealReceiptAllocation[]
 
   @@index([paymentPlanId])
@@ -1983,25 +1982,25 @@ model AuditLog {
 
 // Receipt System for Real Estate Payments (Deal Receipts)
 model DealReceipt {
-  id            String   @id @default(uuid())
-  receiptNo     String   @unique // Auto incremental like RCP-2025-00012
-  dealId        String
-  clientId      String
-  amount        Float
-  method        String // Cash, Bank
-  date          DateTime @default(now())
-  notes         String?
-  receivedBy    String? // User ID
-  pdfUrl        String? // Generated PDF receipt URL
-  journalEntryId String? @unique // Link to JournalEntry for ledger posting
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id             String   @id @default(uuid())
+  receiptNo      String   @unique // Auto incremental like RCP-2025-00012
+  dealId         String
+  clientId       String
+  amount         Float
+  method         String // Cash, Bank
+  date           DateTime @default(now())
+  notes          String?
+  receivedBy     String? // User ID
+  pdfUrl         String? // Generated PDF receipt URL
+  journalEntryId String?  @unique // Link to JournalEntry for ledger posting
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  deal            Deal                @relation(fields: [dealId], references: [id], onDelete: Cascade)
-  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  receivedByUser User?               @relation("DealReceiptReceivedBy", fields: [receivedBy], references: [id], onDelete: SetNull)
-  journalEntry    JournalEntry?       @relation("DealReceiptJournalEntry", fields: [journalEntryId], references: [id], onDelete: SetNull)
-  allocations     DealReceiptAllocation[]
+  deal           Deal                    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  client         Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  receivedByUser User?                   @relation("DealReceiptReceivedBy", fields: [receivedBy], references: [id], onDelete: SetNull)
+  journalEntry   JournalEntry?           @relation("DealReceiptJournalEntry", fields: [journalEntryId], references: [id], onDelete: SetNull)
+  allocations    DealReceiptAllocation[]
 
   @@index([dealId])
   @@index([clientId])
@@ -2011,17 +2010,53 @@ model DealReceipt {
 }
 
 model DealReceiptAllocation {
-  id            String   @id @default(uuid())
-  receiptId     String
-  installmentId String
+  id              String   @id @default(uuid())
+  receiptId       String
+  installmentId   String
   amountAllocated Float
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  receipt     DealReceipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  installment DealInstallment  @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+  receipt     DealReceipt     @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  installment DealInstallment @relation(fields: [installmentId], references: [id], onDelete: Cascade)
 
+  @@unique([receiptId, installmentId])
   @@index([receiptId])
   @@index([installmentId])
-  @@unique([receiptId, installmentId])
+}
+
+// Security: Refresh Token for JWT refresh mechanism
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  deviceId  String?
+  expiresAt DateTime
+  revoked   Boolean  @default(false)
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@index([deviceId])
+  @@index([expiresAt])
+}
+
+// Security: CSRF Token storage
+model CsrfToken {
+  id        String   @id @default(uuid())
+  token     String   @unique
+  sessionId String
+  deviceId  String?
+  userId    String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([sessionId])
+  @@index([deviceId])
+  @@index([expiresAt])
 }

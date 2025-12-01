@@ -2353,7 +2353,7 @@ router.post('/receipts/create', authenticate, async (req: AuthRequest, res) => {
       method,
       date: date ? new Date(date) : new Date(),
       notes: notes || null,
-      receivedBy: req.user?.id || null,
+      receivedBy: req.user?.id,
     });
 
     res.json({
@@ -2397,7 +2397,39 @@ router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res) => {
       return res.status(404).json({ success: false, error: 'Receipt not found' });
     }
 
-    const pdfBuffer = await generateReceiptPDF(receipt);
+    // Transform receipt data to match ReceiptPDFData interface
+    const pdfData = {
+      receipt: {
+        receiptNo: receipt.receiptNo,
+        amount: receipt.amount,
+        method: receipt.method,
+        date: receipt.date,
+        notes: receipt.notes || undefined,
+      },
+      deal: {
+        dealCode: receipt.deal.dealCode || undefined,
+        title: receipt.deal.title,
+        dealAmount: receipt.deal.dealAmount,
+      },
+      client: {
+        name: receipt.client.name,
+        email: receipt.client.email || undefined,
+        phone: receipt.client.phone || undefined,
+        address: receipt.client.address || undefined,
+      },
+      allocations: receipt.allocations.map((alloc) => ({
+        installmentNumber: alloc.installment.installmentNumber,
+        amountAllocated: alloc.amountAllocated,
+        installmentAmount: alloc.installment.amount,
+        dueDate: alloc.installment.dueDate,
+      })),
+      receivedBy: receipt.receivedByUser ? {
+        username: receipt.receivedByUser.username || undefined,
+        email: receipt.receivedByUser.email || undefined,
+      } : undefined,
+    };
+
+    const pdfBuffer = await generateReceiptPDF(pdfData);
     
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNo}.pdf"`);

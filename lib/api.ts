@@ -13,7 +13,7 @@ const api = axios.create({
   timeout: 10000,
 })
 
-// Request interceptor to add auth token and deviceId
+// Request interceptor to add auth token, deviceId, and CSRF token
 api.interceptors.request.use(
   (config) => {
     // Ensure relative URLs so axios correctly appends them to the normalized base URL
@@ -56,6 +56,21 @@ api.interceptors.request.use(
     if (deviceId && config.headers) {
       config.headers['X-Device-Id'] = deviceId
     }
+
+    // Add CSRF token and session ID for state-changing requests
+    const method = config.method?.toUpperCase()
+    if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
+      const csrfToken = sessionStorage.getItem('csrfToken')
+      const sessionId = sessionStorage.getItem('sessionId')
+      
+      if (csrfToken && config.headers) {
+        config.headers['X-CSRF-Token'] = csrfToken
+      }
+      
+      if (sessionId && config.headers) {
+        config.headers['X-Session-Id'] = sessionId
+      }
+    }
     
     return config
   },
@@ -64,16 +79,110 @@ api.interceptors.request.use(
   }
 )
 
-// Response interceptor for error handling
+// Response interceptor for error handling, CSRF token updates, and token refresh
 api.interceptors.response.use(
   (response) => {
     // Update last activity on successful response
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('lastActivity', Date.now().toString())
+      
+      // Update CSRF token and session ID if provided in response
+      const responseData = response.data as any
+      const csrfToken = response.headers['x-csrf-token'] || responseData?.csrfToken
+      const sessionId = response.headers['x-session-id'] || responseData?.sessionId
+      
+      if (csrfToken) {
+        sessionStorage.setItem('csrfToken', csrfToken)
+      }
+      
+      if (sessionId) {
+        sessionStorage.setItem('sessionId', sessionId)
+      }
+
+      // Store refresh token from login responses
+      if (responseData?.refreshToken) {
+        localStorage.setItem('refreshToken', responseData.refreshToken)
+      }
+
+      // Update access token if provided in response
+      if (responseData?.token) {
+        localStorage.setItem('token', responseData.token)
+      }
     }
     return response
   },
-  (error) => {
+  async (error) => {
+    const originalRequest = error.config
+
+    // Handle 401 Unauthorized - attempt token refresh
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+
+      if (typeof window !== 'undefined') {
+        const refreshToken = localStorage.getItem('refreshToken')
+        
+        // Only attempt refresh if we have a refresh token and it's not a login endpoint
+        if (refreshToken && !originalRequest.url?.includes('/auth/login') && 
+            !originalRequest.url?.includes('/auth/role-login') && 
+            !originalRequest.url?.includes('/auth/invite-login')) {
+          try {
+            // Attempt to refresh the token
+            const response = await axios.post(
+              `${normalizedBaseUrl}auth/refresh`,
+              { refreshToken },
+              {
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              }
+            )
+
+            const responseData = response.data as any
+            const { token, refreshToken: newRefreshToken, csrfToken, sessionId } = responseData
+
+            // Update tokens
+            if (token) {
+              localStorage.setItem('token', token)
+              originalRequest.headers.Authorization = `Bearer ${token}`
+            }
+
+            if (newRefreshToken) {
+              localStorage.setItem('refreshToken', newRefreshToken)
+            }
+
+            if (csrfToken) {
+              sessionStorage.setItem('csrfToken', csrfToken)
+            }
+
+            if (sessionId) {
+              sessionStorage.setItem('sessionId', sessionId)
+            }
+
+            // Retry the original request with new token
+            return api(originalRequest)
+          } catch (refreshError) {
+            // Refresh failed - clear tokens and redirect to login
+            localStorage.removeItem('token')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem('erp-user')
+            localStorage.removeItem('loginTime')
+            sessionStorage.removeItem('deviceId')
+            sessionStorage.removeItem('csrfToken')
+            sessionStorage.removeItem('sessionId')
+            sessionStorage.removeItem('lastActivity')
+
+            // Don't redirect if already on a login page
+            const currentPath = window.location.pathname
+            if (currentPath !== '/login' && currentPath !== '/roles/login' && currentPath !== '/invite-login') {
+              window.location.href = '/login'
+            }
+            return Promise.reject(refreshError)
+          }
+        }
+      }
+    }
+
+    // Handle 401 Unauthorized (after refresh attempt or no refresh token)
     if (error.response?.status === 401) {
       // Handle unauthorized - redirect to login and clear localStorage
       // But don't redirect if already on a login page (let the page handle the error)
@@ -83,9 +192,12 @@ api.interceptors.response.use(
         if (currentPath === '/login' || currentPath === '/roles/login' || currentPath === '/invite-login') {
           // Just clear the session, don't redirect - let the login page handle the error
           localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
           localStorage.removeItem('erp-user')
           localStorage.removeItem('loginTime')
           sessionStorage.removeItem('deviceId')
+          sessionStorage.removeItem('csrfToken')
+          sessionStorage.removeItem('sessionId')
           sessionStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
@@ -103,12 +215,15 @@ api.interceptors.response.use(
           try {
             const parsedUser = JSON.parse(storedUser)
             if (parsedUser && typeof parsedUser === 'object' && parsedUser.role?.toLowerCase() !== 'admin') {
-              localStorage.removeItem('token')
-              localStorage.removeItem('erp-user')
-              localStorage.removeItem('loginTime')
-              sessionStorage.removeItem('deviceId')
-              sessionStorage.removeItem('lastActivity')
-              window.location.href = '/roles/login'
+            localStorage.removeItem('token')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem('erp-user')
+            localStorage.removeItem('loginTime')
+            sessionStorage.removeItem('deviceId')
+            sessionStorage.removeItem('csrfToken')
+            sessionStorage.removeItem('sessionId')
+            sessionStorage.removeItem('lastActivity')
+            window.location.href = '/roles/login'
               return Promise.reject(error)
             }
           } catch (e) {
@@ -117,13 +232,31 @@ api.interceptors.response.use(
         }
         
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('erp-user')
         localStorage.removeItem('loginTime')
         sessionStorage.removeItem('deviceId')
+        sessionStorage.removeItem('csrfToken')
+        sessionStorage.removeItem('sessionId')
         sessionStorage.removeItem('lastActivity')
         window.location.href = '/login'
       }
     }
+    // Handle CSRF token errors (403)
+    if (error.response?.status === 403 && 
+        (error.response?.data?.error?.includes('CSRF') || 
+         error.response?.data?.message?.includes('CSRF'))) {
+      if (typeof window !== 'undefined') {
+        // Clear CSRF token to force regeneration on next request
+        sessionStorage.removeItem('csrfToken')
+        sessionStorage.removeItem('sessionId')
+        
+        // Don't redirect - let the user retry the action
+        // The next request will get a new CSRF token from the server
+        return Promise.reject(error)
+      }
+    }
+
     // Handle device mismatch (403 with specific error)
     if (error.response?.status === 403 && error.response?.data?.error === 'Device ID mismatch') {
       // Device ID mismatch - clear session and redirect
@@ -133,9 +266,12 @@ api.interceptors.response.use(
         // Don't redirect if already on a login page
         if (currentPath === '/login' || currentPath === '/roles/login' || currentPath === '/invite-login') {
           localStorage.removeItem('token')
+          localStorage.removeItem('refreshToken')
           localStorage.removeItem('erp-user')
           localStorage.removeItem('loginTime')
           sessionStorage.removeItem('deviceId')
+          sessionStorage.removeItem('csrfToken')
+          sessionStorage.removeItem('sessionId')
           sessionStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
@@ -146,12 +282,15 @@ api.interceptors.response.use(
           try {
             const parsedUser = JSON.parse(storedUser)
             if (parsedUser && typeof parsedUser === 'object' && parsedUser.role?.toLowerCase() !== 'admin') {
-              localStorage.removeItem('token')
-              localStorage.removeItem('erp-user')
-              localStorage.removeItem('loginTime')
-              sessionStorage.removeItem('deviceId')
-              sessionStorage.removeItem('lastActivity')
-              window.location.href = '/roles/login'
+            localStorage.removeItem('token')
+            localStorage.removeItem('refreshToken')
+            localStorage.removeItem('erp-user')
+            localStorage.removeItem('loginTime')
+            sessionStorage.removeItem('deviceId')
+            sessionStorage.removeItem('csrfToken')
+            sessionStorage.removeItem('sessionId')
+            sessionStorage.removeItem('lastActivity')
+            window.location.href = '/roles/login'
               return Promise.reject(error)
             }
           } catch (e) {
@@ -160,9 +299,12 @@ api.interceptors.response.use(
         }
         
         localStorage.removeItem('token')
+        localStorage.removeItem('refreshToken')
         localStorage.removeItem('erp-user')
         localStorage.removeItem('loginTime')
         sessionStorage.removeItem('deviceId')
+        sessionStorage.removeItem('csrfToken')
+        sessionStorage.removeItem('sessionId')
         sessionStorage.removeItem('lastActivity')
         window.location.href = '/login'
       }
@@ -517,13 +659,6 @@ export const apiService = {
     export: (filters?: any) => api.get('/finance/receipts/export', { params: filters, responseType: 'blob' }),
   },
 
-  // Finance - Receipts
-  receipts: {
-    generate: (paymentId: string) => api.get(`/receipts/generate/${paymentId}`),
-    getByTenant: (tenantId: string) => api.get(`/receipts/tenant/${tenantId}`),
-    export: (filters?: any) => api.get('/finance/receipts/export', { params: filters, responseType: 'blob' }),
-  },
-
   // Finance - Dealer Ledger
   dealerLedger: {
     getLedger: (dealerId: string, filters?: any) => api.get(`/finance/dealer-ledger/${dealerId}`, { params: filters }),
@@ -555,6 +690,10 @@ export const apiService = {
       api.post('/auth/role-login', data),
     inviteLogin: (data: { token: string; password: string; username?: string; deviceId?: string }) =>
       api.post('/auth/invite-login', data),
+    refresh: (data: { refreshToken: string }) =>
+      api.post('/auth/refresh', data),
+    logout: (data?: { refreshToken?: string }) =>
+      api.post('/auth/logout', data || {}),
     getMe: () => api.get('/auth/me'),
     getRoles: () => api.get('/roles'),
     getRoleById: (id: string) => api.get(`/roles/${id}`),

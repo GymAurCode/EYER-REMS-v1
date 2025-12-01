@@ -129,21 +129,65 @@ export function errorResponse(
     errorMessage = 'Invalid data provided';
   }
 
-  // Log error
+  // Log full error details server-side
   logger.error('API Error:', {
     message: errorMessage,
     statusCode,
     details: errorDetails,
     stack: error instanceof Error ? error.stack : undefined,
+    path: (res.req as any)?.path,
+    method: (res.req as any)?.method,
   });
 
+  // Sanitize error response for production
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   const response: ApiResponse = {
     success: false,
-    error: errorMessage,
-    ...(process.env.NODE_ENV === 'development' && { details: errorDetails }),
+    error: isProduction 
+      ? sanitizeErrorMessage(errorMessage, statusCode)
+      : errorMessage,
+    ...(isProduction ? {} : { details: errorDetails }),
   };
 
   return res.status(statusCode).json(response);
+}
+
+/**
+ * Sanitize error messages in production
+ * Prevents leaking internal errors, stack traces, or sensitive information
+ */
+function sanitizeErrorMessage(message: string, statusCode: number): string {
+  // Generic error messages for production
+  if (statusCode >= 500) {
+    return 'Internal server error. Please try again later.';
+  }
+  
+  if (statusCode === 401) {
+    return 'Authentication required';
+  }
+  
+  if (statusCode === 403) {
+    return 'Access forbidden';
+  }
+  
+  if (statusCode === 404) {
+    return 'Resource not found';
+  }
+  
+  // For 400 errors, return sanitized message (validation errors are usually safe)
+  if (statusCode === 400) {
+    // Remove any potential sensitive information
+    return message
+      .replace(/password/gi, '***')
+      .replace(/token/gi, '***')
+      .replace(/secret/gi, '***')
+      .replace(/key/gi, '***')
+      .substring(0, 200); // Limit length
+  }
+  
+  // Default: return generic message
+  return 'An error occurred';
 }
 
 /**

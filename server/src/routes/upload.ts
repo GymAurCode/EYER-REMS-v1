@@ -53,34 +53,64 @@ router.post('/image', authenticate, async (req: AuthRequest, res) => {
       });
     }
 
-    // Validate file size (max 5MB)
-    if (imageBuffer.length > 5 * 1024 * 1024) {
+    // Validate file using security utilities
+    const validation = await validateFileUpload(
+      imageBuffer,
+      `image/${fileExtension}`,
+      fileName
+    );
+
+    if (!validation.valid) {
       return res.status(400).json({
         success: false,
-        error: 'Image size exceeds 5MB limit',
+        error: validation.error || 'File validation failed',
       });
     }
 
-    // Save file
-    const filePath = path.join(uploadsDir, fileName);
-    fs.writeFileSync(filePath, imageBuffer);
+    // Scan for viruses
+    const tempPath = path.join(uploadsDir, `temp-${Date.now()}-${fileName}`);
+    fs.writeFileSync(tempPath, imageBuffer);
+    const scanResult = await scanFileForViruses(tempPath);
+    
+    if (!scanResult.clean) {
+      fs.unlinkSync(tempPath);
+      return res.status(400).json({
+        success: false,
+        error: 'File failed virus scan',
+        threat: scanResult.threat,
+      });
+    }
 
-    // Return URL (relative to public folder)
-    const imageUrl = `/uploads/${fileName}`;
+    // Save file securely outside web root
+    const { relativePath, filename: secureFilename } = await saveFileSecurely(
+      imageBuffer,
+      fileName,
+      'images',
+      req.user!.id
+    );
+
+    // Clean up temp file
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
 
     res.json({
       success: true,
       data: {
-        url: imageUrl,
-        filename: fileName,
+        url: relativePath, // Secure endpoint URL
+        filename: secureFilename,
       },
     });
   } catch (error) {
-    console.error('Upload image error:', error);
+    logger.error('Upload image error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to upload image',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: process.env.NODE_ENV === 'development' 
+        ? (error instanceof Error ? error.message : 'Unknown error')
+        : 'An error occurred while uploading the image',
     });
   }
 });
@@ -108,33 +138,68 @@ router.post('/file', authenticate, async (req: AuthRequest, res) => {
     const base64Data = dataUrlMatch[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    if (buffer.length > 10 * 1024 * 1024) {
+    // Validate file using security utilities
+    const validation = await validateFileUpload(
+      buffer,
+      mimeType,
+      filename
+    );
+
+    if (!validation.valid) {
       return res.status(400).json({
         success: false,
-        error: 'File size exceeds 10MB limit',
+        error: validation.error || 'File validation failed',
       });
     }
 
+    // Scan for viruses
     const extension = mimeType.split('/')[1] || 'bin';
     const safeFilename = filename || `attachment-${Date.now()}.${extension}`;
-    const filePath = path.join(uploadsDir, safeFilename);
+    const tempPath = path.join(uploadsDir, `temp-${Date.now()}-${safeFilename}`);
+    fs.writeFileSync(tempPath, buffer);
+    const scanResult = await scanFileForViruses(tempPath);
+    
+    if (!scanResult.clean) {
+      fs.unlinkSync(tempPath);
+      return res.status(400).json({
+        success: false,
+        error: 'File failed virus scan',
+        threat: scanResult.threat,
+      });
+    }
 
-    fs.writeFileSync(filePath, buffer);
+    // Save file securely outside web root
+    const { relativePath, filename: secureFilename } = await saveFileSecurely(
+      buffer,
+      safeFilename,
+      'files',
+      req.user!.id
+    );
+
+    // Clean up temp file
+    try {
+      fs.unlinkSync(tempPath);
+    } catch {
+      // Ignore cleanup errors
+    }
 
     res.json({
       success: true,
       data: {
-        url: `/uploads/${safeFilename}`,
-        filename: safeFilename,
-        mimeType,
+        url: relativePath, // Secure endpoint URL
+        filename: secureFilename,
+        mimeType: validation.detectedMimeType || mimeType,
         size: buffer.length,
       },
     });
   } catch (error) {
-    console.error('Upload file error:', error);
+    logger.error('Upload file error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to upload file',
+      message: process.env.NODE_ENV === 'development'
+        ? (error instanceof Error ? error.message : 'Unknown error')
+        : 'An error occurred while uploading the file',
     });
   }
 });
