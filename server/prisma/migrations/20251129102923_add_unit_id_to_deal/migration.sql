@@ -18,6 +18,20 @@ ALTER TABLE "LedgerEntry" DROP CONSTRAINT IF EXISTS "LedgerEntry_debitAccountId_
 -- DropForeignKey
 ALTER TABLE "Payment" DROP CONSTRAINT IF EXISTS "Payment_refundOfPaymentId_fkey";
 
+-- Add refundOfPaymentId column to Payment table if it doesn't exist
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'Payment'
+  ) AND NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'Payment' AND column_name = 'refundOfPaymentId'
+  ) THEN
+    ALTER TABLE "Payment" ADD COLUMN "refundOfPaymentId" TEXT;
+  END IF;
+END $$;
+
 -- AlterTable
 DO $$ 
 BEGIN
@@ -42,15 +56,31 @@ BEGIN
   END IF;
 END $$;
 
--- AlterTable
-ALTER TABLE "DealerPayment" ALTER COLUMN "amount" SET DATA TYPE DOUBLE PRECISION,
-ALTER COLUMN "updatedAt" DROP DEFAULT;
+-- AlterTable (only if DealerPayment table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'DealerPayment'
+  ) THEN
+    ALTER TABLE "DealerPayment" ALTER COLUMN "amount" SET DATA TYPE DOUBLE PRECISION,
+    ALTER COLUMN "updatedAt" DROP DEFAULT;
+  END IF;
+END $$;
 
 -- CreateIndex
 CREATE INDEX IF NOT EXISTS "Deal_unitId_idx" ON "Deal"("unitId");
 
--- CreateIndex
-CREATE INDEX IF NOT EXISTS "DealerPayment_ledgerEntryId_idx" ON "DealerPayment"("ledgerEntryId");
+-- CreateIndex (only if DealerPayment table exists)
+DO $$ 
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'DealerPayment'
+  ) THEN
+    CREATE INDEX IF NOT EXISTS "DealerPayment_ledgerEntryId_idx" ON "DealerPayment"("ledgerEntryId");
+  END IF;
+END $$;
 
 -- AddForeignKey
 DO $$ 
@@ -63,10 +93,16 @@ BEGIN
   END IF;
 END $$;
 
--- AddForeignKey
+-- AddForeignKey (only if Payment table exists and refundOfPaymentId column exists)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'Payment'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'Payment' AND column_name = 'refundOfPaymentId'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints 
     WHERE constraint_name = 'Payment_refundOfPaymentId_fkey' AND table_name = 'Payment'
   ) THEN
@@ -74,10 +110,16 @@ BEGIN
   END IF;
 END $$;
 
--- AddForeignKey
+-- AddForeignKey (only if Account table exists and parentId column exists)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'Account'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'Account' AND column_name = 'parentId'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints 
     WHERE constraint_name = 'Account_parentId_fkey' AND table_name = 'Account'
   ) THEN
@@ -85,10 +127,16 @@ BEGIN
   END IF;
 END $$;
 
--- AddForeignKey
+-- AddForeignKey (only if LedgerEntry table exists and debitAccountId column exists)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'LedgerEntry'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'LedgerEntry' AND column_name = 'debitAccountId'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints 
     WHERE constraint_name = 'LedgerEntry_debitAccountId_fkey' AND table_name = 'LedgerEntry'
   ) THEN
@@ -96,10 +144,16 @@ BEGIN
   END IF;
 END $$;
 
--- AddForeignKey
+-- AddForeignKey (only if LedgerEntry table exists and creditAccountId column exists)
 DO $$ 
 BEGIN
-  IF NOT EXISTS (
+  IF EXISTS (
+    SELECT 1 FROM information_schema.tables 
+    WHERE table_name = 'LedgerEntry'
+  ) AND EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'LedgerEntry' AND column_name = 'creditAccountId'
+  ) AND NOT EXISTS (
     SELECT 1 FROM information_schema.table_constraints 
     WHERE constraint_name = 'LedgerEntry_creditAccountId_fkey' AND table_name = 'LedgerEntry'
   ) THEN

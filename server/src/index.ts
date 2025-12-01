@@ -56,20 +56,44 @@ const env = validateEnv();
 const PORT = env.PORT;
 
 // CORS configuration - MUST be before other middleware
-// Frontend runs on port 3000, Backend runs on port 3001
+// In production, only allow requests from Vercel frontend
 const allowedOrigins = env.ALLOWED_ORIGINS 
   ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
   : [env.FRONTEND_URL];
 
+// Add trailing slash variations for Vercel (some requests may include/exclude trailing slash)
+const normalizedOrigins = allowedOrigins.flatMap(origin => {
+  const withoutSlash = origin.replace(/\/$/, '');
+  const withSlash = `${withoutSlash}/`;
+  return withoutSlash === withSlash ? [origin] : [withoutSlash, withSlash];
+});
+
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (mobile apps, Postman, etc.)
-    if (!origin) return callback(null, true);
+    // In production, reject requests with no origin for security
+    // In development, allow them for testing (Postman, curl, etc.)
+    if (!origin) {
+      if (env.NODE_ENV === 'production') {
+        return callback(new Error('CORS: Origin header required in production'));
+      }
+      return callback(null, true);
+    }
     
-    if (allowedOrigins.includes(origin)) {
+    // Check if origin matches any allowed origin (with or without trailing slash)
+    const isAllowed = normalizedOrigins.some(allowed => {
+      // Exact match
+      if (origin === allowed) return true;
+      // Match with/without trailing slash
+      const originNormalized = origin.replace(/\/$/, '');
+      const allowedNormalized = allowed.replace(/\/$/, '');
+      return originNormalized === allowedNormalized;
+    });
+    
+    if (isAllowed) {
       callback(null, true);
     } else {
-      callback(new Error('Not allowed by CORS'));
+      logger.warn(`CORS: Blocked request from origin: ${origin}`);
+      callback(new Error(`Not allowed by CORS. Allowed origins: ${normalizedOrigins.join(', ')}`));
     }
   },
   credentials: true,

@@ -255,11 +255,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const response = await apiService.auth.login({ email, password, deviceId })
       const data = response.data as any
-      const { token, user: userData, deviceId: returnedDeviceId } = data
+      const { token, user: userData, deviceId: returnedDeviceId, csrfToken, sessionId } = data
 
       // Store deviceId if returned from server
       if (returnedDeviceId) {
         sessionStorage.setItem("deviceId", returnedDeviceId)
+      }
+
+      // Store CSRF token and session ID for CSRF protection
+      if (csrfToken) {
+        sessionStorage.setItem("csrfToken", csrfToken)
+      }
+      if (sessionId) {
+        sessionStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
@@ -301,11 +309,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const response = await apiService.auth.inviteLogin({ token, password, username, deviceId })
       const data = response.data as any
-      const { token: jwtToken, user: userData, message, deviceId: returnedDeviceId } = data
+      const { token: jwtToken, user: userData, message, deviceId: returnedDeviceId, csrfToken, sessionId } = data
 
       // Store deviceId if returned from server
       if (returnedDeviceId) {
         sessionStorage.setItem("deviceId", returnedDeviceId)
+      }
+
+      // Store CSRF token and session ID for CSRF protection
+      if (csrfToken) {
+        sessionStorage.setItem("csrfToken", csrfToken)
+      }
+      if (sessionId) {
+        sessionStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
@@ -348,11 +364,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       const response = await apiService.auth.roleLogin({ username, password, deviceId })
       const data = response.data as any
-      const { token, user: userData, deviceId: returnedDeviceId } = data
+      const { token, user: userData, deviceId: returnedDeviceId, csrfToken, sessionId } = data
 
       // Store deviceId if returned from server
       if (returnedDeviceId) {
         sessionStorage.setItem("deviceId", returnedDeviceId)
+      }
+
+      // Store CSRF token and session ID for CSRF protection
+      if (csrfToken) {
+        sessionStorage.setItem("csrfToken", csrfToken)
+      }
+      if (sessionId) {
+        sessionStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
