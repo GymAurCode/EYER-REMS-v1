@@ -42,7 +42,7 @@ export const generateToken = (payload: TokenPayload): string => {
     }
   }
   const options: SignOptions = {
-    expiresIn: JWT_EXPIRES_IN as string | number,
+    expiresIn: JWT_EXPIRES_IN as SignOptions['expiresIn'],
   };
   return jwt.sign(payload, finalJwtSecret, options);
 };
