@@ -1,0 +1,599 @@
+import express from 'express';
+import { Prisma } from '@prisma/client';
+import prisma from '../prisma/client';
+import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import { createAuditLog } from '../services/audit-log';
+import { errorResponse } from '../utils/error-handler';
+
+const router = express.Router();
+
+type ExportableTableKey =
+  | 'properties'
+  | 'deals'
+  | 'ledger_entries'
+  | 'transactions'
+  | 'payments'
+  | 'tenant_payments'
+  | 'amenities'
+  | 'dropdown_options';
+
+const tableQueries: Record<ExportableTableKey, () => Promise<any[]>> = {
+  properties: () => prisma.property.findMany({ where: { isDeleted: false } }),
+  deals: () => prisma.deal.findMany({ where: { isDeleted: false } }),
+  ledger_entries: () => prisma.ledgerEntry.findMany(),
+  transactions: () => prisma.transaction.findMany(),
+  payments: () => prisma.payment.findMany(),
+  tenant_payments: () => prisma.tenantPayment.findMany(),
+  amenities: () => prisma.amenity.findMany(),
+  dropdown_options: () =>
+    prisma.dropdownOption.findMany({
+      orderBy: { sortOrder: 'asc' },
+      include: { category: true },
+    }),
+};
+
+const supportedTables = Object.keys(tableQueries) as ExportableTableKey[];
+const moduleLabels: Record<ExportableTableKey, string> = {
+  properties: "properties",
+  deals: "finance",
+  ledger_entries: "finance",
+  transactions: "finance",
+  payments: "finance",
+  tenant_payments: "tenant",
+  amenities: "properties",
+  dropdown_options: "admin",
+};
+
+const sanitize = (value: any) => {
+  if (!value || typeof value !== 'object') return {};
+  return JSON.parse(JSON.stringify(value));
+};
+
+const trySafeQuery = async (query: () => Promise<any[]>) => {
+  try {
+    return await query();
+  } catch (error: any) {
+    const message = error?.message?.toLowerCase() || ''
+    if (message.includes('does not exist') || message.includes('relation') || message.includes('table')) {
+      console.warn('Schema mismatch detected in advanced options route:', error?.message)
+      return []
+    }
+    throw error;
+  }
+};
+
+const getUserRoleName = async (req: AuthRequest) => {
+  if (!req.user) return undefined;
+  const role = await prisma.role.findUnique({
+    where: { id: req.user.roleId },
+  });
+  return role?.name;
+};
+
+const logAudit = async (req: AuthRequest, data: Parameters<typeof createAuditLog>[0]) => {
+  const roleName = await getUserRoleName(req);
+  await createAuditLog({
+    ...data,
+    userId: req.user?.id,
+    userName: req.user?.username,
+    userRole: roleName || undefined,
+    req,
+  });
+};
+
+router.get('/dropdowns', authenticate, requireAdmin, async (_req, res) => {
+  try {
+    const categories = await trySafeQuery(() =>
+      prisma.dropdownCategory.findMany({
+        include: {
+          options: {
+            orderBy: { sortOrder: 'asc' },
+          },
+        },
+        orderBy: { name: 'asc' },
+      })
+    );
+    res.json({ data: categories });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { key, name, description } = req.body;
+    if (!key || !name) {
+      return res.status(400).json({ error: 'Key and name are required' });
+    }
+    const category = await prisma.dropdownCategory.create({
+      data: {
+        key,
+        name,
+        description,
+        createdBy: req.user?.id,
+      },
+    });
+    await logAudit(req, {
+      entityType: 'dropdown_category',
+      entityId: category.id,
+      action: 'create',
+      description: `Dropdown category ${name} was created`,
+      newValues: category,
+    });
+    res.status(201).json({ data: category });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.get('/dropdowns/:key', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { key } = req.params;
+    const category = await prisma.dropdownCategory.findUnique({
+      where: { key },
+      include: {
+        options: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    res.json({ data: category, options: category.options });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.post('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { key } = req.params;
+    const { label, value, sortOrder, metadata, isActive } = req.body;
+    if (!label || !value) {
+      return res.status(400).json({ error: 'Label and value are required' });
+    }
+    const category = await prisma.dropdownCategory.findUnique({
+      where: { key },
+    });
+    if (!category) {
+      return res.status(404).json({ error: 'Category not found' });
+    }
+    const option = await prisma.dropdownOption.create({
+      data: {
+        label,
+        value,
+        sortOrder: typeof sortOrder === 'number' ? sortOrder : 0,
+        metadata,
+        isActive: typeof isActive === 'boolean' ? isActive : true,
+        categoryId: category.id,
+      },
+    });
+    await logAudit(req, {
+      entityType: 'dropdown_option',
+      entityId: option.id,
+      action: 'create',
+      description: `Option "${label}" added to ${category.name}`,
+      newValues: option,
+    });
+    res.status(201).json({ data: option });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const payload = sanitize(req.body);
+    const existing = await prisma.dropdownOption.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Option not found' });
+    }
+    const updated = await prisma.dropdownOption.update({
+      where: { id },
+      data: {
+        label: payload.label ?? existing.label,
+        value: payload.value ?? existing.value,
+        sortOrder: payload.sortOrder ?? existing.sortOrder,
+        metadata: payload.metadata ?? existing.metadata,
+        isActive: typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive,
+      },
+    });
+    await logAudit(req, {
+      entityType: 'dropdown_option',
+      entityId: updated.id,
+      action: 'update',
+      description: `Dropdown option "${updated.label}" updated`,
+      oldValues: existing,
+      newValues: updated,
+    });
+    res.json({ data: updated });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.dropdownOption.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Option not found' });
+    }
+    await prisma.dropdownOption.delete({ where: { id } });
+    await logAudit(req, {
+      entityType: 'dropdown_option',
+      entityId: existing.id,
+      action: 'delete',
+      description: `Dropdown option "${existing.label}" removed`,
+      oldValues: existing,
+    });
+    res.status(204).end();
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.get('/amenities', authenticate, requireAdmin, async (_req, res) => {
+  try {
+    const list = await trySafeQuery(() =>
+      prisma.amenity.findMany({
+        orderBy: { name: 'asc' },
+      })
+    );
+    res.json({ data: list });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.post('/amenities', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { name, description, icon, isActive } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Amenity name is required' });
+    }
+    const amenity = await prisma.amenity.create({
+      data: {
+        name,
+        description,
+        icon,
+        isActive: typeof isActive === 'boolean' ? isActive : true,
+      },
+    });
+    await logAudit(req, {
+      entityType: 'amenity',
+      entityId: amenity.id,
+      action: 'create',
+      description: `Amenity "${name}" added`,
+      newValues: amenity,
+    });
+    res.status(201).json({ data: amenity });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.put('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const payload = sanitize(req.body);
+    const existing = await prisma.amenity.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Amenity not found' });
+    }
+    const updated = await prisma.amenity.update({
+      where: { id },
+      data: {
+        name: payload.name ?? existing.name,
+        description: payload.description ?? existing.description,
+        icon: payload.icon ?? existing.icon,
+        isActive: typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive,
+      },
+    });
+    await logAudit(req, {
+      entityType: 'amenity',
+      entityId: updated.id,
+      action: 'update',
+      description: `Amenity "${updated.name}" updated`,
+      oldValues: existing,
+      newValues: updated,
+    });
+    res.json({ data: updated });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.delete('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.amenity.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ error: 'Amenity not found' });
+    }
+    await prisma.amenity.delete({ where: { id } });
+    await logAudit(req, {
+      entityType: 'amenity',
+      entityId: existing.id,
+      action: 'delete',
+      description: `Amenity "${existing.name}" removed`,
+      oldValues: existing,
+    });
+    res.status(204).end();
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+router.post('/export', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const { tables } = req.body;
+    if (!Array.isArray(tables) || tables.length === 0) {
+      return res.status(400).json({ error: 'At least one table must be specified' });
+    }
+    const requested: ExportableTableKey[] = [];
+    for (const table of tables) {
+      if (supportedTables.includes(table as ExportableTableKey)) {
+        requested.push(table as ExportableTableKey);
+      }
+    }
+    if (requested.length === 0) {
+      return res.status(400).json({ error: 'No supported tables were provided' });
+    }
+    const datasets: Record<string, any[]> = {};
+    await Promise.all(
+      requested.map(async (table) => {
+        const records = await trySafeQuery(() => tableQueries[table]());
+        datasets[table] = records.map((record) => sanitize(record));
+      }),
+    );
+    res.json({
+      generatedAt: new Date().toISOString(),
+      tables: datasets,
+    });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+interface ImportSummary {
+  inserted: number;
+  updated: number;
+  failed: number;
+  errors: string[];
+}
+
+const importHelpers: Record<ExportableTableKey, (tx: Prisma.TransactionClient, payload: any) => Promise<void>> = {
+  properties: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.property.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.property.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.property.create({ data: row });
+  },
+  deals: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.deal.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.deal.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.deal.create({ data: row });
+  },
+  ledger_entries: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.ledgerEntry.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.ledgerEntry.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.ledgerEntry.create({ data: row });
+  },
+  transactions: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.transaction.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.transaction.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.transaction.create({ data: row });
+  },
+  payments: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.payment.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.payment.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.payment.create({ data: row });
+  },
+  tenant_payments: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (row.id) {
+      const existing = await tx.tenantPayment.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.tenantPayment.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.tenantPayment.create({ data: row });
+  },
+  amenities: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (!row.name) {
+      throw new Error('Amenity name is required');
+    }
+    await tx.amenity.upsert({
+      where: { name: row.name },
+      create: row,
+      update: row,
+    });
+  },
+  dropdown_options: async (tx, payload) => {
+    const row = sanitize(payload);
+    if (!row.value || !row.label || !row.categoryId) {
+      throw new Error('Dropdown option must include value, label, and categoryId');
+    }
+    if (row.id) {
+      const existing = await tx.dropdownOption.findUnique({ where: { id: row.id } });
+      if (existing) {
+        await tx.dropdownOption.update({ where: { id: row.id }, data: row });
+        return;
+      }
+    }
+    await tx.dropdownOption.create({ data: row });
+  },
+};
+
+router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { table, rows } = req.body;
+    if (!table || !supportedTables.includes(table as ExportableTableKey)) {
+      return res.status(400).json({ error: 'Unsupported table name' });
+    }
+    if (!Array.isArray(rows)) {
+      return res.status(400).json({ error: 'Rows must be an array' });
+    }
+    const summary: ImportSummary = {
+      inserted: 0,
+      updated: 0,
+      failed: 0,
+      errors: [],
+    };
+    await prisma.$transaction(async (tx) => {
+      for (const [index, row] of rows.entries()) {
+        try {
+          await importHelpers[table as ExportableTableKey](tx, row);
+          const identifier = row?.id || row?.name || `row-${index + 1}`;
+          if (row?.id) {
+            summary.updated += 1;
+          } else {
+            summary.inserted += 1;
+          }
+        } catch (error: any) {
+          summary.failed += 1;
+          summary.errors.push(`Row ${index + 1}: ${error?.message || 'Failed to import row'}`);
+        }
+      }
+    });
+    await logAudit(req, {
+      entityType: `table.${table}`,
+      entityId: table,
+      action: 'update',
+      description: `Imported ${rows.length} rows into ${table}`,
+      metadata: summary,
+    });
+    res.json({ success: true, summary });
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+const csvHeader = "module,table,payload";
+
+router.get('/export/full-csv', authenticate, requireAdmin, async (_req, res) => {
+  try {
+    const rows: string[] = [csvHeader];
+    for (const tableKey of supportedTables) {
+      const dataset = await trySafeQuery(() => tableQueries[tableKey]())
+      const moduleName = moduleLabels[tableKey] || "general"
+      for (const record of dataset) {
+        const payload = JSON.stringify(record)
+          .replace(/"/g, '""')
+        rows.push(`${moduleName},${tableKey},"${payload}"`)
+      }
+    }
+    const csv = rows.join("\n")
+    res.setHeader('Content-Type', 'text/csv')
+    res.setHeader('Content-Disposition', 'attachment; filename="rems-full-backup.csv"')
+    res.send(csv)
+  } catch (error) {
+    return errorResponse(res, error)
+  }
+})
+
+router.post('/import/full-csv', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+  try {
+    const { csv } = req.body
+    if (!csv || typeof csv !== 'string') {
+      return res.status(400).json({ error: 'CSV payload required' })
+    }
+
+    const lines = csv.trim().split(/\r?\n/)
+    if (!lines.length || lines[0] !== csvHeader) {
+      return res.status(400).json({ error: 'Invalid CSV header' })
+    }
+
+    const summary: ImportSummary = {
+      inserted: 0,
+      updated: 0,
+      failed: 0,
+      errors: [],
+    }
+
+    await prisma.$transaction(async (tx) => {
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim()
+        if (!line) continue
+        const firstComma = line.indexOf(',')
+        const secondComma = line.indexOf(',', firstComma + 1)
+        if (firstComma === -1 || secondComma === -1) {
+          summary.failed += 1
+          summary.errors!.push(`Line ${i + 1}: invalid format`)
+          continue
+        }
+        const table = line.slice(firstComma + 1, secondComma)
+        let payload = line.slice(secondComma + 1)
+        if (payload.startsWith('"') && payload.endsWith('"')) {
+          payload = payload.slice(1, -1).replace(/""/g, '"')
+        }
+        try {
+          const parsed = JSON.parse(payload)
+          if (!supportedTables.includes(table as ExportableTableKey)) {
+            summary.failed += 1
+            summary.errors!.push(`Line ${i + 1}: unsupported table ${table}`)
+            continue
+          }
+          await importHelpers[table as ExportableTableKey](tx, parsed)
+          if (parsed?.id) {
+            summary.updated += 1
+          } else {
+            summary.inserted += 1
+          }
+        } catch (error: any) {
+          summary.failed += 1
+          summary.errors!.push(`Line ${i + 1}: ${error?.message || 'JSON parse error'}`)
+        }
+      }
+    })
+
+    await logAudit(req, {
+      entityType: 'export.full',
+      entityId: 'full-csv',
+      action: 'update',
+      description: 'Imported full CSV backup',
+      metadata: summary,
+    })
+
+    res.json({ success: true, summary })
+  } catch (error) {
+    return errorResponse(res, error)
+  }
+})
+
+export default router;
+

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "authentication endpoint should enforce jwt token validation and device approval",
+    "description": "Test the authentication API endpoints to ensure they correctly validate JWT tokens, enforce secure password hashing, and implement device approval workflows to prevent unauthorized access."
+  },
+  {
+    "id": "TC002",
+    "title": "properties management endpoints should support full crud operations",
+    "description": "Verify that the properties management API endpoints support create, read, update, and delete operations for properties, units, blocks, floors, leases, sales, and buyers with correct data validation and status updates."
+  },
+  {
+    "id": "TC003",
+    "title": "tenant portal endpoints should reflect accurate tenant data and support payment workflows",
+    "description": "Ensure tenant portal API endpoints correctly return tenant-specific data, support invoice viewing, payment processing, maintenance request submissions, and document management functionalities."
+  },
+  {
+    "id": "TC004",
+    "title": "financial management endpoints should adhere to accounting rules and handle transactions correctly",
+    "description": "Test financial API endpoints for transactions, invoices, payments, commissions, and accounting vouchers to ensure compliance with debit-credit balance rules, tax calculations, and proper payment allocations."
+  },
+  {
+    "id": "TC005",
+    "title": "crm module endpoints should update lead and deal stages consistently with permissions",
+    "description": "Validate CRM API endpoints to ensure leads, clients, deals, and communications are managed correctly, with stage updates reflecting business logic and respecting user role permissions."
+  },
+  {
+    "id": "TC006",
+    "title": "hr management endpoints should accurately track attendance leave and payroll",
+    "description": "Verify HR API endpoints for employee records, attendance tracking, leave management, and payroll processing to ensure data accuracy and compliance with specified business rules."
+  },
+  {
+    "id": "TC007",
+    "title": "notifications endpoints should deliver real time updates with correct unread counts",
+    "description": "Test the notifications API to confirm real-time delivery of notifications, accurate tracking of unread/read status, and user-specific targeting of alerts."
+  },
+  {
+    "id": "TC008",
+    "title": "roles management endpoints should enforce role based access control and invite link generation",
+    "description": "Ensure roles management API endpoints correctly enforce role-based access control, prevent unauthorized data access, and support invite link generation for role-based logins."
+  },
+  {
+    "id": "TC009",
+    "title": "support system endpoints should handle ticket creation and resolution workflows",
+    "description": "Test support system API endpoints to verify ticket creation, status updates, resolution workflows, and audit logging of all support activities."
+  },
+  {
+    "id": "TC010",
+    "title": "file upload endpoint should support secure file and image uploads",
+    "description": "Validate the file upload API endpoint to ensure secure handling of file and image uploads, proper validation of file types and sizes, and error handling for invalid uploads."
+  }
+]

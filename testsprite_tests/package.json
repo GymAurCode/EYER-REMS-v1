@@ -1,0 +1,15 @@
+{
+  "name": "testsprite-tests",
+  "version": "1.0.0",
+  "description": "TestSprite backend test suite",
+  "scripts": {
+    "test": "python run_tests.py",
+    "test:all": "python run_tests.py",
+    "test:single": "python",
+    "install-deps": "pip install -r requirements.txt"
+  },
+  "keywords": ["test", "testsprite"],
+  "author": "",
+  "license": "ISC"
+}
+

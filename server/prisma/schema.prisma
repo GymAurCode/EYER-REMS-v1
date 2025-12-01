@@ -1,0 +1,2027 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                   String   @id @default(uuid())
+  username             String   @unique
+  email                String   @unique
+  password             String
+  roleId               String
+  deviceApprovalStatus String   @default("pending") // pending, approved, rejected
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  role                   Role             @relation(fields: [roleId], references: [id])
+  deviceApprovals        DeviceApproval[]
+  notifications          Notification[]
+  transactionsCreated    Transaction[]    @relation("UserTransactionsCreated")
+  invoicesCreated        Invoice[]        @relation("UserInvoicesCreated")
+  tenantPaymentsCreated  TenantPayment[]  @relation("TenantPaymentCreatedBy")
+  paymentsCreated        Payment[]        @relation("UserPaymentsCreated")
+  dealerPaymentsCreated  DealerPayment[]  @relation("DealerPaymentCreatedBy")
+  journalEntriesPrepared JournalEntry[]   @relation("JournalPreparedBy")
+  journalEntriesApproved JournalEntry[]   @relation("JournalApprovedBy")
+  vouchersPrepared       Voucher[]        @relation("VoucherPreparedBy")
+  vouchersApproved       Voucher[]        @relation("VoucherApprovedBy")
+  leadsAssigned          Lead[]           @relation("LeadAssignedTo")
+  clientsAssigned        Client[]         @relation("ClientAssignedToUser")
+  communicationsLogged   Communication[]  @relation("CommunicationAssignedTo")
+  receiptsReceived       Receipt[]        @relation("ReceiptReceivedBy")
+  dealReceiptsReceived   DealReceipt[]   @relation("DealReceiptReceivedBy")
+
+  @@index([email])
+  @@index([roleId])
+}
+
+model Role {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  permissions     Json // Array of permission strings
+  defaultPassword String? // Hashed default password for this role
+  createdBy       String? // User ID who created this role
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  users       User[]
+  inviteLinks RoleInviteLink[]
+
+  @@index([name])
+}
+
+model RoleInviteLink {
+  id        String    @id @default(uuid())
+  roleId    String
+  username  String
+  email     String
+  password  String // Hashed password
+  message   String?
+  token     String    @unique
+  status    String    @default("pending") // pending, used, expired
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  role Role @relation(fields: [roleId], references: [id])
+
+  @@index([token])
+  @@index([email])
+  @@index([roleId])
+}
+
+model DeviceApproval {
+  id          String    @id @default(uuid())
+  userId      String
+  deviceInfo  Json // { userAgent, ip, deviceId, etc. }
+  status      String    @default("pending") // pending, approved, rejected
+  requestedAt DateTime  @default(now())
+  approvedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info") // info, warning, error, success
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([read])
+}
+
+model Property {
+  id                       String   @id @default(uuid())
+  name                     String
+  title                    String? // Display title
+  type                     String // Residential, Commercial, etc.
+  address                  String
+  city                     String?
+  location                 String?
+  size                     Float? // Property size in sq ft
+  status                   String   @default("Vacant") // Vacant, Occupied, Under-Maintenance
+  imageUrl                 String?
+  description              String?
+  yearBuilt                Int?
+  totalArea                Float? // in sq ft
+  totalUnits               Int      @default(0)
+  dealerId                 String? // Reference to dealer/agent
+  propertyCode             String?  @unique // Auto-generated unique code for property
+  ownerName                String?
+  ownerPhone               String?
+  rentAmount               Float?
+  securityDeposit          Float?   @default(0)
+  rentEscalationPercentage Float?   @default(0) // Annual rent escalation %
+  documents                Json? // Array of document URLs
+  isDeleted                Boolean  @default(false)
+  createdAt                DateTime @default(now())
+  updatedAt                DateTime @updatedAt
+
+  blocks              Block[]
+  floors              Floor[]
+  units               Unit[]
+  sales               Sale[]
+  buyers              Buyer[]
+  deals               Deal[]               @relation("DealProperty")
+  dealProperties      DealProperty[] // Multi-property deals
+  transactions        Transaction[]
+  invoices            Invoice[]
+  revenueSummaries    RevenueSummary[]
+  expenseSummaries    ExpenseSummary[]
+  propertyExpenses    PropertyExpense[]
+  tenancies           Tenancy[]
+  maintenanceRequests MaintenanceRequest[]
+  attachments         Attachment[]         @relation("PropertyAttachments")
+  financeLedgers      FinanceLedger[]      @relation("FinanceLedgerProperty")
+  previousTenants     Json? // Array of previous tenant info
+  locationId          String?
+  locationNode        Location?            @relation("PropertyLocationMapping", fields: [locationId], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@index([isDeleted])
+  @@index([type])
+  @@index([propertyCode])
+  @@index([city])
+  @@index([location])
+  @@index([locationId])
+}
+
+model Location {
+  id        String   @id @default(uuid())
+  name      String
+  type      String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  parent     Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children   Location[] @relation("LocationHierarchy")
+  properties Property[] @relation("PropertyLocationMapping")
+
+  @@unique([type, name, parentId])
+  @@index([parentId])
+  @@index([type])
+}
+
+model Block {
+  id          String   @id @default(uuid())
+  name        String // A, B, C, etc.
+  propertyId  String
+  description String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  units    Unit[]
+
+  @@index([propertyId])
+  @@index([isDeleted])
+}
+
+model Floor {
+  id          String   @id @default(uuid())
+  name        String // Ground Floor, 1st Floor, 2nd Floor, etc.
+  floorNumber Int? // 0 for ground, 1 for first, etc.
+  propertyId  String
+  description String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  units    Unit[]
+
+  @@index([propertyId])
+  @@index([isDeleted])
+}
+
+model Unit {
+  id          String   @id @default(uuid())
+  unitName    String // Unit number/name
+  propertyId  String
+  blockId     String?
+  floorId     String?
+  status      String   @default("Vacant") // Occupied, Vacant
+  monthlyRent Float?
+  description String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property           Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  block              Block?   @relation(fields: [blockId], references: [id], onDelete: SetNull)
+  floor              Floor?   @relation(fields: [floorId], references: [id], onDelete: SetNull)
+  tenant             Tenant?
+  leases             Lease[]
+  deals              Deal[]   @relation("DealUnit")
+  maintenanceHistory Json? // Maintenance history for this unit
+
+  @@index([propertyId])
+  @@index([blockId])
+  @@index([floorId])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+model Tenant {
+  id                 String    @id @default(uuid())
+  name               String
+  email              String?
+  phone              String?
+  address            String?
+  cnic               String?
+  cnicDocumentUrl    String? // Uploaded CNIC document
+  tenantCode         String?   @unique
+  unitId             String    @unique
+  advanceBalance     Float     @default(0)
+  outstandingBalance Float     @default(0)
+  profilePhotoUrl    String?
+  password           String? // For tenant portal login
+  isActive           Boolean   @default(true)
+  lastLoginAt        DateTime?
+  isDeleted          Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  unit                Unit                 @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  leases              Lease[]
+  tenancies           Tenancy[]
+  transactions        Transaction[]
+  invoices            Invoice[]
+  tenantPayments      TenantPayment[]
+  maintenanceTickets  MaintenanceTicket[]
+  maintenanceRequests MaintenanceRequest[]
+  notices             NoticeToVacate[]
+  reminders           RentReminder[]
+  ledgerEntries       TenantLedger[]
+  receipts            Receipt[]
+  attachments         Attachment[]         @relation("TenantAttachments")
+  financeLedgers      FinanceLedger[]      @relation("FinanceLedgerTenant")
+
+  @@index([unitId])
+  @@index([tenantCode])
+  @@index([email])
+  @@index([isDeleted])
+  @@index([isActive])
+}
+
+model Lease {
+  id                 String    @id @default(uuid())
+  leaseNumber        String?   @unique
+  tenantId           String
+  unitId             String
+  leaseStart         DateTime
+  leaseEnd           DateTime
+  rent               Float
+  securityDeposit    Float?    @default(0)
+  noticePeriod       Int? // Days required for notice
+  renewalDate        DateTime?
+  renewalHistory     Json? // Array of renewal dates
+  status             String    @default("Active") // Active, Expired, Terminated, Renewed
+  leaseDocumentUrl   String? // PDF lease document
+  termsAndConditions String?
+  rentTerms          Json? // { paymentDay, lateFeeRule, etc. }
+  notes              String?
+  isDeleted          Boolean   @default(false)
+  createdBy          String?
+  updatedBy          String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit      Unit      @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  tenancies Tenancy[]
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+  @@index([leaseEnd])
+  @@index([isDeleted])
+}
+
+model Sale {
+  id                  String   @id @default(uuid())
+  propertyId          String
+  buyerId             String?  @unique // Optional primary buyer
+  dealerId            String? // Link to the dealer who facilitated the sale
+  saleValue           Float
+  actualPropertyValue Float? // Actual value of the property at the time of sale
+  profit              Float? // Calculated profit (saleValue - actualPropertyValue)
+  commission          Float
+  commissionRate      Float    @default(2.0) // Percentage
+  saleDate            DateTime @default(now())
+  status              String   @default("Completed") // Completed, Pending, Cancelled
+  notes               String?
+  documents           Json? // Array of document URLs
+  isDeleted           Boolean  @default(false)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  property     Property          @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  buyer        Buyer?            @relation("PrimaryBuyer", fields: [buyerId], references: [id], onDelete: SetNull)
+  dealer       Dealer?           @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  buyers       Buyer[]           @relation("SaleBuyers")
+  installments SaleInstallment[] // Installments for this sale
+  // Back-relation to commissions
+  commissions  Commission[]
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([isDeleted])
+  @@index([dealerId])
+}
+
+model SaleInstallment {
+  id                String    @id @default(uuid())
+  saleId            String
+  installmentNumber Int // 1, 2, 3, etc.
+  amount            Float // Amount for this installment
+  dueDate           DateTime // When this installment is due
+  paidDate          DateTime? // When this installment was paid
+  status            String    @default("Unpaid") // Unpaid, Paid, Overdue, Partial
+  paidAmount        Float     @default(0) // Amount paid so far (for partial payments)
+  notes             String?
+  isDeleted         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  sale Sale @relation(fields: [saleId], references: [id], onDelete: Cascade)
+
+  @@index([saleId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([isDeleted])
+}
+
+model Buyer {
+  id         String   @id @default(uuid())
+  name       String
+  email      String?
+  phone      String?
+  address    String?
+  propertyId String?
+  saleId     String?
+  buyStatus  String   @default("Pending") // Pending, Completed, Cancelled
+  buyValue   Float?
+  notes      String?
+  isDeleted  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  property    Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  primarySale Sale?     @relation("PrimaryBuyer")
+  sale        Sale?     @relation("SaleBuyers", fields: [saleId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([saleId])
+  @@index([buyStatus])
+  @@index([isDeleted])
+}
+
+model Activity {
+  id         String   @id @default(uuid())
+  type       String // property, unit, tenant, lease, sale, buyer
+  action     String // created, updated, deleted
+  entityId   String // ID of the entity (property, unit, etc.)
+  entityName String? // Name of the entity for display
+  message    String // Activity message
+  userId     String? // User who performed the action
+  metadata   Json? // Additional data (property name, unit name, etc.)
+  createdAt  DateTime @default(now())
+
+  @@index([type])
+  @@index([action])
+  @@index([createdAt])
+  @@index([entityId])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String
+  senderId    String
+  senderName  String
+  senderEmail String?
+  senderRole  String
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([senderId])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+// HR Models
+model Department {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  employees Employee[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+model Employee {
+  id                       String    @id @default(uuid())
+  employeeId               String    @unique
+  name                     String
+  email                    String    @unique
+  phone                    String?
+  position                 String
+  department               String
+  departmentCode           String?
+  role                     String?
+  salary                   Float
+  basicSalary              Float? // Basic salary component
+  joinDate                 DateTime
+  dateOfBirth              DateTime?
+  gender                   String? // male, female, other
+  maritalStatus            String? // single, married, divorced, widowed
+  nationality              String?
+  bloodGroup               String?
+  cnic                     String?
+  cnicDocumentUrl          String? // File path for CNIC upload
+  profilePhotoUrl          String? // Profile photo path
+  address                  String?
+  city                     String?
+  country                  String?
+  postalCode               String?
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+  education                Json? // Array of education details
+  experience               Json? // Array of experience history
+  employeeType             String    @default("full-time") // full-time, part-time, contract, intern
+  status                   String    @default("active") // active, inactive, on-leave, terminated
+  probationPeriod          Int? // Days
+  probationEndDate         DateTime?
+  reportingManagerId       String? // Self-reference for manager
+  workLocation             String?
+  shiftTimings             String? // e.g., "09:00-18:00"
+  attendanceQRCode         String? // QR code for attendance
+  bankAccountNumber        String?
+  bankName                 String?
+  bankBranch               String?
+  iban                     String?
+  insuranceEligible        Boolean   @default(false)
+  benefitsEligible         Boolean   @default(true)
+  isDeleted                Boolean   @default(false)
+  createdAt                DateTime  @default(now())
+  updatedAt                DateTime  @updatedAt
+
+  departmentRef    Department?        @relation(fields: [departmentCode], references: [code], onDelete: SetNull)
+  reportingManager Employee?          @relation("EmployeeManager", fields: [reportingManagerId], references: [id], onDelete: SetNull)
+  managedEmployees Employee[]         @relation("EmployeeManager")
+  attendance       Attendance[]
+  payroll          Payroll[]
+  leaveRequests    LeaveRequest[]
+  leaveBalances    LeaveBalance[]
+  salaryHistory    SalaryHistory[]
+  allowances       PayrollAllowance[]
+  deductions       PayrollDeduction[]
+
+  @@index([employeeId])
+  @@index([email])
+  @@index([department])
+  @@index([departmentCode])
+  @@index([status])
+  @@index([employeeType])
+  @@index([reportingManagerId])
+  @@index([isDeleted])
+}
+
+model Attendance {
+  id               String    @id @default(uuid())
+  employeeId       String
+  date             DateTime  @default(now())
+  checkIn          DateTime?
+  checkOut         DateTime?
+  checkInLocation  Json? // { lat, lng, address }
+  checkOutLocation Json? // { lat, lng, address }
+  deviceId         String? // Device ID for check-in/out
+  status           String // present, absent, leave, half-day, late, overtime
+  hours            Float?
+  overtimeHours    Float?    @default(0)
+  lateMinutes      Int?      @default(0)
+  graceMinutes     Int?      @default(0)
+  isSuspicious     Boolean   @default(false)
+  suspiciousReason String?
+  isManualOverride Boolean   @default(false)
+  overrideBy       String? // User ID who overrode
+  overrideReason   String?
+  shiftId          String?
+  isNightShift     Boolean   @default(false)
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee    Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  corrections AttendanceCorrection[]
+
+  @@unique([employeeId, date])
+  @@index([employeeId])
+  @@index([date])
+  @@index([status])
+  @@index([isDeleted])
+  @@index([isSuspicious])
+}
+
+model AttendanceCorrection {
+  id                String    @id @default(uuid())
+  attendanceId      String
+  employeeId        String
+  requestedDate     DateTime
+  originalCheckIn   DateTime?
+  originalCheckOut  DateTime?
+  requestedCheckIn  DateTime?
+  requestedCheckOut DateTime?
+  reason            String
+  status            String    @default("pending") // pending, approved, rejected
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id], onDelete: Cascade)
+
+  @@index([attendanceId])
+  @@index([employeeId])
+  @@index([status])
+}
+
+model Payroll {
+  id               String    @id @default(uuid())
+  employeeId       String
+  month            String // Format: YYYY-MM
+  baseSalary       Float
+  basicSalary      Float? // Basic salary component
+  grossSalary      Float? // Gross = Basic + Allowances
+  bonus            Float     @default(0)
+  overtimeAmount   Float     @default(0)
+  allowances       Float     @default(0) // Total allowances
+  deductions       Float     @default(0) // Total deductions
+  taxAmount        Float     @default(0)
+  taxPercent       Float     @default(0)
+  epfAmount        Float     @default(0)
+  etfAmount        Float     @default(0)
+  insuranceAmount  Float     @default(0)
+  advanceDeduction Float     @default(0)
+  netPay           Float
+  paymentMethod    String? // cash, bank-transfer, cheque, online
+  paymentStatus    String    @default("pending") // pending, processed, paid, failed
+  paymentDate      DateTime?
+  payslipUrl       String? // PDF payslip path
+  financeLinked    Boolean   @default(false)
+  financeLedgerId  String? // Auto-linked to FinanceLedger
+  journalEntryId   String?
+  notes            String?
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  payrollAllowances PayrollAllowance[]
+  payrollDeductions PayrollDeduction[]
+
+  @@unique([employeeId, month])
+  @@index([employeeId])
+  @@index([month])
+  @@index([paymentStatus])
+  @@index([isDeleted])
+}
+
+model PayrollAllowance {
+  id          String   @id @default(uuid())
+  payrollId   String
+  employeeId  String
+  type        String // housing, transport, medical, food, other
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now())
+
+  payroll  Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+  @@index([employeeId])
+}
+
+model PayrollDeduction {
+  id          String   @id @default(uuid())
+  payrollId   String
+  employeeId  String
+  type        String // tax, epf, etf, insurance, advance, late, absence, other
+  amount      Float
+  description String?
+  createdAt   DateTime @default(now())
+
+  payroll  Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([payrollId])
+  @@index([employeeId])
+}
+
+model SalaryHistory {
+  id             String   @id @default(uuid())
+  employeeId     String
+  previousSalary Float
+  newSalary      Float
+  effectiveDate  DateTime
+  reason         String?
+  approvedBy     String?
+  notes          String?
+  createdAt      DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([effectiveDate])
+}
+
+model LeaveRequest {
+  id               String    @id @default(uuid())
+  employeeId       String
+  type             String // annual, sick, casual, emergency, maternity, paternity, unpaid, other
+  startDate        DateTime
+  endDate          DateTime
+  isHalfDay        Boolean   @default(false)
+  halfDayType      String? // first-half, second-half
+  days             Float // Can be decimal for half-days
+  reason           String?
+  proofDocumentUrl String? // File path for medical certificate, etc.
+  leaveBalance     Float? // Available balance at time of request
+  payrollDeduction Float?    @default(0) // Amount to deduct from payroll
+  status           String    @default("pending") // pending, approved, rejected, cancelled
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  approvalReason   String?
+  rejectionReason  String?
+  approvalLevel    Int       @default(1) // 1-level or 2-level approval
+  isDeleted        Boolean   @default(false)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([startDate])
+  @@index([type])
+  @@index([isDeleted])
+}
+
+model LeaveBalance {
+  id              String   @id @default(uuid())
+  employeeId      String
+  leaveType       String // annual, sick, casual, etc.
+  totalAllocated  Float    @default(0)
+  used            Float    @default(0)
+  pending         Float    @default(0)
+  available       Float    @default(0)
+  carryForward    Float    @default(0) // From previous year
+  year            Int // Calendar year
+  accrualRate     Float? // Monthly accrual rate
+  maxCarryForward Float? // Maximum carry forward allowed
+  isDeleted       Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, leaveType, year])
+  @@index([employeeId])
+  @@index([leaveType])
+  @@index([year])
+  @@index([isDeleted])
+}
+
+model PublicHoliday {
+  id          String   @id @default(uuid())
+  name        String
+  date        DateTime
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([date])
+  @@index([isActive])
+}
+
+// CRM Models
+model Lead {
+  id                      String    @id @default(uuid())
+  name                    String
+  email                   String?
+  phone                   String?
+  source                  String?
+  leadSourceDetails       String?
+  priority                String    @default("medium") // low, medium, high, urgent
+  score                   Int?      @default(0)
+  interest                String? // buy, rent, invest
+  interestType            String? // residential, commercial, industrial, land
+  budget                  String?
+  budgetMin               Float?
+  budgetMax               Float?
+  notes                   String?
+  status                  String    @default("new") // new, qualified, negotiation, won, lost, converted
+  assignedTo              String?
+  assignedToUserId        String?
+  cnic                    String?
+  address                 String?
+  city                    String?
+  country                 String?
+  postalCode              String?
+  latitude                Float?
+  longitude               Float?
+  leadCode                String?   @unique
+  expectedCloseDate       DateTime?
+  followUpDate            DateTime?
+  temperature             String?   @default("cold") // cold, warm, hot
+  communicationPreference String? // email, phone, whatsapp, sms
+  tags                    Json?
+  attachments             Json?
+  convertedToClientId     String?   @unique
+  convertedAt             DateTime?
+  isDeleted               Boolean   @default(false)
+  createdBy               String?
+  updatedBy               String?
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
+
+  communications    Communication[]
+  activities        CRMActivity[]
+  assignedAgent     User?           @relation("LeadAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+  convertedToClient Client?         @relation("LeadConvertedToClient", fields: [convertedToClientId], references: [id], onDelete: SetNull)
+
+  @@index([leadCode])
+  @@index([assignedToUserId])
+  @@index([status])
+  @@index([priority])
+  @@index([temperature])
+  @@index([followUpDate])
+  @@index([isDeleted])
+}
+
+model Client {
+  id                  String   @id @default(uuid())
+  name                String
+  email               String?
+  phone               String?
+  company             String?
+  status              String   @default("active") // active, inactive, vip, corporate
+  clientType          String? // individual, corporate, government
+  clientCategory      String? // vip, regular, corporate, premium
+  cnic                String?
+  address             String?
+  billingAddress      String?
+  city                String?
+  country             String?
+  postalCode          String?
+  clientCode          String?  @unique
+  clientNo            String?
+  srNo                Int?
+  propertyInterest    String? // buy, rent, invest
+  cnicDocumentUrl     String?
+  attachments         Json?
+  tags                Json?
+  assignedDealerId    String?
+  assignedAgentId     String?
+  convertedFromLeadId String?
+  isDeleted           Boolean  @default(false)
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  deals             Deal[]
+  contactPersons    ContactPerson[]
+  communications    Communication[]
+  activities        CRMActivity[]
+  assignedDealer    Dealer?           @relation("ClientAssignedDealer", fields: [assignedDealerId], references: [id], onDelete: SetNull)
+  assignedAgent     User?             @relation("ClientAssignedToUser", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+  convertedFromLead Lead?             @relation("LeadConvertedToClient")
+  paymentPlans      PaymentPlan[]
+  installments      DealInstallment[]
+  dealerLedgers     DealerLedger[]
+  dealReceipts      DealReceipt[]
+
+  @@index([clientCode])
+  @@index([assignedDealerId])
+  @@index([assignedAgentId])
+  @@index([status])
+  @@index([clientCategory])
+  @@index([isDeleted])
+}
+
+model ContactPerson {
+  id         String   @id @default(uuid())
+  clientId   String
+  name       String
+  email      String?
+  phone      String?
+  position   String? // CEO, Manager, etc.
+  department String?
+  isPrimary  Boolean  @default(false)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  @@index([clientId])
+}
+
+model Dealer {
+  id                    String   @id @default(uuid())
+  name                  String
+  email                 String?
+  phone                 String?
+  company               String?
+  commissionRate        Float?   @default(0)
+  cnic                  String?
+  address               String?
+  city                  String?
+  country               String?
+  postalCode            String?
+  dealerCode            String?  @unique
+  cnicImageUrl          String?
+  rating                Float    @default(0)
+  isActive              Boolean  @default(true)
+  qualifications        String?
+  experienceYears       Int?     @default(0)
+  assignedRegion        String?
+  bankAccountNumber     String?
+  bankName              String?
+  bankBranch            String?
+  iban                  String?
+  agreementContractUrl  String?
+  totalDealsClosed      Int      @default(0)
+  totalCommissionEarned Float    @default(0)
+  currentPipelineValue  Float    @default(0)
+  settlementHistory     Json?
+  tags                  Json?
+  notes                 String?
+  isDeleted             Boolean  @default(false)
+  createdBy             String?
+  updatedBy             String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  deals           Deal[]
+  commissions     Commission[]
+  transactions    Transaction[]
+  clientsAssigned Client[]        @relation("ClientAssignedDealer")
+  reviews         DealerReview[]
+  sales           Sale[] // Sales facilitated by this dealer
+  payments        DealerPayment[] // Commission payouts
+  ledgers         DealerLedger[]
+
+  @@index([dealerCode])
+  @@index([isActive])
+  @@index([isDeleted])
+}
+
+model DealerReview {
+  id         String   @id @default(uuid())
+  dealerId   String
+  rating     Int // 1-5
+  comment    String?
+  reviewedBy String?
+  createdAt  DateTime @default(now())
+
+  dealer Dealer @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+
+  @@index([dealerId])
+}
+
+model Deal {
+  id                  String    @id @default(uuid())
+  title               String
+  dealCode            String?   @unique
+  role                String?
+  dealAmount          Float     @default(0) @map("deal_amount")
+  totalPaid           Float     @default(0) // Cached total for performance
+  valueBreakdown      Json? // { basePrice, taxes, fees, discounts, etc. }
+  dealType            String? // rental, sale, investment
+  stage               String    @default("prospecting") // prospecting, qualified, proposal, negotiation, closing, closed-won, closed-lost
+  status              String    @default("open")
+  probability         Int       @default(50) // 0-100
+  dealDate            DateTime  @default(now()) @map("deal_date")
+  clientId            String?
+  dealerId            String?
+  propertyId          String?
+  unitId              String? // For unit-level deals
+  commissionRate      Float     @default(0)
+  commissionAmount    Float     @default(0)
+  expectedClosingDate DateTime?
+  actualClosingDate   DateTime?
+  expectedRevenue     Float? // Calculated: value * probability / 100
+  attachments         Json?
+  notes               String?
+  tags                Json?
+  requiresApproval    Boolean   @default(false)
+  approvedBy          String?
+  approvedAt          DateTime?
+  isDeleted           Boolean   @default(false)
+  deletedAt           DateTime?
+  deletedBy           String?
+  createdBy           String?
+  updatedBy           String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  client         Client?           @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  dealer         Dealer?           @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  property       Property?         @relation("DealProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+  unit           Unit?             @relation("DealUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  dealProperties DealProperty[] // Multi-property deals
+  payments       Payment[]
+  ledgerEntries  LedgerEntry[]
+  stageHistory   StageHistory[]
+  activities     CRMActivity[]
+  dealAgents     DealAgent[]
+  communications Communication[]
+  financeLedgers FinanceLedger[]   @relation("FinanceLedgerDeal")
+  paymentPlan    PaymentPlan?
+  installments   DealInstallment[]
+  dealerLedgers  DealerLedger[]
+  dealReceipts   DealReceipt[]
+
+  @@index([dealCode])
+  @@index([clientId])
+  @@index([dealerId])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([stage])
+  @@index([status])
+  @@index([dealDate])
+  @@index([expectedClosingDate])
+  @@index([isDeleted])
+  @@index([deletedAt])
+  @@index([clientId, status])
+  @@index([propertyId, status])
+}
+
+model DealAgent {
+  id              String   @id @default(uuid())
+  dealId          String
+  agentId         String // User ID
+  agentName       String?
+  commissionShare Float    @default(0) // Percentage share of commission
+  role            String? // primary, secondary, support
+  createdAt       DateTime @default(now())
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([agentId])
+}
+
+model DealProperty {
+  id         String   @id @default(uuid())
+  dealId     String
+  propertyId String
+  priceShare Float    @default(0) // Price share for this property in multi-property deals
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  deal     Deal     @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+
+  @@unique([dealId, propertyId])
+  @@index([dealId])
+  @@index([propertyId])
+}
+
+model StageHistory {
+  id          String   @id @default(uuid())
+  dealId      String
+  fromStage   String?
+  toStage     String
+  changedBy   String?
+  changedAt   DateTime @default(now())
+  notes       String?
+  probability Int?
+
+  deal Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([dealId])
+  @@index([changedAt])
+}
+
+model Communication {
+  id                String    @id @default(uuid())
+  leadId            String?
+  clientId          String?
+  dealId            String?
+  channel           String // email, phone, meeting, whatsapp, sms, message
+  activityType      String    @default("note") // call, email, meeting, note, whatsapp, sms
+  subject           String?
+  content           String
+  activityDate      DateTime  @default(now())
+  activityOutcome   String? // successful, failed, pending, no-answer, busy
+  attachments       Json?
+  voiceNoteUrl      String?
+  nextFollowUpDate  DateTime?
+  reminderEnabled   Boolean   @default(false)
+  reminderDate      DateTime?
+  recurrence        String? // none, daily, weekly, monthly
+  recurrenceEndDate DateTime?
+  contactPersonId   String?
+  contactPersonName String?
+  assignedAgentId   String?
+  tags              Json?
+  isDeleted         Boolean   @default(false)
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  lead          Lead?   @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  client        Client? @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  deal          Deal?   @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  assignedAgent User?   @relation("CommunicationAssignedTo", fields: [assignedAgentId], references: [id], onDelete: SetNull)
+
+  @@index([leadId])
+  @@index([clientId])
+  @@index([dealId])
+  @@index([assignedAgentId])
+  @@index([activityDate])
+  @@index([nextFollowUpDate])
+  @@index([isDeleted])
+}
+
+model CRMActivity {
+  id           String    @id @default(uuid())
+  leadId       String?
+  clientId     String?
+  dealId       String?
+  type         String // note, call, email, meeting, task, reminder
+  title        String
+  description  String?
+  activityDate DateTime  @default(now())
+  dueDate      DateTime?
+  status       String    @default("pending") // pending, completed, cancelled
+  priority     String? // low, medium, high
+  assignedTo   String?
+  createdBy    String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  lead   Lead?   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  client Client? @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  deal   Deal?   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+  @@index([clientId])
+  @@index([dealId])
+  @@index([assignedTo])
+  @@index([activityDate])
+  @@index([status])
+}
+
+// Finance Models
+model TransactionCategory {
+  id                     String   @id @default(uuid())
+  name                   String
+  type                   String // income, expense
+  description            String?
+  defaultDebitAccountId  String?
+  defaultCreditAccountId String?
+  isActive               Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  defaultDebitAccount  Account?      @relation("TransactionCategoryDebit", fields: [defaultDebitAccountId], references: [id], onDelete: SetNull)
+  defaultCreditAccount Account?      @relation("TransactionCategoryCredit", fields: [defaultCreditAccountId], references: [id], onDelete: SetNull)
+  transactions         Transaction[]
+  vouchers             Voucher[]
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model Transaction {
+  id                    String   @id @default(uuid())
+  transactionCode       String   @unique
+  transactionType       String // income, expense
+  transactionCategoryId String?
+  description           String?
+  amount                Float // base amount before tax
+  taxAmount             Float    @default(0)
+  totalAmount           Float
+  paymentMethod         String?
+  debitAccountId        String?
+  creditAccountId       String?
+  tenantId              String?
+  dealerId              String?
+  propertyId            String?
+  attachments           Json?
+  status                String   @default("completed") // completed, pending, failed
+  date                  DateTime
+  createdByUserId       String?
+  journalEntryId        String?
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  transactionCategory TransactionCategory? @relation(fields: [transactionCategoryId], references: [id], onDelete: SetNull)
+  debitAccount        Account?             @relation("TransactionDebitAccount", fields: [debitAccountId], references: [id])
+  creditAccount       Account?             @relation("TransactionCreditAccount", fields: [creditAccountId], references: [id])
+  tenant              Tenant?              @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  dealer              Dealer?              @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  property            Property?            @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  createdBy           User?                @relation("UserTransactionsCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  journalEntry        JournalEntry?        @relation("JournalEntryTransactions", fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([transactionType])
+  @@index([transactionCategoryId])
+  @@index([date])
+  @@index([tenantId])
+  @@index([propertyId])
+}
+
+model Invoice {
+  id                 String   @id @default(uuid())
+  invoiceNumber      String   @unique
+  tenantId           String?
+  propertyId         String?
+  billingDate        DateTime
+  dueDate            DateTime
+  amount             Float // base amount before tax/discount
+  taxPercent         Float    @default(0)
+  taxAmount          Float    @default(0)
+  discountAmount     Float    @default(0)
+  totalAmount        Float
+  remainingAmount    Float
+  lateFeeRule        String   @default("none") // fixed, percentage, none
+  status             String   @default("unpaid") // unpaid, paid, overdue, cancelled, partial
+  termsAndConditions String?
+  attachments        Json?
+  tenantAccountId    String?
+  incomeAccountId    String?
+  createdByUserId    String?
+  journalEntryId     String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  tenant         Tenant?         @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  property       Property?       @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+  tenantAccount  Account?        @relation("InvoiceTenantAccount", fields: [tenantAccountId], references: [id], onDelete: SetNull)
+  incomeAccount  Account?        @relation("InvoiceIncomeAccount", fields: [incomeAccountId], references: [id], onDelete: SetNull)
+  createdBy      User?           @relation("UserInvoicesCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  journalEntry   JournalEntry?   @relation("JournalEntryInvoices", fields: [journalEntryId], references: [id], onDelete: SetNull)
+  tenantPayments TenantPayment[] @relation("InvoiceTenantPayments")
+
+  @@index([tenantId])
+  @@index([status])
+  @@index([billingDate])
+}
+
+model Payment {
+  id                String    @id @default(uuid())
+  paymentId         String    @unique
+  dealId            String
+  amount            Float
+  paymentType       String
+  paymentMode       String    @default("cash")
+  transactionId     String?
+  referenceNumber   String?
+  date              DateTime
+  remarks           String?
+  refundOfPaymentId String? // Links refund to original payment
+  deletedAt         DateTime?
+  deletedBy         String?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  deal          Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  createdBy     User?            @relation("UserPaymentsCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  refundOf      Payment?         @relation("PaymentRefunds", fields: [refundOfPaymentId], references: [id], onDelete: SetNull)
+  refunds       Payment[]        @relation("PaymentRefunds")
+  ledgerEntries LedgerEntry[]
+  installmentId String?
+  installment   DealInstallment? @relation("InstallmentPayments", fields: [installmentId], references: [id], onDelete: SetNull)
+
+  @@index([dealId])
+  @@index([paymentMode])
+  @@index([paymentType])
+  @@index([date])
+  @@index([refundOfPaymentId])
+  @@index([deletedAt])
+}
+
+model TenantPayment {
+  id                  String   @id @default(uuid())
+  paymentId           String   @unique
+  tenantId            String?
+  invoiceId           String?
+  amount              Float
+  method              String
+  bankAccountId       String?
+  receivableAccountId String?
+  advanceAccountId    String?
+  referenceNumber     String?
+  notes               String?
+  attachments         Json?
+  allocatedAmount     Float    @default(0)
+  overpaymentAmount   Float    @default(0)
+  allocations         Json?
+  date                DateTime
+  status              String   @default("completed")
+  createdByUserId     String?
+  journalEntryId      String?
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  tenant            Tenant?       @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  invoice           Invoice?      @relation("InvoiceTenantPayments", fields: [invoiceId], references: [id], onDelete: SetNull)
+  bankAccount       Account?      @relation("TenantPaymentBankAccount", fields: [bankAccountId], references: [id], onDelete: SetNull)
+  receivableAccount Account?      @relation("TenantPaymentReceivableAccount", fields: [receivableAccountId], references: [id], onDelete: SetNull)
+  advanceAccount    Account?      @relation("TenantPaymentAdvanceAccount", fields: [advanceAccountId], references: [id], onDelete: SetNull)
+  createdBy         User?         @relation("TenantPaymentCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  journalEntry      JournalEntry? @relation("JournalEntryTenantPayments", fields: [journalEntryId], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([status])
+  @@index([tenantId])
+  @@map("tenant_payments")
+}
+
+// Tenant Portal Models
+model MaintenanceTicket {
+  id              String    @id @default(uuid())
+  ticketNumber    String?   @unique
+  tenantId        String
+  unitId          String?
+  category        String // Plumbing, Electrical, AC, Cleaning, General, etc.
+  title           String
+  description     String
+  priority        String    @default("medium") // low, medium, high, urgent
+  status          String    @default("open") // open, in-progress, on-hold, completed, cancelled
+  assignedTo      String? // Staff/technician ID
+  assignedToName  String?
+  photos          Json? // Array of photo URLs
+  technicianNotes String?
+  estimatedCost   Float?
+  actualCost      Float?
+  completedAt     DateTime?
+  tenantRating    Int? // 1-5 rating after completion
+  tenantFeedback  String?
+  isDeleted       Boolean   @default(false)
+  createdBy       String?
+  updatedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant     Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  activities MaintenanceActivity[]
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([isDeleted])
+}
+
+model MaintenanceActivity {
+  id          String   @id @default(uuid())
+  ticketId    String
+  action      String // created, assigned, updated, completed, etc.
+  description String?
+  performedBy String?
+  performedAt DateTime @default(now())
+  metadata    Json?
+
+  ticket MaintenanceTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
+  @@index([performedAt])
+}
+
+model NoticeToVacate {
+  id              String    @id @default(uuid())
+  noticeNumber    String?   @unique
+  tenantId        String
+  unitId          String?
+  reason          String
+  moveOutDate     DateTime
+  supportingDocs  Json? // Array of document URLs
+  status          String    @default("pending") // pending, approved, rejected, cancelled
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  emailSent       Boolean   @default(false)
+  emailSentAt     DateTime?
+  isDeleted       Boolean   @default(false)
+  createdBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([unitId])
+  @@index([status])
+  @@index([moveOutDate])
+  @@index([isDeleted])
+}
+
+model RentReminder {
+  id           String    @id @default(uuid())
+  tenantId     String
+  invoiceId    String?
+  reminderType String // upcoming-due, overdue, lease-expiry, payment-confirmation
+  message      String
+  sendDate     DateTime
+  sentAt       DateTime?
+  isSent       Boolean   @default(false)
+  isRead       Boolean   @default(false)
+  readAt       DateTime?
+  createdAt    DateTime  @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([sendDate])
+  @@index([isSent])
+}
+
+model TenantLedger {
+  id            String   @id @default(uuid())
+  ledgerNumber  String?  @unique
+  tenantId      String
+  entryDate     DateTime @default(now())
+  entryType     String // debit, credit
+  description   String
+  amount        Float
+  balance       Float // Running balance after this entry
+  referenceId   String? // Invoice ID, Payment ID, etc.
+  referenceType String? // invoice, payment, adjustment, etc.
+  isDeleted     Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([entryDate])
+  @@index([entryType])
+  @@index([referenceId])
+  @@index([isDeleted])
+}
+
+model Receipt {
+  id            String   @id @default(uuid())
+  receiptNumber String   @unique
+  tenantId      String
+  paymentId     String?
+  invoiceId     String?
+  amount        Float
+  paymentMethod String
+  receiptDate   DateTime @default(now())
+  receiptUrl    String? // PDF receipt URL
+  isDeleted     Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([paymentId])
+  @@index([invoiceId])
+  @@index([receiptDate])
+  @@index([isDeleted])
+}
+
+model Announcement {
+  id                String    @id @default(uuid())
+  title             String
+  content           String
+  type              String    @default("general") // general, maintenance, payment, emergency
+  priority          String    @default("normal") // low, normal, high, urgent
+  targetAudience    String    @default("all") // all, specific-tenants, specific-properties
+  targetTenantIds   Json? // Array of tenant IDs if specific
+  targetPropertyIds Json? // Array of property IDs if specific
+  attachments       Json?
+  isActive          Boolean   @default(true)
+  expiresAt         DateTime?
+  isDeleted         Boolean   @default(false)
+  createdBy         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([type])
+  @@index([priority])
+  @@index([isActive])
+  @@index([expiresAt])
+  @@index([isDeleted])
+}
+
+// Dashboard Models
+model RevenueSummary {
+  id           String   @id @default(uuid())
+  propertyId   String?
+  month        String // Format: YYYY-MM
+  totalRevenue Float    @default(0)
+  rentRevenue  Float    @default(0)
+  otherRevenue Float    @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, month])
+  @@index([propertyId])
+  @@index([month])
+}
+
+model ExpenseSummary {
+  id                  String   @id @default(uuid())
+  propertyId          String?
+  month               String // Format: YYYY-MM
+  totalExpenses       Float    @default(0)
+  maintenanceExpenses Float    @default(0)
+  utilityExpenses     Float    @default(0)
+  otherExpenses       Float    @default(0)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, month])
+  @@index([propertyId])
+  @@index([month])
+}
+
+model Voucher {
+  id                String   @id @default(uuid())
+  voucherNumber     String   @unique
+  type              String // bank-payment, bank-receipt, cash-payment, cash-receipt
+  date              DateTime
+  paymentMethod     String // Cash, Bank
+  accountId         String
+  expenseCategoryId String?
+  description       String?
+  referenceNumber   String?
+  amount            Float
+  attachments       Json?
+  preparedByUserId  String?
+  approvedByUserId  String?
+  journalEntryId    String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  account         Account              @relation(fields: [accountId], references: [id])
+  expenseCategory TransactionCategory? @relation(fields: [expenseCategoryId], references: [id], onDelete: SetNull)
+  preparedBy      User?                @relation("VoucherPreparedBy", fields: [preparedByUserId], references: [id], onDelete: SetNull)
+  approvedBy      User?                @relation("VoucherApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+  journalEntry    JournalEntry?        @relation("JournalEntryVouchers", fields: [journalEntryId], references: [id], onDelete: SetNull)
+}
+
+model Commission {
+  id        String   @id @default(uuid())
+  dealerId  String?
+  saleId    String?
+  rate      Float    @default(0) // percentage
+  amount    Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  dealer Dealer? @relation(fields: [dealerId], references: [id], onDelete: SetNull)
+  sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: SetNull)
+}
+
+// General Ledger and Chart of Accounts
+model Account {
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  type        String // Asset, Liability, Equity, Revenue, Expense
+  description String?
+  parentId    String? // For hierarchical COA
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent                    Account?              @relation("AccountHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children                  Account[]             @relation("AccountHierarchy")
+  journalLines              JournalLine[]
+  debitTransactions         Transaction[]         @relation("TransactionDebitAccount")
+  creditTransactions        Transaction[]         @relation("TransactionCreditAccount")
+  vouchers                  Voucher[]
+  transactionCategoryDebit  TransactionCategory[] @relation("TransactionCategoryDebit")
+  transactionCategoryCredit TransactionCategory[] @relation("TransactionCategoryCredit")
+  invoiceTenantAccounts     Invoice[]             @relation("InvoiceTenantAccount")
+  invoiceIncomeAccounts     Invoice[]             @relation("InvoiceIncomeAccount")
+  tenantBankPayments        TenantPayment[]       @relation("TenantPaymentBankAccount")
+  tenantReceivablePayments  TenantPayment[]       @relation("TenantPaymentReceivableAccount")
+  tenantAdvancePayments     TenantPayment[]       @relation("TenantPaymentAdvanceAccount")
+  debitLedgerEntries        LedgerEntry[]         @relation("LedgerEntryDebitAccount")
+  creditLedgerEntries       LedgerEntry[]         @relation("LedgerEntryCreditAccount")
+  accountAliases            AccountAlias[]
+
+  @@index([type])
+  @@index([isActive])
+  @@index([parentId])
+}
+
+model JournalEntry {
+  id               String   @id @default(uuid())
+  entryNumber      String   @unique
+  voucherNo        String?  @unique
+  date             DateTime
+  description      String?
+  narration        String?
+  status           String   @default("posted") // draft, posted, cancelled
+  attachments      Json?
+  preparedByUserId String?
+  approvedByUserId String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  lines          JournalLine[]
+  transactions   Transaction[]   @relation("JournalEntryTransactions")
+  invoices       Invoice[]       @relation("JournalEntryInvoices")
+  vouchers       Voucher[]       @relation("JournalEntryVouchers")
+  tenantPayments TenantPayment[] @relation("JournalEntryTenantPayments")
+  receipts       Receipt[]       @relation("ReceiptJournalEntry")
+  dealReceipts   DealReceipt[]   @relation("DealReceiptJournalEntry")
+  preparedBy     User?           @relation("JournalPreparedBy", fields: [preparedByUserId], references: [id], onDelete: SetNull)
+  approvedBy     User?           @relation("JournalApprovedBy", fields: [approvedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([date])
+  @@index([status])
+}
+
+model JournalLine {
+  id          String  @id @default(uuid())
+  entryId     String
+  accountId   String
+  debit       Float   @default(0)
+  credit      Float   @default(0)
+  description String?
+
+  entry   JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account Account      @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([entryId])
+  @@index([accountId])
+}
+
+model LedgerEntry {
+  id              String    @id @default(uuid())
+  dealId          String
+  paymentId       String?
+  accountDebit    String // Legacy string field (backwards compatible)
+  accountCredit   String // Legacy string field (backwards compatible)
+  debitAccountId  String? // FK to Account (new approach)
+  creditAccountId String? // FK to Account (new approach)
+  amount          Float
+  remarks         String?
+  date            DateTime  @default(now())
+  deletedAt       DateTime?
+  deletedBy       String?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  deal           Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  payment        Payment?         @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  debitAccount   Account?         @relation("LedgerEntryDebitAccount", fields: [debitAccountId], references: [id], onDelete: Restrict)
+  creditAccount  Account?         @relation("LedgerEntryCreditAccount", fields: [creditAccountId], references: [id], onDelete: Restrict)
+  dealerPayments DealerPayment[]
+  installment    DealInstallment? @relation("InstallmentLedgerEntry")
+  dealerLedger   DealerLedger?    @relation("DealerLedgerLedgerEntry")
+
+  @@index([dealId])
+  @@index([paymentId])
+  @@index([date])
+  @@index([accountDebit])
+  @@index([accountCredit])
+  @@index([debitAccountId])
+  @@index([creditAccountId])
+  @@index([deletedAt])
+}
+
+// Enhanced Models for Complete System Flow
+
+model PropertyExpense {
+  id              String   @id @default(uuid())
+  propertyId      String
+  category        String // repair, maintenance, tax, utilities, insurance, other
+  amount          Float
+  date            DateTime @default(now())
+  description     String?
+  attachments     Json? // Array of attachment URLs
+  financeLedgerId String?  @unique // Auto-linked to FinanceLedger
+  isDeleted       Boolean  @default(false)
+  createdBy       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  property      Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  financeLedger FinanceLedger? @relation("PropertyExpenseLedger", fields: [financeLedgerId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([category])
+  @@index([date])
+  @@index([isDeleted])
+}
+
+model Tenancy {
+  id              String    @id @default(uuid())
+  propertyId      String
+  tenantId        String
+  leaseId         String? // Reference to Lease if exists
+  leaseStart      DateTime
+  leaseEnd        DateTime
+  monthlyRent     Float
+  nextInvoiceDate DateTime? // Auto-calculated next invoice date
+  status          String    @default("active") // active, ended, terminated
+  isDeleted       Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lease    Lease?   @relation(fields: [leaseId], references: [id], onDelete: SetNull)
+
+  @@unique([propertyId, tenantId, leaseStart])
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([leaseEnd])
+  @@index([nextInvoiceDate])
+  @@index([isDeleted])
+}
+
+model MaintenanceRequest {
+  id               String    @id @default(uuid())
+  propertyId       String
+  tenantId         String?
+  unitId           String?
+  issueTitle       String
+  issueDescription String
+  priority         String    @default("medium") // low, medium, high, urgent
+  status           String    @default("open") // open, assigned, in-progress, completed, cancelled
+  assignedTo       String? // Staff/technician ID or name
+  assignedToName   String?
+  attachments      Json? // Array of attachment URLs
+  estimatedCost    Float?
+  actualCost       Float?
+  completedAt      DateTime?
+  financeLedgerId  String?   @unique // Auto-linked to FinanceLedger if cost > 0
+  isDeleted        Boolean   @default(false)
+  createdBy        String?
+  updatedBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  property      Property       @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  financeLedger FinanceLedger? @relation("MaintenanceLedger", fields: [financeLedgerId], references: [id], onDelete: SetNull)
+
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedTo])
+  @@index([isDeleted])
+}
+
+model FinanceLedger {
+  id            String   @id @default(uuid())
+  referenceType String // invoice, salary, expense, deal, payment, maintenance, property_expense
+  referenceId   String? // ID of the referenced entity
+  category      String // income, expense
+  amount        Float
+  date          DateTime @default(now())
+  notes         String?
+  description   String?
+  propertyId    String?
+  tenantId      String?
+  dealId        String?
+  payrollId     String?
+  invoiceId     String?
+  paymentId     String?
+  isDeleted     Boolean  @default(false)
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  property           Property?           @relation("FinanceLedgerProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+  tenant             Tenant?             @relation("FinanceLedgerTenant", fields: [tenantId], references: [id], onDelete: SetNull)
+  deal               Deal?               @relation("FinanceLedgerDeal", fields: [dealId], references: [id], onDelete: SetNull)
+  propertyExpense    PropertyExpense?    @relation("PropertyExpenseLedger")
+  maintenanceRequest MaintenanceRequest? @relation("MaintenanceLedger")
+
+  @@index([referenceType])
+  @@index([referenceId])
+  @@index([category])
+  @@index([date])
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([dealId])
+  @@index([payrollId])
+  @@index([invoiceId])
+  @@index([paymentId])
+  @@index([isDeleted])
+}
+
+model Attachment {
+  id          String   @id @default(uuid())
+  fileName    String
+  fileUrl     String
+  fileType    String? // pdf, image, document, etc.
+  fileSize    Int? // in bytes
+  entityType  String // property, tenant, deal, lead, client, invoice, payment, etc.
+  entityId    String
+  propertyId  String?
+  tenantId    String?
+  uploadedBy  String?
+  description String?
+  isDeleted   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  property Property? @relation("PropertyAttachments", fields: [propertyId], references: [id], onDelete: Cascade)
+  tenant   Tenant?   @relation("TenantAttachments", fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([propertyId])
+  @@index([tenantId])
+  @@index([isDeleted])
+}
+
+model DropdownCategory {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  name        String
+  description String?
+  metadata    Json?
+  isActive    Boolean  @default(true)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  options DropdownOption[]
+
+  @@index([isActive])
+}
+
+model DropdownOption {
+  id         String   @id @default(uuid())
+  categoryId String
+  value      String
+  label      String
+  sortOrder  Int      @default(0)
+  metadata   Json?
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  category DropdownCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, value])
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model Amenity {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  icon        String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+model DealerPayment {
+  id            String   @id @default(uuid())
+  dealerId      String
+  amount        Float
+  paidAt        DateTime @default(now())
+  ledgerEntryId String?
+  createdBy     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  dealer        Dealer       @relation(fields: [dealerId], references: [id], onDelete: Restrict)
+  ledgerEntry   LedgerEntry? @relation(fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  createdByUser User?        @relation("DealerPaymentCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([dealerId])
+  @@index([paidAt])
+  @@index([ledgerEntryId])
+}
+
+// Payment Plan and Installments for Deals
+model PaymentPlan {
+  id                   String   @id @default(uuid())
+  dealId               String   @unique
+  clientId             String
+  numberOfInstallments Int
+  totalAmount          Float
+  totalExpected        Float    @default(0) // Sum of all installment amounts
+  totalPaid            Float    @default(0) // Sum of all paid amounts
+  remaining            Float    @default(0) // totalExpected - totalPaid
+  status               String   @default("Pending") // Pending, Partially Paid, Fully Paid
+  startDate            DateTime
+  notes                String?
+  isActive             Boolean  @default(true)
+  installmentType      String? // monthly, quarterly, bi-annual, annual, custom, milestone
+  downPayment          Float?   @default(0) // Down payment amount (first installment)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  deal         Deal              @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  client       Client            @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  installments DealInstallment[]
+
+  @@index([dealId])
+  @@index([clientId])
+  @@index([isActive])
+  @@index([status])
+  @@index([installmentType])
+}
+
+model DealInstallment {
+  id                String    @id @default(uuid())
+  paymentPlanId     String
+  dealId            String
+  clientId          String
+  installmentNumber Int // 1, 2, 3, etc.
+  type              String? // Quarterly, Monthly, Bi-Monthly, Custom - for multiple types in one deal
+  amount            Float
+  dueDate           DateTime
+  paidDate          DateTime?
+  status            String    @default("Pending") // Pending, Partial, Paid
+  paidAmount        Float     @default(0)
+  remaining         Float     @default(0) // amount - paidAmount
+  paymentMode       String? // cash, bank, online, etc.
+  notes             String?
+  ledgerEntryId     String?   @unique // AR ledger entry created for this installment
+  isDeleted         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  paymentPlan        PaymentPlan      @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
+  deal               Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  client             Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  ledgerEntry        LedgerEntry?     @relation("InstallmentLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+  payments           Payment[]        @relation("InstallmentPayments")
+  receiptAllocations DealReceiptAllocation[]
+
+  @@index([paymentPlanId])
+  @@index([dealId])
+  @@index([clientId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([isDeleted])
+  @@index([type])
+}
+
+// Dealer Ledger for tracking commissions
+model DealerLedger {
+  id            String   @id @default(uuid())
+  dealerId      String
+  dealId        String?
+  clientId      String?
+  entryType     String // commission, payment, adjustment
+  amount        Float
+  balance       Float // Running balance after this entry
+  description   String?
+  referenceId   String? // Deal ID, Payment ID, etc.
+  referenceType String? // deal, payment, adjustment
+  ledgerEntryId String?  @unique // Link to main ledger entry
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  dealer      Dealer       @relation(fields: [dealerId], references: [id], onDelete: Cascade)
+  deal        Deal?        @relation(fields: [dealId], references: [id], onDelete: SetNull)
+  client      Client?      @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  ledgerEntry LedgerEntry? @relation("DealerLedgerLedgerEntry", fields: [ledgerEntryId], references: [id], onDelete: SetNull)
+
+  @@index([dealerId])
+  @@index([dealId])
+  @@index([clientId])
+  @@index([entryType])
+  @@index([date])
+  @@index([referenceId])
+}
+
+model AccountAlias {
+  id        String   @id @default(uuid())
+  alias     String   @unique
+  accountId String
+  createdAt DateTime @default(now())
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([alias])
+  @@index([accountId])
+}
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  entityType  String // property, tenant, deal, invoice, payment, user, etc.
+  entityId    String
+  action      String // create, update, delete, view, approve, reject
+  userId      String?
+  userName    String?
+  userRole    String?
+  oldValues   Json? // Previous state
+  newValues   Json? // New state
+  changes     Json? // Diff of changes
+  ipAddress   String?
+  userAgent   String?
+  description String?
+  metadata    Json? // Additional context
+  createdAt   DateTime @default(now())
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
+
+// Receipt System for Real Estate Payments (Deal Receipts)
+model DealReceipt {
+  id            String   @id @default(uuid())
+  receiptNo     String   @unique // Auto incremental like RCP-2025-00012
+  dealId        String
+  clientId      String
+  amount        Float
+  method        String // Cash, Bank
+  date          DateTime @default(now())
+  notes         String?
+  receivedBy    String? // User ID
+  pdfUrl        String? // Generated PDF receipt URL
+  journalEntryId String? @unique // Link to JournalEntry for ledger posting
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  deal            Deal                @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  client          Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  receivedByUser User?               @relation("DealReceiptReceivedBy", fields: [receivedBy], references: [id], onDelete: SetNull)
+  journalEntry    JournalEntry?       @relation("DealReceiptJournalEntry", fields: [journalEntryId], references: [id], onDelete: SetNull)
+  allocations     DealReceiptAllocation[]
+
+  @@index([dealId])
+  @@index([clientId])
+  @@index([receiptNo])
+  @@index([date])
+  @@index([receivedBy])
+}
+
+model DealReceiptAllocation {
+  id            String   @id @default(uuid())
+  receiptId     String
+  installmentId String
+  amountAllocated Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  receipt     DealReceipt      @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  installment DealInstallment  @relation(fields: [installmentId], references: [id], onDelete: Cascade)
+
+  @@index([receiptId])
+  @@index([installmentId])
+  @@unique([receiptId, installmentId])
+}

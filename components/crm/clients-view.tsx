@@ -1,0 +1,299 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { Card } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Badge } from "@/components/ui/badge"
+import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users } from "lucide-react"
+import { apiService } from "@/lib/api"
+import { AddClientDialog } from "./add-client-dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
+import { useToast } from "@/hooks/use-toast"
+export function ClientsView() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showAddDialog, setShowAddDialog] = useState(false)
+  const [clients, setClients] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const router = useRouter()
+  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [editingClient, setEditingClient] = useState<any | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const { toast } = useToast()
+
+  useEffect(() => {
+    fetchClients()
+  }, [])
+
+  const fetchClients = async () => {
+    try {
+      setLoading(true)
+      setError(null)
+      const response: any = await apiService.clients.getAll()
+      const responseData = response.data as any
+      const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
+      const mapped = Array.isArray(data) ? data.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email || "",
+        phone: c.phone || "",
+        company: c.company || "",
+        type: c.company ? "Corporate" : "Individual",
+        status: c.status || "active",
+        createdAt: c.createdAt,
+      })) : []
+      setClients(mapped)
+    } catch (err: any) {
+      setError(err.response?.data?.message || "Failed to fetch clients")
+      setClients([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const filteredClients = clients.filter((client) => {
+    const query = searchQuery.toLowerCase()
+    const matchesSearch =
+      client.name?.toLowerCase().includes(query) ||
+      client.email?.toLowerCase().includes(query) ||
+      client.company?.toLowerCase().includes(query)
+
+    const type = (client.type || "").toLowerCase()
+    const matchesType =
+      typeFilter === "all" ||
+      (typeFilter === "individual" && type === "individual") ||
+      (typeFilter === "corporate" && type === "corporate")
+
+    return matchesSearch && matchesType
+  })
+
+  const openClientDetails = (id: string) => {
+    router.push(`/details/clients/${id}`)
+  }
+
+  const handleEditClient = (client: any) => {
+    setEditingClient(client)
+    setShowAddDialog(true)
+  }
+
+  const confirmDeleteClient = (client: any) => {
+    setDeleteTarget(client)
+  }
+
+  const handleDeleteClient = async () => {
+    if (!deleteTarget) return
+    try {
+      await apiService.clients.delete(deleteTarget.id)
+      toast({ title: "Client deleted" })
+      setDeleteTarget(null)
+      fetchClients()
+    } catch (err: any) {
+      console.error("Failed to delete client", err)
+      toast({ title: "Failed to delete client", variant: "destructive" })
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Search and Filter */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Search clients..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+        <div className="flex gap-2">
+          <Button
+            variant={typeFilter === "all" ? "default" : "outline"}
+            onClick={() => setTypeFilter("all")}
+          >
+            All
+          </Button>
+          <Button
+            variant={typeFilter === "individual" ? "default" : "outline"}
+            onClick={() => setTypeFilter("individual")}
+          >
+            Individual
+          </Button>
+          <Button
+            variant={typeFilter === "corporate" ? "default" : "outline"}
+            onClick={() => setTypeFilter("corporate")}
+          >
+            Corporate
+          </Button>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Client
+          </Button>
+        </div>
+      </div>
+
+      {/* Clients Grid */}
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : error ? (
+        <div className="text-center py-12 text-destructive">{error}</div>
+      ) : filteredClients.length === 0 ? (
+        <Card className="p-12">
+          <div className="flex flex-col items-center justify-center text-center">
+            <Users className="h-16 w-16 text-muted-foreground mb-4 opacity-50" />
+            <p className="text-lg font-semibold text-foreground mb-2">
+              {clients.length === 0 ? "No clients yet" : "No clients match your filters"}
+            </p>
+            <p className="text-sm text-muted-foreground mb-6 max-w-md">
+              {clients.length === 0 
+                ? "Convert qualified leads to clients or add clients directly. Clients can be linked to deals and properties."
+                : "Try adjusting your search or filter criteria"}
+            </p>
+            {clients.length === 0 && (
+              <Button onClick={() => setShowAddDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Client
+              </Button>
+            )}
+          </div>
+        </Card>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredClients.map((client) => (
+            <Card key={client.id} className="p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
+              <div className="flex items-start justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold"
+                    onClick={() => openClientDetails(client.id)}
+                    role="button"
+                  >
+                    {client.name
+                      .split(" ")
+                      .map((n: string) => n[0])
+                      .join("")
+                      .slice(0, 2)}
+                  </div>
+                  <div onClick={() => openClientDetails(client.id)} role="button">
+                    <h3 className="font-semibold text-foreground">{client.name}</h3>
+                    <Badge variant="secondary" className="mt-1">
+                      {client.type}
+                    </Badge>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {client.status === "vip" && <Badge variant="default">VIP</Badge>}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        handleEditClient(client)
+                      }}
+                    >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        confirmDeleteClient(client)
+                      }}
+                    >
+                        <Trash className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+
+              <div className="space-y-2 mb-4" onClick={() => openClientDetails(client.id)} role="button">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Mail className="h-4 w-4" />
+                  <span className="truncate">{client.email || "—"}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Phone className="h-4 w-4" />
+                  <span>{client.phone || "—"}</span>
+                </div>
+                {client.company && client.company !== "-" && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Building2 className="h-4 w-4" />
+                    <span>{client.company}</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-4 border-t border-border" onClick={() => openClientDetails(client.id)} role="button">
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Status</p>
+                    <p className="font-medium text-foreground mt-1 capitalize">{client.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Added On</p>
+                    <p className="font-medium text-foreground mt-1">
+                      {client.createdAt ? new Date(client.createdAt).toLocaleDateString() : "—"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+      <AddClientDialog
+        open={showAddDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditingClient(null)
+          }
+          setShowAddDialog(open)
+        }}
+        onSuccess={fetchClients}
+        initialData={editingClient}
+        mode={editingClient ? "edit" : "create"}
+      />
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Client</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete {deleteTarget?.name}? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteClient}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  )
+}
