@@ -74,7 +74,7 @@ export function validateQuery<T extends z.ZodTypeAny>(schema: T) {
           errors: error.errors,
         });
         
-        return errorResponse(
+        errorResponse(
           res,
           'Invalid query parameters',
           400,
@@ -83,10 +83,12 @@ export function validateQuery<T extends z.ZodTypeAny>(schema: T) {
             message: e.message,
           }))
         );
+        return;
       }
       
       logger.error('Query validation error:', error);
-      return errorResponse(res, 'Query validation failed', 400);
+      errorResponse(res, 'Query validation failed', 400);
+      return;
     }
   };
 }

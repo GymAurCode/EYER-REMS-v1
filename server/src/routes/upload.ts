@@ -2,6 +2,8 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { validateFileUpload, scanFileForViruses, saveFileSecurely } from '../utils/file-security';
+import logger from '../utils/logger';
 
 const router = express.Router();
 
