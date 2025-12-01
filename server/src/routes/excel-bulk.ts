@@ -6,7 +6,7 @@ import { errorResponse } from '../utils/error-handler';
 import { generateExcelExport } from '../services/excel-export';
 import { importExcelFile } from '../services/excel-import';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Configure multer for file upload
 const upload = multer({

@@ -10,7 +10,7 @@ import { generateTokenPair, revokeAllUserRefreshTokens } from '../utils/refresh-
 import { generateCsrfToken } from '../middleware/csrf';
 import logger from '../utils/logger';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const loginSchema = z.object({

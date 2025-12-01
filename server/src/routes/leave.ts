@@ -3,7 +3,7 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { getPendingLeaveAlerts } from '../services/hr-alerts';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Get all leave requests
 router.get('/', authenticate, async (req: AuthRequest, res) => {

@@ -2,7 +2,7 @@ import express from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Export all data
 router.get('/export', authenticate, async (_req: AuthRequest, res) => {

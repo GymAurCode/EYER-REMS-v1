@@ -5,7 +5,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncInvoiceToFinanceLedger, updateTenantLedger, generateMonthlyInvoices, syncCommissionToFinanceLedger } from '../services/workflows';
 import { getOverdueRentAlerts } from '../services/tenant-alerts';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // -------------------- Payment Plans & Installments --------------------
 

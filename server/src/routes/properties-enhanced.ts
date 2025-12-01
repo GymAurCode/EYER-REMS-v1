@@ -18,7 +18,7 @@ import { createAttachment, getAttachments } from '../services/attachments';
 import { getPropertyDashboard } from '../services/analytics';
 import multer from 'multer';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas

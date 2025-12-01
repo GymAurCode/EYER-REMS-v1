@@ -13,7 +13,7 @@ import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alert
 import { createAttachment, saveUploadedFile } from '../services/attachments';
 import multer from 'multer';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas

@@ -1,16 +1,15 @@
 import jwt, { SignOptions } from 'jsonwebtoken';
-import type { StringValue } from 'ms';
 import logger from './logger';
 import { getEnv } from './env-validation';
 
 // Get JWT configuration from validated environment
 let finalJwtSecret: string;
-let JWT_EXPIRES_IN: StringValue;
+let JWT_EXPIRES_IN: string;
 
 try {
   const env = getEnv();
   finalJwtSecret = env.JWT_SECRET;
-  JWT_EXPIRES_IN = env.JWT_EXPIRES_IN as StringValue;
+  JWT_EXPIRES_IN = env.JWT_EXPIRES_IN;
 } catch {
   // Fallback for when env validation hasn't run yet
   const JWT_SECRET = process.env.JWT_SECRET;
@@ -24,7 +23,7 @@ try {
   }
   
   finalJwtSecret = JWT_SECRET || DEFAULT_SECRET;
-  JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || '15m') as StringValue;
+  JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m';
 }
 
 export interface TokenPayload {

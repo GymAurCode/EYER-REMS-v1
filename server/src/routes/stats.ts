@@ -36,7 +36,7 @@ function getTimeAgo(date: Date): string {
   return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
 }
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 const columnExists = async (tableName: string, columnName: string) => {
   const rows = await prisma.$queryRaw<{ exists: boolean }[]>`

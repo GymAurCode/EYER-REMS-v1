@@ -13,7 +13,7 @@ import {
   updateLocation,
 } from '../services/location';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 const createLocationSchema = z.object({
   name: z.string().min(1, 'Name is required'),

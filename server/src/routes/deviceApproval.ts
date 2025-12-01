@@ -3,7 +3,7 @@ import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { extractDeviceInfo } from '../utils/deviceInfo';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Get device approval requests (Admin only)
 router.get('/', authenticate, requireAdmin, async (req, res) => {

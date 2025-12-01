@@ -5,7 +5,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncPaymentToFinanceLedger, updateTenantLedger } from '../services/workflows';
 import { getOverdueRentAlerts, getTenantLeaseExpiryAlerts } from '../services/tenant-alerts';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Helper to generate receipt number
 async function generateReceiptNumber(): Promise<string> {

@@ -15,7 +15,7 @@ import {
   syncPayrollToFinanceLedger,
 } from '../services/workflows';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const createFinanceLedgerSchema = z.object({

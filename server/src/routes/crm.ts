@@ -4,7 +4,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Helper functions to generate unique codes
 async function generateLeadCode(): Promise<string> {

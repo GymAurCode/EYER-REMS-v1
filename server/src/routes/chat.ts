@@ -3,7 +3,7 @@ import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const sendMessageSchema = z.object({

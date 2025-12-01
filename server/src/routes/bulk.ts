@@ -5,7 +5,7 @@ import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';
 import { errorResponse } from '../utils/error-handler';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // CSV escape function - properly escapes special characters
 function escapeCsvValue(value: any): string {

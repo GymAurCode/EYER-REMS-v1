@@ -5,7 +5,7 @@ import prisma from '../prisma/client';
 import { hashPassword } from '../utils/password';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const createRoleSchema = z.object({

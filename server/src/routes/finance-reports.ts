@@ -19,7 +19,7 @@ import {
   calculateOverdueInvoices,
 } from '../services/reports';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const reportPeriodSchema = z.object({

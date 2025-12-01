@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 
-const router = express.Router();
+const router: express.Router = express.Router();
 
 // Validation schemas
 const createSaleSchema = z.object({
