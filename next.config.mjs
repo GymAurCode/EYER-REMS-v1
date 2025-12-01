@@ -11,6 +11,18 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  webpack: (config, { isServer }) => {
+    // Fix for webpack hash calculation issues
+    if (!isServer) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+      };
+    }
+    return config;
+  },
+  // Increase build timeout for large projects
+  staticPageGenerationTimeout: 120,
 }
 
 export default nextConfig
