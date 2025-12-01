@@ -70,12 +70,18 @@ const normalizedOrigins = allowedOrigins.flatMap(origin => {
 
 app.use(cors({
   origin: (origin, callback) => {
-    // In production, reject requests with no origin for security
-    // In development, allow them for testing (Postman, curl, etc.)
+    // Allow requests with no origin for:
+    // - Health checks and monitoring
+    // - Server-to-server requests
+    // - Mobile apps
+    // - Development/testing tools
     if (!origin) {
-      if (env.NODE_ENV === 'production') {
-        return callback(new Error('CORS: Origin header required in production'));
-      }
+      // Allow requests without origin header
+      // This is safe because:
+      // 1. CSRF protection handles security for state-changing requests (POST, PUT, DELETE, PATCH)
+      // 2. Health checks and monitoring tools often don't send Origin headers
+      // 3. Server-to-server requests and mobile apps may not have Origin headers
+      // 4. GET requests are safe by nature (idempotent)
       return callback(null, true);
     }
     
