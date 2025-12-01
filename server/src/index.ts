@@ -55,6 +55,10 @@ const app = express();
 const env = validateEnv();
 const PORT = env.PORT;
 
+// Trust proxy - Required for Railway, Vercel, and other cloud platforms
+// This allows Express to correctly identify client IPs behind reverse proxies
+app.set('trust proxy', true);
+
 // CORS configuration - MUST be before other middleware
 // In production, only allow requests from Vercel frontend
 const allowedOrigins = env.ALLOWED_ORIGINS 
