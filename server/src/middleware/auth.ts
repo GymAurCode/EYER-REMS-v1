@@ -11,9 +11,15 @@ export interface AuthRequest extends Request {
     roleId: string;
   };
   // Explicitly include Request properties to ensure type resolution
-  params: Request['params'];
-  body: Request['body'];
-  query: Request['query'];
+  params: any;
+  body: any;
+  query: any;
+  headers: any;
+  method?: string;
+  path?: string;
+  cookies?: any;
+  file?: any;
+  files?: any;
 }
 
 export const authenticate = async (

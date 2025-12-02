@@ -18,6 +18,14 @@ const SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
 interface CsrfRequest extends Request {
   csrfToken?: string;
+  // Explicitly include Request properties to ensure type resolution
+  params: any;
+  body: any;
+  query: any;
+  headers: any;
+  method?: string;
+  path?: string;
+  cookies?: any;
 }
 
 /**

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -73,7 +73,7 @@ const normalizedOrigins = allowedOrigins.flatMap(origin => {
 });
 
 app.use(cors({
-  origin: (origin, callback) => {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
     // Allow requests with no origin for:
     // - Health checks and monitoring
     // - Server-to-server requests
@@ -160,7 +160,7 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // CSRF Protection for state-changing routes
 // Note: Applied after auth routes (login doesn't need CSRF) but before other routes
-app.use('/api', (req, res, next) => {
+app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   // Skip CSRF for safe methods and auth endpoints
   if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || 
       req.path.startsWith('/api/auth/login') ||
@@ -212,17 +212,17 @@ app.use('/api/bulk', bulkRoutes);
 app.use('/api/bulk/excel', excelBulkRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (req: Request, res: Response) => {
   res.json({ status: 'ok', message: 'REMS Backend is running' });
 });
 
 // 404 handler
-app.use((req: express.Request, res: express.Response) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
 // Error handling middleware
-app.use((err: unknown, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   errorResponse(res, err, (err as { statusCode?: number })?.statusCode || 500);
 });
 

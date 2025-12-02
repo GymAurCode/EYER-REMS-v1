@@ -20,6 +20,16 @@ export interface AuthenticatedRequest extends Request {
       permissions: string[];
     };
   };
+  // Explicitly include Request properties to ensure type resolution
+  params: any;
+  body: any;
+  query: any;
+  headers: any;
+  method?: string;
+  path?: string;
+  cookies?: any;
+  file?: any;
+  files?: any;
 }
 
 /**
