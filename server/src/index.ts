@@ -60,17 +60,52 @@ const PORT = env.PORT;
 app.set('trust proxy', true);
 
 // CORS configuration - MUST be before other middleware
-// In production, only allow requests from Vercel frontend
-const allowedOrigins = env.ALLOWED_ORIGINS 
+// Supports multiple origins: Vercel, localhost, and custom domains
+
+// Default allowed origins (always include localhost for development)
+const defaultOrigins = [
+  'http://localhost:3000',
+  'http://localhost:3000/',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3000/',
+];
+
+// Get origins from environment variables
+const envOrigins = env.ALLOWED_ORIGINS 
   ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : [env.FRONTEND_URL];
+  : env.FRONTEND_URL
+    ? [env.FRONTEND_URL]
+    : [];
+
+// Combine default and environment origins
+const allowedOrigins = [...defaultOrigins, ...envOrigins];
 
 // Add trailing slash variations for Vercel (some requests may include/exclude trailing slash)
+// Also handle Vercel preview deployments (*.vercel.app)
 const normalizedOrigins = allowedOrigins.flatMap(origin => {
-  const withoutSlash = origin.replace(/\/$/, '');
+  const variations = [];
+  
+  // Exact origin
+  variations.push(origin);
+  
+  // Without trailing slash
+  const withoutSlash = origin.replace(/\/+$/, '');
+  if (withoutSlash !== origin) {
+    variations.push(withoutSlash);
+  }
+  
+  // With trailing slash
   const withSlash = `${withoutSlash}/`;
-  return withoutSlash === withSlash ? [origin] : [withoutSlash, withSlash];
+  if (!variations.includes(withSlash)) {
+    variations.push(withSlash);
+  }
+  
+  return variations;
 });
+
+// Add Vercel preview domain pattern support (*.vercel.app)
+const vercelPattern = /^https:\/\/.*\.vercel\.app$/;
+const hasVercelDomain = envOrigins.some(origin => vercelPattern.test(origin));
 
 app.use(cors({
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
@@ -90,20 +125,27 @@ app.use(cors({
     }
     
     // Check if origin matches any allowed origin (with or without trailing slash)
-    const isAllowed = normalizedOrigins.some(allowed => {
+    let isAllowed = normalizedOrigins.some(allowed => {
       // Exact match
       if (origin === allowed) return true;
       // Match with/without trailing slash
-      const originNormalized = origin.replace(/\/$/, '');
-      const allowedNormalized = allowed.replace(/\/$/, '');
+      const originNormalized = origin.replace(/\/+$/, '');
+      const allowedNormalized = allowed.replace(/\/+$/, '');
       return originNormalized === allowedNormalized;
     });
+    
+    // Allow Vercel preview deployments if a vercel.app domain is configured
+    if (!isAllowed && hasVercelDomain && vercelPattern.test(origin)) {
+      isAllowed = true;
+      logger.info(`CORS: Allowed Vercel preview deployment: ${origin}`);
+    }
     
     if (isAllowed) {
       callback(null, true);
     } else {
       logger.warn(`CORS: Blocked request from origin: ${origin}`);
-      callback(new Error(`Not allowed by CORS. Allowed origins: ${normalizedOrigins.join(', ')}`));
+      logger.warn(`CORS: Allowed origins: ${normalizedOrigins.filter((v, i, a) => a.indexOf(v) === i).join(', ')}`);
+      callback(new Error(`Not allowed by CORS. Allowed origins: ${normalizedOrigins.filter((v, i, a) => a.indexOf(v) === i).join(', ')}`));
     }
   },
   credentials: true,

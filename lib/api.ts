@@ -1,6 +1,17 @@
 import axios from 'axios'
 
-// Normalize API base URL to avoid duplicate or missing slashes when composing requests
+/**
+ * API Base URL Configuration
+ * 
+ * For Next.js projects, use NEXT_PUBLIC_API_URL environment variable
+ * This variable is accessible in the browser (prefixed with NEXT_PUBLIC_)
+ * 
+ * Example .env.local:
+ * NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
+ * 
+ * For development:
+ * NEXT_PUBLIC_API_URL=http://localhost:3001/api
+ */
 const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 const normalizedBaseUrl = `${rawBaseUrl.replace(/\/+$/, '')}/`
 
