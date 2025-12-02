@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
@@ -28,7 +28,7 @@ async function generateTenantCode(): Promise<string> {
 }
 
 // Convert client to tenant
-router.post('/convert-from-client/:clientId', authenticate, async (req: AuthRequest, res) => {
+router.post('/convert-from-client/:clientId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { clientId } = req.params;
     const { unitId } = req.body;
@@ -178,7 +178,7 @@ const createTenantSchema = z.object({
 const updateTenantSchema = createTenantSchema.partial();
 
 // Get all tenants
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { unitId, propertyId, blockId, search } = req.query;
 
@@ -258,7 +258,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get tenant by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -293,7 +293,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create tenant
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createTenantSchema.parse(req.body);
 
@@ -395,7 +395,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update tenant
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateTenantSchema.parse(req.body);
@@ -432,7 +432,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete tenant (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -511,7 +511,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get tenant alerts (overdue rent + lease expiry)
-router.get('/:id/alerts', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/alerts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -533,7 +533,7 @@ router.get('/:id/alerts', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get overdue rent alerts
-router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { tenantId } = req.query;
 
@@ -549,7 +549,7 @@ router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res) =
 });
 
 // Get lease expiry alerts
-router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { tenantId } = req.query;
 

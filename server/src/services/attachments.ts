@@ -10,6 +10,16 @@ import fs from 'fs/promises';
 
 const prisma = new PrismaClient();
 
+// Type definition for multer file
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  buffer: Buffer;
+  size: number;
+}
+
 export interface AttachmentData {
   fileName: string;
   fileUrl: string;
@@ -106,7 +116,7 @@ function getFileType(fileName: string): string {
  * Save uploaded file to disk
  */
 export async function saveUploadedFile(
-  file: Express.Multer.File,
+  file: MulterFile,
   entityType: string,
   entityId: string
 ): Promise<string> {

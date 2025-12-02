@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import fs from 'fs';
 import path from 'path';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -14,7 +14,7 @@ if (!fs.existsSync(uploadsDir)) {
 }
 
 // Upload image endpoint (accepts base64 or file)
-router.post('/image', authenticate, async (req: AuthRequest, res) => {
+router.post('/image', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { image, filename } = req.body;
 
@@ -117,7 +117,7 @@ router.post('/image', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/file', authenticate, async (req: AuthRequest, res) => {
+router.post('/file', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { file, filename } = req.body;
 

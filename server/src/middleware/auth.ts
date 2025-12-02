@@ -10,6 +10,10 @@ export interface AuthRequest extends Request {
     email: string;
     roleId: string;
   };
+  // Explicitly include Request properties to ensure type resolution
+  params: Request['params'];
+  body: Request['body'];
+  query: Request['query'];
 }
 
 export const authenticate = async (

@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -20,7 +20,7 @@ const createUnitSchema = z.object({
 const updateUnitSchema = createUnitSchema.partial();
 
 // Get all units
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, blockId, status, search } = req.query;
 
@@ -104,7 +104,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get unit by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -148,7 +148,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create unit for a floor
-router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res) => {
+router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { floorId } = req.params;
     const { unitName, unitType, status, monthlyRent, description } = req.body;
@@ -248,7 +248,7 @@ router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res
 });
 
 // Create unit
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createUnitSchema.parse(req.body);
 
@@ -364,7 +364,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update unit
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateUnitSchema.parse(req.body);
@@ -483,7 +483,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete unit (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -528,7 +528,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get floor-based analytics for a property
-router.get('/analytics/floors/:propertyId', authenticate, async (req: AuthRequest, res) => {
+router.get('/analytics/floors/:propertyId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId } = req.params;
 
