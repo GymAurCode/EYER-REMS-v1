@@ -4,7 +4,7 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createUnitSchema = z.object({

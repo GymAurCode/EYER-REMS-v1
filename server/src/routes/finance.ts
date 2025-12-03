@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncInvoiceToFinanceLedger, updateTenantLedger, generateMonthlyInvoices, syncCommissionToFinanceLedger } from '../services/workflows';
 import { getOverdueRentAlerts } from '../services/tenant-alerts';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // -------------------- Payment Plans & Installments --------------------
 
@@ -98,7 +98,7 @@ const sumLines = (lines: { debit?: number; credit?: number }[]): { debit: number
 };
 
 // -------------------- Accounts (Chart of Accounts) --------------------
-router.get('/accounts', authenticate, async (_req: AuthRequest, res) => {
+router.get('/accounts', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     // Fetch all accounts
     const accounts = await prisma.account.findMany({ 
@@ -171,7 +171,7 @@ router.get('/accounts', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/accounts/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.account.findUnique({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ error: 'Account not found' });
@@ -186,7 +186,7 @@ router.get('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/accounts', authenticate, async (req: AuthRequest, res) => {
+router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { code, name, type, description } = req.body;
     if (!code || !name || !type) {
@@ -206,7 +206,7 @@ router.post('/accounts', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/accounts/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.account.update({
       where: { id: req.params.id },
@@ -223,7 +223,7 @@ router.put('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/accounts/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.account.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -238,7 +238,7 @@ router.delete('/accounts/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // -------------------- Transaction Categories --------------------
-router.get('/transaction-categories', authenticate, async (_req: AuthRequest, res) => {
+router.get('/transaction-categories', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.transactionCategory.findMany({
       orderBy: { name: 'asc' },
@@ -258,7 +258,7 @@ router.get('/transaction-categories', authenticate, async (_req: AuthRequest, re
   }
 });
 
-router.post('/transaction-categories', authenticate, async (req: AuthRequest, res) => {
+router.post('/transaction-categories', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { name, type, description, defaultDebitAccountId, defaultCreditAccountId } = req.body;
     if (!name || !type) {
@@ -288,7 +288,7 @@ router.post('/transaction-categories', authenticate, async (req: AuthRequest, re
   }
 });
 
-router.put('/transaction-categories/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/transaction-categories/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.transactionCategory.update({
       where: { id: req.params.id },
@@ -311,7 +311,7 @@ router.put('/transaction-categories/:id', authenticate, async (req: AuthRequest,
   }
 });
 
-router.delete('/transaction-categories/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/transaction-categories/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.transactionCategory.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -326,7 +326,7 @@ router.delete('/transaction-categories/:id', authenticate, async (req: AuthReque
 });
 
 // Transactions
-router.get('/transactions', authenticate, async (_req: AuthRequest, res) => {
+router.get('/transactions', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.transaction.findMany({
       orderBy: { date: 'desc' },
@@ -357,7 +357,7 @@ router.get('/transactions', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/transactions/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/transactions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.transaction.findUnique({
       where: { id: req.params.id },
@@ -378,7 +378,7 @@ router.get('/transactions/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/transactions', authenticate, async (req: AuthRequest, res) => {
+router.post('/transactions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       transactionType,
@@ -531,7 +531,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/transactions/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/transactions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.transaction.update({
       where: { id: req.params.id },
@@ -543,7 +543,7 @@ router.put('/transactions/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/transactions/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/transactions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.transaction.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -553,7 +553,7 @@ router.delete('/transactions/:id', authenticate, async (req: AuthRequest, res) =
 });
 
 // Invoices
-router.get('/invoices', authenticate, async (_req: AuthRequest, res) => {
+router.get('/invoices', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.invoice.findMany({
       orderBy: { createdAt: 'desc' },
@@ -573,7 +573,7 @@ router.get('/invoices', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/invoices/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.invoice.findUnique({
       where: { id: req.params.id },
@@ -594,7 +594,7 @@ router.get('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/invoices', authenticate, async (req: AuthRequest, res) => {
+router.post('/invoices', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       tenantId,
@@ -730,7 +730,7 @@ router.post('/invoices', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/invoices/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.invoice.update({
       where: { id: req.params.id },
@@ -742,7 +742,7 @@ router.put('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/invoices/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.invoice.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -752,7 +752,7 @@ router.delete('/invoices/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Payments
-router.get('/payments', authenticate, async (_req: AuthRequest, res) => {
+router.get('/payments', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const payments = await prisma.payment.findMany({
       orderBy: { date: 'desc' },
@@ -774,7 +774,7 @@ router.get('/payments', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/payments/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const payment = await prisma.payment.findUnique({
       where: { id: req.params.id },
@@ -801,7 +801,7 @@ router.get('/payments/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/payments', authenticate, async (req: AuthRequest, res) => {
+router.post('/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const payload = createDealPaymentSchema.parse(req.body);
     
@@ -855,11 +855,11 @@ router.post('/payments', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/payments/:id', authenticate, async (_req: AuthRequest, res) => {
+router.put('/payments/:id', authenticate, async (_req: AuthRequest, res: Response) => {
   res.status(405).json({ error: 'Payments cannot be edited. Please delete and recreate the payment.' });
 });
 
-router.delete('/payments/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const existingPayment = await prisma.payment.findUnique({
       where: { id: req.params.id },
@@ -902,7 +902,7 @@ router.delete('/payments/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // -------------------- Bank/Cash Vouchers --------------------
-router.get('/vouchers', authenticate, async (_req: AuthRequest, res) => {
+router.get('/vouchers', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const vouchers = await prisma.voucher.findMany({
       orderBy: { date: 'desc' },
@@ -920,7 +920,7 @@ router.get('/vouchers', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.post('/vouchers', authenticate, async (req: AuthRequest, res) => {
+router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       voucherType,
@@ -1029,7 +1029,7 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/vouchers/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.voucher.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -1039,7 +1039,7 @@ router.delete('/vouchers/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Commissions
-router.get('/commissions', authenticate, async (_req: AuthRequest, res) => {
+router.get('/commissions', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.commission.findMany({ orderBy: { createdAt: 'desc' } });
     res.json(items);
@@ -1048,7 +1048,7 @@ router.get('/commissions', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/commissions/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/commissions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.commission.findUnique({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ error: 'Commission not found' });
@@ -1058,7 +1058,7 @@ router.get('/commissions/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/commissions', authenticate, async (req: AuthRequest, res) => {
+router.post('/commissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.commission.create({ data: req.body });
     res.status(201).json(item);
@@ -1067,7 +1067,7 @@ router.post('/commissions', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/commissions/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/commissions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.commission.update({
       where: { id: req.params.id },
@@ -1079,7 +1079,7 @@ router.put('/commissions/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/commissions/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/commissions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.commission.delete({ where: { id: req.params.id } });
     res.status(204).end();
@@ -1089,7 +1089,7 @@ router.delete('/commissions/:id', authenticate, async (req: AuthRequest, res) =>
 });
 
 // -------------------- Journal Vouchers --------------------
-router.get('/journals', authenticate, async (_req: AuthRequest, res) => {
+router.get('/journals', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const items = await prisma.journalEntry.findMany({
       orderBy: { date: 'desc' },
@@ -1101,7 +1101,7 @@ router.get('/journals', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/journals/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/journals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.journalEntry.findUnique({
       where: { id: req.params.id },
@@ -1114,7 +1114,7 @@ router.get('/journals/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/journals', authenticate, async (req: AuthRequest, res) => {
+router.post('/journals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { date, description, narration, lines, attachments, preparedByUserId, approvedByUserId, status } = req.body;
     if (!date || !Array.isArray(lines) || lines.length < 2) {
@@ -1166,7 +1166,7 @@ router.post('/journals', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/journals/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/journals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.journalLine.deleteMany({ where: { entryId: req.params.id } });
     await prisma.journalEntry.delete({ where: { id: req.params.id } });
@@ -1177,7 +1177,7 @@ router.delete('/journals/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // -------------------- Ledgers (Deal-centric Views) --------------------
-router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res) => {
+router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { LedgerService } = await import('../services/ledger-service');
     const clientId = req.query.clientId as string | undefined;
@@ -1190,7 +1190,7 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res) => {
+router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { LedgerService } = await import('../services/ledger-service');
     const propertyId = req.query.propertyId as string | undefined;
@@ -1203,7 +1203,7 @@ router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res) =>
   }
 });
 
-router.get('/ledgers/company', authenticate, async (req: AuthRequest, res) => {
+router.get('/ledgers/company', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { LedgerService } = await import('../services/ledger-service');
     
@@ -1221,7 +1221,7 @@ router.get('/ledgers/company', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get overdue rent alerts
-router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { tenantId } = req.query;
     const alerts = await getOverdueRentAlerts(
@@ -1242,7 +1242,7 @@ router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res) =
 });
 
 // Generate monthly recurring invoices
-router.post('/invoices/generate-monthly', authenticate, async (req: AuthRequest, res) => {
+router.post('/invoices/generate-monthly', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const invoices = await generateMonthlyInvoices();
     res.json({
@@ -1262,7 +1262,7 @@ router.post('/invoices/generate-monthly', authenticate, async (req: AuthRequest,
 });
 
 // Get rent due list
-router.get('/rent-due', authenticate, async (req: AuthRequest, res) => {
+router.get('/rent-due', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, tenantId, status } = req.query;
     const today = new Date();
@@ -1367,7 +1367,7 @@ router.get('/rent-due', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Commission payment tracking routes
-router.get('/commissions', authenticate, async (req: AuthRequest, res) => {
+router.get('/commissions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { dealerId, status } = req.query;
 
@@ -1458,7 +1458,7 @@ router.get('/commissions', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Pay commission
-router.post('/commissions/:id/pay', authenticate, async (req: AuthRequest, res) => {
+router.post('/commissions/:id/pay', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { paymentMethod, bankAccountId, notes, paymentDate } = req.body;
@@ -1538,7 +1538,7 @@ router.post('/commissions/:id/pay', authenticate, async (req: AuthRequest, res) 
 });
 
 // Bank reconciliation
-router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res) => {
+router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { accountId, startDate, endDate } = req.query;
 
@@ -1761,8 +1761,120 @@ router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res) =
 });
 
 // -------------------- Payment Plans & Installments --------------------
-// Create payment plan for a deal
-router.post('/payment-plans', authenticate, async (req: AuthRequest, res) => {
+// IMPORTANT: More specific routes must come BEFORE less specific routes
+// Create payment plan with multiple installment types (MUST BE BEFORE /payment-plans)
+router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dealId, clientId, installments } = req.body;
+
+    if (!dealId || !clientId || !Array.isArray(installments) || installments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'dealId, clientId, and installments array are required',
+      });
+    }
+
+    // Validate deal exists
+    const deal = await prisma.deal.findUnique({
+      where: { id: dealId },
+      include: { client: true },
+    });
+
+    if (!deal) {
+      return res.status(404).json({ success: false, error: 'Deal not found' });
+    }
+
+    if (deal.clientId !== clientId) {
+      return res.status(400).json({ success: false, error: 'Client ID does not match deal client' });
+    }
+
+    // Check if payment plan already exists
+    const existingPlan = await prisma.paymentPlan.findUnique({
+      where: { dealId },
+    });
+
+    if (existingPlan) {
+      return res.status(400).json({ success: false, error: 'Payment plan already exists for this deal' });
+    }
+
+    // Validate installments
+    const totalAmount = installments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
+    const dealAmount = deal.dealAmount || 0;
+    const downPayment = req.body.downPayment || 0;
+    const expectedTotal = dealAmount - downPayment;
+
+    // Installments total should equal deal amount minus down payment
+    if (Math.abs(totalAmount - expectedTotal) > 0.01) {
+      return res.status(400).json({
+        success: false,
+        error: `Installments total (${totalAmount}) must equal deal amount (${dealAmount}) minus down payment (${downPayment}) = ${expectedTotal}`,
+      });
+    }
+
+    // Create payment plan with installments
+    const paymentPlan = await prisma.$transaction(async (tx) => {
+      const plan = await tx.paymentPlan.create({
+        data: {
+          dealId,
+          clientId,
+          numberOfInstallments: installments.length,
+          totalAmount: dealAmount,
+          totalExpected: totalAmount,
+          startDate: installments[0]?.dueDate ? new Date(installments[0].dueDate) : new Date(),
+          notes: req.body.notes || null,
+          isActive: true,
+          status: downPayment > 0 ? 'Partially Paid' : 'Pending',
+          downPayment: downPayment || 0, // Save down payment amount
+          totalPaid: downPayment || 0, // Add down payment to total paid
+          remaining: dealAmount - (downPayment || 0), // Calculate remaining
+        },
+      });
+
+      // Create installments with manual amounts
+      const createdInstallments = await Promise.all(
+        installments.map((inst: any, index: number) =>
+          tx.dealInstallment.create({
+            data: {
+              paymentPlanId: plan.id,
+              dealId,
+              clientId,
+              installmentNumber: index + 1,
+              type: inst.type || null,
+              amount: inst.amount,
+              dueDate: new Date(inst.dueDate),
+              status: 'Pending',
+              paidAmount: 0,
+              remaining: inst.amount,
+              paymentMode: inst.paymentMode || null,
+              notes: inst.notes || null,
+            },
+          })
+        )
+      );
+
+      return {
+        ...plan,
+        installments: createdInstallments,
+      };
+    });
+
+    res.json({ success: true, data: paymentPlan });
+  } catch (error: any) {
+    console.error('Create payment plan error:', error);
+    
+    // Ensure we always return JSON, even on unexpected errors
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error?.message || 'Failed to create payment plan',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+      });
+    }
+  }
+});
+
+// Create payment plan for a deal (legacy endpoint)
+router.post('/payment-plans', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -1771,6 +1883,7 @@ router.post('/payment-plans', authenticate, async (req: AuthRequest, res) => {
       clientId: req.body.clientId,
       numberOfInstallments: req.body.numberOfInstallments,
       totalAmount: req.body.totalAmount,
+      downPayment: req.body.downPayment || 0,
       startDate: new Date(req.body.startDate),
       installmentAmounts: req.body.installmentAmounts,
       dueDates: req.body.dueDates?.map((d: string) => new Date(d)),
@@ -1789,7 +1902,7 @@ router.post('/payment-plans', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get all payment plans
-router.get('/payment-plans', authenticate, async (req: AuthRequest, res) => {
+router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, dealId, clientId } = req.query;
     
@@ -1828,11 +1941,13 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    // Calculate summary for each plan
+    // Calculate summary for each plan (include down payment in paid amount)
     const plansWithSummary = plans.map((plan) => {
       const installments = plan.installments;
-      const totalAmount = installments.reduce((sum, i) => sum + i.amount, 0);
-      const paidAmount = installments.reduce((sum, i) => sum + i.paidAmount, 0);
+      const totalAmount = plan.totalAmount || installments.reduce((sum, i) => sum + i.amount, 0);
+      const installmentPaidAmount = installments.reduce((sum, i) => sum + i.paidAmount, 0);
+      const downPayment = plan.downPayment || 0;
+      const paidAmount = installmentPaidAmount + downPayment; // Include down payment in paid amount
       const paidCount = installments.filter((i) => i.status === 'paid').length;
       const overdueCount = installments.filter(
         (i) => i.status === 'overdue' || (i.status === 'unpaid' && new Date(i.dueDate) < new Date())
@@ -1846,8 +1961,9 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res) => {
           unpaidInstallments: installments.length - paidCount,
           overdueInstallments: overdueCount,
           totalAmount,
-          paidAmount,
+          paidAmount, // Includes down payment
           remainingAmount: totalAmount - paidAmount,
+          downPayment: downPayment,
         },
       };
     });
@@ -1863,7 +1979,7 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get payment plan for a deal
-router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest, res) => {
+router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -1874,8 +1990,22 @@ router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest,
     }
 
     const summary = await PaymentPlanService.getInstallmentSummary(req.params.dealId);
+    
+    // Include down payment in paid amount for summary
+    const downPayment = plan.downPayment || 0;
+    const installmentPaidAmount = summary.paidAmount || 0;
+    const totalPaidAmount = installmentPaidAmount + downPayment;
+    const totalAmount = plan.totalAmount || summary.totalAmount || 0;
+    
+    const summaryWithDownPayment = {
+      ...summary,
+      paidAmount: totalPaidAmount, // Include down payment
+      remainingAmount: Math.max(0, totalAmount - totalPaidAmount),
+      downPayment: downPayment,
+      totalAmount: totalAmount, // Use plan total amount (includes down payment + installments)
+    };
 
-    res.json({ success: true, data: { ...plan, summary } });
+    res.json({ success: true, data: { ...plan, summary: summaryWithDownPayment } });
   } catch (error: any) {
     console.error('Get payment plan error:', error);
     res.status(500).json({
@@ -1886,7 +2016,7 @@ router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest,
 });
 
 // Get installment reports
-router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res) => {
+router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { startDate, endDate, status, dealId, clientId } = req.query;
 
@@ -1936,7 +2066,23 @@ router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res)
       orderBy: { dueDate: 'asc' },
     });
 
-    // Calculate summary
+    // Calculate summary with down payment information
+    const uniquePlans = new Map();
+    installments.forEach((inst) => {
+      if (inst.paymentPlan) {
+        const planId = inst.paymentPlan.id;
+        if (!uniquePlans.has(planId)) {
+          uniquePlans.set(planId, {
+            planId,
+            dealCode: inst.paymentPlan.deal?.dealCode || 'N/A',
+            dealTitle: inst.paymentPlan.deal?.title || 'N/A',
+            dealAmount: inst.paymentPlan.deal?.dealAmount || 0,
+            downPayment: inst.paymentPlan.downPayment || 0,
+          });
+        }
+      }
+    });
+
     const summary = {
       total: installments.length,
       paid: installments.filter((i) => i.status === 'paid').length,
@@ -1948,9 +2094,20 @@ router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res)
       totalAmount: installments.reduce((sum, i) => sum + i.amount, 0),
       paidAmount: installments.reduce((sum, i) => sum + i.paidAmount, 0),
       remainingAmount: installments.reduce((sum, i) => sum + (i.amount - i.paidAmount), 0),
+      totalDownPayment: Array.from(uniquePlans.values()).reduce((sum, plan) => sum + (plan.downPayment || 0), 0),
+      plans: Array.from(uniquePlans.values()), // Include plan details with down payment
     };
 
-    res.json({ success: true, data: { installments, summary } });
+    // Add down payment info to each installment in the response
+    const installmentsWithDownPayment = installments.map((inst) => ({
+      ...inst,
+      paymentPlan: inst.paymentPlan ? {
+        ...inst.paymentPlan,
+        downPayment: inst.paymentPlan.downPayment || 0,
+      } : null,
+    }));
+
+    res.json({ success: true, data: { installments: installmentsWithDownPayment, summary } });
   } catch (error: any) {
     console.error('Get installment reports error:', error);
     res.status(500).json({
@@ -1961,7 +2118,7 @@ router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res)
 });
 
 // Update installment
-router.put('/installments/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/installments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -1984,7 +2141,7 @@ router.put('/installments/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Record payment against installment
-router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, res) => {
+router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -2007,7 +2164,7 @@ router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, 
 });
 
 // Export receipts (Payments)
-router.get('/receipts/export', authenticate, async (req: AuthRequest, res) => {
+router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { startDate, endDate, dealId, paymentMode, format = 'csv' } = req.query;
 
@@ -2109,7 +2266,7 @@ router.get('/receipts/export', authenticate, async (req: AuthRequest, res) => {
 
 // -------------------- Dealer Ledger --------------------
 // Get dealer ledger
-router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, res) => {
+router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
     
@@ -2131,7 +2288,7 @@ router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, re
 });
 
 // Record payment to dealer
-router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRequest, res) => {
+router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
     
@@ -2154,7 +2311,7 @@ router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRe
 });
 
 // Get dealer balance
-router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthRequest, res) => {
+router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
     
@@ -2171,120 +2328,26 @@ router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthReq
 });
 
 // -------------------- Enhanced Payment Plans (Multiple Types Support) --------------------
-// Create payment plan with multiple installment types
-router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res) => {
-  try {
-    const { dealId, clientId, installments } = req.body;
-
-    if (!dealId || !clientId || !Array.isArray(installments) || installments.length === 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'dealId, clientId, and installments array are required',
-      });
-    }
-
-    // Validate deal exists
-    const deal = await prisma.deal.findUnique({
-      where: { id: dealId },
-      include: { client: true },
-    });
-
-    if (!deal) {
-      return res.status(404).json({ success: false, error: 'Deal not found' });
-    }
-
-    if (deal.clientId !== clientId) {
-      return res.status(400).json({ success: false, error: 'Client ID does not match deal client' });
-    }
-
-    // Check if payment plan already exists
-    const existingPlan = await prisma.paymentPlan.findUnique({
-      where: { dealId },
-    });
-
-    if (existingPlan) {
-      return res.status(400).json({ success: false, error: 'Payment plan already exists for this deal' });
-    }
-
-    // Validate installments
-    const totalAmount = installments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
-    const dealAmount = deal.dealAmount || 0;
-
-    if (Math.abs(totalAmount - dealAmount) > 0.01) {
-      return res.status(400).json({
-        success: false,
-        error: `Installments total (${totalAmount}) must equal deal amount (${dealAmount})`,
-      });
-    }
-
-    // Create payment plan with installments
-    const paymentPlan = await prisma.$transaction(async (tx) => {
-      const plan = await tx.paymentPlan.create({
-        data: {
-          dealId,
-          clientId,
-          numberOfInstallments: installments.length,
-          totalAmount: dealAmount,
-          totalExpected: totalAmount,
-          startDate: installments[0]?.dueDate ? new Date(installments[0].dueDate) : new Date(),
-          notes: req.body.notes || null,
-          isActive: true,
-          status: 'Pending',
-        },
-      });
-
-      // Create installments with manual amounts
-      const createdInstallments = await Promise.all(
-        installments.map((inst: any, index: number) =>
-          tx.dealInstallment.create({
-            data: {
-              paymentPlanId: plan.id,
-              dealId,
-              clientId,
-              installmentNumber: index + 1,
-              type: inst.type || null,
-              amount: inst.amount,
-              dueDate: new Date(inst.dueDate),
-              status: 'Pending',
-              paidAmount: 0,
-              remaining: inst.amount,
-              paymentMode: inst.paymentMode || null,
-              notes: inst.notes || null,
-            },
-          })
-        )
-      );
-
-      return {
-        ...plan,
-        installments: createdInstallments,
-      };
-    });
-
-    res.json({ success: true, data: paymentPlan });
-  } catch (error: any) {
-    console.error('Create payment plan error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to create payment plan',
-    });
-  }
-});
+// NOTE: The /payment-plans/create route has been moved above to fix route matching order
 
 // Update payment plan
-router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { installments } = req.body;
+    const { installments, downPayment, notes } = req.body;
 
     const paymentPlan = await prisma.paymentPlan.findUnique({
       where: { id },
-      include: { installments: { where: { isDeleted: false } } },
+      include: { installments: { where: { isDeleted: false } }, deal: true },
     });
 
     if (!paymentPlan) {
       return res.status(404).json({ success: false, error: 'Payment plan not found' });
     }
+
+    // Get the saved down payment (preserve it if not provided in update)
+    const savedDownPayment = downPayment !== undefined ? (downPayment || 0) : (paymentPlan.downPayment || 0);
+    const dealAmount = paymentPlan.deal?.dealAmount || paymentPlan.totalAmount || 0;
 
     // Update installments if provided
     if (Array.isArray(installments)) {
@@ -2304,6 +2367,45 @@ router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, r
             });
           }
         }
+
+        // Recalculate totalPaid: sum of installment paid amounts + down payment
+        const updatedInstallments = await tx.dealInstallment.findMany({
+          where: { paymentPlanId: id, isDeleted: false },
+        });
+        const installmentPaidAmount = updatedInstallments.reduce((sum, inst) => sum + (inst.paidAmount || 0), 0);
+        const totalPaid = installmentPaidAmount + savedDownPayment;
+        const remaining = dealAmount - totalPaid;
+
+        // Update payment plan with down payment and recalculated totals
+        await tx.paymentPlan.update({
+          where: { id },
+          data: {
+            downPayment: savedDownPayment,
+            totalPaid: totalPaid,
+            remaining: remaining,
+            status: totalPaid >= dealAmount ? 'Fully Paid' : (totalPaid > 0 ? 'Partially Paid' : 'Pending'),
+            ...(notes !== undefined && { notes: notes || null }),
+          },
+        });
+      });
+    } else {
+      // If only down payment or notes are being updated (no installments)
+      const updatedInstallments = await prisma.dealInstallment.findMany({
+        where: { paymentPlanId: id, isDeleted: false },
+      });
+      const installmentPaidAmount = updatedInstallments.reduce((sum, inst) => sum + (inst.paidAmount || 0), 0);
+      const totalPaid = installmentPaidAmount + savedDownPayment;
+      const remaining = dealAmount - totalPaid;
+
+      await prisma.paymentPlan.update({
+        where: { id },
+        data: {
+          downPayment: savedDownPayment,
+          totalPaid: totalPaid,
+          remaining: remaining,
+          status: totalPaid >= dealAmount ? 'Fully Paid' : (totalPaid > 0 ? 'Partially Paid' : 'Pending'),
+          ...(notes !== undefined && { notes: notes || null }),
+        },
       });
     }
 
@@ -2311,6 +2413,7 @@ router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, r
       where: { id },
       include: {
         installments: { where: { isDeleted: false }, orderBy: { installmentNumber: 'asc' } },
+        deal: true,
       },
     });
 
@@ -2326,7 +2429,7 @@ router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, r
 
 // -------------------- Receipt System --------------------
 // Create receipt with FIFO allocation
-router.post('/receipts/create', authenticate, async (req: AuthRequest, res) => {
+router.post('/receipts/create', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { ReceiptService } = await import('../services/receipt-service');
 
@@ -2371,7 +2474,7 @@ router.post('/receipts/create', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get receipts for a deal
-router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res) => {
+router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { ReceiptService } = await import('../services/receipt-service');
     const receipts = await ReceiptService.getReceiptsByDealId(req.params.dealId);
@@ -2386,7 +2489,7 @@ router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get receipt PDF
-router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { ReceiptService } = await import('../services/receipt-service');
     const { generateReceiptPDF } = await import('../utils/pdf-generator');

@@ -123,7 +123,7 @@ export function AddBuyerDialog({ open, onOpenChange, onSuccess }: AddBuyerDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>Add New Buyer</DialogTitle>
           <DialogDescription>Enter the buyer details and property interest information</DialogDescription>

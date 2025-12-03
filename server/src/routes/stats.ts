@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -36,7 +36,7 @@ function getTimeAgo(date: Date): string {
   return `${diffInMonths} month${diffInMonths > 1 ? 's' : ''} ago`;
 }
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 const columnExists = async (tableName: string, columnName: string) => {
   const rows = await prisma.$queryRaw<{ exists: boolean }[]>`
@@ -52,7 +52,7 @@ const columnExists = async (tableName: string, columnName: string) => {
 };
 
 // Get properties stats
-router.get('/properties', authenticate, async (req: AuthRequest, res) => {
+router.get('/properties', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Get all property counts
     const totalProperties = await prisma.property.count({
@@ -350,7 +350,7 @@ router.get('/properties', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get HR stats
-router.get('/hr', authenticate, async (req: AuthRequest, res) => {
+router.get('/hr', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Get total employees
     const totalEmployees = await prisma.employee.count({
@@ -458,7 +458,7 @@ router.get('/hr', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get CRM stats
-router.get('/crm', authenticate, async (req: AuthRequest, res) => {
+router.get('/crm', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Get total leads
     const totalLeads = await prisma.lead.count();
@@ -545,7 +545,7 @@ router.get('/crm', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get Finance stats (placeholder for now)
-router.get('/finance', authenticate, async (req: AuthRequest, res) => {
+router.get('/finance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const now = new Date();
     const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -810,7 +810,7 @@ router.get('/finance', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get dashboard alerts
-router.get('/alerts', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const today = new Date();
     const thirtyDaysFromNow = new Date();
@@ -1018,7 +1018,7 @@ router.get('/alerts', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get revenue vs expense graph data
-router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest, res) => {
+router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { months = 6 } = req.query;
     const monthsCount = parseInt(months as string) || 6;
@@ -1089,7 +1089,7 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
 });
 
 // Get occupancy trend graph data
-router.get('/properties/occupancy-trend', authenticate, async (req: AuthRequest, res) => {
+router.get('/properties/occupancy-trend', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { months = 6 } = req.query;
     const monthsCount = parseInt(months as string) || 6;

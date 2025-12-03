@@ -28,9 +28,11 @@ interface PaymentPlanPageViewProps {
 }
 
 interface InstallmentRow {
-  id?: string
+  id: number
   installmentNumber: number
+  type: string // monthly, quarterly, yearly, custom
   amount: number
+  period: string
   dueDate: Date | null
   paymentMode: string
   notes: string
@@ -46,16 +48,21 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   const [deal, setDeal] = useState<any>(null)
   const [paymentPlan, setPaymentPlan] = useState<any>(null)
   const [apiSummary, setApiSummary] = useState<any>(null)
-  const [isCreating, setIsCreating] = useState(false)
-  const [isEditing, setIsEditing] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false) // Track if we're editing the plan
   
-  // Form state
-  const [installmentType, setInstallmentType] = useState<'monthly' | 'quarterly' | 'bi-monthly' | 'bi-annual' | 'annual' | 'custom'>('monthly')
-  const [downPayment, setDownPayment] = useState<string>("")
+  // Form state - CREATE MODE or EDIT MODE
+  const [downPaymentType, setDownPaymentType] = useState<"percentage" | "manual">("manual")
+  const [downPaymentPercentage, setDownPaymentPercentage] = useState<string>("")
+  const [downPaymentAmount, setDownPaymentAmount] = useState<string>("")
+  const [appliedDownPayment, setAppliedDownPayment] = useState<number>(0)
+  const [isDownPaymentApplied, setIsDownPaymentApplied] = useState(false)
+  const [downPaymentAction, setDownPaymentAction] = useState<"cut" | "pay">("cut")
+  
   const [numberOfInstallments, setNumberOfInstallments] = useState(3)
   const [installmentsInput, setInstallmentsInput] = useState<string>("3")
   const [startDate, setStartDate] = useState<Date>(new Date())
-  const [installments, setInstallments] = useState<InstallmentRow[]>([])
+  const [installments, setInstallments] = useState<InstallmentRow[]>([]) // Form installments (always empty on load)
+  const [viewInstallments, setViewInstallments] = useState<InstallmentRow[]>([]) // View installments (for existing plans)
   const [notes, setNotes] = useState("")
   
   // Payment dialog
@@ -70,56 +77,114 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   const [generatingReport, setGeneratingReport] = useState(false)
 
   useEffect(() => {
-    loadDealAndPaymentPlan()
+    loadDeal()
   }, [dealId])
 
-  const loadDealAndPaymentPlan = async () => {
+  // ALWAYS OPEN IN CREATE MODE - DO NOT LOAD PREVIOUS VALUES INTO FORM
+  const loadDeal = async () => {
     try {
       setLoading(true)
       
-      // Load deal
-      const dealResponse = await apiService.deals?.getById?.(dealId) || await fetch(`/api/crm/deals/${dealId}`).then(r => r.json())
+      // Load deal only
+      let dealResponse
+      if (apiService.deals?.getById) {
+        try {
+          dealResponse = await apiService.deals.getById(dealId)
+        } catch (error) {
+          console.error('Failed to load deal via apiService:', error)
+        }
+      }
+      
+      if (!dealResponse) {
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+        const fetchResponse = await fetch(`${apiBaseUrl}/crm/deals/${dealId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          },
+        })
+        
+        if (!fetchResponse.ok) {
+          const contentType = fetchResponse.headers.get('content-type')
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await fetchResponse.json()
+            throw new Error(errorData.error || errorData.message || `Failed to load deal: ${fetchResponse.status}`)
+          } else {
+            const text = await fetchResponse.text()
+            throw new Error(`Server error (${fetchResponse.status}): ${text.substring(0, 200)}`)
+          }
+        }
+        
+        const contentType = fetchResponse.headers.get('content-type')
+        if (!contentType || !contentType.includes('application/json')) {
+          const text = await fetchResponse.text()
+          throw new Error(`Server returned non-JSON response: ${text.substring(0, 200)}`)
+        }
+        
+        dealResponse = await fetchResponse.json()
+      }
+      
       setDeal(dealResponse?.data || dealResponse)
       
-      // Load payment plan if exists
+      // Check if payment plan exists (for display only in view section, NOT for form editing)
       try {
-        const planResponse: any = await apiService.deals.getPaymentPlan(dealId)
+        const planResponse: any = await apiService.paymentPlans.getByDealId(dealId)
         const responseData = planResponse?.data || planResponse
-        if (responseData?.success && responseData?.data) {
-          setPaymentPlan(responseData.data)
-          setIsCreating(false)
-          setIsEditing(false)
+        
+        // Debug: log the response structure
+        console.log('Payment plan response:', { planResponse, responseData })
+        
+        // Handle both response structures: { success: true, data: {...} } or direct data
+        const planData = responseData?.success ? responseData.data : responseData
+        
+        if (planData) {
+          // Extract the actual payment plan object - it's nested in paymentPlan property
+          // The response structure from backend is: { paymentPlan: {id, ...}, installments: [...], summary: {...} }
+          // So we need to extract planData.paymentPlan which has the id
+          const actualPlan = planData.paymentPlan || planData
           
-          // Populate form with existing plan
-          const plan = responseData.data
-          const numInst = plan.numberOfInstallments || plan.installments?.length || 3
-          setNumberOfInstallments(numInst)
-          setInstallmentsInput(numInst.toString())
-          setStartDate(plan.startDate ? new Date(plan.startDate) : new Date())
-          setNotes(plan.notes || "")
+          // Always use planData.paymentPlan if it exists (it has the id)
+          if (planData.paymentPlan && planData.paymentPlan.id) {
+            setPaymentPlan(planData.paymentPlan)
+          } else if (actualPlan.id) {
+            setPaymentPlan(actualPlan)
+          } else {
+            // Fallback: try to find id anywhere in the structure
+            console.warn('Payment plan structure unexpected:', planData)
+            setPaymentPlan(planData)
+          }
           
-          if (plan.installments && plan.installments.length > 0) {
-            setInstallments(
-              plan.installments.map((inst: any) => ({
-                id: inst.id,
+          // Load installments for VIEW section only (NOT for form - form is always in create mode)
+          const installments = planData.installments || actualPlan.installments || []
+          if (installments.length > 0) {
+            setViewInstallments(
+              installments.map((inst: any) => ({
+                id: inst.id || Date.now() + Math.random(),
                 installmentNumber: inst.installmentNumber,
+                type: inst.type || 'custom', // Each installment has its own type
                 amount: inst.amount,
-                dueDate: new Date(inst.dueDate),
+                period: inst.period || "",
+                dueDate: inst.dueDate ? new Date(inst.dueDate) : null,
                 paymentMode: inst.paymentMode || "bank",
                 notes: inst.notes || "",
                 paidAmount: inst.paidAmount || 0,
                 status: inst.status,
               }))
             )
+          } else {
+            setViewInstallments([])
           }
-        } else {
-          setIsCreating(true)
-          setInstallmentsInput("3")
+          
+          // Set summary if available
+          if (planData.summary) {
+            setApiSummary(planData.summary)
+          }
         }
       } catch (error) {
-        // No payment plan exists
-        setIsCreating(true)
-        setInstallmentsInput("3")
+        // No payment plan exists - this is fine, we're in create mode
+        console.log('No payment plan found (this is OK for new deals):', error)
+        setPaymentPlan(null)
+        setViewInstallments([])
+        setApiSummary(null)
       }
     } catch (error: any) {
       toast({
@@ -132,8 +197,47 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
   }
 
-  // Generate installments based on type - NO auto-calculation of amounts
-  const handleGenerateInstallments = () => {
+  // Calculate down payment amount
+  const calculatedDownPayment = () => {
+    if (downPaymentType === "percentage") {
+      const percentage = parseFloat(downPaymentPercentage) || 0
+      if (percentage > 0 && percentage <= 100 && deal?.dealAmount) {
+        return Math.round((deal.dealAmount * percentage / 100) * 100) / 100
+      }
+      return 0
+    } else {
+      return parseFloat(downPaymentAmount) || 0
+    }
+  }
+
+  // Calculate remaining amount after down payment
+  const remainingAmount = () => {
+    const downPayment = isDownPaymentApplied ? appliedDownPayment : calculatedDownPayment()
+    return Math.max(0, (deal?.dealAmount || 0) - downPayment)
+  }
+
+  // Apply down payment
+  const handleApplyDownPayment = () => {
+    const dp = calculatedDownPayment()
+    if (dp > 0 && deal?.dealAmount && dp <= deal.dealAmount) {
+      setAppliedDownPayment(dp)
+      setIsDownPaymentApplied(true)
+      setDownPaymentAction("pay") // Mark as paid so it shows in summary
+      toast({
+        title: "Down Payment Applied",
+        description: `Down payment of Rs ${dp.toLocaleString("en-IN")} has been applied. Remaining: Rs ${remainingAmount().toLocaleString("en-IN")}`,
+      })
+    } else {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid down payment amount",
+        variant: "destructive",
+      })
+    }
+  }
+
+  // Generate installments based on type - each installment has its own type
+  const handleGenerateInstallments = (type: 'monthly' | 'quarterly' | 'yearly' | 'custom') => {
     if (!deal || (deal.dealAmount || 0) <= 0) {
       toast({
         title: "Error",
@@ -153,20 +257,25 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
 
     const newInstallments: InstallmentRow[] = []
-    const monthsPerInstallment = installmentType === 'quarterly' ? 3 
-      : installmentType === 'bi-monthly' ? 2
-      : installmentType === 'monthly' ? 1
-      : installmentType === 'bi-annual' ? 6
-      : installmentType === 'annual' ? 12
+    const monthsPerInstallment = type === 'quarterly' ? 3 
+      : type === 'yearly' ? 12
+      : type === 'monthly' ? 1
       : 1 // Default to monthly
+
+    const currentMaxNumber = installments.length > 0 
+      ? Math.max(...installments.map(inst => inst.installmentNumber))
+      : 0
 
     for (let i = 0; i < numberOfInstallments; i++) {
       const dueDate = new Date(startDate)
       dueDate.setMonth(dueDate.getMonth() + (i * monthsPerInstallment))
       
       newInstallments.push({
-        installmentNumber: installments.length + i + 1,
-        amount: 0, // Manual entry required - NO auto-calculation
+        id: Date.now() + i, // Unique ID
+        installmentNumber: currentMaxNumber + i + 1,
+        type: type, // Each installment has its own type
+        amount: 0, // Manual entry - NO auto-calculation
+        period: "",
         dueDate,
         paymentMode: "bank",
         notes: "",
@@ -177,39 +286,82 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     
     toast({
       title: "Success",
-      description: `${numberOfInstallments} installment(s) generated. Please enter amounts manually.`,
+      description: `${numberOfInstallments} ${type} installment(s) generated. Please enter amounts manually.`,
     })
   }
 
-  const handleInstallmentChange = (index: number, field: keyof InstallmentRow, value: any) => {
-    const updated = [...installments]
-    updated[index] = { ...updated[index], [field]: value }
-    setInstallments(updated)
+  // Add one more installment of the same type
+  const handleAddOneMore = (type: string) => {
+    const monthsPerInstallment = type === 'quarterly' ? 3 
+      : type === 'yearly' ? 12
+      : type === 'monthly' ? 1
+      : 1
+
+    const sameTypeInstallments = installments.filter(inst => inst.type === type)
+    const lastSameTypeIndex = installments.findLastIndex(inst => inst.type === type)
+    const lastDueDate = lastSameTypeIndex >= 0 && installments[lastSameTypeIndex].dueDate
+      ? new Date(installments[lastSameTypeIndex].dueDate)
+      : new Date(startDate)
+
+    const newDueDate = new Date(lastDueDate)
+    newDueDate.setMonth(newDueDate.getMonth() + monthsPerInstallment)
+
+    const currentMaxNumber = installments.length > 0 
+      ? Math.max(...installments.map(inst => inst.installmentNumber))
+      : 0
+
+    const newInstallment: InstallmentRow = {
+      id: Date.now(),
+      installmentNumber: currentMaxNumber + 1,
+      type: type,
+      amount: 0,
+      period: "",
+      dueDate: newDueDate,
+      paymentMode: "bank",
+      notes: "",
+    }
+
+    setInstallments([...installments, newInstallment])
+  }
+
+  // ID-based update handler - EXACT as specified
+  const updateInstallment = (id: number, field: keyof InstallmentRow, value: any) => {
+    setInstallments(prev =>
+      prev.map(inst =>
+        inst.id === id
+          ? { ...inst, [field]: value }
+          : inst
+      )
+    )
   }
 
   const handleSave = async () => {
     try {
       setSaving(true)
 
-      // Validate that installments sum equals deal amount
-      const dealAmount = deal?.dealAmount || 0
-      const total = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0)
-      const difference = Math.abs(total - dealAmount)
-      
-      if (difference > 0.01) {
+      // Validate down payment is applied (only for create, not update)
+      if (!isEditMode && (!isDownPaymentApplied || appliedDownPayment <= 0)) {
         toast({
           title: "Validation Error",
-          description: `Installments total (${total.toLocaleString()}) must equal deal amount (${dealAmount.toLocaleString()}). Difference: ${difference.toFixed(2)}`,
+          description: "Down payment is required. Please enter and apply down payment first.",
           variant: "destructive",
         })
         return
       }
 
-      // Auto-adjust last installment if there's a small rounding difference
-      if (difference > 0 && difference <= 0.01 && installments.length > 0) {
-        const lastIndex = installments.length - 1
-        installments[lastIndex].amount = (installments[lastIndex].amount || 0) + (dealAmount - total)
-        installments[lastIndex].amount = Math.round(installments[lastIndex].amount * 100) / 100
+      const dealAmount = deal?.dealAmount || 0
+      const remaining = remainingAmount()
+      const total = installments.reduce((sum, inst) => sum + (inst.amount || 0), 0)
+      const difference = Math.abs(total - remaining)
+      
+      // Validate that installments sum equals remaining amount after down payment (only for create)
+      if (!isEditMode && difference > 0.01) {
+        toast({
+          title: "Validation Error",
+          description: `Installments total (${total.toLocaleString()}) must equal remaining amount after down payment (${remaining.toLocaleString()}). Difference: ${difference.toFixed(2)}`,
+          variant: "destructive",
+        })
+        return
       }
 
       const hasInvalidDates = installments.some((inst) => !inst.dueDate)
@@ -222,16 +374,38 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         return
       }
 
-      if (paymentPlan) {
+      if (isEditMode && paymentPlan) {
         // Update existing plan
-        const response: any = await apiService.deals.updatePaymentPlan(paymentPlan.id, {
-          installments: installments.map((inst) => ({
-            id: inst.id,
-            amount: inst.amount,
-            dueDate: inst.dueDate?.toISOString(),
-            paymentMode: inst.paymentMode,
-            notes: inst.notes,
-          })),
+        const installmentsPayload = installments.map((inst) => ({
+          id: inst.id,
+          type: inst.type || null,
+          amount: inst.amount,
+          dueDate: inst.dueDate?.toISOString(),
+          paymentMode: inst.paymentMode || null,
+          notes: inst.notes || null,
+          paidAmount: inst.paidAmount || 0, // Preserve paid amounts
+        }))
+
+        // Ensure we have the payment plan ID - handle nested structure
+        // paymentPlan might be the object itself or nested in paymentPlan property
+        const planId = paymentPlan?.id || (paymentPlan as any)?.paymentPlan?.id
+        if (!planId) {
+          console.error('Payment plan object:', paymentPlan)
+          toast({
+            title: "Error",
+            description: "Payment plan ID not found. Please refresh the page.",
+            variant: "destructive",
+          })
+          return
+        }
+
+        // Preserve down payment when updating - get it from existing plan or use applied one
+        const downPaymentToSave = paymentPlan?.downPayment || appliedDownPayment || 0
+        
+        const response: any = await apiService.paymentPlans.update(planId, {
+          installments: installmentsPayload,
+          downPayment: downPaymentToSave, // Preserve down payment
+          notes: notes || null,
         })
 
         const responseData = response?.data || response
@@ -240,54 +414,32 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
             title: "Success",
             description: "Payment plan updated successfully",
           })
-          await loadDealAndPaymentPlan()
-          setIsEditing(false)
+          await loadDeal()
+          setIsEditMode(false)
+          setInstallments([])
+          setDownPaymentPercentage("")
+          setDownPaymentAmount("")
+          setAppliedDownPayment(0)
+          setIsDownPaymentApplied(false)
+          setNotes("")
         }
       } else {
-        // Create new plan using new API endpoint
-        const dealAmount = deal?.dealAmount || 0
-        
-        // Validate all amounts are entered
-        const hasEmptyAmounts = installments.some(inst => !inst.amount || inst.amount <= 0)
-        if (hasEmptyAmounts) {
-          toast({
-            title: "Validation Error",
-            description: "All installments must have an amount greater than 0",
-            variant: "destructive",
-          })
-          return
-        }
+        // Create new plan
+        const installmentsPayload = installments.map((inst) => ({
+          type: inst.type || null, // Each installment has its own type
+          amount: inst.amount,
+          dueDate: inst.dueDate?.toISOString(),
+          paymentMode: inst.paymentMode || null,
+          notes: inst.notes || null,
+        }))
 
-        // Validate dates
-        const hasInvalidDates = installments.some((inst) => !inst.dueDate)
-        if (hasInvalidDates) {
-          toast({
-            title: "Validation Error",
-            description: "All installments must have a due date",
-            variant: "destructive",
-          })
-          return
-        }
-
-        const response: any = await fetch('/api/finance/payment-plans/create', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          },
-          body: JSON.stringify({
-            dealId,
-            clientId: deal?.clientId || "",
-            installments: installments.map((inst) => ({
-              type: installmentType,
-              amount: inst.amount,
-              dueDate: inst.dueDate?.toISOString(),
-              paymentMode: inst.paymentMode || null,
-              notes: inst.notes || null,
-            })),
-            notes,
-          }),
-        }).then(r => r.json())
+        const response: any = await apiService.paymentPlans.create({
+          dealId,
+          clientId: deal?.clientId || "",
+          downPayment: appliedDownPayment, // Include down payment for backend validation
+          installments: installmentsPayload,
+          notes: notes || null,
+        })
 
         const responseData = response?.data || response
         if (responseData?.success) {
@@ -295,13 +447,32 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
             title: "Success",
             description: "Payment plan created successfully",
           })
-          await loadDealAndPaymentPlan()
+          await loadDeal()
+          // Reset form and exit edit mode
+          setInstallments([])
+          setDownPaymentPercentage("")
+          setDownPaymentAmount("")
+          setAppliedDownPayment(0)
+          setIsDownPaymentApplied(false)
+          setIsEditMode(false)
+          setNotes("")
         }
       }
     } catch (error: any) {
+      console.error('Payment plan creation error:', error)
+      let errorMessage = "Failed to save payment plan"
+      
+      if (error.message) {
+        errorMessage = error.message
+      } else if (typeof error === 'string') {
+        errorMessage = error
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error
+      }
+      
       toast({
         title: "Error",
-        description: error.message || "Failed to save payment plan",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {
@@ -347,7 +518,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         setPaymentDialogOpen(false)
         setPaymentAmount("")
         setSelectedInstallment(null)
-        await loadDealAndPaymentPlan()
+        await loadDeal()
       }
     } catch (error: any) {
       toast({
@@ -379,9 +550,9 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
 
       const responseData = response?.data || response
       if (responseData?.success) {
-        // Update installments in real-time if provided
+        // Update view installments in real-time if provided
         if (responseData.updatedInstallments && responseData.updatedInstallments.length > 0) {
-          setInstallments((prev) => {
+          setViewInstallments((prev) => {
             const updated = [...prev]
             responseData.updatedInstallments.forEach((updatedInst: any) => {
               const index = updated.findIndex((inst) => inst.id === updatedInst.id)
@@ -419,7 +590,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         setPaymentAmount("")
 
         // Reload full data to ensure consistency
-        await loadDealAndPaymentPlan()
+        await loadDeal()
         return true
       }
       return false
@@ -492,22 +663,43 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
   }
 
-  // Use summary from API response, or calculate from deal if no summary exists
-  const finalSummary = apiSummary || {
-    totalAmount: deal?.dealAmount || 0,
-    paidAmount: 0,
-    remainingAmount: deal?.dealAmount || 0,
-    progress: 0,
-    status: 'Pending',
+  // Calculate paid amount including down payment
+  // Backend summary includes down payment for existing plans
+  // For new plans or when user applies down payment, we need to add it
+  let totalPaidAmount = apiSummary?.paidAmount || 0
+  
+  // Get saved down payment from payment plan (handle nested structure)
+  const savedDownPayment = paymentPlan?.downPayment || (paymentPlan as any)?.paymentPlan?.downPayment || 0
+  
+  // If user has applied down payment in the form, show it immediately
+  if (isDownPaymentApplied && appliedDownPayment > 0) {
+    if (paymentPlan && savedDownPayment > 0) {
+      // Existing plan: backend summary already includes saved down payment
+      // Replace it with the newly applied amount
+      totalPaidAmount = (totalPaidAmount - savedDownPayment) + appliedDownPayment
+    } else {
+      // New plan: add the applied down payment
+      totalPaidAmount = totalPaidAmount + appliedDownPayment
+    }
+  } else if (!isDownPaymentApplied && paymentPlan && savedDownPayment > 0) {
+    // If down payment is not applied in form but exists in saved plan, it's already in apiSummary
+    // No need to add it again
   }
   
-  // Ensure summary always uses deal amount as total (override if needed)
-  if (deal?.dealAmount && finalSummary.totalAmount !== deal.dealAmount) {
-    finalSummary.totalAmount = deal.dealAmount
-    finalSummary.remainingAmount = Math.max(0, deal.dealAmount - (finalSummary.paidAmount || 0))
-    finalSummary.progress = deal.dealAmount > 0 
-      ? Math.round(((finalSummary.paidAmount || 0) / deal.dealAmount) * 10000) / 100 
-      : 0
+  // Calculate final summary with down payment included
+  // If no apiSummary and no deal, show zeros (but still show the summary card)
+  const totalAmount = deal?.dealAmount || 0
+  const summaryRemainingAmount = Math.max(0, totalAmount - totalPaidAmount)
+  const progress = totalAmount > 0 
+    ? Math.round((totalPaidAmount / totalAmount) * 10000) / 100 
+    : 0
+  
+  const finalSummary = {
+    totalAmount: totalAmount || 0,
+    paidAmount: totalPaidAmount || 0,
+    remainingAmount: summaryRemainingAmount || 0,
+    progress: progress || 0,
+    status: apiSummary?.status || (totalPaidAmount > 0 ? 'Partially Paid' : 'Pending'),
   }
 
   if (loading) {
@@ -534,27 +726,15 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {!paymentPlan && !isCreating && (
-            <Button onClick={() => setIsCreating(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Payment Plan
+          {paymentPlan && (
+            <Button variant="outline" onClick={handleGenerateReport} disabled={generatingReport}>
+              {generatingReport ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-2 h-4 w-4" />
+              )}
+              Generate PDF Report
             </Button>
-          )}
-          {paymentPlan && !isEditing && (
-            <>
-              <Button variant="outline" onClick={handleGenerateReport} disabled={generatingReport}>
-                {generatingReport ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <FileText className="mr-2 h-4 w-4" />
-                )}
-                Generate PDF Report
-              </Button>
-              <Button onClick={() => setIsEditing(true)}>
-                <Edit className="mr-2 h-4 w-4" />
-                Edit Plan
-              </Button>
-            </>
           )}
         </div>
       </div>
@@ -590,46 +770,134 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         </CardContent>
       </Card>
 
-      {/* Payment Plan Form */}
-      {(isCreating || isEditing) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Configure Payment Plan</CardTitle>
-            <CardDescription>Set up installments with amounts and due dates</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Installment Type</Label>
-                <Select value={installmentType} onValueChange={(value: any) => setInstallmentType(value)}>
+      {/* Payment Plan Form - Only show if no plan exists OR in edit mode */}
+      {(!paymentPlan || isEditMode) && (
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{isEditMode ? "Update Payment Plan" : "Create Payment Plan"}</CardTitle>
+              <CardDescription>Set up installments with amounts and due dates. Total amount: {formatCurrency(deal?.dealAmount || 0)}</CardDescription>
+            </div>
+            {isEditMode && (
+              <Button variant="outline" onClick={() => {
+                setIsEditMode(false)
+                setInstallments([])
+                setDownPaymentPercentage("")
+                setDownPaymentAmount("")
+                setAppliedDownPayment(0)
+                setIsDownPaymentApplied(false)
+                setNotes("")
+              }}>
+                Cancel
+              </Button>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Down Payment Section - AT THE TOP */}
+          <div className="space-y-4 border-b pb-4">
+            <div>
+              <Label className="text-base font-semibold">Down Payment <span className="text-destructive">*</span></Label>
+              <p className="text-sm text-muted-foreground">Enter down payment amount (required). It will be deducted from total deal amount.</p>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label>Down Payment Type</Label>
+                <Select value={downPaymentType} onValueChange={(value: "percentage" | "manual") => {
+                  setDownPaymentType(value)
+                  setIsDownPaymentApplied(false)
+                  setAppliedDownPayment(0)
+                }}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="monthly">Monthly</SelectItem>
-                    <SelectItem value="quarterly">Quarterly</SelectItem>
-                    <SelectItem value="bi-monthly">Bi-Monthly</SelectItem>
-                    <SelectItem value="bi-annual">Bi-Annual</SelectItem>
-                    <SelectItem value="annual">Annual</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                    <SelectItem value="manual">Manual Amount</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Down Payment Amount</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={downPayment}
-                  onChange={(e) => setDownPayment(e.target.value)}
-                  placeholder="0.00"
-                />
+              <div>
+                {downPaymentType === "percentage" ? (
+                  <>
+                    <Label>Down Payment Percentage (%)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      value={downPaymentPercentage}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const num = parseFloat(value)
+                        if (value === "" || (!isNaN(num) && num >= 0 && num <= 100)) {
+                          setDownPaymentPercentage(value)
+                          setIsDownPaymentApplied(false)
+                          setAppliedDownPayment(0)
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                    {downPaymentPercentage && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Amount: Rs {calculatedDownPayment().toLocaleString("en-IN")}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Label>Down Payment Amount (Rs)</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      max={deal?.dealAmount || 0}
+                      value={downPaymentAmount}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        const num = parseFloat(value)
+                        if (value === "" || (!isNaN(num) && num >= 0 && num <= (deal?.dealAmount || 0))) {
+                          setDownPaymentAmount(value)
+                          setIsDownPaymentApplied(false)
+                          setAppliedDownPayment(0)
+                        }
+                      }}
+                      placeholder="0.00"
+                    />
+                  </>
+                )}
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  onClick={handleApplyDownPayment}
+                  disabled={calculatedDownPayment() <= 0 || isDownPaymentApplied}
+                  className="w-full"
+                >
+                  {isDownPaymentApplied ? "Applied" : "Apply Down Payment"}
+                </Button>
               </div>
             </div>
+            {isDownPaymentApplied && appliedDownPayment > 0 && (
+              <div className="bg-muted p-3 rounded-lg space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Applied Down Payment:</span>
+                  <span className="text-sm font-semibold">Rs {appliedDownPayment.toLocaleString("en-IN")}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium">Remaining Amount:</span>
+                  <span className="text-sm font-semibold">Rs {remainingAmount().toLocaleString("en-IN")}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Installments Section */}
+          <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Number of Installments {installmentType !== 'custom' && '(excluding down payment)'}</Label>
+                <Label>Number of Installments</Label>
                 <Input
                   type="number"
                   min="1"
@@ -652,7 +920,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                       setInstallmentsInput(value.toString())
                     }
                   }}
-                  disabled={!!paymentPlan && !isEditing}
                 />
               </div>
               <div className="space-y-2">
@@ -671,166 +938,261 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
               </div>
             </div>
 
+            {/* Generate Installments Buttons - One for each type */}
+            <div className="space-y-2">
+              <Label>Generate Installments</Label>
+              <p className="text-sm text-muted-foreground mb-2">
+                Generate installments by type. Each installment will have its own independent type.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleGenerateInstallments('monthly')}
+                  disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Generate {numberOfInstallments} Monthly
+                </Button>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleGenerateInstallments('quarterly')}
+                  disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Generate {numberOfInstallments} Quarterly
+                </Button>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleGenerateInstallments('yearly')}
+                  disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Generate {numberOfInstallments} Yearly
+                </Button>
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  onClick={() => handleGenerateInstallments('custom')}
+                  disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Generate {numberOfInstallments} Custom
+                </Button>
+              </div>
+            </div>
+
+            {/* Installments Table - Grouped by Type with "Add One More" */}
+            <div className="space-y-4">
+              {installments.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8 border rounded-lg">
+                  No installments yet. Apply down payment first, then generate installments by type.
+                </div>
+              ) : (
+                (() => {
+                  // Group installments by type
+                  const grouped = installments.reduce((acc, inst) => {
+                    const type = inst.type || 'custom'
+                    if (!acc[type]) acc[type] = []
+                    acc[type].push(inst)
+                    return acc
+                  }, {} as Record<string, InstallmentRow[]>)
+
+                  return Object.entries(grouped).map(([type, typeInstallments]) => (
+                    <div key={type} className="space-y-2 border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-base px-3 py-1">
+                            {type.charAt(0).toUpperCase() + type.slice(1)} Installments ({typeInstallments.length})
+                          </Badge>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleAddOneMore(type)}
+                        >
+                          <Plus className="mr-2 h-4 w-4" />
+                          Add One More
+                        </Button>
+                      </div>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>#</TableHead>
+                            <TableHead>Type</TableHead>
+                            <TableHead>Amount</TableHead>
+                            <TableHead>Period</TableHead>
+                            <TableHead>Due Date</TableHead>
+                            <TableHead>Payment Mode</TableHead>
+                            <TableHead>Notes</TableHead>
+                            <TableHead>Actions</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {typeInstallments.map((inst) => (
+                            <TableRow key={inst.id}>
+                              <TableCell className="font-medium">{inst.installmentNumber}</TableCell>
+                              <TableCell>
+                                <Select
+                                  value={inst.type}
+                                  onValueChange={(value) => updateInstallment(inst.id, "type", value)}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <SelectValue placeholder="Select Type" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="monthly">Monthly</SelectItem>
+                                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                                    <SelectItem value="yearly">Yearly</SelectItem>
+                                    <SelectItem value="custom">Custom</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={inst.amount || ''}
+                                  onChange={(e) => updateInstallment(inst.id, "amount", Number(e.target.value) || 0)}
+                                  className="w-32"
+                                  placeholder="Enter amount"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  value={inst.period}
+                                  onChange={(e) => updateInstallment(inst.id, "period", e.target.value)}
+                                  placeholder="Period"
+                                  className="w-24"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-start text-left font-normal">
+                                      <CalendarIcon className="mr-2 h-4 w-4" />
+                                      {inst.dueDate ? format(inst.dueDate, "PPP") : "Pick a date"}
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0">
+                                    <Calendar
+                                      mode="single"
+                                      selected={inst.dueDate || undefined}
+                                      onSelect={(date) => updateInstallment(inst.id, "dueDate", date)}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={inst.paymentMode}
+                                  onValueChange={(value) => updateInstallment(inst.id, "paymentMode", value)}
+                                >
+                                  <SelectTrigger className="w-32">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="cash">Cash</SelectItem>
+                                    <SelectItem value="bank">Bank</SelectItem>
+                                    <SelectItem value="online">Online</SelectItem>
+                                    <SelectItem value="cheque">Cheque</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  value={inst.notes || ''}
+                                  onChange={(e) => updateInstallment(inst.id, "notes", e.target.value)}
+                                  placeholder="Optional notes..."
+                                  className="w-48"
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setInstallments(prev => prev.filter(i => i.id !== inst.id))
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))
+                })()
+              )}
+            </div>
+          </div>
+
+          {/* Notes */}
             <div className="space-y-2">
               <Label>Notes</Label>
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Additional notes..." />
             </div>
 
-            {/* Generate Installments Button */}
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Installments</Label>
-                <p className="text-sm text-muted-foreground">
-                  Click "Generate Installments" to create rows. Enter amounts manually for each installment.
-                </p>
-              </div>
-              <Button 
-                type="button"
-                variant="outline" 
-                onClick={handleGenerateInstallments}
-                disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Generate Installments
-              </Button>
-            </div>
-
-            {/* Installments Table */}
-            <div className="space-y-2">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>#</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Amount (Manual Entry)</TableHead>
-                    <TableHead>Due Date</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Notes</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {installments.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        No installments yet. Click "Generate Installments" to create rows.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    installments.map((inst, index) => (
-                      <TableRow key={index}>
-                        <TableCell>{inst.installmentNumber}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{installmentType || 'Custom'}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            required
-                            value={inst.amount || ''}
-                            onChange={(e) =>
-                              handleInstallmentChange(index, "amount", parseFloat(e.target.value) || 0)
-                            }
-                            className="w-32"
-                            placeholder="Enter amount"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <Button variant="outline" className="w-full justify-start text-left font-normal">
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {inst.dueDate ? format(inst.dueDate, "PPP") : "Pick a date"}
-                              </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0">
-                              <Calendar
-                                mode="single"
-                                selected={inst.dueDate || undefined}
-                                onSelect={(d) => handleInstallmentChange(index, "dueDate", d)}
-                                initialFocus
-                              />
-                            </PopoverContent>
-                          </Popover>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">Pending</Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Input
-                            value={inst.notes || ''}
-                            onChange={(e) => handleInstallmentChange(index, "notes", e.target.value)}
-                            placeholder="Optional notes..."
-                            className="w-48"
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              const updated = installments.filter((_, i) => i !== index)
-                              // Renumber installments
-                              updated.forEach((inst, i) => {
-                                inst.installmentNumber = i + 1
-                              })
-                              setInstallments(updated)
-                            }}
-                          >
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => {
-                setIsCreating(false)
-                setIsEditing(false)
-                if (paymentPlan) {
-                  loadDealAndPaymentPlan()
-                }
+                setInstallments([])
+                setDownPaymentPercentage("")
+                setDownPaymentAmount("")
+                setAppliedDownPayment(0)
+                setIsDownPaymentApplied(false)
+                setNotes("")
               }}>
-                Cancel
+                Reset
               </Button>
-              <Button onClick={handleSave} disabled={saving}>
+              <Button onClick={handleSave} disabled={saving || !isDownPaymentApplied}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                {paymentPlan ? "Update Plan" : "Create Plan"}
+                {isEditMode ? "Update Plan" : "Create Plan"}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* No Payment Plan Message */}
-      {!paymentPlan && !isCreating && (
+      {/* Update Plan Button - Show when plan exists and not in edit mode */}
+      {paymentPlan && !isEditMode && (
         <Card>
           <CardHeader>
-            <CardTitle>No Payment Plan</CardTitle>
-            <CardDescription>Create a payment plan to track installments for this deal</CardDescription>
+            <CardTitle>Payment Plan Management</CardTitle>
+            <CardDescription>Update payment plan or record new payments</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <p className="text-muted-foreground mb-4">
-                Set up installment schedule for this deal. Total amount: {formatCurrency(deal?.dealAmount || 0)}
-              </p>
-              <Button onClick={() => setIsCreating(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Payment Plan
-              </Button>
-            </div>
+          <CardContent className="space-y-4">
+            <Button 
+              onClick={() => {
+                setIsEditMode(true)
+                // Load existing installments into form for editing
+                if (viewInstallments.length > 0) {
+                  setInstallments(viewInstallments.map(inst => ({
+                    ...inst,
+                    id: inst.id || Date.now() + Math.random(),
+                  })))
+                  // Set down payment if available (you may need to get this from paymentPlan)
+                  // For now, we'll leave it empty and user can re-apply
+                }
+              }}
+              variant="outline"
+              className="w-full"
+            >
+              <Edit className="mr-2 h-4 w-4" />
+              Update Plan
+            </Button>
           </CardContent>
         </Card>
       )}
 
       {/* Record Payment (Receipt) Card */}
-      {paymentPlan && !isCreating && !isEditing && (
+      {paymentPlan && (
         <Card>
           <CardHeader>
             <CardTitle>Record Payment</CardTitle>
@@ -849,7 +1211,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       )}
 
       {/* Installments List and Client Ledger */}
-      {paymentPlan && !isCreating && !isEditing && (
+      {paymentPlan && (
         <Tabs defaultValue="installments" className="w-full">
           <TabsList>
             <TabsTrigger value="installments">Installments</TabsTrigger>
@@ -875,19 +1237,24 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {installments.map((inst) => {
+                    {viewInstallments.map((inst) => {
                       const remaining = (inst.amount || 0) - (inst.paidAmount || 0)
+                      const isPaid = (inst.paidAmount || 0) >= (inst.amount || 0)
+                      const isPartiallyPaid = (inst.paidAmount || 0) > 0 && !isPaid
                       return (
-                        <TableRow key={inst.installmentNumber}>
+                        <TableRow 
+                          key={inst.id || inst.installmentNumber}
+                          className={isPaid ? "bg-green-50 dark:bg-green-950" : isPartiallyPaid ? "bg-yellow-50 dark:bg-yellow-950" : ""}
+                        >
                           <TableCell>{inst.installmentNumber}</TableCell>
                           <TableCell>
-                            {paymentPlan.installmentType && (
-                              <Badge variant="outline">{paymentPlan.installmentType}</Badge>
-                            )}
+                            <Badge variant="outline">{inst.type ? inst.type.charAt(0).toUpperCase() + inst.type.slice(1) : 'Custom'}</Badge>
                           </TableCell>
                           <TableCell>{formatCurrency(inst.amount)}</TableCell>
                           <TableCell>{inst.dueDate ? format(inst.dueDate, "PPP") : "N/A"}</TableCell>
-                          <TableCell>{formatCurrency(inst.paidAmount || 0)}</TableCell>
+                          <TableCell className={isPaid ? "font-bold text-green-600" : isPartiallyPaid ? "font-semibold text-yellow-600" : ""}>
+                            {formatCurrency(inst.paidAmount || 0)}
+                          </TableCell>
                           <TableCell>{formatCurrency(remaining)}</TableCell>
                           <TableCell>{inst.status ? getStatusBadge(inst.status) : <Badge>Pending</Badge>}</TableCell>
                         </TableRow>
@@ -973,7 +1340,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
           dealId={dealId}
           clientId={deal.clientId || ""}
           onSuccess={() => {
-            loadDealAndPaymentPlan()
+            loadDeal()
           }}
         />
       )}

@@ -342,7 +342,7 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Unit" : "Add New Unit"}</DialogTitle>
           <DialogDescription>

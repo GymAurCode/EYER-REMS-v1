@@ -547,7 +547,7 @@ export function AddPropertyDialog({ open, onOpenChange, onSuccess, propertyId }:
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{propertyId ? "Edit Property" : "Add New Property"}</DialogTitle>
         </DialogHeader>

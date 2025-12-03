@@ -56,7 +56,12 @@ async function main() {
   const adminPassword = await hashPassword('admin123');
   const adminUser = await prisma.user.upsert({
     where: { email: 'admin@realestate.com' },
-    update: {},
+    update: {
+      // Update password if user already exists (in case it was changed)
+      password: adminPassword,
+      roleId: adminRole.id,
+      deviceApprovalStatus: 'approved',
+    },
     create: {
       username: 'admin',
       email: 'admin@realestate.com',

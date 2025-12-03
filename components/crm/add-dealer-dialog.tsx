@@ -129,7 +129,7 @@ export function AddDealerDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Dealer/Agent" : "Add New Dealer/Agent"}</DialogTitle>
           <DialogDescription>

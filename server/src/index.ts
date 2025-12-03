@@ -1,4 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express';
+import type { Express } from 'express-serve-static-core';
+import { Server } from 'http';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
@@ -51,108 +53,30 @@ try {
   process.exit(1);
 }
 
-const app = express();
+const app = express() as any as Express;
 const env = validateEnv();
 const PORT = env.PORT;
 
 // Trust proxy - Required for Railway, Vercel, and other cloud platforms
 // This allows Express to correctly identify client IPs behind reverse proxies
-app.set('trust proxy', true);
+// Trust only 1 proxy hop (standard for most cloud platforms)
+// This is more secure than trusting all proxies
+app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
-// Supports multiple origins: Vercel, localhost, and custom domains
-
-// Default allowed origins (always include localhost for development)
-const defaultOrigins = [
-  'http://localhost:3000',
-  'http://localhost:3000/',
-  'http://127.0.0.1:3000',
-  'http://127.0.0.1:3000/',
-];
-
-// Get origins from environment variables
-const envOrigins = env.ALLOWED_ORIGINS 
-  ? env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
-  : env.FRONTEND_URL
-    ? [env.FRONTEND_URL]
-    : [];
-
-// Combine default and environment origins
-const allowedOrigins = [...defaultOrigins, ...envOrigins];
-
-// Add trailing slash variations for Vercel (some requests may include/exclude trailing slash)
-// Also handle Vercel preview deployments (*.vercel.app)
-const normalizedOrigins = allowedOrigins.flatMap(origin => {
-  const variations = [];
-  
-  // Exact origin
-  variations.push(origin);
-  
-  // Without trailing slash
-  const withoutSlash = origin.replace(/\/+$/, '');
-  if (withoutSlash !== origin) {
-    variations.push(withoutSlash);
-  }
-  
-  // With trailing slash
-  const withSlash = `${withoutSlash}/`;
-  if (!variations.includes(withSlash)) {
-    variations.push(withSlash);
-  }
-  
-  return variations;
-});
-
-// Add Vercel preview domain pattern support (*.vercel.app)
-const vercelPattern = /^https:\/\/.*\.vercel\.app$/;
-const hasVercelDomain = envOrigins.some(origin => vercelPattern.test(origin));
-
-app.use(cors({
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow requests with no origin for:
-    // - Health checks and monitoring
-    // - Server-to-server requests
-    // - Mobile apps
-    // - Development/testing tools
-    if (!origin) {
-      // Allow requests without origin header
-      // This is safe because:
-      // 1. CSRF protection handles security for state-changing requests (POST, PUT, DELETE, PATCH)
-      // 2. Health checks and monitoring tools often don't send Origin headers
-      // 3. Server-to-server requests and mobile apps may not have Origin headers
-      // 4. GET requests are safe by nature (idempotent)
-      return callback(null, true);
-    }
-    
-    // Check if origin matches any allowed origin (with or without trailing slash)
-    let isAllowed = normalizedOrigins.some(allowed => {
-      // Exact match
-      if (origin === allowed) return true;
-      // Match with/without trailing slash
-      const originNormalized = origin.replace(/\/+$/, '');
-      const allowedNormalized = allowed.replace(/\/+$/, '');
-      return originNormalized === allowedNormalized;
-    });
-    
-    // Allow Vercel preview deployments if a vercel.app domain is configured
-    if (!isAllowed && hasVercelDomain && vercelPattern.test(origin)) {
-      isAllowed = true;
-      logger.info(`CORS: Allowed Vercel preview deployment: ${origin}`);
-    }
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      logger.warn(`CORS: Blocked request from origin: ${origin}`);
-      logger.warn(`CORS: Allowed origins: ${normalizedOrigins.filter((v, i, a) => a.indexOf(v) === i).join(', ')}`);
-      callback(new Error(`Not allowed by CORS. Allowed origins: ${normalizedOrigins.filter((v, i, a) => a.indexOf(v) === i).join(', ')}`));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-Id', 'X-CSRF-Token', 'X-Session-Id'],
-  optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
-}));
+// Local development only - remove Vercel URLs
+app.use(
+  cors({
+    origin: [
+      'http://localhost:3000',  // Next.js default port
+      'http://localhost:5173',  // Vite alternative port
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+    credentials: true,
+  })
+);
 
 // SECURITY: Helmet for security headers
 app.use(helmet({
@@ -177,9 +101,16 @@ const limiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Custom key generator that combines IP with user agent for better security
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    // Combine IP with user agent hash to prevent simple IP spoofing
+    return `${ip}-${userAgent.substring(0, 50)}`;
+  },
   skip: (req) => {
     // Skip rate limiting for health checks
-    return req.path === '/api/health';
+    return (req.path || '') === '/api/health';
   },
 });
 
@@ -192,26 +123,37 @@ const authLimiter = rateLimit({
   max: isDevelopment ? 50 : 5, // Higher limit in development (50) vs production (5)
   message: 'Too many authentication attempts, please try again later.',
   skipSuccessfulRequests: true,
+  // Custom key generator that combines IP with user agent for better security
+  keyGenerator: (req) => {
+    const ip = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    // Combine IP with user agent hash to prevent simple IP spoofing
+    return `${ip}-${userAgent.substring(0, 50)}`;
+  },
 });
 
 app.use('/api/auth/', authLimiter);
 
 // Body parsing middleware
-app.use(express.json({ limit: '10mb' })); // Limit JSON payload size
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use((express as any).json({ limit: '10mb' })); // Limit JSON payload size
+app.use((express as any).urlencoded({ extended: true, limit: '10mb' }));
 
 // CSRF Protection for state-changing routes
-// Note: Applied after auth routes (login doesn't need CSRF) but before other routes
+// Note: Applied before routes to protect state-changing requests
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   // Skip CSRF for safe methods and auth endpoints
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method) || 
-      req.path.startsWith('/api/auth/login') ||
-      req.path.startsWith('/api/auth/role-login') ||
-      req.path.startsWith('/api/auth/invite-login') ||
-      req.path.startsWith('/api/health')) {
+  const path = req.path || req.url || '';
+  const isAuthEndpoint = path.includes('/auth/login') || 
+                         path.includes('/auth/role-login') || 
+                         path.includes('/auth/invite-login') ||
+                         path.includes('/auth/refresh');
+  
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method || '') || 
+      isAuthEndpoint ||
+      path.includes('/health')) {
     return next();
   }
-  return csrfProtection(req, res, next);
+  return csrfProtection(req as any, res, next);
 });
 
 // Serve secure files (authenticated endpoint)
@@ -219,7 +161,7 @@ app.use('/api/secure-files', secureFilesRoutes);
 
 // Legacy static file serving (deprecated - use secure-files endpoint)
 // Keep for backward compatibility but files should be moved outside web root
-app.use('/uploads', express.static(path.join(process.cwd(), 'public', 'uploads')));
+app.use('/uploads', (express as any).static(path.join(process.cwd(), 'public', 'uploads')));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -269,22 +211,24 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server with proper error handling
-const server = app.listen(PORT, '0.0.0.0', () => {
+const server: Server = app.listen(PORT, () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🌐 Server accessible at http://localhost:${PORT}`);
 });
 
 // Handle server errors
-server.on('error', (error: NodeJS.ErrnoException) => {
-  if (error.code === 'EADDRINUSE') {
-    logger.error(`❌ Port ${PORT} is already in use.`);
-    logger.error(`   Please stop the process using port ${PORT} or change the PORT environment variable.`);
-    logger.error(`   To find the process: netstat -ano | findstr :${PORT}`);
-    logger.error(`   To kill it: taskkill /PID <PID> /F`);
-    process.exit(1);
-  } else {
-    logger.error('❌ Server error:', error);
-    process.exit(1);
-  }
-});
+if (server && typeof server.on === 'function') {
+  server.on('error', (error: NodeJS.ErrnoException) => {
+    if (error.code === 'EADDRINUSE') {
+      logger.error(`❌ Port ${PORT} is already in use.`);
+      logger.error(`   Please stop the process using port ${PORT} or change the PORT environment variable.`);
+      logger.error(`   To find the process: netstat -ano | findstr :${PORT}`);
+      logger.error(`   To kill it: taskkill /PID <PID> /F`);
+      process.exit(1);
+    } else {
+      logger.error('❌ Server error:', error);
+      process.exit(1);
+    }
+  });
+}

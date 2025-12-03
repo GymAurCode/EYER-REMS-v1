@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Export all data
-router.get('/export', authenticate, async (_req: AuthRequest, res) => {
+router.get('/export', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     // Helper function to safely fetch data
     const safeFetch = async (modelName: string, query: () => Promise<any>) => {
@@ -194,7 +194,7 @@ const safeImport = async (
 };
 
 // Import all data
-router.post('/import', authenticate, async (req: AuthRequest, res) => {
+router.post('/import', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { data } = req.body;
 
@@ -792,7 +792,7 @@ router.post('/import', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Clear all data from the database (DANGEROUS - requires confirmation)
-router.post('/clear-all', authenticate, async (req: AuthRequest, res) => {
+router.post('/clear-all', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Log the deletion action
     const userId = req.user?.id || 'unknown';

@@ -3,7 +3,7 @@
  * Includes auto-sync workflows, expenses, tenancies, and maintenance
  */
 
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { requireAuth, AuthenticatedRequest, requirePermission } from '../middleware/rbac';
@@ -18,7 +18,7 @@ import { createAttachment, getAttachments } from '../services/attachments';
 import { getPropertyDashboard } from '../services/analytics';
 import multer from 'multer';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas
@@ -75,7 +75,7 @@ router.get(
   '/',
   requireAuth,
   requirePermission('properties.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { status, type, city, search } = req.query;
 
@@ -114,7 +114,7 @@ router.get(
   '/:id',
   requireAuth,
   requirePermission('properties.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const property = await prisma.property.findUnique({
         where: { id: req.params.id, isDeleted: false },
@@ -143,7 +143,7 @@ router.get(
   '/:id/dashboard',
   requireAuth,
   requirePermission('properties.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const dashboard = await getPropertyDashboard(req.params.id);
       res.json(dashboard);
@@ -158,7 +158,7 @@ router.post(
   '/',
   requireAuth,
   requirePermission('properties.create'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createPropertySchema.parse(req.body);
 
@@ -203,7 +203,7 @@ router.put(
   '/:id',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const oldProperty = await prisma.property.findUnique({
         where: { id: req.params.id },
@@ -270,7 +270,7 @@ router.delete(
   '/:id',
   requireAuth,
   requirePermission('properties.delete'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { id } = req.params;
 
@@ -357,7 +357,7 @@ router.post(
   '/:id/assign-tenant',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { tenantId, leaseId, leaseStart, leaseEnd, monthlyRent } = assignTenantSchema.parse({
         ...req.body,
@@ -432,7 +432,7 @@ router.delete(
   '/:id/remove-tenant/:tenantId',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       // End tenancy
       await prisma.tenancy.updateMany({
@@ -471,7 +471,7 @@ router.post(
   '/:id/expenses',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createPropertyExpenseSchema.parse({
         ...req.body,
@@ -530,7 +530,7 @@ router.post(
   '/:id/maintenance',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createMaintenanceRequestSchema.parse({
         ...req.body,
@@ -575,7 +575,7 @@ router.put(
   '/:id/maintenance/:maintenanceId',
   requireAuth,
   requirePermission('properties.update'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const oldMaintenance = await prisma.maintenanceRequest.findUnique({
         where: { id: req.params.maintenanceId },
@@ -653,7 +653,7 @@ router.post(
   requireAuth,
   requirePermission('properties.update'),
   upload.single('file'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -684,7 +684,7 @@ router.get(
   '/:id/attachments',
   requireAuth,
   requirePermission('properties.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const attachments = await getAttachments('property', req.params.id);
       res.json(attachments);

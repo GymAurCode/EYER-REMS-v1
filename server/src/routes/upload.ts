@@ -5,7 +5,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { validateFileUpload, scanFileForViruses, saveFileSecurely } from '../utils/file-security';
 import logger from '../utils/logger';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), 'public', 'uploads');

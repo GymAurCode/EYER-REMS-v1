@@ -1,12 +1,12 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { getPendingLeaveAlerts } from '../services/hr-alerts';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get all leave requests
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, status, startDate, endDate } = req.query;
 
@@ -79,7 +79,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get leave request by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const leaveRequest = await prisma.leaveRequest.findUnique({
@@ -111,7 +111,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create leave request
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, type, startDate, endDate, reason } = req.body;
 
@@ -184,7 +184,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update leave request
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { type, startDate, endDate, reason, status } = req.body;
@@ -252,7 +252,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Approve leave request
-router.post('/:id/approve', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/approve', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -313,7 +313,7 @@ router.post('/:id/approve', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Reject leave request
-router.post('/:id/reject', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/reject', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -377,7 +377,7 @@ router.post('/:id/reject', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete leave request
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -412,7 +412,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get pending leave alerts
-router.get('/alerts/pending', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/pending', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { managerId } = req.query;
     const alerts = await getPendingLeaveAlerts(managerId as string | undefined);

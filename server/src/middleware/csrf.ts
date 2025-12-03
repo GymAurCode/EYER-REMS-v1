@@ -126,13 +126,13 @@ export const csrfProtection = async (
   next: NextFunction
 ): Promise<void> => {
   // Skip CSRF protection for safe methods
-  if (SAFE_METHODS.includes(req.method)) {
+  if (req.method && SAFE_METHODS.includes(req.method)) {
     return next();
   }
 
   // Skip CSRF protection for unprotected routes (e.g., health checks)
   const unprotectedPaths = ['/api/health', '/api/auth/login', '/api/auth/role-login', '/api/auth/invite-login'];
-  if (unprotectedPaths.some((path) => req.path.startsWith(path))) {
+  if (req.path && unprotectedPaths.some((path) => req.path!.startsWith(path))) {
     return next();
   }
 

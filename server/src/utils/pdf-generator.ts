@@ -30,6 +30,7 @@ export interface PaymentPlanPDFData {
     remainingAmount: number;
     progress: number;
     status: string;
+    downPayment?: number; // Down payment amount
   };
   installments: Array<{
     installmentNumber: number;
@@ -124,6 +125,12 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
   
   const summaryY = doc.y;
   doc.text(`Total Amount: ${formatCurrency(data.summary.totalAmount)}`, { continued: false });
+  
+  // Show down payment if available
+  if (data.summary.downPayment && data.summary.downPayment > 0) {
+    doc.text(`Down Payment: ${formatCurrency(data.summary.downPayment)}`, { continued: false });
+  }
+  
   doc.text(`Paid Amount: ${formatCurrency(data.summary.paidAmount)}`, { continued: false });
   doc.text(`Remaining Amount: ${formatCurrency(data.summary.remainingAmount)}`, { continued: false });
   doc.text(`Progress: ${data.summary.progress.toFixed(2)}%`, { continued: false });

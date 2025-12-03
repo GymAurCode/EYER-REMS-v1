@@ -170,7 +170,7 @@ export function AddLeaveDialog({ open, onOpenChange, onSuccess, defaultEmployeeI
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>Create Leave Request</DialogTitle>
           <DialogDescription>

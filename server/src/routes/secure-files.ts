@@ -4,20 +4,20 @@
  * Prevents direct access to uploaded files
  */
 
-import express from 'express';
+import express, { Response } from 'express';
 import fs from 'fs/promises';
 import path from 'path';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { getSecureUploadDir } from '../utils/file-security';
 import logger from '../utils/logger';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 /**
  * Serve secure file with authentication
  * GET /api/secure-files/:entityType/:entityId/:filename
  */
-router.get('/:entityType/:entityId/:filename', authenticate, async (req: AuthRequest, res) => {
+router.get('/:entityType/:entityId/:filename', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId, filename } = req.params;
 

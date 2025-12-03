@@ -1,9 +1,9 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const sendMessageSchema = z.object({
@@ -38,7 +38,7 @@ async function cleanupOldMessages() {
 }
 
 // Get all messages
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Check if Message model exists in Prisma client
     if (!prisma.message) {
@@ -83,7 +83,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Send a message
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { content } = sendMessageSchema.parse(req.body);
     
@@ -189,7 +189,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete a message (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     

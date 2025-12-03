@@ -265,9 +265,15 @@ export function LocationTreePanel({
         <div className="flex items-center gap-2 border-b pb-3">
           <Search className="h-4 w-4 text-muted-foreground" />
           <Input
+            id="location-search-input"
+            type="text"
             placeholder="Search locations..."
             value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
+            onChange={(event) => {
+              event.stopPropagation();
+              setSearchTerm(event.target.value);
+            }}
+            autoComplete="off"
           />
           <Button
             variant="outline"
@@ -288,13 +294,30 @@ export function LocationTreePanel({
         <Label className="text-sm font-semibold">Add new node</Label>
         <div className="grid gap-2 md:grid-cols-2">
           <Input
+            id="location-name-input"
+            type="text"
             placeholder="Location name (e.g. Phase 6)"
             value={newName}
-            onChange={(e) => setNewName(e.target.value)}
+            onChange={(e) => {
+              e.stopPropagation();
+              setNewName(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddLocation();
+              }
+            }}
+            autoComplete="off"
+            disabled={isCreating}
           />
           <Select
             value={newType}
-            onValueChange={(value) => setNewType(value as typeof LOCATION_LEVELS[number])}
+            onValueChange={(value) => {
+              setNewType(value as typeof LOCATION_LEVELS[number]);
+            }}
+            disabled={isCreating}
           >
             <SelectTrigger className="w-full text-sm">
               <SelectValue placeholder="Select level" />
@@ -311,7 +334,7 @@ export function LocationTreePanel({
         <Button
           className="mt-2 w-full"
           onClick={handleAddLocation}
-          disabled={isCreating}
+          disabled={isCreating || !newName.trim()}
         >
           {isCreating ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -1,12 +1,12 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncPayrollToFinanceLedger } from '../services/workflows';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get all payroll records
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { month, employeeId, status } = req.query;
 
@@ -68,7 +68,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get payroll by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payroll = await prisma.payroll.findUnique({
@@ -100,7 +100,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create payroll record
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       employeeId, month, baseSalary, basicSalary, bonus, overtimeAmount, overtimeHours,
@@ -259,7 +259,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update payroll
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { 
@@ -352,7 +352,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete payroll
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -387,7 +387,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get payroll reminders
-router.get('/reminders', authenticate, async (req: AuthRequest, res) => {
+router.get('/reminders', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { getPayrollReminders } = await import('../services/hr-alerts');
     const reminders = await getPayrollReminders();
@@ -406,7 +406,7 @@ router.get('/reminders', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Calculate overtime from attendance
-router.post('/calculate-overtime', authenticate, async (req: AuthRequest, res) => {
+router.post('/calculate-overtime', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, month } = req.body;
 

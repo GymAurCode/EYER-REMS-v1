@@ -253,7 +253,7 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Tenant</DialogTitle>
           <DialogDescription>Enter the tenant details and lease information</DialogDescription>

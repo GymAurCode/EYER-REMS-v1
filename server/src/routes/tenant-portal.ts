@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncPaymentToFinanceLedger, updateTenantLedger } from '../services/workflows';
 import { getOverdueRentAlerts, getTenantLeaseExpiryAlerts } from '../services/tenant-alerts';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Helper to generate receipt number
 async function generateReceiptNumber(): Promise<string> {
@@ -53,7 +53,7 @@ async function generateNoticeNumber(): Promise<string> {
 }
 
 // GET /tenant/:id/dashboard - Get tenant dashboard data
-router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -189,7 +189,7 @@ router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /tenant/:id/ledger - Get tenant ledger
-router.get('/:id/ledger', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -314,7 +314,7 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /tenant/:id/pay - Process online payment
-router.post('/:id/pay', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/pay', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -526,7 +526,7 @@ router.post('/:id/pay', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /tenant/:id/ticket - Create maintenance ticket
-router.post('/:id/ticket', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/ticket', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { category, title, description, priority, photos } = req.body;
@@ -617,7 +617,7 @@ router.post('/:id/ticket', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /tenant/:id/tickets - Get maintenance tickets
-router.get('/:id/tickets', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/tickets', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.query;
@@ -656,7 +656,7 @@ router.get('/:id/tickets', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /tenant/:id/notice - Submit notice to vacate
-router.post('/:id/notice', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/notice', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { reason, moveOutDate, supportingDocs } = req.body;
@@ -708,7 +708,7 @@ router.post('/:id/notice', authenticate, async (req: AuthRequest, res) => {
 });
 
 // GET /tenant/:id/receipt/:paymentId - Generate receipt
-router.get('/:id/receipt/:paymentId', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/receipt/:paymentId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id, paymentId } = req.params;
 
@@ -747,7 +747,7 @@ router.get('/:id/receipt/:paymentId', authenticate, async (req: AuthRequest, res
 });
 
 // GET /tenant/:id/notifications - Get tenant notifications (overdue, lease expiry)
-router.get('/:id/notifications', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/notifications', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -823,7 +823,7 @@ router.get('/:id/notifications', authenticate, async (req: AuthRequest, res) => 
 });
 
 // GET /tenant/:id/receipts - Get all receipts
-router.get('/:id/receipts', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/receipts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -860,7 +860,7 @@ router.get('/:id/receipts', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /tenant/:id/pay/advance - Make advance payment (for future invoices)
-router.post('/:id/pay/advance', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/pay/advance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { amount, method, referenceNumber, notes } = req.body;

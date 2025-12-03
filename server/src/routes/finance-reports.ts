@@ -3,7 +3,7 @@
  * Includes: Income Statement, Cash Flow, Closing Balance, Overdue handling, Exports
  */
 
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { requireAuth, AuthenticatedRequest, requirePermission } from '../middleware/rbac';
@@ -19,7 +19,7 @@ import {
   calculateOverdueInvoices,
 } from '../services/reports';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const reportPeriodSchema = z.object({
@@ -46,7 +46,7 @@ router.get(
   '/income-statement',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, propertyId } = reportPeriodSchema.parse(req.query);
       
@@ -74,7 +74,7 @@ router.get(
   '/cash-flow',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, propertyId } = reportPeriodSchema.parse(req.query);
       
@@ -102,7 +102,7 @@ router.get(
   '/closing-balance',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { asOfDate, propertyId } = z.object({
         asOfDate: z.string().datetime(),
@@ -132,7 +132,7 @@ router.get(
   '/overdue-invoices',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const overdue = await calculateOverdueInvoices();
       res.json(overdue);
@@ -150,7 +150,7 @@ router.get(
   '/ledger/account/:accountId',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { accountId } = req.params;
       const { startDate, endDate } = req.query;
@@ -244,7 +244,7 @@ router.post(
   '/payments',
   requireAuth,
   requirePermission('finance.create'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createPaymentSchema.parse(req.body);
 
@@ -296,7 +296,7 @@ router.get(
   '/invoices/export/:id',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const invoice = await prisma.invoice.findUnique({
         where: { id: req.params.id },
@@ -332,7 +332,7 @@ router.get(
   '/transactions/export',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, category, propertyId } = req.query;
 

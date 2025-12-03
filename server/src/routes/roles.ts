@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response, Request } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
 import prisma from '../prisma/client';
 import { hashPassword } from '../utils/password';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createRoleSchema = z.object({
@@ -23,7 +23,7 @@ const generateInviteLinkSchema = z.object({
 });
 
 // Get all roles
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const roles = await prisma.role.findMany({
       orderBy: { createdAt: 'desc' },
@@ -51,7 +51,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get role by ID
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const role = await prisma.role.findUnique({
       where: { id: req.params.id },
@@ -77,7 +77,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // Create role with user (Admin only)
-router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     // Preprocess phoneNumber - convert empty string to undefined
     const body = { ...req.body };
@@ -180,7 +180,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res) => {
 });
 
 // Update role (Admin only)
-router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { permissions } = createRoleSchema.partial().extend({
       permissions: z.array(z.string()).optional(),
@@ -217,7 +217,7 @@ router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => 
 });
 
 // Generate invite link (Admin only)
-router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     // Preprocess and validate
     const body = { ...req.body };
@@ -374,7 +374,7 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
 });
 
 // Get invite link details by token (for auto-fill on login page)
-router.get('/invite/:token', async (req, res) => {
+router.get('/invite/:token', async (req: Request, res: Response) => {
   try {
     const { token } = req.params;
     
@@ -423,7 +423,7 @@ router.get('/invite/:token', async (req, res) => {
 });
 
 // Get invite links for a role (Admin only)
-router.get('/:id/invites', authenticate, requireAdmin, async (req, res) => {
+router.get('/:id/invites', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
     const inviteLinks = await prisma.roleInviteLink.findMany({
       where: { roleId: req.params.id },
@@ -445,7 +445,7 @@ router.get('/:id/invites', authenticate, requireAdmin, async (req, res) => {
 });
 
 // Get users by role (Admin only)
-router.get('/:id/users', authenticate, requireAdmin, async (req, res) => {
+router.get('/:id/users', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
       where: { roleId: req.params.id },

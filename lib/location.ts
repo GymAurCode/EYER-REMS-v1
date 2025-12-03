@@ -13,7 +13,7 @@ export type LocationSubtreePayload = {
   propertyCount: number
 }
 
-export const LOCATION_LEVELS = ['city', 'area', 'phase', 'block', 'street', 'plot'] as const
+export const LOCATION_LEVELS = ['country', 'state', 'city', 'area', 'phase', 'block', 'street', 'plot'] as const
 
 export const formatLevelLabel = (type: string) => {
   if (!type) return ''

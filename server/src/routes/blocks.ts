@@ -1,9 +1,9 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createBlockSchema = z.object({
@@ -15,7 +15,7 @@ const createBlockSchema = z.object({
 const updateBlockSchema = createBlockSchema.partial();
 
 // Get all blocks
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, search } = req.query;
 
@@ -77,7 +77,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get block by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -121,7 +121,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create block
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createBlockSchema.parse(req.body);
 
@@ -168,7 +168,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update block
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateBlockSchema.parse(req.body);
@@ -218,7 +218,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete block (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 

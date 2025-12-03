@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
@@ -10,7 +10,7 @@ import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createPropertySchema = z.object({
@@ -42,7 +42,7 @@ const updatePropertySchema = createPropertySchema.partial();
  * @route GET /api/properties
  * @access Private
  */
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, location: locationQuery, locationId, search } = req.query;
     const { page, limit } = parsePaginationQuery(req.query);
@@ -365,7 +365,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get property structure (floors with units) - MUST be before /:id route
-router.get('/:id/structure', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/structure', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -451,7 +451,7 @@ router.get('/:id/structure', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create floor for a property - MUST be before /:id route
-router.post('/:id/floors', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/floors', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { name, floorNumber, description } = req.body;
@@ -494,7 +494,7 @@ router.post('/:id/floors', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get property by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -619,7 +619,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
  * @route GET /api/properties/:id/dashboard
  * @access Private
  */
-router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { getPropertyDashboard } = await import('../services/analytics');
@@ -674,7 +674,7 @@ async function generatePropertyCode(): Promise<string | undefined> {
  * @route POST /api/properties
  * @access Private
  */
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
     const data = createPropertySchema.parse(req.body);
@@ -739,7 +739,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
  * @route PUT /api/properties/:id
  * @access Private
  */
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updatePropertySchema.parse(req.body);
@@ -808,7 +808,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete property (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -908,7 +908,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get property alerts (maintenance due + lease expiry)
-router.get('/:id/alerts', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/alerts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -930,7 +930,7 @@ router.get('/:id/alerts', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get all maintenance due alerts
-router.get('/alerts/maintenance', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/maintenance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId } = req.query;
 
@@ -946,7 +946,7 @@ router.get('/alerts/maintenance', authenticate, async (req: AuthRequest, res) =>
 });
 
 // Get all lease expiry alerts
-router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId } = req.query;
 

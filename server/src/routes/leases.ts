@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
@@ -11,7 +11,7 @@ import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createLeaseSchema = z.object({
@@ -28,7 +28,7 @@ const createLeaseSchema = z.object({
 const updateLeaseSchema = createLeaseSchema.partial();
 
 // Get all leases
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { tenantId, unitId, propertyId, status, search } = req.query;
     const { page, limit } = parsePaginationQuery(req.query);
@@ -132,7 +132,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get lease by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -170,7 +170,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create lease
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createLeaseSchema.parse(req.body);
 
@@ -331,7 +331,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update lease
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateLeaseSchema.parse(req.body);
@@ -441,7 +441,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete lease (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -477,7 +477,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get lease history
-router.get('/:id/history', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id/history', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -503,7 +503,7 @@ router.get('/:id/history', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Renew lease
-router.post('/:id/renew', authenticate, async (req: AuthRequest, res) => {
+router.post('/:id/renew', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { newLeaseEnd, newRent, notes } = req.body;

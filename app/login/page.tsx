@@ -38,9 +38,13 @@ export default function LoginPage() {
       AuthToasts.loginSuccess()
       router.push("/")
     } catch (err: any) {
-      console.error("Login failed:", err)
+      // Get error message from response, prioritizing message field
       const errorMessage =
-        err.response?.data?.error || err.message || "Login failed"
+        err.response?.data?.message || 
+        err.response?.data?.error || 
+        err.response?.data?.details?.message ||
+        err.message || 
+        "Login failed"
       setError(errorMessage)
       AuthToasts.loginError(errorMessage)
     } finally {

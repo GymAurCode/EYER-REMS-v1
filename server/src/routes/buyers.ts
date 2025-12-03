@@ -1,9 +1,9 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createBuyerSchema = z.object({
@@ -21,7 +21,7 @@ const createBuyerSchema = z.object({
 const updateBuyerSchema = createBuyerSchema.partial();
 
 // Get all buyers
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, saleId, buyStatus, search } = req.query;
 
@@ -88,7 +88,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get buyer by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -129,7 +129,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create buyer
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createBuyerSchema.parse(req.body);
 
@@ -196,7 +196,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update buyer
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateBuyerSchema.parse(req.body);
@@ -275,7 +275,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete buyer (soft delete)
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 

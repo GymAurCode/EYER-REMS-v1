@@ -30,7 +30,7 @@ export async function createAuditLog(data: AuditLogData) {
   try {
     // Extract IP and user agent from request if provided
     const ipAddress = data.req?.ip || data.req?.socket.remoteAddress;
-    const userAgent = data.req?.get('user-agent');
+    const userAgent = data.req?.headers['user-agent'];
 
     // Calculate changes if old and new values provided
     let changes = data.changes;

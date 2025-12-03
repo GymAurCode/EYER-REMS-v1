@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response, Request } from 'express';
 import { z } from 'zod';
 import logger from '../utils/logger';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -13,7 +13,7 @@ import {
   updateLocation,
 } from '../services/location';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 const createLocationSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -31,7 +31,7 @@ const searchSchema = z.object({
   q: z.string().min(1, 'Search query is required'),
 });
 
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const payload = createLocationSchema.parse(req.body);
     const location = await createLocation(payload);
@@ -42,7 +42,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/tree', authenticate, async (_req, res) => {
+router.get('/tree', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const tree = await getLocationTree();
     return successResponse(res, tree);
@@ -52,7 +52,7 @@ router.get('/tree', authenticate, async (_req, res) => {
   }
 });
 
-router.get('/search', authenticate, async (req, res) => {
+router.get('/search', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { q } = searchSchema.parse(req.query);
     const data = await searchLocations(q);
@@ -63,7 +63,7 @@ router.get('/search', authenticate, async (req, res) => {
   }
 });
 
-router.get('/:id/children', authenticate, async (req, res) => {
+router.get('/:id/children', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const children = await getLocationChildren(id);
@@ -74,7 +74,7 @@ router.get('/:id/children', authenticate, async (req, res) => {
   }
 });
 
-router.get('/:id/subtree', authenticate, async (req, res) => {
+router.get('/:id/subtree', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const subtree = await getLocationSubtree(id);
@@ -91,7 +91,7 @@ router.get('/:id/subtree', authenticate, async (req, res) => {
   }
 });
 
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payload = updateLocationSchema.parse(req.body);
@@ -103,7 +103,7 @@ router.put('/:id', authenticate, async (req, res) => {
   }
 });
 
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     await deleteLocation(id);

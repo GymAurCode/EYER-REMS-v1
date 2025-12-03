@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';
 import { errorResponse } from '../utils/error-handler';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 type ExportableTableKey =
   | 'properties'
@@ -81,7 +81,7 @@ const logAudit = async (req: AuthRequest, data: Parameters<typeof createAuditLog
   });
 };
 
-router.get('/dropdowns', authenticate, requireAdmin, async (_req, res) => {
+router.get('/dropdowns', authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const categories = await trySafeQuery(() =>
       prisma.dropdownCategory.findMany({
@@ -99,7 +99,7 @@ router.get('/dropdowns', authenticate, requireAdmin, async (_req, res) => {
   }
 });
 
-router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { key, name, description } = req.body;
     if (!key || !name) {
@@ -126,7 +126,7 @@ router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, r
   }
 });
 
-router.get('/dropdowns/:key', authenticate, requireAdmin, async (req, res) => {
+router.get('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { key } = req.params;
     const category = await prisma.dropdownCategory.findUnique({
@@ -146,7 +146,7 @@ router.get('/dropdowns/:key', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
-router.post('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { key } = req.params;
     const { label, value, sortOrder, metadata, isActive } = req.body;
@@ -182,7 +182,7 @@ router.post('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthReque
   }
 });
 
-router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payload = sanitize(req.body);
@@ -214,7 +214,7 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
   }
 });
 
-router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const existing = await prisma.dropdownOption.findUnique({ where: { id } });
@@ -235,7 +235,7 @@ router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: 
   }
 });
 
-router.get('/amenities', authenticate, requireAdmin, async (_req, res) => {
+router.get('/amenities', authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const list = await trySafeQuery(() =>
       prisma.amenity.findMany({
@@ -248,7 +248,7 @@ router.get('/amenities', authenticate, requireAdmin, async (_req, res) => {
   }
 });
 
-router.post('/amenities', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/amenities', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { name, description, icon, isActive } = req.body;
     if (!name) {
@@ -275,7 +275,7 @@ router.post('/amenities', authenticate, requireAdmin, async (req: AuthRequest, r
   }
 });
 
-router.put('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.put('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payload = sanitize(req.body);
@@ -306,7 +306,7 @@ router.put('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest
   }
 });
 
-router.delete('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.delete('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const existing = await prisma.amenity.findUnique({ where: { id } });
@@ -327,7 +327,7 @@ router.delete('/amenities/:id', authenticate, requireAdmin, async (req: AuthRequ
   }
 });
 
-router.post('/export', authenticate, requireAdmin, async (req, res) => {
+router.post('/export', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { tables } = req.body;
     if (!Array.isArray(tables) || tables.length === 0) {
@@ -459,7 +459,7 @@ const importHelpers: Record<ExportableTableKey, (tx: Prisma.TransactionClient, p
   },
 };
 
-router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { table, rows } = req.body;
     if (!table || !supportedTables.includes(table as ExportableTableKey)) {
@@ -505,7 +505,7 @@ router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res)
 
 const csvHeader = "module,table,payload";
 
-router.get('/export/full-csv', authenticate, requireAdmin, async (_req, res) => {
+router.get('/export/full-csv', authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const rows: string[] = [csvHeader];
     for (const tableKey of supportedTables) {
@@ -526,7 +526,7 @@ router.get('/export/full-csv', authenticate, requireAdmin, async (_req, res) => 
   }
 })
 
-router.post('/import/full-csv', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/import/full-csv', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { csv } = req.body
     if (!csv || typeof csv !== 'string') {

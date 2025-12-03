@@ -9,6 +9,8 @@ export interface CreateReceiptPayload {
   date: Date | string;
   notes?: string;
   receivedBy?: string;
+  existingPaymentId?: string; // If payment already exists, link to it instead of creating new one
+  skipPaymentCreation?: boolean; // Skip creating Payment record if payment already exists
 }
 
 export interface ReceiptAllocationResult {
@@ -61,11 +63,13 @@ export class ReceiptService {
     // Generate receipt number
     const receiptNo = await this.generateReceiptNumber();
 
-    // Get account IDs for ledger posting
+    // Get account IDs for ledger posting (try multiple code formats)
     const cashAccount = await prisma.account.findFirst({
       where: {
         OR: [
+          { code: '1000' },
           { code: '101' },
+          { code: '1010' },
           { name: { contains: 'Cash', mode: 'insensitive' } },
         ],
         isActive: true,
@@ -74,7 +78,9 @@ export class ReceiptService {
     const bankAccount = await prisma.account.findFirst({
       where: {
         OR: [
+          { code: '1010' },
           { code: '102' },
+          { code: '1020' },
           { name: { contains: 'Bank', mode: 'insensitive' } },
         ],
         isActive: true,
@@ -83,16 +89,23 @@ export class ReceiptService {
     const installmentReceivableAccount = await prisma.account.findFirst({
       where: {
         OR: [
+          { code: '1100' },
           { code: '201' },
+          { code: '2000' },
           { name: { contains: 'Installment Receivable', mode: 'insensitive' } },
           { name: { contains: 'Accounts Receivable', mode: 'insensitive' } },
+          { name: { contains: 'Receivable', mode: 'insensitive' } },
         ],
         isActive: true,
       },
     });
 
     if (!cashAccount || !bankAccount || !installmentReceivableAccount) {
-      throw new Error('Required accounts (Cash, Bank, Installment Receivable) not found in Chart of Accounts. Please ensure accounts with codes 101 (Cash), 102 (Bank), and 201 (Installment Receivable) exist.');
+      const missing = [];
+      if (!cashAccount) missing.push('Cash');
+      if (!bankAccount) missing.push('Bank');
+      if (!installmentReceivableAccount) missing.push('Accounts Receivable');
+      throw new Error(`Required accounts not found in Chart of Accounts: ${missing.join(', ')}. Please ensure these accounts exist and are active.`);
     }
 
     const debitAccountId = payload.method === 'Cash' ? cashAccount.id : bankAccount.id;
@@ -156,7 +169,25 @@ export class ReceiptService {
         data: { journalEntryId: journalEntry.id },
       });
 
-      // Update deal totalPaid
+      // Create Voucher record for Finance tab visibility
+      // This will show up in Finance > Vouchers as "Cash Receipt" or "Bank Receipt"
+      const voucherType = payload.method === 'Cash' ? 'cash_receipt' : 'bank_receipt';
+      const voucher = await tx.voucher.create({
+        data: {
+          voucherNumber: receiptNo,
+          type: voucherType,
+          paymentMethod: payload.method,
+          accountId: debitAccountId, // Cash or Bank account
+          amount: payload.amount,
+          description: `Receipt ${receiptNo} - Payment received for Deal`,
+          referenceNumber: receiptNo,
+          date: receiptDate,
+          preparedByUserId: payload.receivedBy || null,
+          journalEntryId: journalEntry.id, // Link to journal entry
+        },
+      });
+
+      // Get deal with property info for ledger updates
       const deal = await tx.deal.findUnique({
         where: { id: payload.dealId },
         include: {
@@ -164,14 +195,52 @@ export class ReceiptService {
             where: { isDeleted: false },
           },
           paymentPlan: true,
+          property: {
+            select: { id: true, name: true, propertyCode: true },
+          },
         },
       });
 
+      // Create Payment record for Client Ledger and Property Ledger visibility
+      // Client and Property ledgers read from deal.payments, so we need to create a Payment record
+      // This ensures receipts show up in Accounting > Client Ledger and Property Ledger
+      // But skip if payment already exists (when called from PaymentService)
+      if (deal && !payload.skipPaymentCreation) {
+        // Check if payment already exists (from PaymentService)
+        let existingPayment = null;
+        if (payload.existingPaymentId) {
+          existingPayment = await tx.payment.findUnique({
+            where: { id: payload.existingPaymentId },
+          });
+        }
+
+        // Only create payment if it doesn't exist
+        if (!existingPayment) {
+          const paymentCode = `PAY-RCP-${receiptNo}`;
+          await tx.payment.create({
+            data: {
+              paymentId: paymentCode,
+              dealId: payload.dealId,
+              amount: payload.amount,
+              paymentType: 'installment',
+              paymentMode: payload.method.toLowerCase(), // 'cash' or 'bank'
+              referenceNumber: receiptNo,
+              date: receiptDate,
+              remarks: `Receipt ${receiptNo} - ${payload.notes || 'Payment received'}`,
+              createdByUserId: payload.receivedBy || null,
+            },
+          });
+        }
+      }
+
       if (deal) {
-        const totalPaid = deal.installments.reduce(
+        // Calculate total paid: installments paid amount + down payment
+        const installmentPaidAmount = deal.installments.reduce(
           (sum, inst) => sum + (inst.paidAmount || 0),
           0
         );
+        const downPayment = deal.paymentPlan?.downPayment || 0;
+        const totalPaid = installmentPaidAmount + downPayment;
         
         await tx.deal.update({
           where: { id: payload.dealId },
@@ -194,14 +263,18 @@ export class ReceiptService {
               (sum, inst) => sum + inst.amount,
               0
             );
-            const totalPaidPlan = paymentPlan.installments.reduce(
+            const installmentPaidAmount = paymentPlan.installments.reduce(
               (sum, inst) => sum + (inst.paidAmount || 0),
               0
             );
-            const remaining = totalExpected - totalPaidPlan;
+            // Include down payment in total paid
+            const downPayment = paymentPlan.downPayment || 0;
+            const totalPaidPlan = installmentPaidAmount + downPayment;
+            const dealAmount = paymentPlan.totalAmount || totalExpected + downPayment;
+            const remaining = dealAmount - totalPaidPlan;
 
             let status = 'Pending';
-            if (totalPaidPlan >= totalExpected) {
+            if (totalPaidPlan >= dealAmount) {
               status = 'Fully Paid';
             } else if (totalPaidPlan > 0) {
               status = 'Partially Paid';

@@ -1,12 +1,12 @@
-import express from 'express';
+import express, { Response, Request } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { extractDeviceInfo } from '../utils/deviceInfo';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get device approval requests (Admin only)
-router.get('/', authenticate, requireAdmin, async (req, res) => {
+router.get('/', authenticate, requireAdmin, async (req: Request, res: Response) => {
   try {
     const approvals = await prisma.deviceApproval.findMany({
       where: { status: 'pending' },
@@ -35,7 +35,7 @@ router.get('/', authenticate, requireAdmin, async (req, res) => {
 });
 
 // Get user's device approvals
-router.get('/my-approvals', authenticate, async (req: AuthRequest, res) => {
+router.get('/my-approvals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const approvals = await prisma.deviceApproval.findMany({
       where: { userId: req.user!.id },
@@ -50,7 +50,7 @@ router.get('/my-approvals', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Approve device (Admin only)
-router.post('/:id/approve', authenticate, requireAdmin, async (req, res) => {
+router.post('/:id/approve', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const approval = await prisma.deviceApproval.findUnique({
       where: { id: req.params.id },
@@ -96,7 +96,7 @@ router.post('/:id/approve', authenticate, requireAdmin, async (req, res) => {
 });
 
 // Reject device (Admin only)
-router.post('/:id/reject', authenticate, requireAdmin, async (req, res) => {
+router.post('/:id/reject', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const approval = await prisma.deviceApproval.findUnique({
       where: { id: req.params.id },

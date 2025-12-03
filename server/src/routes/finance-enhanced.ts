@@ -3,7 +3,7 @@
  * Includes Finance Ledger with auto-sync
  */
 
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { requireAuth, AuthenticatedRequest, requirePermission } from '../middleware/rbac';
@@ -15,7 +15,7 @@ import {
   syncPayrollToFinanceLedger,
 } from '../services/workflows';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createFinanceLedgerSchema = z.object({
@@ -39,7 +39,7 @@ router.get(
   '/ledger',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const {
         category,
@@ -104,7 +104,7 @@ router.get(
   '/summary',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, propertyId } = req.query;
 
@@ -156,7 +156,7 @@ router.post(
   '/ledger',
   requireAuth,
   requirePermission('finance.create'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createFinanceLedgerSchema.parse(req.body);
 
@@ -196,7 +196,7 @@ router.post(
   '/sync/invoice/:invoiceId',
   requireAuth,
   requirePermission('finance.sync'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const ledger = await syncInvoiceToFinanceLedger(req.params.invoiceId);
 
@@ -216,7 +216,7 @@ router.post(
   '/sync/payment/:paymentId',
   requireAuth,
   requirePermission('finance.sync'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const ledger = await syncPaymentToFinanceLedger(req.params.paymentId);
 
@@ -236,7 +236,7 @@ router.post(
   '/sync/deal/:dealId',
   requireAuth,
   requirePermission('finance.sync'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const ledger = await syncDealToFinanceLedger(req.params.dealId);
 
@@ -256,7 +256,7 @@ router.post(
   '/sync/payroll/:payrollId',
   requireAuth,
   requirePermission('finance.sync'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const ledger = await syncPayrollToFinanceLedger(req.params.payrollId);
 
@@ -276,7 +276,7 @@ router.get(
   '/ledger/reference/:referenceType/:referenceId',
   requireAuth,
   requirePermission('finance.view'),
-  async (req: AuthenticatedRequest, res) => {
+  async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { referenceType, referenceId } = req.params;
 

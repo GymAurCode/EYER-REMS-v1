@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';
 import { errorResponse } from '../utils/error-handler';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // CSV escape function - properly escapes special characters
 function escapeCsvValue(value: any): string {
@@ -64,7 +64,7 @@ function getModelColumns(modelName: string): string[] {
 }
 
 // Export route - generates CSV with sections
-router.get('/export', authenticate, requireAdmin, async (_req, res) => {
+router.get('/export', authenticate, requireAdmin, async (_req: AuthRequest, res: Response) => {
   try {
     const sections: Array<{ name: string; header: string; data: any[]; columns: string[] }> = [];
 
@@ -347,7 +347,7 @@ function convertValue(value: string, fieldName: string): any {
 }
 
 // Import route - parses CSV and upserts data
-router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.post('/import', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { csv } = req.body;
     

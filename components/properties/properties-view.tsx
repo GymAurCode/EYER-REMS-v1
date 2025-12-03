@@ -508,7 +508,7 @@ export function PropertiesView() {
                         property.imageUrl.startsWith('http') 
                           ? property.imageUrl 
                           : property.imageUrl.startsWith('/')
-                            ? `http://localhost:3001${property.imageUrl}`
+                            ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
                             : property.imageUrl
                       }
                       alt={property.name || "Property image"}

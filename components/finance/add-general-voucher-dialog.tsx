@@ -122,7 +122,7 @@ export function AddGeneralVoucherDialog({ open, onOpenChange }: AddGeneralVouche
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>New Journal Entry</DialogTitle>
           <DialogDescription>Create a new general journal voucher entry</DialogDescription>

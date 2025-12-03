@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get all attendance records
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { date, employeeId, status } = req.query;
 
@@ -72,7 +72,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get attendance by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const attendance = await prisma.attendance.findUnique({
@@ -104,7 +104,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create attendance record
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId, date, checkIn, checkOut, status } = req.body;
 
@@ -198,7 +198,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Check-in
-router.post('/checkin', authenticate, async (req: AuthRequest, res) => {
+router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.body;
 
@@ -297,7 +297,7 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Check-out
-router.post('/checkout', authenticate, async (req: AuthRequest, res) => {
+router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { employeeId } = req.body;
 
@@ -377,7 +377,7 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update attendance
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { checkIn, checkOut, status } = req.body;
@@ -444,7 +444,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete attendance
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 

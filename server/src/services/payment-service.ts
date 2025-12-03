@@ -194,7 +194,7 @@ export class PaymentService {
       }
 
       // Return payment with ledger entries
-      return await tx.payment.findUnique({
+      const paymentResult = await tx.payment.findUnique({
         where: { id: payment.id },
         include: {
           deal: {
@@ -206,6 +206,46 @@ export class PaymentService {
           ledgerEntries: true,
         },
       });
+
+      return paymentResult;
+    }).then(async (paymentResult) => {
+      // After payment transaction completes, automatically create receipt
+      // This ensures payment shows up in receipts list (like "Record Payment" does)
+      try {
+        const { ReceiptService } = await import('./receipt-service');
+        const deal = await prisma.deal.findUnique({
+          where: { id: payload.dealId },
+          select: { clientId: true },
+        });
+
+        if (deal && deal.clientId && paymentResult) {
+          // Determine payment method (Cash or Bank) from paymentMode
+          // paymentMode is lowercase: 'cash' | 'bank' | 'online_transfer' | 'card'
+          const paymentMethod = payload.paymentMode === 'cash' 
+            ? 'Cash' 
+            : 'Bank';
+
+          // Create receipt with FIFO allocation to installments
+          // Skip payment creation since payment already exists (avoid duplicate)
+          await ReceiptService.createReceipt({
+            dealId: payload.dealId,
+            clientId: deal.clientId,
+            amount: payload.amount,
+            method: paymentMethod,
+            date: paymentDate,
+            notes: payload.remarks || `Payment ${paymentCode}`,
+            receivedBy: payload.createdBy,
+            existingPaymentId: paymentResult.id, // Link to existing payment
+            skipPaymentCreation: true, // Don't create duplicate payment
+          });
+        }
+      } catch (receiptError: any) {
+        // Log error but don't fail payment creation if receipt creation fails
+        console.error('Failed to create receipt for payment:', receiptError);
+        // Payment is still created successfully, receipt creation is optional
+      }
+
+      return paymentResult;
     });
   }
 

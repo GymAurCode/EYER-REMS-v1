@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get user's notifications
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { read, limit } = req.query;
 
@@ -26,7 +26,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Mark notification as read
-router.patch('/:id/read', authenticate, async (req: AuthRequest, res) => {
+router.patch('/:id/read', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const notification = await prisma.notification.findUnique({
       where: { id: req.params.id },
@@ -53,7 +53,7 @@ router.patch('/:id/read', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Mark all notifications as read
-router.patch('/read-all', authenticate, async (req: AuthRequest, res) => {
+router.patch('/read-all', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     await prisma.notification.updateMany({
       where: { userId: req.user!.id, read: false },
@@ -68,7 +68,7 @@ router.patch('/read-all', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get unread count
-router.get('/unread-count', authenticate, async (req: AuthRequest, res) => {
+router.get('/unread-count', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const count = await prisma.notification.count({
       where: {

@@ -3,7 +3,7 @@
  * Includes: assignments, CNIC uploads, deal stage workflows, commission auto-calc
  */
 
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { requireAuth, AuthenticatedRequest, requirePermission } from '../middleware/rbac';
@@ -13,7 +13,7 @@ import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alert
 import { createAttachment, saveUploadedFile } from '../services/attachments';
 import multer from 'multer';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas
@@ -140,7 +140,7 @@ async function generateDealCode(): Promise<string> {
 // ==================== LEADS ====================
 
 // Get all leads with filters
-router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { status, priority, assignedTo, followUpDate, search } = req.query;
     const where: any = { isDeleted: false };
@@ -181,7 +181,7 @@ router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (re
 });
 
 // Create lead
-router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res) => {
+router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = createLeadSchema.parse(req.body);
     const leadCode = await generateLeadCode();
@@ -221,7 +221,7 @@ router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async 
 });
 
 // Assign lead to employee
-router.post('/leads/:id/assign', requireAuth, requirePermission('crm.leads.update'), async (req: AuthenticatedRequest, res) => {
+router.post('/leads/:id/assign', requireAuth, requirePermission('crm.leads.update'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { assignedToUserId } = req.body;
     
@@ -250,7 +250,7 @@ router.post('/leads/:id/assign', requireAuth, requirePermission('crm.leads.updat
 });
 
 // Upload CNIC for lead
-router.post('/leads/:id/upload-cnic', requireAuth, requirePermission('crm.leads.update'), upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/leads/:id/upload-cnic', requireAuth, requirePermission('crm.leads.update'), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -289,7 +289,7 @@ router.post('/leads/:id/upload-cnic', requireAuth, requirePermission('crm.leads.
 });
 
 // Convert lead to client
-router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.update'), async (req: AuthenticatedRequest, res) => {
+router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.update'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
     if (!lead) {
@@ -353,7 +353,7 @@ router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.upda
 // ==================== CLIENTS ====================
 
 // Get all clients
-router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { status, clientType, assignedAgent, search } = req.query;
     const where: any = { isDeleted: false };
@@ -392,7 +392,7 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
 });
 
 // Create client
-router.post('/clients', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res) => {
+router.post('/clients', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = createClientSchema.parse(req.body);
     const clientCode = await generateClientCode();
@@ -436,7 +436,7 @@ router.post('/clients', requireAuth, requirePermission('crm.clients.create'), as
 });
 
 // Upload CNIC for client
-router.post('/clients/:id/upload-cnic', requireAuth, requirePermission('crm.clients.update'), upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/clients/:id/upload-cnic', requireAuth, requirePermission('crm.clients.update'), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -468,7 +468,7 @@ router.post('/clients/:id/upload-cnic', requireAuth, requirePermission('crm.clie
 // ==================== DEALS ====================
 
 // Get all deals
-router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { stage, clientId, dealerId, propertyId, status } = req.query;
     const where: any = { isDeleted: false };
@@ -501,7 +501,7 @@ router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (re
 });
 
 // Create deal (refactored to use DealService)
-router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async (req: AuthenticatedRequest, res) => {
+router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = createDealSchema.parse(req.body);
     
@@ -566,7 +566,7 @@ router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async 
 });
 
 // Update deal stage (refactored to use DealService)
-router.put('/deals/:id/stage', requireAuth, requirePermission('crm.deals.update'), async (req: AuthenticatedRequest, res) => {
+router.put('/deals/:id/stage', requireAuth, requirePermission('crm.deals.update'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { stage, probability, notes } = req.body;
     const { DealService } = await import('../services/deal-service');
@@ -632,7 +632,7 @@ router.put('/deals/:id/stage', requireAuth, requirePermission('crm.deals.update'
 // ==================== COMMUNICATIONS ====================
 
 // Get communications
-router.get('/communications', requireAuth, requirePermission('crm.communications.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/communications', requireAuth, requirePermission('crm.communications.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { leadId, clientId, dealId, channel } = req.query;
     const where: any = { isDeleted: false };
@@ -660,7 +660,7 @@ router.get('/communications', requireAuth, requirePermission('crm.communications
 });
 
 // Create communication
-router.post('/communications', requireAuth, requirePermission('crm.communications.create'), async (req: AuthenticatedRequest, res) => {
+router.post('/communications', requireAuth, requirePermission('crm.communications.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const data = createCommunicationSchema.parse(req.body);
 
@@ -713,7 +713,7 @@ router.post('/communications', requireAuth, requirePermission('crm.communication
 // ==================== DEALERS ====================
 
 // Create dealer
-router.post('/dealers', requireAuth, requirePermission('crm.dealers.create'), async (req: AuthenticatedRequest, res) => {
+router.post('/dealers', requireAuth, requirePermission('crm.dealers.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const dealerCode = await generateDealerCode();
 
@@ -744,7 +744,7 @@ router.post('/dealers', requireAuth, requirePermission('crm.dealers.create'), as
 });
 
 // Upload CNIC for dealer
-router.post('/dealers/:id/upload-cnic', requireAuth, requirePermission('crm.dealers.update'), upload.single('file'), async (req: AuthenticatedRequest, res) => {
+router.post('/dealers/:id/upload-cnic', requireAuth, requirePermission('crm.dealers.update'), upload.single('file'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No file uploaded' });
@@ -766,7 +766,7 @@ router.post('/dealers/:id/upload-cnic', requireAuth, requirePermission('crm.deal
 // ==================== FOLLOW-UP REMINDERS ====================
 
 // Get follow-up reminders
-router.get('/reminders', requireAuth, requirePermission('crm.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/reminders', requireAuth, requirePermission('crm.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { agentId } = req.query;
     const reminders = await getFollowUpReminders(agentId as string | undefined);
@@ -777,7 +777,7 @@ router.get('/reminders', requireAuth, requirePermission('crm.view'), async (req:
 });
 
 // Get overdue follow-ups
-router.get('/reminders/overdue', requireAuth, requirePermission('crm.view'), async (req: AuthenticatedRequest, res) => {
+router.get('/reminders/overdue', requireAuth, requirePermission('crm.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { agentId } = req.query;
     const overdue = await getOverdueFollowUps(agentId as string | undefined);
@@ -788,7 +788,7 @@ router.get('/reminders/overdue', requireAuth, requirePermission('crm.view'), asy
 });
 
 // Update deal (with auto-calculation)
-router.put('/deals/:id', requireAuth, requirePermission('crm.deals.update'), async (req: AuthenticatedRequest, res) => {
+router.put('/deals/:id', requireAuth, requirePermission('crm.deals.update'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const updateData: any = { ...req.body };
@@ -871,7 +871,7 @@ router.put('/deals/:id', requireAuth, requirePermission('crm.deals.update'), asy
 });
 
 // Client to Tenant conversion (enhanced)
-router.post('/clients/:id/convert-to-tenant', requireAuth, requirePermission('crm.clients.update'), async (req: AuthenticatedRequest, res) => {
+router.post('/clients/:id/convert-to-tenant', requireAuth, requirePermission('crm.clients.update'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const { id } = req.params;
     const { unitId, leaseStart, leaseEnd, rent, securityDeposit } = req.body;

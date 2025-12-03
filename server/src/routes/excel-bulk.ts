@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import multer from 'multer';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';
@@ -6,7 +6,7 @@ import { errorResponse } from '../utils/error-handler';
 import { generateExcelExport } from '../services/excel-export';
 import { importExcelFile } from '../services/excel-import';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Configure multer for file upload
 const upload = multer({
@@ -23,13 +23,13 @@ const upload = multer({
     ) {
       cb(null, true);
     } else {
-      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'));
+      cb(new Error('Only Excel files (.xlsx, .xls) are allowed'), false);
     }
   },
 });
 
 // Export route - generates Excel file
-router.get('/export', authenticate, requireAdmin, async (req: AuthRequest, res) => {
+router.get('/export', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const buffer = await generateExcelExport();
 
@@ -64,7 +64,7 @@ router.post(
   authenticate,
   requireAdmin,
   upload.single('file'),
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });

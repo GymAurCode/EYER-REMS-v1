@@ -14,9 +14,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { Loader2, X, Plus } from "lucide-react"
 
 interface ClientFormData {
   id?: string
@@ -27,6 +31,17 @@ interface ClientFormData {
   status?: string
   cnic?: string
   address?: string
+  city?: string
+  country?: string
+  postalCode?: string
+  clientType?: string
+  clientCategory?: string
+  propertyInterest?: string
+  billingAddress?: string
+  notes?: string
+  tags?: string[]
+  assignedAgentId?: string
+  assignedDealerId?: string
 }
 
 interface AddClientDialogProps {
@@ -41,7 +56,23 @@ const CLIENT_STATUSES = [
   { label: "Active", value: "active" },
   { label: "Inactive", value: "inactive" },
   { label: "VIP", value: "vip" },
+  { label: "Corporate", value: "corporate" },
 ]
+
+const CLIENT_TYPES = [
+  { label: "Individual", value: "individual" },
+  { label: "Corporate", value: "corporate" },
+  { label: "Government", value: "government" },
+]
+
+const CLIENT_CATEGORIES = [
+  { label: "VIP", value: "vip" },
+  { label: "Regular", value: "regular" },
+  { label: "Corporate", value: "corporate" },
+  { label: "Premium", value: "premium" },
+]
+
+const PROPERTY_INTEREST_OPTIONS = ["buy", "rent", "invest"] as const
 
 const defaultFormState = {
   name: "",
@@ -51,6 +82,17 @@ const defaultFormState = {
   status: "active",
   cnic: "",
   address: "",
+  city: "",
+  country: "",
+  postalCode: "",
+  clientType: "",
+  clientCategory: "",
+  propertyInterest: "",
+  billingAddress: "",
+  notes: "",
+  tags: [] as string[],
+  assignedAgentId: "",
+  assignedDealerId: "",
 }
 
 export function AddClientDialog({
@@ -62,11 +104,17 @@ export function AddClientDialog({
 }: AddClientDialogProps) {
   const [formData, setFormData] = useState(defaultFormState)
   const [submitting, setSubmitting] = useState(false)
+  const [tagInput, setTagInput] = useState("")
+  const [agents, setAgents] = useState<any[]>([])
+  const [dealers, setDealers] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState("basic")
   const { toast } = useToast()
   const isEdit = mode === "edit" && initialData?.id
 
   useEffect(() => {
     if (open) {
+      fetchAgents()
+      fetchDealers()
       if (isEdit && initialData) {
         setFormData({
           name: initialData.name || "",
@@ -76,6 +124,17 @@ export function AddClientDialog({
           status: initialData.status || "active",
           cnic: initialData.cnic || "",
           address: initialData.address || "",
+          city: initialData.city || "",
+          country: initialData.country || "",
+          postalCode: initialData.postalCode || "",
+          clientType: initialData.clientType || "",
+          clientCategory: initialData.clientCategory || "",
+          propertyInterest: initialData.propertyInterest || "",
+          billingAddress: initialData.billingAddress || "",
+          notes: "",
+          tags: Array.isArray(initialData.tags) ? initialData.tags : [],
+          assignedAgentId: initialData.assignedAgentId || "",
+          assignedDealerId: initialData.assignedDealerId || "",
         })
       } else {
         setFormData(defaultFormState)
@@ -83,40 +142,148 @@ export function AddClientDialog({
     }
   }, [open, isEdit, initialData])
 
+  const fetchAgents = async () => {
+    try {
+      // TODO: Implement agent/user API endpoint
+      setAgents([])
+    } catch (err) {
+      console.error("Failed to fetch agents:", err)
+    }
+  }
+
+  const fetchDealers = async () => {
+    try {
+      const response: any = await apiService.dealers.getAll()
+      const responseData = response.data as any
+      const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
+      setDealers(data)
+    } catch (err) {
+      console.error("Failed to fetch dealers:", err)
+    }
+  }
+
+  const addTag = () => {
+    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      setFormData(prev => ({
+        ...prev,
+        tags: [...prev.tags, tagInput.trim()]
+      }))
+      setTagInput("")
+    }
+  }
+
+  const removeTag = (tag: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: prev.tags.filter(t => t !== tag)
+    }))
+  }
+
   const resetForm = () => {
     setFormData(defaultFormState)
     setSubmitting(false)
+    setTagInput("")
+    setActiveTab("basic")
   }
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
+  const handleSubmit = async (event?: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault()
+    
+    // Validation: Name is required
+    if (!formData.name || formData.name.trim().length === 0) {
+      toast({
+        title: "Validation Error",
+        description: "Client Name is required",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setSubmitting(true)
 
-      const payload = {
-        name: formData.name,
-        email: formData.email || null,
-        phone: formData.phone || null,
-        company: formData.company || null,
-        status: formData.status || "active",
-        cnic: formData.cnic || null,
-        address: formData.address || null,
+      const normalizedAssignedAgent = formData.assignedAgentId && formData.assignedAgentId !== "none" ? formData.assignedAgentId : null
+      const normalizedAssignedDealer = formData.assignedDealerId && formData.assignedDealerId !== "none" ? formData.assignedDealerId : null
+
+      // Normalize email - if empty string, set to null (not undefined) to avoid validation issues
+      const normalizedEmail = formData.email?.trim() || null
+      // Validate email format if provided
+      if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+        toast({
+          title: "Validation Error",
+          description: "Please enter a valid email address",
+          variant: "destructive",
+        })
+        return
       }
+
+      // Build payload - only include fields that have values or are explicitly set
+      const payload: any = {
+        name: formData.name.trim(),
+      }
+
+      // Add optional fields only if they have values
+      if (normalizedEmail) payload.email = normalizedEmail
+      if (formData.phone?.trim()) payload.phone = formData.phone.trim()
+      if (formData.company?.trim()) payload.company = formData.company.trim()
+      if (formData.status) payload.status = formData.status
+      if (formData.cnic?.trim()) payload.cnic = formData.cnic.trim()
+      if (formData.address?.trim()) payload.address = formData.address.trim()
+      if (formData.city?.trim()) payload.city = formData.city.trim()
+      if (formData.country?.trim()) payload.country = formData.country.trim()
+      if (formData.postalCode?.trim()) payload.postalCode = formData.postalCode.trim()
+      if (formData.clientType) payload.clientType = formData.clientType
+      if (formData.clientCategory) payload.clientCategory = formData.clientCategory
+      if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
+      if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
+      // Note: 'notes' field doesn't exist in Client model - store in attachments JSON if needed
+      if (formData.notes?.trim()) {
+        payload.attachments = { notes: formData.notes.trim() }
+      }
+      if (formData.tags.length > 0) payload.tags = formData.tags
+      if (normalizedAssignedAgent) payload.assignedAgentId = normalizedAssignedAgent
+      if (normalizedAssignedDealer) payload.assignedDealerId = normalizedAssignedDealer
 
       if (isEdit) {
         await apiService.clients.update(initialData!.id as any, payload)
-        toast({ title: "Client updated successfully" })
+        toast({ title: "Client updated successfully", variant: "success" })
       } else {
         await apiService.clients.create(payload)
-        toast({ title: "Client added successfully" })
+        toast({ title: "Client added successfully", variant: "success" })
       }
 
       resetForm()
       onOpenChange(false)
       onSuccess?.()
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to save client", error)
-      toast({ title: `Failed to ${isEdit ? "update" : "add"} client`, variant: "destructive" })
+      console.error("Error response:", error.response?.data)
+      
+      // Handle Zod validation errors
+      let errorMessage = "An error occurred"
+      if (error.response?.data?.error) {
+        if (Array.isArray(error.response.data.error)) {
+          // Zod validation errors
+          const validationErrors = error.response.data.error
+            .map((err: any) => `${err.path?.join('.') || 'field'}: ${err.message}`)
+            .join(', ')
+          errorMessage = `Validation errors: ${validationErrors}`
+        } else if (typeof error.response.data.error === 'string') {
+          errorMessage = error.response.data.error
+        } else if (typeof error.response.data.error === 'object') {
+          errorMessage = error.response.data.error.message || JSON.stringify(error.response.data.error)
+        }
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message
+      } else if (error.message) {
+        errorMessage = error.message
+      }
+      
+      toast({ 
+        title: `Failed to ${isEdit ? "update" : "add"} client`, 
+        description: errorMessage,
+        variant: "destructive" 
+      })
     } finally {
       setSubmitting(false)
     }
@@ -131,102 +298,292 @@ export function AddClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Client" : "Add New Client"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update client information" : "Capture client information to start tracking their deals."}
+            {isEdit ? "Update client information" : "Capture comprehensive client information to start tracking their deals."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="client-name">Client Name</Label>
-              <Input
-                id="client-name"
-                placeholder="Jane Smith"
-                value={formData.name}
-                onChange={(event) => setFormData({ ...formData, name: event.target.value })}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-email">Email</Label>
-              <Input
-                id="client-email"
-                type="email"
-                placeholder="jane.smith@email.com"
-                value={formData.email}
-                onChange={(event) => setFormData({ ...formData, email: event.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-phone">Phone</Label>
-              <Input
-                id="client-phone"
-                type="tel"
-                placeholder="+1 234 567 8900"
-                value={formData.phone}
-                onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-company">Company</Label>
-              <Input
-                id="client-company"
-                placeholder="Company name (optional)"
-                value={formData.company}
-                onChange={(event) => setFormData({ ...formData, company: event.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-status">Status</Label>
-              <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger id="client-status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CLIENT_STATUSES.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-cnic">CNIC</Label>
-              <Input
-                id="client-cnic"
-                placeholder="12345-1234567-1"
-                value={formData.cnic}
-                onChange={(event) => setFormData({ ...formData, cnic: event.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="client-address">Address</Label>
-              <Input
-                id="client-address"
-                placeholder="Enter client address"
-                value={formData.address}
-                onChange={(event) => setFormData({ ...formData, address: event.target.value })}
-              />
-            </div>
-            <div className="rounded-md border border-dashed border-muted px-4 py-3 text-sm text-muted-foreground">
-              Properties are now linked through Deals. Create or update a deal whenever you want to attach this client to a property.
-            </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 overflow-hidden flex flex-col">
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="basic">Basic Info</TabsTrigger>
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="assignment">Assignment</TabsTrigger>
+            <TabsTrigger value="additional">Additional</TabsTrigger>
+          </TabsList>
+
+          <div className="flex-1 overflow-y-auto mt-4">
+            <TabsContent value="basic" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="client-name">Client Name <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="client-name"
+                    placeholder="Jane Smith"
+                    value={formData.name}
+                    onChange={(event) => setFormData({ ...formData, name: event.target.value })}
+                    required
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-email">Email</Label>
+                  <Input
+                    id="client-email"
+                    type="email"
+                    placeholder="jane.smith@email.com"
+                    value={formData.email}
+                    onChange={(event) => setFormData({ ...formData, email: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-phone">Phone</Label>
+                  <Input
+                    id="client-phone"
+                    type="tel"
+                    placeholder="+1 234 567 8900"
+                    value={formData.phone}
+                    onChange={(event) => setFormData({ ...formData, phone: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-cnic">CNIC</Label>
+                  <Input
+                    id="client-cnic"
+                    placeholder="12345-1234567-1"
+                    value={formData.cnic}
+                    onChange={(event) => setFormData({ ...formData, cnic: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-company">Company</Label>
+                  <Input
+                    id="client-company"
+                    placeholder="Company name (optional)"
+                    value={formData.company}
+                    onChange={(event) => setFormData({ ...formData, company: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-status">Status</Label>
+                  <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                    <SelectTrigger id="client-status">
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_STATUSES.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="details" className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="client-type">Client Type</Label>
+                  <Select value={formData.clientType} onValueChange={(value) => setFormData({ ...formData, clientType: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_TYPES.map((type) => (
+                        <SelectItem key={type.value} value={type.value}>
+                          {type.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-category">Client Category</Label>
+                  <Select value={formData.clientCategory} onValueChange={(value) => setFormData({ ...formData, clientCategory: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CLIENT_CATEGORIES.map((category) => (
+                        <SelectItem key={category.value} value={category.value}>
+                          {category.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="property-interest">Property Interest</Label>
+                  <Select value={formData.propertyInterest} onValueChange={(value) => setFormData({ ...formData, propertyInterest: value })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select interest" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PROPERTY_INTEREST_OPTIONS.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option.charAt(0).toUpperCase() + option.slice(1)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="client-address">Address</Label>
+                  <Input
+                    id="client-address"
+                    placeholder="Street address"
+                    value={formData.address}
+                    onChange={(event) => setFormData({ ...formData, address: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-city">City</Label>
+                  <Input
+                    id="client-city"
+                    placeholder="City"
+                    value={formData.city}
+                    onChange={(event) => setFormData({ ...formData, city: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-country">Country</Label>
+                  <Input
+                    id="client-country"
+                    placeholder="Country"
+                    value={formData.country}
+                    onChange={(event) => setFormData({ ...formData, country: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-postal-code">Postal Code</Label>
+                  <Input
+                    id="client-postal-code"
+                    placeholder="Postal code"
+                    value={formData.postalCode}
+                    onChange={(event) => setFormData({ ...formData, postalCode: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="billing-address">Billing Address</Label>
+                  <Input
+                    id="billing-address"
+                    placeholder="Billing address (if different)"
+                    value={formData.billingAddress}
+                    onChange={(event) => setFormData({ ...formData, billingAddress: event.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="client-notes">Notes</Label>
+                  <Textarea
+                    id="client-notes"
+                    placeholder="Additional information about the client..."
+                    value={formData.notes}
+                    onChange={(event) => setFormData({ ...formData, notes: event.target.value })}
+                    rows={4}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="assignment" className="space-y-4">
+              <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="assigned-agent">Assign to Agent</Label>
+                  <Select
+                    value={formData.assignedAgentId}
+                    onValueChange={(value) => setFormData({ ...formData, assignedAgentId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select agent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {agents.map((agent) => (
+                        <SelectItem key={agent.id} value={agent.id}>
+                          {agent.name || agent.email}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="assigned-dealer">Assign to Dealer</Label>
+                  <Select
+                    value={formData.assignedDealerId}
+                    onValueChange={(value) => setFormData({ ...formData, assignedDealerId: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select dealer" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Unassigned</SelectItem>
+                      {dealers.map((dealer) => (
+                        <SelectItem key={dealer.id} value={dealer.id}>
+                          {dealer.name || dealer.company}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Tags</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Add tag"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault()
+                          addTag()
+                        }
+                      }}
+                    />
+                    <Button type="button" onClick={addTag} variant="outline">
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {formData.tags.length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {formData.tags.map((tag) => (
+                        <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+                          {tag}
+                          <button
+                            type="button"
+                            onClick={() => removeTag(tag)}
+                            className="ml-1 hover:text-destructive"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="additional" className="space-y-4">
+              <div className="rounded-md border border-dashed border-muted px-4 py-3 text-sm text-muted-foreground">
+                Properties are now linked through Deals. Create or update a deal whenever you want to attach this client to a property.
+              </div>
+            </TabsContent>
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={submitting}>
-              {submitting ? "Saving..." : isEdit ? "Save Changes" : "Add Client"}
-            </Button>
-          </DialogFooter>
-        </form>
+        </Tabs>
+
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={(e) => handleSubmit(e)} disabled={submitting}>
+            {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {isEdit ? "Save Changes" : "Add Client"}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
-

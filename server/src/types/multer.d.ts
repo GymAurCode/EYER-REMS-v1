@@ -28,16 +28,20 @@ declare module 'multer' {
     fileFilter?: (req: Request, file: File, callback: (error: Error | null, acceptFile: boolean) => void) => void;
   }
   
-  export function multer(options?: MulterOptions): {
-    single(fieldname: string): (req: Request, res: any, next: any) => void;
-    array(fieldname: string, maxCount?: number): (req: Request, res: any, next: any) => void;
-    fields(fields: Array<{ name: string; maxCount?: number }>): (req: Request, res: any, next: any) => void;
-    none(): (req: Request, res: any, next: any) => void;
-    any(): (req: Request, res: any, next: any) => void;
-  };
+  interface MulterFunction {
+    (options?: MulterOptions): {
+      single(fieldname: string): (req: Request, res: any, next: any) => void;
+      array(fieldname: string, maxCount?: number): (req: Request, res: any, next: any) => void;
+      fields(fields: Array<{ name: string; maxCount?: number }>): (req: Request, res: any, next: any) => void;
+      none(): (req: Request, res: any, next: any) => void;
+      any(): (req: Request, res: any, next: any) => void;
+    };
+    memoryStorage(): StorageEngine;
+  }
   
   export function memoryStorage(): StorageEngine;
   
+  const multer: MulterFunction;
   export default multer;
 }
 

@@ -74,7 +74,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>{getTitle()}</DialogTitle>
           <DialogDescription>Enter the voucher details</DialogDescription>

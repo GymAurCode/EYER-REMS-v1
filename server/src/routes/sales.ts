@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response } from 'express';
 import { z } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
@@ -8,7 +8,7 @@ import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const createSaleSchema = z.object({
@@ -31,7 +31,7 @@ const updateSaleSchema = createSaleSchema.partial();
  * @route GET /api/sales
  * @access Private
  */
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, status, search } = req.query;
     const { page, limit } = parsePaginationQuery(req.query);
@@ -109,7 +109,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
  * @route GET /api/sales/:saleId/installments
  * @access Private
  */
-router.get('/:saleId/installments', authenticate, async (req: AuthRequest, res) => {
+router.get('/:saleId/installments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { saleId } = req.params;
 
@@ -135,7 +135,7 @@ router.get('/:saleId/installments', authenticate, async (req: AuthRequest, res) 
  * @route POST /api/sales/:saleId/installments
  * @access Private
  */
-router.post('/:saleId/installments', authenticate, async (req: AuthRequest, res) => {
+router.post('/:saleId/installments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { saleId } = req.params;
     const installmentSchema = z.object({
@@ -190,7 +190,7 @@ router.post('/:saleId/installments', authenticate, async (req: AuthRequest, res)
  * @route PUT /api/sales/installments/:id
  * @access Private
  */
-router.put('/installments/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/installments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const updateSchema = z.object({
@@ -245,7 +245,7 @@ router.put('/installments/:id', authenticate, async (req: AuthRequest, res) => {
  * @route DELETE /api/sales/installments/:id
  * @access Private
  */
-router.delete('/installments/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/installments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -270,7 +270,7 @@ router.delete('/installments/:id', authenticate, async (req: AuthRequest, res) =
 });
 
 // Get sale by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -329,7 +329,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
  * @route POST /api/sales
  * @access Private
  */
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create sale request body:', JSON.stringify(req.body, null, 2));
     const data = createSaleSchema.parse(req.body);
@@ -453,7 +453,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
  * @route PUT /api/sales/:id
  * @access Private
  */
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const data = updateSaleSchema.parse(req.body);
@@ -517,7 +517,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
  * @route DELETE /api/sales/:id
  * @access Private
  */
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 

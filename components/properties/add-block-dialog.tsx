@@ -102,7 +102,7 @@ export function AddBlockDialog({ open, onOpenChange, onSuccess }: AddBlockDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw]">
+      <DialogContent className="w-[900px] max-w-[90vw]">
         <DialogHeader>
           <DialogTitle>Add New Block</DialogTitle>
           <DialogDescription>Enter the details for the new block</DialogDescription>

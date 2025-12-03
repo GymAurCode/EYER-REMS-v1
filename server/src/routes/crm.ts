@@ -1,10 +1,10 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Helper functions to generate unique codes
 async function generateLeadCode(): Promise<string> {
@@ -50,7 +50,7 @@ async function generateDealerCode(): Promise<string> {
 }
 
 // Leads
-router.get('/leads', authenticate, async (_req: AuthRequest, res) => {
+router.get('/leads', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const leads = await prisma.lead.findMany({
       orderBy: { createdAt: 'desc' },
@@ -61,7 +61,7 @@ router.get('/leads', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.post('/leads', authenticate, async (req: AuthRequest, res) => {
+router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const leadCode = await generateLeadCode();
     const lead = await prisma.lead.create({ 
@@ -93,7 +93,7 @@ router.post('/leads', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Convert lead to client (must be before any /leads/:id routes to avoid route conflict)
-router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res) => {
+router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
     
@@ -190,7 +190,7 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res) =>
   }
 });
 
-router.put('/leads/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/leads/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.update({
       where: { id: req.params.id },
@@ -218,7 +218,7 @@ router.put('/leads/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/leads/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/leads/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
@@ -228,7 +228,7 @@ router.get('/leads/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/leads/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.delete({ where: { id: req.params.id } });
 
@@ -254,7 +254,7 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Clients
-router.get('/clients', authenticate, async (req: AuthRequest, res) => {
+router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { search } = req.query;
     const where: any = {};
@@ -280,7 +280,7 @@ router.get('/clients', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/clients/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const client = await prisma.client.findUnique({
       where: { id: req.params.id },
@@ -308,7 +308,7 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/clients', authenticate, async (req: AuthRequest, res) => {
+router.post('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const clientCode = await generateClientCode();
     // Get next srNo and clientNo
@@ -348,7 +348,7 @@ router.post('/clients', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/clients/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const client = await prisma.client.update({
       where: { id: req.params.id },
@@ -376,7 +376,7 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/clients/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const client = await prisma.client.delete({ where: { id: req.params.id } });
 
@@ -402,7 +402,7 @@ router.delete('/clients/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Dealers
-router.get('/dealers', authenticate, async (req: AuthRequest, res) => {
+router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { search } = req.query;
     const where: any = {};
@@ -427,7 +427,7 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.get('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/dealers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealer = await prisma.dealer.findUnique({ where: { id: req.params.id } });
     if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
@@ -437,7 +437,7 @@ router.get('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.post('/dealers', authenticate, async (req: AuthRequest, res) => {
+router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealerCode = await generateDealerCode();
     const dealer = await prisma.dealer.create({ 
@@ -468,7 +468,7 @@ router.post('/dealers', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/dealers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealer = await prisma.dealer.update({
       where: { id: req.params.id },
@@ -496,7 +496,7 @@ router.put('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealer = await prisma.dealer.delete({ where: { id: req.params.id } });
 
@@ -522,7 +522,7 @@ router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Deals
-router.get('/deals', authenticate, async (_req: AuthRequest, res) => {
+router.get('/deals', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const deals = await prisma.deal.findMany({
       where: { isDeleted: false },
@@ -572,7 +572,7 @@ router.get('/deals', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/deals/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
@@ -604,7 +604,7 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res) => {
 // ==================== DEAL PAYMENT PLAN ROUTES ====================
 
 // GET /api/crm/deals/:id/payment-plan
-router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res) => {
+router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealId = req.params.id;
     
@@ -703,7 +703,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
 });
 
 // GET /api/crm/deals/:id/payment-plan/pdf - Generate PDF report
-router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest, res) => {
+router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealId = req.params.id;
     
@@ -727,19 +727,41 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     const plan = await PaymentPlanService.getPaymentPlanByDealId(dealId);
 
-    // Calculate actual paid amount from Payment table
-    const payments = await prisma.payment.findMany({
-      where: {
-        dealId: dealId,
-        deletedAt: null,
-      },
-      select: {
-        amount: true,
-      },
-    });
-
-    const totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    // Calculate paid amount from installments + down payment (not from Payment table)
     const dealAmount = deal.dealAmount || 0;
+    let totalPaid = 0;
+    let downPayment = 0;
+    
+    if (plan) {
+      // Get down payment from payment plan
+      const paymentPlan = await prisma.paymentPlan.findUnique({
+        where: { id: plan.id },
+        select: { downPayment: true },
+      });
+      downPayment = paymentPlan?.downPayment || 0;
+      
+      // Calculate paid amount from installments
+      const installmentPaidAmount = (plan.installments || []).reduce(
+        (sum: number, inst: any) => sum + (inst.paidAmount || 0),
+        0
+      );
+      
+      // Total paid = installments paid + down payment
+      totalPaid = installmentPaidAmount + downPayment;
+    } else {
+      // If no payment plan, calculate from Payment table as fallback
+      const payments = await prisma.payment.findMany({
+        where: {
+          dealId: dealId,
+          deletedAt: null,
+        },
+        select: {
+          amount: true,
+        },
+      });
+      totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+    }
+    
     const remainingAmount = Math.max(0, dealAmount - totalPaid);
     const progress = dealAmount > 0 ? (totalPaid / dealAmount) * 100 : 0;
 
@@ -768,6 +790,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
         remainingAmount: remainingAmount,
         progress: Math.round(progress * 100) / 100,
         status: remainingAmount <= 0.01 ? 'Fully Paid' : totalPaid > 0 ? 'Partially Paid' : 'Pending',
+        downPayment: downPayment, // Include down payment in summary
       },
       installments: (plan?.installments || []).map((inst: any) => ({
         installmentNumber: inst.installmentNumber,
@@ -794,7 +817,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
 });
 
 // POST /api/crm/deals/:id/payment-plan
-router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res) => {
+router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -837,7 +860,7 @@ router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, re
 });
 
 // PUT /api/crm/payment-plan/:id
-router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     
@@ -878,7 +901,7 @@ router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // POST /api/crm/deals/:id/payments
-router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res) => {
+router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentService } = await import('../services/payment-service');
     const { PaymentPlanService } = await import('../services/payment-plan-service');
@@ -928,7 +951,7 @@ router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res) =
 });
 
 // PATCH /api/crm/deals/:dealId/payments/smart-allocate
-router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req: AuthRequest, res) => {
+router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealId = req.params.dealId;
     const { amount, method } = req.body;
@@ -990,7 +1013,7 @@ router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req:
   }
 });
 
-router.post('/deals', authenticate, async (req: AuthRequest, res) => {
+router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealService } = await import('../services/deal-service');
     
@@ -1021,7 +1044,7 @@ router.post('/deals', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/deals/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealService } = await import('../services/deal-service');
     
@@ -1056,7 +1079,7 @@ router.put('/deals/:id', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.delete('/deals/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const deal = await prisma.deal.delete({
       where: { id: req.params.id },
@@ -1085,7 +1108,7 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Communications
-router.get('/communications', authenticate, async (_req: AuthRequest, res) => {
+router.get('/communications', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const communications = await prisma.communication.findMany({
       orderBy: { createdAt: 'desc' },
@@ -1100,7 +1123,7 @@ router.get('/communications', authenticate, async (_req: AuthRequest, res) => {
   }
 });
 
-router.get('/communications/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/communications/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.communication.findUnique({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ error: 'Communication not found' });
@@ -1110,7 +1133,7 @@ router.get('/communications/:id', authenticate, async (req: AuthRequest, res) =>
   }
 });
 
-router.post('/communications', authenticate, async (req: AuthRequest, res) => {
+router.post('/communications', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.communication.create({
       data: req.body,
@@ -1137,7 +1160,7 @@ router.post('/communications', authenticate, async (req: AuthRequest, res) => {
   }
 });
 
-router.put('/communications/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/communications/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.communication.update({
       where: { id: req.params.id },
@@ -1165,7 +1188,7 @@ router.put('/communications/:id', authenticate, async (req: AuthRequest, res) =>
   }
 });
 
-router.delete('/communications/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/communications/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const item = await prisma.communication.delete({
       where: { id: req.params.id },

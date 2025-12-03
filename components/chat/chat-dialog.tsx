@@ -291,7 +291,7 @@ export function ChatDialog({ open, onOpenChange, onNewMessage }: ChatDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw] h-[600px] flex flex-col p-0">
+      <DialogContent className="w-[900px] max-w-[90vw] h-[600px] flex flex-col p-0">
         <DialogHeader className="px-6 pt-6 pb-4">
           <DialogTitle>Team Chat</DialogTitle>
           <DialogDescription>

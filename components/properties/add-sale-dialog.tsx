@@ -320,7 +320,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[700px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Property Sale</DialogTitle>
           <DialogDescription>Enter the details for the new property sale</DialogDescription>

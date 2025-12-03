@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Response, Request } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
 import prisma from '../prisma/client';
@@ -10,7 +10,7 @@ import { generateTokenPair, revokeAllUserRefreshTokens } from '../utils/refresh-
 import { generateCsrfToken } from '../middleware/csrf';
 import logger from '../utils/logger';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Validation schemas
 const loginSchema = z.object({
@@ -32,8 +32,18 @@ const inviteLoginSchema = z.object({
   deviceId: z.string().optional(),
 });
 
+// Test route to verify auth routes are working
+router.get('/login', (_req: Request, res: Response) => {
+  res.json({ 
+    message: 'Auth route is working. Use POST method to login.',
+    endpoint: '/api/auth/login',
+    method: 'POST',
+    requiredFields: ['email', 'password']
+  });
+});
+
 // Admin login
-router.post('/login', async (req, res) => {
+router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password, deviceId: clientDeviceId } = loginSchema.parse(req.body);
 
@@ -93,30 +103,50 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role.name,
         roleId: user.roleId,
-        permissions: user.role.permissions, // Include permissions
+        permissions: user.role.permissions || [], // Include permissions, default to empty array if null
       },
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    logger.error('Login error:', error);
+    
+    // Log full error details for debugging
+    logger.error('Login error:', {
+      error,
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : 'Unknown',
+    });
     
     // Provide more detailed error information
     const errorMessage = error instanceof Error ? error.message : 'Login failed';
     const errorDetails = process.env.NODE_ENV === 'development' 
-      ? { message: errorMessage, stack: error instanceof Error ? error.stack : undefined }
+      ? { 
+          message: errorMessage, 
+          stack: error instanceof Error ? error.stack : undefined,
+          name: error instanceof Error ? error.name : 'Unknown',
+        }
       : { message: 'Login failed. Please check your credentials and try again.' };
     
-    res.status(500).json({ 
+    // Always include error message in response for debugging
+    const response: any = { 
       error: 'Login failed',
-      details: errorDetails
-    });
+      message: errorMessage,
+    };
+    
+    // Include details in development
+    if (process.env.NODE_ENV === 'development') {
+      response.details = errorDetails;
+      response.stack = error instanceof Error ? error.stack : undefined;
+    }
+    
+    res.status(500).json(response);
   }
 });
 
 // Role login (username-based login for non-admin roles)
-router.post('/role-login', async (req, res) => {
+router.post('/role-login', async (req: Request, res: Response) => {
   try {
     const { username, password, deviceId: clientDeviceId } = roleLoginSchema.parse(req.body);
 
@@ -205,7 +235,7 @@ router.post('/role-login', async (req, res) => {
         email: user.email,
         role: user.role.name,
         roleId: user.roleId,
-        permissions: user.role.permissions, // Include permissions
+        permissions: user.role.permissions || [], // Include permissions, default to empty array if null
       },
     });
   } catch (error) {
@@ -231,7 +261,7 @@ router.post('/role-login', async (req, res) => {
 });
 
 // Invite link login
-router.post('/invite-login', async (req, res) => {
+router.post('/invite-login', async (req: Request, res: Response) => {
   try {
     const { token, password, username: providedUsername, deviceId: clientDeviceId } = inviteLoginSchema.parse(req.body);
 
@@ -373,7 +403,7 @@ router.post('/invite-login', async (req, res) => {
         email: user.email,
         role: user.role.name,
         roleId: user.roleId,
-        permissions: user.role.permissions, // Include permissions
+        permissions: user.role.permissions || [], // Include permissions, default to empty array if null
       },
       message: inviteLink.message || `Welcome! Your role is ${user.role.name}`,
     });
@@ -402,7 +432,7 @@ router.post('/invite-login', async (req, res) => {
 });
 
 // Get current user
-router.get('/me', authenticate, async (req: AuthRequest, res) => {
+router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
@@ -428,7 +458,7 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Refresh token endpoint
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', async (req: Request, res: Response) => {
   try {
     const { refreshToken: token } = z.object({
       refreshToken: z.string().min(1, 'Refresh token is required'),
@@ -483,7 +513,7 @@ router.post('/refresh', async (req, res) => {
 });
 
 // Logout endpoint (revoke refresh token)
-router.post('/logout', authenticate, async (req: AuthRequest, res) => {
+router.post('/logout', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { refreshToken } = z.object({
       refreshToken: z.string().optional(),

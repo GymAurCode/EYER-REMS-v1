@@ -350,7 +350,7 @@ export function AddLeadDialog({
       }
 
       if (isEdit) {
-        await apiService.leads.update(Number(initialData!.id!), payload)
+        await apiService.leads.update(initialData!.id!, payload)
         toast({ title: "Lead updated successfully", variant: "success" })
       } else {
         await apiService.leads.create(payload)

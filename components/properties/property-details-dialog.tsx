@@ -109,7 +109,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                   src={
                     property.imageUrl.startsWith("http")
                       ? property.imageUrl
-                      : `${process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001"}${property.imageUrl}`
+                      : `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, '')}${property.imageUrl}`
                   }
                   alt={property.name || "Property image"}
                   className="h-full w-full object-cover"

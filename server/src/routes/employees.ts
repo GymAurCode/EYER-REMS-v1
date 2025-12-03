@@ -1,11 +1,11 @@
-import express from 'express';
+import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
-const router: express.Router = express.Router();
+const router = (express as any).Router();
 
 // Get all employees
-router.get('/', authenticate, async (req: AuthRequest, res) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const employees = await prisma.employee.findMany({
       where: { isDeleted: false },
@@ -27,7 +27,7 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get employee by ID
-router.get('/:id', authenticate, async (req: AuthRequest, res) => {
+router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const employee = await prisma.employee.findUnique({
@@ -73,7 +73,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Create employee
-router.post('/', authenticate, async (req: AuthRequest, res) => {
+router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const {
       name, email, phone, position, department, departmentCode, role, employeeType, status,
@@ -195,7 +195,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Update employee
-router.put('/:id', authenticate, async (req: AuthRequest, res) => {
+router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const {
@@ -312,7 +312,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Delete employee
-router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
+router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -347,7 +347,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res) => {
 });
 
 // Get HR alerts (attendance issues)
-router.get('/alerts/attendance', authenticate, async (req: AuthRequest, res) => {
+router.get('/alerts/attendance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { days } = req.query;
     const { getAttendanceAlerts } = await import('../services/hr-alerts');

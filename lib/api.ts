@@ -13,7 +13,26 @@ import axios from 'axios'
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
 const rawBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
-const normalizedBaseUrl = `${rawBaseUrl.replace(/\/+$/, '')}/`
+// Normalize the base URL: remove trailing slashes, ensure it ends with /api (no trailing slash)
+let normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '') // Remove trailing slashes
+// Ensure the base URL includes /api
+if (!normalizedBaseUrl.endsWith('/api')) {
+  // If it doesn't end with /api, check if it's just the domain
+  if (!normalizedBaseUrl.includes('/api')) {
+    normalizedBaseUrl = `${normalizedBaseUrl}/api`
+  }
+}
+// Don't add trailing slash - axios will handle URL combination correctly
+// baseURL: http://localhost:3001/api + URL: /auth/login = http://localhost:3001/api/auth/login
+
+// Log API configuration in development (disabled)
+// if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+//   console.log('🔧 API Configuration:', {
+//     rawBaseUrl,
+//     normalizedBaseUrl,
+//     envVar: process.env.NEXT_PUBLIC_API_URL || 'not set (using default)',
+//   })
+// }
 
 // Create axios instance with default config
 const api = axios.create({
@@ -22,14 +41,29 @@ const api = axios.create({
     'Content-Type': 'application/json',
   },
   timeout: 10000,
+  withCredentials: true, // Required for CORS with credentials
 })
 
 // Request interceptor to add auth token, deviceId, and CSRF token
 api.interceptors.request.use(
   (config) => {
-    // Ensure relative URLs so axios correctly appends them to the normalized base URL
-    if (config.baseURL && typeof config.url === 'string' && config.url.startsWith('/')) {
-      config.url = config.url.replace(/^\/+/, '')
+    // Log the request URL in development for debugging (disabled)
+    // if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    //   const base = config.baseURL?.replace(/\/+$/, '') || ''
+    //   const url = config.url?.startsWith('/') ? config.url : `/${config.url || ''}`
+    //   const fullUrl = `${base}${url}`
+    //   console.log('📤 API Request:', {
+    //     method: config.method?.toUpperCase(),
+    //     url: config.url,
+    //     baseURL: config.baseURL,
+    //     fullUrl,
+    //   })
+    // }
+
+    // Ensure URLs start with / for proper axios URL combination
+    // Axios combines: baseURL (no trailing /) + URL (with leading /) = correct URL
+    if (config.url && !config.url.startsWith('/')) {
+      config.url = `/${config.url}`
     }
 
     // Only access sessionStorage on client-side to avoid hydration issues
@@ -125,6 +159,20 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    // Log request details in development for debugging (disabled)
+    // if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    //   const requestUrl = error.config?.url
+    //   const baseURL = error.config?.baseURL
+    //   const fullUrl = baseURL && requestUrl ? `${baseURL}${requestUrl}` : requestUrl
+    //   console.error('❌ API Request Failed:', {
+    //     url: fullUrl,
+    //     method: error.config?.method?.toUpperCase(),
+    //     status: error.response?.status,
+    //     statusText: error.response?.statusText,
+    //     message: error.message,
+    //   })
+    // }
+
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true
@@ -138,13 +186,15 @@ api.interceptors.response.use(
             !originalRequest.url?.includes('/auth/invite-login')) {
           try {
             // Attempt to refresh the token
+            const refreshUrl = `${normalizedBaseUrl}/auth/refresh`
             const response = await axios.post(
-              `${normalizedBaseUrl}auth/refresh`,
+              refreshUrl,
               { refreshToken },
               {
                 headers: {
                   'Content-Type': 'application/json',
                 },
+                withCredentials: true, // Required for CORS with credentials
               }
             )
 
@@ -191,6 +241,42 @@ api.interceptors.response.use(
           }
         }
       }
+    }
+
+    // Handle 500 Internal Server Error - show detailed error message
+    if (error.response?.status === 500) {
+      const errorData = error.response?.data
+      const errorMessage = errorData?.message || errorData?.error || 'Internal server error'
+      
+      // Error logging disabled
+      // if (typeof window !== 'undefined') {
+      //   console.error('❌ 500 Internal Server Error:', {
+      //     message: errorMessage,
+      //     details: errorData?.details,
+      //     stack: errorData?.stack,
+      //     url: error.config?.url,
+      //   })
+      // }
+    }
+
+    // Handle 404 Not Found - provide helpful error message
+    if (error.response?.status === 404) {
+      const requestUrl = error.config?.url
+      const baseURL = error.config?.baseURL
+      // Construct the full URL correctly
+      const base = baseURL?.replace(/\/+$/, '') || ''
+      const url = requestUrl?.startsWith('/') ? requestUrl : `/${requestUrl || ''}`
+      const fullUrl = `${base}${url}`
+      
+      // Error logging disabled
+      // if (typeof window !== 'undefined') {
+      //   console.error('❌ 404 Error - Endpoint not found:', {
+      //     fullUrl,
+      //     baseURL,
+      //     endpoint: requestUrl,
+      //     suggestion: 'Make sure the backend server is running on port 3001 and the endpoint exists',
+      //   })
+      // }
     }
 
     // Handle 401 Unauthorized (after refresh attempt or no refresh token)
@@ -478,10 +564,10 @@ export const apiService = {
   // CRM - Leads
   leads: {
     getAll: () => api.get('/crm/leads'),
-    getById: (id: number) => api.get(`/crm/leads/${id}`),
+    getById: (id: string | number) => api.get(`/crm/leads/${id}`),
     create: (data: any) => api.post('/crm/leads', data),
-    update: (id: number, data: any) => api.put(`/crm/leads/${id}`, data),
-    delete: (id: number) => api.delete(`/crm/leads/${id}`),
+    update: (id: string | number, data: any) => api.put(`/crm/leads/${id}`, data),
+    delete: (id: string | number) => api.delete(`/crm/leads/${id}`),
     convertToClient: (id: string) => api.post(`/crm/leads/${id}/convert`),
   },
 
