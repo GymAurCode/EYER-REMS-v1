@@ -101,7 +101,7 @@ const sumLines = (lines: { debit?: number; credit?: number }[]): { debit: number
 router.get('/accounts', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     // Fetch all accounts
-    const accounts = await prisma.account.findMany({ 
+    const accounts = await prisma.account.findMany({
       orderBy: { code: 'asc' },
       where: { isActive: true }
     });
@@ -164,7 +164,7 @@ router.get('/accounts', authenticate, async (_req: AuthRequest, res: Response) =
   } catch (error) {
     console.error('Get accounts error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch accounts';
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch accounts',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -179,7 +179,7 @@ router.get('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
   } catch (error) {
     console.error('Get account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch account';
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch account',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -199,7 +199,7 @@ router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) =
   } catch (error) {
     console.error('Create account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Failed to create account',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -216,7 +216,7 @@ router.put('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
   } catch (error) {
     console.error('Update account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to update account';
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Failed to update account',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -230,7 +230,7 @@ router.delete('/accounts/:id', authenticate, async (req: AuthRequest, res: Respo
   } catch (error) {
     console.error('Delete account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to delete account';
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Failed to delete account',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -251,7 +251,7 @@ router.get('/transaction-categories', authenticate, async (_req: AuthRequest, re
   } catch (error) {
     console.error('Get transaction categories error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transaction categories';
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Failed to fetch transaction categories',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -281,7 +281,7 @@ router.post('/transaction-categories', authenticate, async (req: AuthRequest, re
   } catch (error) {
     console.error('Create transaction category error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to create transaction category';
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Failed to create transaction category',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -318,7 +318,7 @@ router.delete('/transaction-categories/:id', authenticate, async (req: AuthReque
   } catch (error) {
     console.error('Delete transaction category error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to delete transaction category';
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Failed to delete transaction category',
       message: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
@@ -408,7 +408,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
     // Accounts are optional - if not provided, try to get from transaction category defaults
     let resolvedDebitAccountId = debitAccountId || null;
     let resolvedCreditAccountId = creditAccountId || null;
-    
+
     // If accounts not provided, try to get from category defaults
     if (!resolvedDebitAccountId && !resolvedCreditAccountId && transactionCategoryId) {
       const category = await prisma.transactionCategory.findUnique({
@@ -418,7 +418,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
           defaultCreditAccount: true,
         },
       });
-      
+
       if (category) {
         if (transactionType === 'income') {
           // Income: Debit = Cash/Bank (from payment method), Credit = Income Account (from category)
@@ -469,7 +469,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
 
       // Create journal entry lines only for provided accounts
       const journalLines: any[] = [];
-      
+
       if (resolvedDebitAccountId) {
         journalLines.push({
           accountId: resolvedDebitAccountId,
@@ -478,7 +478,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
           description: req.body.debitDescription || 'Debit',
         });
       }
-      
+
       if (resolvedCreditAccountId) {
         journalLines.push({
           accountId: resolvedCreditAccountId,
@@ -804,9 +804,9 @@ router.get('/payments/:id', authenticate, async (req: AuthRequest, res: Response
 router.post('/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const payload = createDealPaymentSchema.parse(req.body);
-    
+
     const { PaymentService } = await import('../services/payment-service');
-    
+
     const payment = await PaymentService.createPayment({
       dealId: payload.dealId,
       amount: payload.amount,
@@ -844,7 +844,7 @@ router.post('/payments', authenticate, async (req: AuthRequest, res: Response) =
     }
 
     if (error?.message?.includes('Chart of Accounts')) {
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: error.message,
         hint: 'Please run the Chart of Accounts seed script first',
       });
@@ -986,13 +986,13 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
 
       const lines = isReceipt
         ? [
-            { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Receipt' },
-            { accountId: creditAccountId, debit: 0, credit: amount, description: 'Income' },
-          ]
+          { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Receipt' },
+          { accountId: creditAccountId, debit: 0, credit: amount, description: 'Income' },
+        ]
         : [
-            { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Expense' },
-            { accountId: creditAccountId, debit: 0, credit: amount, description: 'Cash/Bank' },
-          ];
+          { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Expense' },
+          { accountId: creditAccountId, debit: 0, credit: amount, description: 'Cash/Bank' },
+        ];
 
       const journalEntry = await tx.journalEntry.create({
         data: {
@@ -1181,7 +1181,7 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
   try {
     const { LedgerService } = await import('../services/ledger-service');
     const clientId = req.query.clientId as string | undefined;
-    
+
     const rows = await LedgerService.getClientLedger(clientId);
     res.json(rows);
   } catch (error) {
@@ -1194,7 +1194,7 @@ router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res: Re
   try {
     const { LedgerService } = await import('../services/ledger-service');
     const propertyId = req.query.propertyId as string | undefined;
-    
+
     const rows = await LedgerService.getPropertyLedger(propertyId);
     res.json(rows);
   } catch (error) {
@@ -1206,12 +1206,12 @@ router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res: Re
 router.get('/ledgers/company', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { LedgerService } = await import('../services/ledger-service');
-    
+
     const filters: any = {};
     if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
     if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
     if (req.query.accountId) filters.accountId = req.query.accountId as string;
-    
+
     const result = await LedgerService.getCompanyLedger(filters);
     res.json(result);
   } catch (error) {
@@ -1629,7 +1629,7 @@ router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res: R
       },
       orderBy: { date: 'asc' },
     });
-    
+
     const payments = ledgerEntries
       .filter(le => le.payment)
       .map(le => le.payment);
@@ -1700,7 +1700,7 @@ router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res: R
     const totalDebits = transactions
       .filter((t) => t.debitAccountId === accountId)
       .reduce((sum, t) => sum + t.totalAmount, 0);
-    
+
     const totalCredits = transactions
       .filter((t) => t.creditAccountId === accountId)
       .reduce((sum, t) => sum + t.totalAmount, 0);
@@ -1861,7 +1861,7 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
     res.json({ success: true, data: paymentPlan });
   } catch (error: any) {
     console.error('Create payment plan error:', error);
-    
+
     // Ensure we always return JSON, even on unexpected errors
     if (!res.headersSent) {
       res.status(500).json({
@@ -1877,7 +1877,7 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
 router.post('/payment-plans', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const plan = await PaymentPlanService.createPaymentPlan({
       dealId: req.body.dealId,
       clientId: req.body.clientId,
@@ -1905,7 +1905,7 @@ router.post('/payment-plans', authenticate, async (req: AuthRequest, res: Respon
 router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, dealId, clientId } = req.query;
-    
+
     const where: any = { isActive: true };
     if (status) where.status = status;
     if (dealId) where.dealId = dealId;
@@ -1982,21 +1982,21 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Respons
 router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const plan = await PaymentPlanService.getPaymentPlanByDealId(req.params.dealId);
-    
+
     if (!plan) {
       return res.status(404).json({ success: false, error: 'Payment plan not found' });
     }
 
     const summary = await PaymentPlanService.getInstallmentSummary(req.params.dealId);
-    
+
     // Include down payment in paid amount for summary
     const downPayment = plan.downPayment || 0;
     const installmentPaidAmount = summary.paidAmount || 0;
     const totalPaidAmount = installmentPaidAmount + downPayment;
     const totalAmount = plan.totalAmount || summary.totalAmount || 0;
-    
+
     const summaryWithDownPayment = {
       ...summary,
       paidAmount: totalPaidAmount, // Include down payment
@@ -2121,7 +2121,7 @@ router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res:
 router.put('/installments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const installment = await PaymentPlanService.updateInstallment(req.params.id, {
       installmentId: req.params.id,
       amount: req.body.amount,
@@ -2144,7 +2144,7 @@ router.put('/installments/:id', authenticate, async (req: AuthRequest, res: Resp
 router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const installment = await PaymentPlanService.recordInstallmentPayment(
       req.params.id,
       req.body.amount,
@@ -2269,7 +2269,7 @@ router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Respo
 router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
-    
+
     const filters: any = {};
     if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
     if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
@@ -2291,7 +2291,7 @@ router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, re
 router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
-    
+
     const entry = await DealerLedgerService.recordPayment(
       req.params.dealerId,
       req.body.amount,
@@ -2314,7 +2314,7 @@ router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRe
 router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealerLedgerService } = await import('../services/dealer-ledger-service');
-    
+
     const balance = await DealerLedgerService.getDealerBalance(req.params.dealerId);
 
     res.json({ success: true, data: { balance } });
@@ -2330,11 +2330,10 @@ router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthReq
 // -------------------- Enhanced Payment Plans (Multiple Types Support) --------------------
 // NOTE: The /payment-plans/create route has been moved above to fix route matching order
 
-// Update payment plan
+// Update payment plan - DISABLED: Payment plans cannot be updated after creation
 router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const { installments, downPayment, notes } = req.body;
 
     const paymentPlan = await prisma.paymentPlan.findUnique({
       where: { id },
@@ -2345,79 +2344,11 @@ router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, r
       return res.status(404).json({ success: false, error: 'Payment plan not found' });
     }
 
-    // Get the saved down payment (preserve it if not provided in update)
-    const savedDownPayment = downPayment !== undefined ? (downPayment || 0) : (paymentPlan.downPayment || 0);
-    const dealAmount = paymentPlan.deal?.dealAmount || paymentPlan.totalAmount || 0;
-
-    // Update installments if provided
-    if (Array.isArray(installments)) {
-      await prisma.$transaction(async (tx) => {
-        for (const inst of installments) {
-          if (inst.id) {
-            await tx.dealInstallment.update({
-              where: { id: inst.id },
-              data: {
-                amount: inst.amount,
-                dueDate: new Date(inst.dueDate),
-                paymentMode: inst.paymentMode || null,
-                notes: inst.notes || null,
-                type: inst.type || null,
-                remaining: inst.amount - (inst.paidAmount || 0),
-              },
-            });
-          }
-        }
-
-        // Recalculate totalPaid: sum of installment paid amounts + down payment
-        const updatedInstallments = await tx.dealInstallment.findMany({
-          where: { paymentPlanId: id, isDeleted: false },
-        });
-        const installmentPaidAmount = updatedInstallments.reduce((sum, inst) => sum + (inst.paidAmount || 0), 0);
-        const totalPaid = installmentPaidAmount + savedDownPayment;
-        const remaining = dealAmount - totalPaid;
-
-        // Update payment plan with down payment and recalculated totals
-        await tx.paymentPlan.update({
-          where: { id },
-          data: {
-            downPayment: savedDownPayment,
-            totalPaid: totalPaid,
-            remaining: remaining,
-            status: totalPaid >= dealAmount ? 'Fully Paid' : (totalPaid > 0 ? 'Partially Paid' : 'Pending'),
-            ...(notes !== undefined && { notes: notes || null }),
-          },
-        });
-      });
-    } else {
-      // If only down payment or notes are being updated (no installments)
-      const updatedInstallments = await prisma.dealInstallment.findMany({
-        where: { paymentPlanId: id, isDeleted: false },
-      });
-      const installmentPaidAmount = updatedInstallments.reduce((sum, inst) => sum + (inst.paidAmount || 0), 0);
-      const totalPaid = installmentPaidAmount + savedDownPayment;
-      const remaining = dealAmount - totalPaid;
-
-      await prisma.paymentPlan.update({
-        where: { id },
-        data: {
-          downPayment: savedDownPayment,
-          totalPaid: totalPaid,
-          remaining: remaining,
-          status: totalPaid >= dealAmount ? 'Fully Paid' : (totalPaid > 0 ? 'Partially Paid' : 'Pending'),
-          ...(notes !== undefined && { notes: notes || null }),
-        },
-      });
-    }
-
-    const updated = await prisma.paymentPlan.findUnique({
-      where: { id },
-      include: {
-        installments: { where: { isDeleted: false }, orderBy: { installmentNumber: 'asc' } },
-        deal: true,
-      },
+    // Prevent updates after creation
+    return res.status(400).json({
+      success: false,
+      error: 'Payment plan cannot be updated after creation. Please create a new payment plan if changes are needed.'
     });
-
-    res.json({ success: true, data: updated });
   } catch (error: any) {
     console.error('Update payment plan error:', error);
     res.status(500).json({
@@ -2493,9 +2424,9 @@ router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res: Resp
   try {
     const { ReceiptService } = await import('../services/receipt-service');
     const { generateReceiptPDF } = await import('../utils/pdf-generator');
-    
+
     const receipt = await ReceiptService.getReceiptById(req.params.id);
-    
+
     if (!receipt) {
       return res.status(404).json({ success: false, error: 'Receipt not found' });
     }
@@ -2533,7 +2464,7 @@ router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res: Resp
     };
 
     const pdfBuffer = await generateReceiptPDF(pdfData);
-    
+
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNo}.pdf"`);
     res.send(pdfBuffer);

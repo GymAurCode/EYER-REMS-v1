@@ -3,51 +3,9 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
+import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
 
 const router = (express as any).Router();
-
-// Helper functions to generate unique codes
-async function generateLeadCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `LEAD-${dateStr}-${random}`;
-    const existing = await prisma.lead.findUnique({ where: { leadCode: code } });
-    exists = !!existing;
-  }
-  return code;
-}
-
-async function generateClientCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `CLIENT-${dateStr}-${random}`;
-    const existing = await prisma.client.findUnique({ where: { clientCode: code } });
-    exists = !!existing;
-  }
-  return code;
-}
-
-async function generateDealerCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `DEALER-${dateStr}-${random}`;
-    const existing = await prisma.dealer.findUnique({ where: { dealerCode: code } });
-    exists = !!existing;
-  }
-  return code;
-}
 
 // Leads
 router.get('/leads', authenticate, async (_req: AuthRequest, res: Response) => {
@@ -63,12 +21,24 @@ router.get('/leads', authenticate, async (_req: AuthRequest, res: Response) => {
 
 router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const leadCode = await generateLeadCode();
-    const lead = await prisma.lead.create({ 
-      data: {
-        ...req.body,
-        leadCode,
-      }
+    const { manualUniqueId, ...leadData } = req.body;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'lead');
+    }
+
+    // Generate system ID: lead-YY-####
+    const leadCode = await generateSystemId('lead');
+    
+    const lead = await prisma.$transaction(async (tx) => {
+      return await tx.lead.create({ 
+        data: {
+          ...leadData,
+          leadCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+        }
+      });
     });
 
     await createActivity({
@@ -105,11 +75,8 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: 'Lead has already been converted to a client' });
     }
 
-    // Generate client code
-    const date = new Date();
-    const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    const clientCode = `CLIENT-${dateStr}-${random}`;
+    // Generate system ID: cli-YY-####
+    const clientCode = await generateSystemId('cli');
 
     // Get next srNo and clientNo
     const lastClient = await prisma.client.findFirst({
@@ -119,23 +86,26 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
     const nextClientNo = `CL-${String(nextSrNo).padStart(4, '0')}`;
 
     // Create client from lead
-    const client = await prisma.client.create({
-      data: {
-        name: lead.name,
-        email: lead.email,
-        phone: lead.phone,
-        clientCode,
-        srNo: nextSrNo,
-        clientNo: nextClientNo,
-        address: lead.address,
-        city: lead.city,
-        country: lead.country,
-        cnic: lead.cnic,
-        propertyInterest: lead.interest,
-        clientType: 'individual',
-        clientCategory: 'regular',
-        status: 'active',
-      },
+    const client = await prisma.$transaction(async (tx) => {
+      return await tx.client.create({
+        data: {
+          name: lead.name,
+          email: lead.email,
+          phone: lead.phone,
+          clientCode,
+          srNo: nextSrNo,
+          clientNo: nextClientNo,
+          address: lead.address,
+          city: lead.city,
+          country: lead.country,
+          cnic: lead.cnic,
+          propertyInterest: lead.interest,
+          clientType: 'individual',
+          clientCategory: 'regular',
+          status: 'active',
+          manualUniqueId: null, // Can be set later if needed
+        },
+      });
     });
 
     // Update lead status
@@ -265,6 +235,7 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
         { email: { contains: search as string, mode: 'insensitive' } },
         { phone: { contains: search as string, mode: 'insensitive' } },
         { clientCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
         { clientNo: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
@@ -310,7 +281,16 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
 
 router.post('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const clientCode = await generateClientCode();
+    const { manualUniqueId, ...clientData } = req.body;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'cli');
+    }
+
+    // Generate system ID: cli-YY-####
+    const clientCode = await generateSystemId('cli');
+    
     // Get next srNo and clientNo
     const lastClient = await prisma.client.findFirst({
       orderBy: { createdAt: 'desc' },
@@ -318,13 +298,16 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
     const nextSrNo = lastClient?.srNo ? (lastClient.srNo + 1) : 1;
     const nextClientNo = `CL-${String(nextSrNo).padStart(4, '0')}`;
     
-    const client = await prisma.client.create({ 
-      data: {
-        ...req.body,
-        clientCode,
-        srNo: nextSrNo,
-        clientNo: nextClientNo,
-      }
+    const client = await prisma.$transaction(async (tx) => {
+      return await tx.client.create({ 
+        data: {
+          ...clientData,
+          clientCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+          srNo: nextSrNo,
+          clientNo: nextClientNo,
+        }
+      });
     });
 
     await createActivity({
@@ -413,6 +396,7 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
         { email: { contains: search as string, mode: 'insensitive' } },
         { phone: { contains: search as string, mode: 'insensitive' } },
         { dealerCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
     }
@@ -439,12 +423,24 @@ router.get('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
 
 router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const dealerCode = await generateDealerCode();
-    const dealer = await prisma.dealer.create({ 
-      data: {
-        ...req.body,
-        dealerCode,
-      }
+    const { manualUniqueId, ...dealerData } = req.body;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'deal');
+    }
+
+    // Generate system ID: deal-YY-####
+    const dealerCode = await generateSystemId('deal');
+    
+    const dealer = await prisma.$transaction(async (tx) => {
+      return await tx.dealer.create({ 
+        data: {
+          ...dealerData,
+          dealerCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+        }
+      });
     });
 
     await createActivity({

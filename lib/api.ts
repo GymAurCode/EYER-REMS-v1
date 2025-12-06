@@ -77,7 +77,7 @@ api.interceptors.request.use(
       const loginTimestamp = parseInt(loginTime, 10)
       const now = Date.now()
       const hoursSinceLogin = (now - loginTimestamp) / (1000 * 60 * 60)
-      
+
       // If 24 hours have passed since login, clear session
       // But only reject the request, don't redirect here (let the auth context handle it)
       if (hoursSinceLogin >= 24) {
@@ -95,7 +95,7 @@ api.interceptors.request.use(
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
-    
+
     // Add deviceId header for session isolation
     const deviceId = sessionStorage.getItem('deviceId')
     if (deviceId && config.headers) {
@@ -107,16 +107,16 @@ api.interceptors.request.use(
     if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
       const csrfToken = sessionStorage.getItem('csrfToken')
       const sessionId = sessionStorage.getItem('sessionId')
-      
+
       if (csrfToken && config.headers) {
         config.headers['X-CSRF-Token'] = csrfToken
       }
-      
+
       if (sessionId && config.headers) {
         config.headers['X-Session-Id'] = sessionId
       }
     }
-    
+
     return config
   },
   (error) => {
@@ -130,16 +130,16 @@ api.interceptors.response.use(
     // Update last activity on successful response
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('lastActivity', Date.now().toString())
-      
+
       // Update CSRF token and session ID if provided in response
       const responseData = response.data as any
       const csrfToken = response.headers['x-csrf-token'] || responseData?.csrfToken
       const sessionId = response.headers['x-session-id'] || responseData?.sessionId
-      
+
       if (csrfToken) {
         sessionStorage.setItem('csrfToken', csrfToken)
       }
-      
+
       if (sessionId) {
         sessionStorage.setItem('sessionId', sessionId)
       }
@@ -179,11 +179,11 @@ api.interceptors.response.use(
 
       if (typeof window !== 'undefined') {
         const refreshToken = localStorage.getItem('refreshToken')
-        
+
         // Only attempt refresh if we have a refresh token and it's not a login endpoint
-        if (refreshToken && !originalRequest.url?.includes('/auth/login') && 
-            !originalRequest.url?.includes('/auth/role-login') && 
-            !originalRequest.url?.includes('/auth/invite-login')) {
+        if (refreshToken && !originalRequest.url?.includes('/auth/login') &&
+          !originalRequest.url?.includes('/auth/role-login') &&
+          !originalRequest.url?.includes('/auth/invite-login')) {
           try {
             // Attempt to refresh the token
             const refreshUrl = `${normalizedBaseUrl}/auth/refresh`
@@ -247,7 +247,7 @@ api.interceptors.response.use(
     if (error.response?.status === 500) {
       const errorData = error.response?.data
       const errorMessage = errorData?.message || errorData?.error || 'Internal server error'
-      
+
       // Error logging disabled
       // if (typeof window !== 'undefined') {
       //   console.error('❌ 500 Internal Server Error:', {
@@ -267,7 +267,7 @@ api.interceptors.response.use(
       const base = baseURL?.replace(/\/+$/, '') || ''
       const url = requestUrl?.startsWith('/') ? requestUrl : `/${requestUrl || ''}`
       const fullUrl = `${base}${url}`
-      
+
       // Error logging disabled
       // if (typeof window !== 'undefined') {
       //   console.error('❌ 404 Error - Endpoint not found:', {
@@ -298,36 +298,36 @@ api.interceptors.response.use(
           sessionStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
-        
+
         // Don't redirect if error is from chat API - let the component handle it
         const requestUrl = error.config?.url || ''
         if (requestUrl.includes('/chat')) {
           // Just reject the error, don't redirect - let the chat component handle it
           return Promise.reject(error)
         }
-        
+
         // Check if user was previously a role-based user
         const storedUser = localStorage.getItem('erp-user')
         if (storedUser && storedUser.trim() !== '' && storedUser !== 'null' && storedUser !== 'undefined') {
           try {
             const parsedUser = JSON.parse(storedUser)
             if (parsedUser && typeof parsedUser === 'object' && parsedUser.role?.toLowerCase() !== 'admin') {
-            localStorage.removeItem('token')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem('erp-user')
-            localStorage.removeItem('loginTime')
-            sessionStorage.removeItem('deviceId')
-            sessionStorage.removeItem('csrfToken')
-            sessionStorage.removeItem('sessionId')
-            sessionStorage.removeItem('lastActivity')
-            window.location.href = '/roles/login'
+              localStorage.removeItem('token')
+              localStorage.removeItem('refreshToken')
+              localStorage.removeItem('erp-user')
+              localStorage.removeItem('loginTime')
+              sessionStorage.removeItem('deviceId')
+              sessionStorage.removeItem('csrfToken')
+              sessionStorage.removeItem('sessionId')
+              sessionStorage.removeItem('lastActivity')
+              window.location.href = '/roles/login'
               return Promise.reject(error)
             }
           } catch (e) {
             // If parsing fails, default to admin login
           }
         }
-        
+
         localStorage.removeItem('token')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('erp-user')
@@ -340,14 +340,14 @@ api.interceptors.response.use(
       }
     }
     // Handle CSRF token errors (403)
-    if (error.response?.status === 403 && 
-        (error.response?.data?.error?.includes('CSRF') || 
-         error.response?.data?.message?.includes('CSRF'))) {
+    if (error.response?.status === 403 &&
+      (error.response?.data?.error?.includes('CSRF') ||
+        error.response?.data?.message?.includes('CSRF'))) {
       if (typeof window !== 'undefined') {
         // Clear CSRF token to force regeneration on next request
         sessionStorage.removeItem('csrfToken')
         sessionStorage.removeItem('sessionId')
-        
+
         // Don't redirect - let the user retry the action
         // The next request will get a new CSRF token from the server
         return Promise.reject(error)
@@ -372,29 +372,29 @@ api.interceptors.response.use(
           sessionStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
-        
+
         // Check if user was previously a role-based user
         const storedUser = localStorage.getItem('erp-user')
         if (storedUser && storedUser.trim() !== '' && storedUser !== 'null' && storedUser !== 'undefined') {
           try {
             const parsedUser = JSON.parse(storedUser)
             if (parsedUser && typeof parsedUser === 'object' && parsedUser.role?.toLowerCase() !== 'admin') {
-            localStorage.removeItem('token')
-            localStorage.removeItem('refreshToken')
-            localStorage.removeItem('erp-user')
-            localStorage.removeItem('loginTime')
-            sessionStorage.removeItem('deviceId')
-            sessionStorage.removeItem('csrfToken')
-            sessionStorage.removeItem('sessionId')
-            sessionStorage.removeItem('lastActivity')
-            window.location.href = '/roles/login'
+              localStorage.removeItem('token')
+              localStorage.removeItem('refreshToken')
+              localStorage.removeItem('erp-user')
+              localStorage.removeItem('loginTime')
+              sessionStorage.removeItem('deviceId')
+              sessionStorage.removeItem('csrfToken')
+              sessionStorage.removeItem('sessionId')
+              sessionStorage.removeItem('lastActivity')
+              window.location.href = '/roles/login'
               return Promise.reject(error)
             }
           } catch (e) {
             // If parsing fails, default to admin login
           }
         }
-        
+
         localStorage.removeItem('token')
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('erp-user')
@@ -449,7 +449,7 @@ export const apiService = {
     getFloorAnalytics: (propertyId: string) => api.get(`/units/analytics/floors/${propertyId}`),
     createForFloor: (floorId: string, data: any) => api.post(`/units/floors/${floorId}/units`, data),
   },
-  
+
   // Tenants
   tenants: {
     getAll: (params?: { blockId?: string; propertyId?: string; unitId?: string; search?: string }) => {
@@ -593,7 +593,7 @@ export const apiService = {
     createPaymentPlan: (dealId: string, data: any) => api.post(`/crm/deals/${dealId}/payment-plan`, data),
     updatePaymentPlan: (planId: string, data: any) => api.put(`/crm/payment-plan/${planId}`, data),
     createPayment: (dealId: string, data: any) => api.post(`/crm/deals/${dealId}/payments`, data),
-    smartAllocatePayment: (dealId: string, data: { amount: number; method: string }) => 
+    smartAllocatePayment: (dealId: string, data: { amount: number; method: string }) =>
       api.patch(`/crm/deals/${dealId}/payments/smart-allocate`, data),
   },
 
@@ -745,7 +745,7 @@ export const apiService = {
     updateInstallment: (id: string, data: any) => api.put(`/finance/installments/${id}`, data),
     recordPayment: (id: string, data: any) => api.post(`/finance/installments/${id}/payment`, data),
   },
-  
+
   // Finance - Receipts
   receipts: {
     create: (data: any) => api.post('/finance/receipts/create', data),
@@ -850,7 +850,7 @@ export const apiService = {
     getAmenities: () => api.get('/advanced-options/amenities'),
     createAmenity: (data: { name: string; description?: string; icon?: string }) =>
       api.post('/advanced-options/amenities', data),
-    updateAmenity: (id: string, data: { name?: string; description?: string; icon?: string }) =>
+    updateAmenity: (id: string, data: { name?: string; description?: string; icon?: string; isActive?: boolean }) =>
       api.put(`/advanced-options/amenities/${id}`, data),
     deleteAmenity: (id: string) => api.delete(`/advanced-options/amenities/${id}`),
     export: (data: { tables: string[] }) => api.post('/advanced-options/export', data),

@@ -149,11 +149,19 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                     <span className="font-medium text-foreground">{property.name || "N/A"}</span>
                   </div>
                   <div className="grid grid-cols-[120px,1fr] gap-2">
-                    <span className="text-muted-foreground">Code</span>
+                    <span className="text-muted-foreground">System ID</span>
                     <span className="font-mono text-foreground">
                       {property.propertyCode || property.code || "N/A"}
                     </span>
                   </div>
+                  {property.manualUniqueId && (
+                    <div className="grid grid-cols-[120px,1fr] gap-2">
+                      <span className="text-muted-foreground">Manual ID</span>
+                      <span className="font-mono text-foreground">
+                        {property.manualUniqueId}
+                      </span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-[120px,1fr] gap-2">
                     <span className="text-muted-foreground">Type</span>
                     <span className="text-foreground">{property.type || "N/A"}</span>

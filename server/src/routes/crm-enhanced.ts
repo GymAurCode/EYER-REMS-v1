@@ -11,6 +11,7 @@ import { createAuditLog } from '../services/audit-log';
 import { syncDealToFinanceLedger } from '../services/workflows';
 import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alerts';
 import { createAttachment, saveUploadedFile } from '../services/attachments';
+import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
 import multer from 'multer';
 
 const router = (express as any).Router();
@@ -33,6 +34,7 @@ const createLeadSchema = z.object({
   expectedCloseDate: z.string().datetime().optional(),
   followUpDate: z.string().datetime().optional(),
   assignedToUserId: z.string().uuid().optional(),
+  assignedDealerId: z.string().uuid().optional(),
   cnic: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
@@ -84,57 +86,22 @@ const createCommunicationSchema = z.object({
   assignedAgentId: z.string().uuid().optional(),
 });
 
-// Helper: Generate codes
+// Helper: Generate codes (now using centralized service)
+// These functions are kept for backward compatibility but delegate to the centralized service
 async function generateLeadCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `LEAD-${date}-${random}`;
-    const existing = await prisma.lead.findUnique({ where: { leadCode: code } });
-    exists = !!existing;
-  }
-  return code;
+  return await generateSystemId('lead');
 }
 
 async function generateClientCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `CLIENT-${date}-${random}`;
-    const existing = await prisma.client.findUnique({ where: { clientCode: code } });
-    exists = !!existing;
-  }
-  return code;
+  return await generateSystemId('cli');
 }
 
 async function generateDealerCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `DEALER-${date}-${random}`;
-    const existing = await prisma.dealer.findUnique({ where: { dealerCode: code } });
-    exists = !!existing;
-  }
-  return code;
+  return await generateSystemId('deal');
 }
 
 async function generateDealCode(): Promise<string> {
-  let code: string = '';
-  let exists = true;
-  while (exists) {
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const random = Math.floor(1000 + Math.random() * 9000);
-    code = `DEAL-${date}-${random}`;
-    const existing = await prisma.deal.findUnique({ where: { dealCode: code } });
-    exists = !!existing;
-  }
-  return code;
+  return await generateSystemId('dl');
 }
 
 // ==================== LEADS ====================
@@ -157,6 +124,7 @@ router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (re
         { email: { contains: search as string, mode: 'insensitive' } },
         { phone: { contains: search as string, mode: 'insensitive' } },
         { leadCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
       ];
     }
 
@@ -183,20 +151,32 @@ router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (re
 // Create lead
 router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = createLeadSchema.parse(req.body);
+    const parsedData = createLeadSchema.parse(req.body);
+    const { manualUniqueId, ...data } = parsedData as any;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'lead');
+    }
+
+    // Generate system ID: lead-YY-####
     const leadCode = await generateLeadCode();
 
-    const lead = await prisma.lead.create({
-      data: {
-        ...data,
-        leadCode,
-        followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined,
-        expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
-        createdBy: req.user?.id,
-      },
-      include: {
-        assignedAgent: true,
-      },
+    const lead = await prisma.$transaction(async (tx) => {
+      return await tx.lead.create({
+        data: {
+          ...data,
+          leadCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+          followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined,
+          expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
+          createdBy: req.user?.id,
+        },
+        include: {
+          assignedAgent: true,
+          assignedDealer: true,
+        },
+      });
     });
 
     await createAuditLog({
@@ -367,6 +347,7 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
         { email: { contains: search as string, mode: 'insensitive' } },
         { phone: { contains: search as string, mode: 'insensitive' } },
         { clientCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
     }
@@ -394,24 +375,35 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
 // Create client
 router.post('/clients', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = createClientSchema.parse(req.body);
+    const parsedData = createClientSchema.parse(req.body);
+    const { manualUniqueId, ...data } = parsedData as any;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'cli');
+    }
+
+    // Generate system ID: cli-YY-####
     const clientCode = await generateClientCode();
     const lastClient = await prisma.client.findFirst({ orderBy: { createdAt: 'desc' } });
     const nextSrNo = (lastClient?.srNo || 0) + 1;
 
-    const client = await prisma.client.create({
-      data: {
-        ...data,
-        clientCode,
-        srNo: nextSrNo,
-        clientNo: `CL-${String(nextSrNo).padStart(4, '0')}`,
-        status: 'active',
-        createdBy: req.user?.id,
-      },
-      include: {
-        assignedAgent: true,
-        assignedDealer: true,
-      },
+    const client = await prisma.$transaction(async (tx) => {
+      return await tx.client.create({
+        data: {
+          ...data,
+          clientCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+          srNo: nextSrNo,
+          clientNo: `CL-${String(nextSrNo).padStart(4, '0')}`,
+          status: 'active',
+          createdBy: req.user?.id,
+        },
+        include: {
+          assignedAgent: true,
+          assignedDealer: true,
+        },
+      });
     });
 
     await createAuditLog({
@@ -503,7 +495,8 @@ router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (re
 // Create deal (refactored to use DealService)
 router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const data = createDealSchema.parse(req.body);
+    const parsedData = createDealSchema.parse(req.body);
+    const { manualUniqueId, ...data } = parsedData as any;
     
     const { DealService } = await import('../services/deal-service');
     
@@ -523,6 +516,7 @@ router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async 
       expectedClosingDate: data.expectedClosingDate ? new Date(data.expectedClosingDate) : undefined,
       notes: data.notes,
       createdBy: req.user?.id || '',
+      manualUniqueId: manualUniqueId?.trim() || undefined,
     });
 
     // Fetch full deal with relations
@@ -715,14 +709,25 @@ router.post('/communications', requireAuth, requirePermission('crm.communication
 // Create dealer
 router.post('/dealers', requireAuth, requirePermission('crm.dealers.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    const { manualUniqueId, ...dealerData } = req.body;
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'deal');
+    }
+
+    // Generate system ID: deal-YY-####
     const dealerCode = await generateDealerCode();
 
-    const dealer = await prisma.dealer.create({
-      data: {
-        ...req.body,
-        dealerCode,
-        createdBy: req.user?.id,
-      },
+    const dealer = await prisma.$transaction(async (tx) => {
+      return await tx.dealer.create({
+        data: {
+          ...dealerData,
+          dealerCode,
+          manualUniqueId: manualUniqueId?.trim() || null,
+          createdBy: req.user?.id,
+        },
+      });
     });
 
     await createAuditLog({

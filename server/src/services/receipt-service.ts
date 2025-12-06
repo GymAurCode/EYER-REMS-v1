@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
+import { generateSystemId, validateManualUniqueId } from './id-generation-service';
 
 export interface CreateReceiptPayload {
   dealId: string;
@@ -8,9 +9,11 @@ export interface CreateReceiptPayload {
   method: 'Cash' | 'Bank';
   date: Date | string;
   notes?: string;
+  referenceNumber?: string; // Reference/Cheque number
   receivedBy?: string;
   existingPaymentId?: string; // If payment already exists, link to it instead of creating new one
   skipPaymentCreation?: boolean; // Skip creating Payment record if payment already exists
+  manualUniqueId?: string; // User-provided manual unique ID
 }
 
 export interface ReceiptAllocationResult {
@@ -27,31 +30,11 @@ export interface ReceiptAllocationResult {
 
 export class ReceiptService {
   /**
-   * Generate receipt number in format RCP-YYYY-NNNNN
+   * Generate receipt number in format rcp-YY-####
+   * Uses centralized ID generation service
    */
   static async generateReceiptNumber(): Promise<string> {
-    const year = new Date().getFullYear();
-    const prefix = `RCP-${year}-`;
-    
-    // Get the last receipt number for this year
-    const lastReceipt = await prisma.dealReceipt.findFirst({
-      where: {
-        receiptNo: {
-          startsWith: prefix,
-        },
-      },
-      orderBy: {
-        receiptNo: 'desc',
-      },
-    });
-    
-    if (!lastReceipt) {
-      return `${prefix}00001`;
-    }
-    
-    const lastNumber = parseInt(lastReceipt.receiptNo.replace(prefix, ''), 10);
-    const nextNumber = lastNumber + 1;
-    return `${prefix}${String(nextNumber).padStart(5, '0')}`;
+    return await generateSystemId('rcp');
   }
 
   /**
@@ -60,7 +43,12 @@ export class ReceiptService {
   static async createReceipt(payload: CreateReceiptPayload): Promise<ReceiptAllocationResult> {
     const receiptDate = payload.date instanceof Date ? payload.date : new Date(payload.date);
     
-    // Generate receipt number
+    // Validate manual unique ID if provided
+    if (payload.manualUniqueId) {
+      await validateManualUniqueId(payload.manualUniqueId, 'rcp');
+    }
+    
+    // Generate receipt number: rcp-YY-####
     const receiptNo = await this.generateReceiptNumber();
 
     // Get account IDs for ledger posting (try multiple code formats)
@@ -121,7 +109,9 @@ export class ReceiptService {
           method: payload.method,
           date: receiptDate,
           notes: payload.notes || null,
+          referenceNumber: payload.referenceNumber?.trim() || null,
           receivedBy: payload.receivedBy || null,
+          manualUniqueId: payload.manualUniqueId?.trim() || null,
         },
       });
 
@@ -216,7 +206,8 @@ export class ReceiptService {
 
         // Only create payment if it doesn't exist
         if (!existingPayment) {
-          const paymentCode = `PAY-RCP-${receiptNo}`;
+          // Generate system ID for payment: pay-YY-####
+          const paymentCode = await generateSystemId('pay');
           await tx.payment.create({
             data: {
               paymentId: paymentCode,
@@ -228,6 +219,7 @@ export class ReceiptService {
               date: receiptDate,
               remarks: `Receipt ${receiptNo} - ${payload.notes || 'Payment received'}`,
               createdByUserId: payload.receivedBy || null,
+              manualUniqueId: null, // Payment created from receipt doesn't have manual ID
             },
           });
         }

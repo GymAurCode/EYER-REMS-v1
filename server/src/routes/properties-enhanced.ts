@@ -16,6 +16,7 @@ import {
 } from '../services/workflows';
 import { createAttachment, getAttachments } from '../services/attachments';
 import { getPropertyDashboard } from '../services/analytics';
+import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
 import multer from 'multer';
 
 const router = (express as any).Router();
@@ -89,6 +90,7 @@ router.get(
           { name: { contains: search as string, mode: 'insensitive' } },
           { address: { contains: search as string, mode: 'insensitive' } },
           { propertyCode: { contains: search as string, mode: 'insensitive' } },
+          { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
         ];
       }
 
@@ -161,18 +163,24 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createPropertySchema.parse(req.body);
+      const { manualUniqueId, ...propertyData } = data as any;
 
-      // Generate property code: PROP-YYYYMMDD-XXXX
-      const date = new Date();
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-      const random = Math.floor(1000 + Math.random() * 9000); // 4 digit random
-      const propertyCode = `PROP-${dateStr}-${random}`;
+      // Validate manual unique ID if provided
+      if (manualUniqueId) {
+        await validateManualUniqueId(manualUniqueId, 'prop');
+      }
 
-      const property = await prisma.property.create({
-        data: {
-          ...data,
-          propertyCode,
-        },
+      // Generate system ID: prop-YY-####
+      const propertyCode = await generateSystemId('prop');
+
+      const property = await prisma.$transaction(async (tx) => {
+        return await tx.property.create({
+          data: {
+            ...propertyData,
+            propertyCode,
+            manualUniqueId: manualUniqueId?.trim() || null,
+          },
+        });
       });
 
       // Audit log

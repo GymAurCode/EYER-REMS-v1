@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, FileText } from "lucide-react"
+import { Search, Plus, FileText, Trash2 } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
 import { AddAccountDialog } from "./add-account-dialog"
@@ -14,8 +14,10 @@ import { AddVoucherDialog } from "./add-voucher-dialog"
 import { AddGeneralVoucherDialog } from "./add-general-voucher-dialog"
 import { apiService } from "@/lib/api"
 import { Loader2 } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export function AccountingView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
   const [showAddVoucherDialog, setShowAddVoucherDialog] = useState(false)
@@ -26,6 +28,7 @@ export function AccountingView() {
   const [loading, setLoading] = useState(true)
   const [transactions, setTransactions] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
+  const [vouchers, setVouchers] = useState<any[]>([])
   const [accounts, setAccounts] = useState<any[]>([])
 
   useEffect(() => {
@@ -35,9 +38,10 @@ export function AccountingView() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [txRes, payRes, accRes] = await Promise.all([
+      const [txRes, payRes, vouRes, accRes] = await Promise.all([
         apiService.transactions.getAll(),
         apiService.payments.getAll(),
+        apiService.vouchers.getAll(),
         apiService.accounts.getAll(),
       ])
       // Handle API response structure: could be { data: [...] } or { data: { data: [...] } }
@@ -49,6 +53,10 @@ export function AccountingView() {
       const paymentsData = Array.isArray(payData?.data) ? payData.data : Array.isArray(payData) ? payData : []
       setPayments(paymentsData)
       
+      const vouData = vouRes.data as any
+      const vouchersData = Array.isArray(vouData?.data) ? vouData.data : Array.isArray(vouData) ? vouData : []
+      setVouchers(vouchersData)
+      
       // Accounts endpoint returns array of accounts
       const accData = accRes.data as any
       const accountsData = Array.isArray(accData?.data) ? accData.data : Array.isArray(accData) ? accData : []
@@ -56,6 +64,7 @@ export function AccountingView() {
     } catch {
       setTransactions([])
       setPayments([])
+      setVouchers([])
       setAccounts([])
     } finally {
       setLoading(false)
@@ -93,17 +102,19 @@ export function AccountingView() {
   }, [transactions])
 
   const bankReceiptVouchers = useMemo(() => {
-    return payments
-      .filter((_p) => true)
-      .map((p) => ({
-        id: p.paymentId || p.id,
-        date: new Date(p.date).toISOString().split("T")[0],
-        from: p.tenant || "Customer",
-        amount: `Rs ${Number(p.amount || 0).toLocaleString("en-IN")}`,
-        description: p.invoice ? `Payment for ${p.invoice}` : "Payment receipt",
-        status: p.status || "received",
+    return vouchers
+      .filter((v) => v.type === "bank_receipt" || (v.type === "receipt" && v.paymentMethod === "Bank"))
+      .map((v) => ({
+        id: v.id,
+        voucherId: v.id,
+        voucherNumber: v.voucherNumber || v.id,
+        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        from: v.description || v.account?.name || "Customer",
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        description: v.description || "Bank receipt",
+        status: v.status || "posted",
       }))
-  }, [payments])
+  }, [vouchers])
 
   const cashPaymentVouchers = bankPaymentVouchers
   const cashReceiptVouchers = bankReceiptVouchers
@@ -265,7 +276,7 @@ export function AccountingView() {
                   </TableRow>
                 ) : bankReceiptVouchers.map((voucher) => (
                   <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.id}</TableCell>
+                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
                     <TableCell>{voucher.date}</TableCell>
                     <TableCell>{voucher.from}</TableCell>
                     <TableCell>{voucher.description}</TableCell>
@@ -274,9 +285,36 @@ export function AccountingView() {
                       <Badge variant="secondary">{voucher.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <FileText className="h-4 w-4" />
-                      </Button>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="sm" title="View Details">
+                          <FileText className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          title="Delete"
+                          onClick={async () => {
+                            if (window.confirm("Are you sure you want to delete this voucher?")) {
+                              try {
+                                await apiService.vouchers.delete(voucher.voucherId || voucher.id)
+                                toast({
+                                  title: "Success",
+                                  description: "Voucher deleted successfully",
+                                })
+                                await fetchData()
+                              } catch (error: any) {
+                                toast({
+                                  title: "Error",
+                                  description: error?.response?.data?.error || error?.message || "Failed to delete voucher",
+                                  variant: "destructive",
+                                })
+                              }
+                            }
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

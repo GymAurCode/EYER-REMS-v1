@@ -92,6 +92,8 @@ const defaultFormState = {
   dealDate: new Date().toISOString().split("T")[0],
   description: "",
   dueDate: "",
+  systemId: "",
+  manualUniqueId: "",
 }
 
 export function AddDealDialog({
@@ -200,6 +202,8 @@ export function AddDealDialog({
           dealDate: initialData.dealDate ? initialData.dealDate.split("T")[0] : new Date().toISOString().split("T")[0],
           description: initialData.description || "",
           dueDate: initialData.dueDate ? initialData.dueDate.split("T")[0] : "",
+          systemId: "",
+          manualUniqueId: "",
         })
       } else {
         setFormData(defaultFormState)
@@ -239,7 +243,7 @@ export function AddDealDialog({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     // Validate form before submitting
     if (!validateForm()) {
       toast({
@@ -253,7 +257,7 @@ export function AddDealDialog({
     try {
       setSubmitting(true)
       setErrors({})
-      
+
       const dealAmount = Number.parseFloat(formData.dealAmount || "0")
       const payload = {
         title: formData.title.trim(),
@@ -267,7 +271,7 @@ export function AddDealDialog({
         expectedClosingDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
         notes: formData.description || undefined,
       }
-      
+
       if (isEdit) {
         const response: any = await apiService.deals.update(initialData!.id!, payload)
         DealToasts.updated(formData.title || "Deal")
@@ -280,7 +284,7 @@ export function AddDealDialog({
       onSuccess?.()
     } catch (err: any) {
       console.error("Failed to save deal", err)
-      
+
       // Extract validation errors from API response
       if (err.response?.data?.error) {
         const apiError = err.response.data.error

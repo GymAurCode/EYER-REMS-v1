@@ -7,6 +7,7 @@ import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { DealService } from './deal-service';
 import { PaymentPlanService } from './payment-plan-service';
+import { generateSystemId, validateManualUniqueId } from './id-generation-service';
 
 export interface CreatePaymentPayload {
   dealId: string;
@@ -31,9 +32,12 @@ export interface RefundPaymentPayload {
 
 export class PaymentService {
   /**
-   * Generate payment code
+   * Generate payment code (deprecated - use generateSystemId('pay') instead)
+   * Kept for backward compatibility
    */
   static generatePaymentCode(): string {
+    // This is now deprecated but kept for any legacy code
+    // New code should use generateSystemId('pay')
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
     const random = Math.floor(100 + Math.random() * 900);
@@ -116,7 +120,15 @@ export class PaymentService {
     const { debitAccountId, creditAccountId } = await this.getPaymentAccounts(payload.paymentMode);
 
     const paymentDate = payload.date || new Date();
-    const paymentCode = payload.paymentId || this.generatePaymentCode();
+    
+    // Validate manual unique ID if provided
+    const { manualUniqueId } = payload as any;
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'pay');
+    }
+
+    // Generate system ID: pay-YY-####
+    const paymentCode = payload.paymentId || await generateSystemId('pay');
 
     // Atomic transaction
     return await prisma.$transaction(async (tx) => {
@@ -133,6 +145,7 @@ export class PaymentService {
           date: paymentDate,
           remarks: payload.remarks || null,
           createdByUserId: payload.createdBy,
+          manualUniqueId: manualUniqueId?.trim() || null,
         },
       });
 
@@ -276,7 +289,8 @@ export class PaymentService {
     const { debitAccountId, creditAccountId } = await this.getPaymentAccounts(originalPayment.paymentMode);
 
     const refundDate = new Date();
-    const refundCode = this.generatePaymentCode();
+    // Generate system ID for refund: pay-YY-####
+    const refundCode = await generateSystemId('pay');
 
     return await prisma.$transaction(async (tx) => {
       // Create refund payment record

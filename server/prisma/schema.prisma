@@ -120,7 +120,8 @@ model Property {
   totalArea                Float? // in sq ft
   totalUnits               Int      @default(0)
   dealerId                 String? // Reference to dealer/agent
-  propertyCode             String?  @unique // Auto-generated unique code for property
+  propertyCode             String?  @unique // System-generated ID: prop-YY-####
+  manualUniqueId           String?  @unique // User-provided manual unique ID
   ownerName                String?
   ownerPhone               String?
   rentAmount               Float?
@@ -155,6 +156,7 @@ model Property {
   @@index([isDeleted])
   @@index([type])
   @@index([propertyCode])
+  @@index([manualUniqueId])
   @@index([city])
   @@index([location])
   @@index([locationId])
@@ -752,6 +754,7 @@ model Lead {
   status                  String    @default("new") // new, qualified, negotiation, won, lost, converted
   assignedTo              String?
   assignedToUserId        String?
+  assignedDealerId        String?
   cnic                    String?
   address                 String?
   city                    String?
@@ -759,7 +762,8 @@ model Lead {
   postalCode              String?
   latitude                Float?
   longitude               Float?
-  leadCode                String?   @unique
+  leadCode                String?   @unique // System-generated ID: lead-YY-####
+  manualUniqueId          String?   @unique // User-provided manual unique ID
   expectedCloseDate       DateTime?
   followUpDate            DateTime?
   temperature             String?   @default("cold") // cold, warm, hot
@@ -777,10 +781,13 @@ model Lead {
   communications    Communication[]
   activities        CRMActivity[]
   assignedAgent     User?           @relation("LeadAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
-  convertedToClient Client?         @relation("LeadConvertedToClient", fields: [convertedToClientId], references: [id], onDelete: SetNull)
+  assignedDealer    Dealer?          @relation("LeadAssignedDealer", fields: [assignedDealerId], references: [id], onDelete: SetNull)
+  convertedToClient Client?          @relation("LeadConvertedToClient", fields: [convertedToClientId], references: [id], onDelete: SetNull)
 
   @@index([leadCode])
+  @@index([manualUniqueId])
   @@index([assignedToUserId])
+  @@index([assignedDealerId])
   @@index([status])
   @@index([priority])
   @@index([temperature])
@@ -803,7 +810,8 @@ model Client {
   city                String?
   country             String?
   postalCode          String?
-  clientCode          String?  @unique
+  clientCode          String?  @unique // System-generated ID: cli-YY-####
+  manualUniqueId      String?  @unique // User-provided manual unique ID
   clientNo            String?
   srNo                Int?
   propertyInterest    String? // buy, rent, invest
@@ -832,6 +840,7 @@ model Client {
   dealReceipts      DealReceipt[]
 
   @@index([clientCode])
+  @@index([manualUniqueId])
   @@index([assignedDealerId])
   @@index([assignedAgentId])
   @@index([status])
@@ -869,7 +878,8 @@ model Dealer {
   city                  String?
   country               String?
   postalCode            String?
-  dealerCode            String?  @unique
+  dealerCode            String?  @unique // System-generated ID: deal-YY-####
+  manualUniqueId        String?  @unique // User-provided manual unique ID
   cnicImageUrl          String?
   rating                Float    @default(0)
   isActive              Boolean  @default(true)
@@ -897,12 +907,14 @@ model Dealer {
   commissions     Commission[]
   transactions    Transaction[]
   clientsAssigned Client[]        @relation("ClientAssignedDealer")
+  leadsAssigned   Lead[]          @relation("LeadAssignedDealer")
   reviews         DealerReview[]
   sales           Sale[] // Sales facilitated by this dealer
   payments        DealerPayment[] // Commission payouts
   ledgers         DealerLedger[]
 
   @@index([dealerCode])
+  @@index([manualUniqueId])
   @@index([isActive])
   @@index([isDeleted])
 }
@@ -923,7 +935,8 @@ model DealerReview {
 model Deal {
   id                  String    @id @default(uuid())
   title               String
-  dealCode            String?   @unique
+  dealCode            String?   @unique // System-generated ID: deal-YY-####
+  manualUniqueId      String?   @unique // User-provided manual unique ID
   role                String?
   dealAmount          Float     @default(0) @map("deal_amount")
   totalPaid           Float     @default(0) // Cached total for performance
@@ -974,6 +987,7 @@ model Deal {
   dealReceipts   DealReceipt[]
 
   @@index([dealCode])
+  @@index([manualUniqueId])
   @@index([clientId])
   @@index([dealerId])
   @@index([propertyId])
@@ -1204,7 +1218,8 @@ model Invoice {
 
 model Payment {
   id                String    @id @default(uuid())
-  paymentId         String    @unique
+  paymentId         String    @unique // System-generated ID: pay-YY-####
+  manualUniqueId    String?   @unique // User-provided manual unique ID
   dealId            String
   amount            Float
   paymentType       String
@@ -1229,6 +1244,8 @@ model Payment {
   installment   DealInstallment? @relation("InstallmentPayments", fields: [installmentId], references: [id], onDelete: SetNull)
 
   @@index([dealId])
+  @@index([paymentId])
+  @@index([manualUniqueId])
   @@index([paymentMode])
   @@index([paymentType])
   @@index([date])
@@ -1509,13 +1526,14 @@ model Voucher {
 }
 
 model Commission {
-  id        String   @id @default(uuid())
-  dealerId  String?
-  saleId    String?
-  rate      Float    @default(0) // percentage
-  amount    Float    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String   @id @default(uuid())
+  dealerId      String?
+  saleId        String?
+  commissionType String  @default("percentage") // "percentage" or "manual"
+  rate          Float    @default(0) // percentage (if commissionType is "percentage")
+  amount        Float    @default(0) // manual amount (if commissionType is "manual")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   dealer Dealer? @relation(fields: [dealerId], references: [id], onDelete: SetNull)
   sale   Sale?   @relation(fields: [saleId], references: [id], onDelete: SetNull)
@@ -1982,13 +2000,15 @@ model AuditLog {
 // Receipt System for Real Estate Payments (Deal Receipts)
 model DealReceipt {
   id             String   @id @default(uuid())
-  receiptNo      String   @unique // Auto incremental like RCP-2025-00012
+  receiptNo      String   @unique // System-generated ID: rcp-YY-####
+  manualUniqueId String?  @unique // User-provided manual unique ID
   dealId         String
   clientId       String
   amount         Float
   method         String // Cash, Bank
   date           DateTime @default(now())
   notes          String?
+  referenceNumber String? // Reference/Cheque number
   receivedBy     String? // User ID
   pdfUrl         String? // Generated PDF receipt URL
   journalEntryId String?  @unique // Link to JournalEntry for ledger posting
@@ -2004,6 +2024,7 @@ model DealReceipt {
   @@index([dealId])
   @@index([clientId])
   @@index([receiptNo])
+  @@index([manualUniqueId])
   @@index([date])
   @@index([receivedBy])
 }

@@ -217,7 +217,27 @@ export function AmenitiesManager() {
                         <p className="text-sm font-semibold">{amenity.name}</p>
                         <p className="text-xs text-muted-foreground">{amenity.description || "—"}</p>
                       </div>
-                      <Switch checked={amenity.isActive} className="pointer-events-none" />
+                      <Switch 
+                        checked={amenity.isActive} 
+                        onCheckedChange={async (checked) => {
+                          try {
+                            await apiService.advanced.updateAmenity(amenity.id, {
+                              name: amenity.name,
+                              description: amenity.description || "",
+                              icon: amenity.icon || "",
+                              isActive: checked,
+                            })
+                            await mutate()
+                            toast({ title: "Amenity updated" })
+                          } catch (error: any) {
+                            toast({
+                              title: "Update failed",
+                              description: error?.response?.data?.error || error?.message || "Try again",
+                              variant: "destructive",
+                            })
+                          }
+                        }}
+                      />
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" onClick={() => startEditing(amenity)}>

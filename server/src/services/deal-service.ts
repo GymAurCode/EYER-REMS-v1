@@ -6,6 +6,7 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
+import { generateSystemId, validateManualUniqueId } from './id-generation-service';
 
 export interface CreateDealPayload {
   title: string;
@@ -33,6 +34,7 @@ export interface CreateDealPayload {
   expectedClosingDate?: Date;
   notes?: string;
   createdBy: string;
+  manualUniqueId?: string; // User-provided manual unique ID
 }
 
 export interface UpdateDealPayload {
@@ -62,27 +64,10 @@ export interface UpdateDealPayload {
 export class DealService {
   /**
    * Generate deterministic deal code
-   * Format: DEAL-YYYYMMDD-{auto_increment}
+   * Format: dl-YY-#### (uses centralized ID generation service)
    */
   static async generateDealCode(): Promise<string> {
-    const today = new Date();
-    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-    
-    // Get count of deals created today
-    const startOfDay = new Date(today.setHours(0, 0, 0, 0));
-    const endOfDay = new Date(today.setHours(23, 59, 59, 999));
-    
-    const count = await prisma.deal.count({
-      where: {
-        createdAt: {
-          gte: startOfDay,
-          lte: endOfDay,
-        },
-      },
-    });
-    
-    const sequence = String(count + 1).padStart(4, '0');
-    return `DEAL-${dateStr}-${sequence}`;
+    return await generateSystemId('dl');
   }
 
   /**
@@ -159,7 +144,12 @@ export class DealService {
       }
     }
 
-    // Generate deal code
+    // Validate manual unique ID if provided
+    if (payload.manualUniqueId) {
+      await validateManualUniqueId(payload.manualUniqueId, 'dl');
+    }
+
+    // Generate deal code: dl-YY-####
     const dealCode = await this.generateDealCode();
 
     // Validate dealer is required if commission is specified
@@ -236,6 +226,7 @@ export class DealService {
           expectedClosingDate: payload.expectedClosingDate,
           notes: payload.notes,
           createdBy: payload.createdBy,
+          manualUniqueId: payload.manualUniqueId?.trim() || null,
         },
       });
 

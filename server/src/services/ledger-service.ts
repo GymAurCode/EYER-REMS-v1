@@ -137,9 +137,9 @@ export class LedgerService {
           paymentId: null,
           paymentType: null,
           paymentMode: null,
-          amount: 0,
+          credit: 0,
           date: deal.dealDate,
-          outstanding: Number(deal.dealAmount.toFixed(2)),
+          debit: Number(deal.dealAmount.toFixed(2)), // Changed from outstanding to debit
           runningBalance: 0,
         });
       } else {
@@ -155,9 +155,9 @@ export class LedgerService {
             paymentId: payment.paymentId,
             paymentType: payment.paymentType,
             paymentMode: payment.paymentMode,
-            amount: payment.amount,
+            credit: payment.amount, // Changed from amount to credit
             date: payment.date,
-            outstanding: Number(Math.max(0, deal.dealAmount - cumulative).toFixed(2)),
+            debit: Number(Math.max(0, deal.dealAmount - cumulative).toFixed(2)), // Changed from outstanding to debit
             runningBalance: cumulative,
           });
         });
