@@ -12,7 +12,7 @@ import axios from 'axios'
  * For development:
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
-const rawBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'http://localhost:5000/api'
+const rawBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'https://eyer-rems-v1-production-cad7.up.railway.app/api'
 // Normalize the base URL: remove trailing slashes, ensure it ends with /api (no trailing slash)
 let normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '') // Remove trailing slashes
 // Ensure the base URL includes /api
