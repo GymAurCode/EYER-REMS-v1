@@ -97,7 +97,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       }
 
       if (!dealResponse) {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'https://eyer-rems-v1-production-cad7.up.railway.app/api'
+        const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'https://eyer-rems-v1-production-f00e.up.railway.app/api'
         const fetchResponse = await fetch(`${apiBaseUrl}/crm/deals/${dealId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

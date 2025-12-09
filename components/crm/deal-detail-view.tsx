@@ -49,7 +49,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   const loadDeal = async () => {
     try {
       setLoading(true)
-      const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://eyer-rems-v1-production-cad7.up.railway.app'}/api/crm/deals/${dealId}`).then(r => r.json())
+      const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://eyer-rems-v1-production-f00e.up.railway.app'}/api/crm/deals/${dealId}`).then(r => r.json())
       setDeal(response?.data || response)
     } catch (error: any) {
       toast({
