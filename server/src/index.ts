@@ -65,15 +65,15 @@ app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
 // Local development only - remove Vercel URLs
+
+// allow frontend + custom headers
 app.use(cors({
-  origin: [
-    'https://frontend-production-4fdd.up.railway.app',
-    'http://localhost:3000'
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'], // add your custom headers here
+  origin: 'https://frontend-production-4fdd.up.railway.app', // your frontend URL
+  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'], // add your custom header here
   credentials: true
 }));
+
 
 
 // SECURITY: Helmet for security headers
