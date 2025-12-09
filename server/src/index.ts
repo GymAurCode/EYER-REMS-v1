@@ -55,7 +55,7 @@ try {
 
 const app = express() as any as Express;
 const env = validateEnv();
-const PORT = env.PORT;
+const PORT = process.env.PORT || 3000; // fallback for local development
 
 // Trust proxy - Required for Railway, Vercel, and other cloud platforms
 // This allows Express to correctly identify client IPs behind reverse proxies
