@@ -1,7 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import type { Express } from 'express-serve-static-core';
 import { Server } from 'http';
-import cors from 'cors';
+import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -72,8 +72,8 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
 ].filter(Boolean) as string[];
 
-const corsOptions: cors.CorsOptions = {
-  origin: (origin, callback) => {
+const corsOptions: CorsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) => {
     if (!origin || allowedOrigins.includes(origin)) {
       return callback(null, origin);
     }
