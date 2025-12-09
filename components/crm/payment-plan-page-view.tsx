@@ -97,7 +97,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       }
 
       if (!dealResponse) {
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api'
+        const apiBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'http://localhost:5000/api'
         const fetchResponse = await fetch(`${apiBaseUrl}/crm/deals/${dealId}`, {
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,

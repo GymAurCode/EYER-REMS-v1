@@ -49,7 +49,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   const loadDeal = async () => {
     try {
       setLoading(true)
-      const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`/api/crm/deals/${dealId}`).then(r => r.json())
+      const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/crm/deals/${dealId}`).then(r => r.json())
       setDeal(response?.data || response)
     } catch (error: any) {
       toast({
