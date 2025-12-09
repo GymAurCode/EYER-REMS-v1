@@ -117,8 +117,8 @@ app.use('/api/', limiter);
 
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDevelopment ? 50 : 5, // Higher limit in development (50) vs production (5)
+  windowMs: 5 * 60 * 1000,  // 5 minutes
+  max: isDevelopment ? 100 : 50,
   message: 'Too many authentication attempts, please try again later.',
   skipSuccessfulRequests: true,
   // Custom key generator that combines IP with user agent for better security
