@@ -109,7 +109,7 @@ api.interceptors.request.use(
       const sessionId = sessionStorage.getItem('sessionId')
 
       if (csrfToken && config.headers) {
-        config.headers['X-CSRF-Token'] = csrfToken
+        config.headers['x-csrf-token'] = csrfToken
       }
 
       if (sessionId && config.headers) {
@@ -172,6 +172,15 @@ api.interceptors.response.use(
     //     message: error.message,
     //   })
     // }
+
+    // Log failures for easier debugging in browser/console
+    console.error('API request failed', {
+      url: error.config?.url,
+      baseURL: error.config?.baseURL,
+      status: error.response?.status,
+      statusText: error.response?.statusText,
+      message: error.message,
+    })
 
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {

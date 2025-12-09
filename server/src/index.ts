@@ -64,17 +64,39 @@ const PORT = process.env.PORT || 3000; // fallback for local development
 app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
-// Local development only - remove Vercel URLs
+// Allow the deployed frontend plus common local dev origins
+const allowedOrigins = [
+  process.env.FRONTEND_ORIGIN,
+  'https://frontend-production-4fdd.up.railway.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+].filter(Boolean) as string[];
 
-// allow frontend + custom headers
-app.use(cors({
-  origin: 'https://frontend-production-4fdd.up.railway.app', // your frontend URL
-  methods: ['GET','POST','PUT','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token'], // add your custom header here
-  credentials: true
-}));
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      return callback(null, origin);
+    }
+    // Reject unexpected origins to avoid silent failures
+    return callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-csrf-token',
+    'X-CSRF-Token',
+    'X-Device-Id',
+    'X-Session-Id',
+  ],
+  credentials: true, // allow cookies & auth headers
+  optionsSuccessStatus: 200,
+  maxAge: 86400,
+};
 
-
+app.use(cors(corsOptions));
+// Ensure preflight responds for all routes
+app.options('*', cors(corsOptions));
 
 // SECURITY: Helmet for security headers
 app.use(helmet({
