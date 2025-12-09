@@ -67,11 +67,11 @@ app.set('trust proxy', 1);
 // Local development only - remove Vercel URLs
 app.use(cors({
   origin: [
-    'https://frontend-production-4fdd.up.railway.app', // production frontend
-    'http://localhost:3000' // dev frontend
+    'https://frontend-production-4fdd.up.railway.app',
+    'http://localhost:3000'
   ],
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-device-id'], // add your custom headers here
   credentials: true
 }));
 
