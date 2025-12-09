@@ -65,19 +65,15 @@ app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
 // Local development only - remove Vercel URLs
-app.use(
-  cors({
-    origin: [
-      // 'http://localhost:3000',
-      // 'http://localhost:5173',
-      // 'http://127.0.0.1:3000',
-      // 'http://127.0.0.1:5173',
-      'https://frontend-production-4fdd.up.railway..envapp', // production frontend
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    credentials: true,
-  })
-);
+app.use(cors({
+  origin: [
+    'https://frontend-production-4fdd.up.railway.app', // production frontend
+    'http://localhost:3000' // dev frontend
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
+}));
 
 
 // SECURITY: Helmet for security headers
