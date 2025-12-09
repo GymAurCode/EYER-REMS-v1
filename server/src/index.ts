@@ -68,15 +68,17 @@ app.set('trust proxy', 1);
 app.use(
   cors({
     origin: [
-      'http://localhost:3000',  // Next.js default port
-      'http://localhost:5173',  // Vite alternative port
+      'http://localhost:3000',
+      'http://localhost:5173',
       'http://127.0.0.1:3000',
       'http://127.0.0.1:5173',
+      'https://hopeful-courage-production.up.railway.app', // production frontend
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     credentials: true,
   })
 );
+
 
 // SECURITY: Helmet for security headers
 app.use(helmet({
@@ -143,14 +145,14 @@ app.use((express as any).urlencoded({ extended: true, limit: '10mb' }));
 app.use('/api', (req: Request, res: Response, next: NextFunction) => {
   // Skip CSRF for safe methods and auth endpoints
   const path = req.path || req.url || '';
-  const isAuthEndpoint = path.includes('/auth/login') || 
-                         path.includes('/auth/role-login') || 
-                         path.includes('/auth/invite-login') ||
-                         path.includes('/auth/refresh');
-  
-  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method || '') || 
-      isAuthEndpoint ||
-      path.includes('/health')) {
+  const isAuthEndpoint = path.includes('/auth/login') ||
+    path.includes('/auth/role-login') ||
+    path.includes('/auth/invite-login') ||
+    path.includes('/auth/refresh');
+
+  if (['GET', 'HEAD', 'OPTIONS'].includes(req.method || '') ||
+    isAuthEndpoint ||
+    path.includes('/health')) {
     return next();
   }
   return csrfProtection(req as any, res, next);
