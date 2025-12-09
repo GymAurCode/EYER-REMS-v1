@@ -1,7 +1,7 @@
 declare module 'cors' {
   import { Request, Response, NextFunction } from 'express';
   
-  type CorsOptions = {
+  export type CorsOptions = {
     origin?: string | string[] | ((origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => void) | boolean;
     methods?: string | string[];
     allowedHeaders?: string | string[];
