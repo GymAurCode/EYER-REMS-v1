@@ -72,14 +72,16 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
 ].filter(Boolean) as string[];
 
+const corsOrigin: CorsOptions['origin'] = (origin, callback) => {
+  if (!origin || allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  // Reject unexpected origins to avoid silent failures
+  return callback(new Error(`Origin ${origin} not allowed by CORS`));
+};
+
 const corsOptions: CorsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean | string) => void) => {
-    if (!origin || allowedOrigins.includes(origin)) {
-      return callback(null, origin);
-    }
-    // Reject unexpected origins to avoid silent failures
-    return callback(new Error(`Origin ${origin} not allowed by CORS`));
-  },
+  origin: corsOrigin,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
