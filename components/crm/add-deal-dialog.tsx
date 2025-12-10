@@ -52,6 +52,7 @@ type PropertyOption = {
   id: string
   name: string
   propertyCode?: string
+  salePrice?: number
 }
 
 const FALLBACK_STAGE_OPTIONS = [
@@ -116,6 +117,7 @@ export function AddDealDialog({
   const { options: statusOverrides } = useDropdownOptions("deal.status")
   const stageOptions = stageOverrides.length ? stageOverrides : FALLBACK_STAGE_OPTIONS
   const statusOptions = statusOverrides.length ? statusOverrides : FALLBACK_STATUS_OPTIONS
+  const selectedProperty = properties.find((p) => p.id === formData.propertyId)
 
   useEffect(() => {
     if (!open) return
@@ -150,6 +152,7 @@ export function AddDealDialog({
             id: property.id,
             name: property.name,
             propertyCode: property.propertyCode,
+            salePrice: property.salePrice,
           })),
         )
       } catch (error) {
@@ -235,6 +238,12 @@ export function AddDealDialog({
     const dealAmount = Number.parseFloat(formData.dealAmount || "0")
     if (!formData.dealAmount || formData.dealAmount.trim() === "" || isNaN(dealAmount) || dealAmount <= 0) {
       newErrors.dealAmount = "Deal amount must be greater than 0"
+    }
+    if (selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null) {
+      const salePriceValue = Number(selectedProperty.salePrice)
+      if (!Number.isNaN(salePriceValue) && Math.abs(dealAmount - salePriceValue) > 0.01) {
+        newErrors.dealAmount = "Deal amount must match the property's sales price"
+      }
     }
 
     setErrors(newErrors)
@@ -393,7 +402,13 @@ export function AddDealDialog({
               <Select
                 value={formData.propertyId}
                 onValueChange={(value) => {
-                  setFormData({ ...formData, propertyId: value })
+                  const property = properties.find((p) => p.id === value)
+                  const salePrice = property?.salePrice
+                  setFormData({
+                    ...formData,
+                    propertyId: value,
+                    dealAmount: salePrice !== undefined && salePrice !== null ? salePrice.toString() : formData.dealAmount,
+                  })
                   if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
                 }}
                 disabled={loadingProperties}
@@ -446,9 +461,15 @@ export function AddDealDialog({
                   if (errors.dealAmount) setErrors({ ...errors, dealAmount: "" })
                 }}
                 required
-                className={errors.dealAmount ? "border-destructive" : ""}
+                readOnly={!!selectedProperty?.salePrice}
+                className={`${errors.dealAmount ? "border-destructive" : ""} ${selectedProperty?.salePrice ? "bg-muted" : ""}`}
               />
               {errors.dealAmount && <p className="text-sm text-destructive">{errors.dealAmount}</p>}
+              {selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null && (
+                <p className="text-xs text-muted-foreground">
+                  Sales Price: Rs {Number(selectedProperty.salePrice).toLocaleString("en-IN")} (locked)
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="dealDate">Deal Date</Label>

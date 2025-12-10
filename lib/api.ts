@@ -431,6 +431,7 @@ export const apiService = {
       return api.get(`/properties${queryString ? `?${queryString}` : ''}`)
     },
     getById: (id: string) => api.get(`/properties/${id}`),
+    getReport: (id: string) => api.get(`/properties/${id}/report`, { responseType: 'blob' }),
     create: (data: any) => api.post('/properties', data),
     update: (id: string, data: any) => api.put(`/properties/${id}`, data),
     delete: (id: string) => api.delete(`/properties/${id}`),
@@ -510,6 +511,8 @@ export const apiService = {
   // Ledger (for backward compatibility)
   ledger: {
     getByTenant: (tenantId: string) => api.get(`/tenant-portal/${tenantId}/ledger`),
+    getPropertyLedger: (propertyId?: string | null) =>
+      api.get('/finance/ledgers/properties', { params: propertyId ? { propertyId } : {} }),
   },
 
   // Uploads (enhanced)
@@ -662,6 +665,12 @@ export const apiService = {
     delete: (id: number) => api.delete(`/hr/leave/${id}`),
     approve: (id: string) => api.post(`/hr/leave/${id}/approve`),
     reject: (id: string) => api.post(`/hr/leave/${id}/reject`),
+  },
+
+  // Finance - Summary
+  finance: {
+    getSummary: (params?: { propertyId?: string; startDate?: string; endDate?: string }) =>
+      api.get('/finance/summary', { params }),
   },
 
   // Finance - Transactions

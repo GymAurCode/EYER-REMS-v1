@@ -9,6 +9,7 @@ import { getSubtreeIds } from '../services/location';
 import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
+import { generatePropertyReportPDF } from '../utils/pdf-generator';
 
 const router = (express as any).Router();
 
@@ -32,6 +33,7 @@ const createPropertySchema = z.object({
   totalArea: z.number().positive().optional(),
   totalUnits: z.number().int().nonnegative().default(0),
   dealerId: z.string().uuid().optional(),
+  salePrice: z.number().nonnegative().optional(),
   amenities: z.array(z.string()).optional(), // Array of amenity strings
 });
 
@@ -270,6 +272,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Map results to properties (no additional queries)
     const propertiesWithStats = properties.map(property => {
+      const rawDocuments = property.documents && typeof property.documents === 'object' ? (property.documents as { amenities?: string[]; salePrice?: number }) : null;
+      const salePrice = rawDocuments?.salePrice;
+
       const occupiedUnits = unitCountMap.get(property.id) || 0;
       const monthlyRevenueAmount = revenueMap.get(property.id) || 0;
       const yearlyRevenueAmount = monthlyRevenueAmount * 12;
@@ -325,15 +330,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
       // Extract amenities
       let amenities: string[] = [];
-      if (property.documents && typeof property.documents === 'object') {
-        const docs = property.documents as { amenities?: string[] };
-        if (Array.isArray(docs.amenities)) {
-          amenities = docs.amenities;
-        }
+      if (rawDocuments && Array.isArray(rawDocuments.amenities)) {
+        amenities = rawDocuments.amenities;
       }
 
       return {
         ...property,
+        ...(salePrice !== undefined ? { salePrice } : {}),
         amenities,
         occupied: occupiedUnits,
         units: property._count.units,
@@ -545,12 +548,87 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
             },
           },
         },
+        deals: {
+          where: { isDeleted: false },
+          include: {
+            payments: true,
+            dealer: true,
+            client: true,
+          },
+        },
+        financeLedgers: {
+          where: { isDeleted: false },
+          orderBy: { date: 'desc' },
+          take: 10,
+        },
       },
     });
 
     if (!property) {
       return errorResponse(res, 'Property not found', 404);
     }
+
+    const rawDocuments =
+      property.documents && typeof property.documents === 'object'
+        ? (property.documents as { amenities?: string[]; salePrice?: number })
+        : null;
+    const salePrice = rawDocuments?.salePrice;
+
+    // Active deals with payment progress
+    const activeDeals = (property.deals || []).filter(
+      (deal: any) =>
+        !deal.isDeleted &&
+        (deal.status || '').toLowerCase() !== 'closed' &&
+        (deal.status || '').toLowerCase() !== 'lost' &&
+        (deal.status || '').toLowerCase() !== 'cancelled'
+    );
+
+    const dealSummaries = activeDeals.map((deal: any) => {
+      const received = (deal.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      const pending = Math.max(0, (deal.dealAmount || 0) - received);
+      return {
+        id: deal.id,
+        title: deal.title,
+        amount: deal.dealAmount || 0,
+        received,
+        pending,
+        status: deal.status,
+        stage: deal.stage,
+        dealerName: deal.dealer?.name,
+        clientName: deal.client?.name,
+        createdAt: deal.createdAt,
+      };
+    });
+
+    const totalDealReceived = dealSummaries.reduce((sum, d) => sum + d.received, 0);
+    const totalDealPending = dealSummaries.reduce((sum, d) => sum + d.pending, 0);
+
+    // Finance summary (aggregated) and latest finance entries
+    const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
+      prisma.financeLedger.aggregate({
+        where: { propertyId: property.id, isDeleted: false, category: 'income' },
+        _sum: { amount: true },
+      }),
+      prisma.financeLedger.aggregate({
+        where: { propertyId: property.id, isDeleted: false, category: 'expense' },
+        _sum: { amount: true },
+      }),
+      prisma.financeLedger.findMany({
+        where: { propertyId: property.id, isDeleted: false },
+        orderBy: { date: 'desc' },
+        take: 10,
+      }),
+    ]);
+    const ledgerIncome = incomeAgg._sum.amount || 0;
+    const ledgerExpenses = expenseAgg._sum.amount || 0;
+    const financeRecords = financeEntries.map((entry: any) => ({
+      id: entry.id,
+      amount: entry.amount,
+      category: entry.category,
+      referenceType: entry.referenceType,
+      description: entry.description,
+      date: entry.date,
+    }));
 
     // Calculate stats
     const occupiedUnits = await prisma.unit.count({
@@ -600,6 +678,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     return successResponse(res, {
       ...property,
+      ...(salePrice !== undefined ? { salePrice } : {}),
       amenities, // Add amenities to response
       occupied: occupiedUnits,
       totalTenants,
@@ -607,6 +686,14 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       monthlyRevenue: monthlyRevenueAmount,
       yearlyRevenue: yearlyRevenueAmount,
       occupancyRate,
+      financeSummary: {
+        totalReceived: ledgerIncome + totalDealReceived,
+        totalExpenses: ledgerExpenses,
+        pendingAmount: totalDealPending,
+        entryCount: financeRecords.length,
+      },
+      financeRecords,
+      activeDeals: dealSummaries,
     });
   } catch (error) {
     logger.error('Get property error:', error);
@@ -627,6 +714,149 @@ router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res: Respons
     return successResponse(res, dashboard);
   } catch (error) {
     logger.error('Get property dashboard error:', error);
+    return errorResponse(res, error);
+  }
+});
+
+// Generate PDF report for a property
+router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const property = await prisma.property.findFirst({
+      where: { id, isDeleted: false },
+      include: {
+        units: { where: { isDeleted: false } },
+        deals: {
+          where: { isDeleted: false, deletedAt: null },
+          include: { payments: true, dealer: true, client: true },
+        },
+        sales: {
+          where: { isDeleted: false },
+          include: { buyers: true, dealer: true },
+        },
+      },
+    });
+
+    if (!property) {
+      return errorResponse(res, 'Property not found', 404);
+    }
+
+    const rawDocuments =
+      property.documents && typeof property.documents === 'object'
+        ? (property.documents as { amenities?: string[]; salePrice?: number })
+        : null;
+    const salePrice = rawDocuments?.salePrice ?? undefined;
+
+    const dealer = property.dealerId
+      ? await prisma.dealer.findUnique({
+          where: { id: property.dealerId },
+          select: { name: true, email: true, phone: true },
+        })
+      : null;
+
+    // Finance data (aggregated + recent entries)
+    const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
+      prisma.financeLedger.aggregate({
+        where: { propertyId: id, isDeleted: false, category: 'income' },
+        _sum: { amount: true },
+      }),
+      prisma.financeLedger.aggregate({
+        where: { propertyId: id, isDeleted: false, category: 'expense' },
+        _sum: { amount: true },
+      }),
+      prisma.financeLedger.findMany({
+        where: { propertyId: id, isDeleted: false },
+        orderBy: { date: 'desc' },
+        take: 20,
+      }),
+    ]);
+    const ledgerIncome = incomeAgg._sum.amount || 0;
+    const ledgerExpenses = expenseAgg._sum.amount || 0;
+    const financeRecords = financeEntries.map((entry) => ({
+      id: entry.id,
+      amount: entry.amount,
+      category: entry.category,
+      referenceType: entry.referenceType,
+      description: entry.description,
+      date: entry.date,
+    }));
+
+    // Deals
+    const activeDeals = (property.deals || []).filter(
+      (deal: any) =>
+        !deal.isDeleted &&
+        (deal.status || '').toLowerCase() !== 'closed' &&
+        (deal.status || '').toLowerCase() !== 'lost' &&
+        (deal.status || '').toLowerCase() !== 'cancelled'
+    );
+    const dealSummaries = activeDeals.map((deal: any) => {
+      const received = (deal.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      const pending = Math.max(0, (deal.dealAmount || 0) - received);
+      return {
+        id: deal.id,
+        title: deal.title,
+        amount: deal.dealAmount || 0,
+        received,
+        pending,
+        status: deal.status,
+        stage: deal.stage,
+        dealerName: deal.dealer?.name,
+        clientName: deal.client?.name,
+        createdAt: deal.createdAt,
+      };
+    });
+    const totalDealReceived = dealSummaries.reduce((sum, d) => sum + d.received, 0);
+    const totalDealPending = dealSummaries.reduce((sum, d) => sum + d.pending, 0);
+
+    // Sales / booking details
+    const saleEntries = (property.sales || []).map((sale: any) => ({
+      id: sale.id,
+      saleValue: sale.saleValue || sale.salePrice || sale.amount || null,
+      saleDate: sale.saleDate,
+      buyerName:
+        sale.buyers && sale.buyers.length > 0 ? sale.buyers.map((b: any) => b.name).join(', ') : undefined,
+      dealerName: sale.dealer?.name,
+      status: sale.status,
+      profit: sale.profit,
+    }));
+
+    const totalUnits = property.units?.length || 0;
+    const occupiedUnits = property.units?.filter((u: any) => u.status === 'Occupied').length || 0;
+
+    generatePropertyReportPDF(
+      {
+        property: {
+          name: property.name,
+          propertyCode: property.propertyCode,
+          manualUniqueId: property.manualUniqueId,
+          type: property.type,
+          status: property.status,
+          address: property.address,
+          location: property.location,
+          dealerName: dealer?.name || null,
+          salePrice: salePrice ?? null,
+          totalUnits,
+          occupied: occupiedUnits,
+          totalArea: property.totalArea || null,
+          yearBuilt: property.yearBuilt || null,
+          ownerName: property.ownerName || null,
+          ownerPhone: property.ownerPhone || null,
+        },
+        financeSummary: {
+          totalReceived: ledgerIncome + totalDealReceived,
+          totalExpenses: ledgerExpenses,
+          pendingAmount: totalDealPending,
+          entryCount: financeRecords.length,
+        },
+        financeRecords,
+        deals: dealSummaries,
+        sales: saleEntries,
+      },
+      res
+    );
+  } catch (error) {
+    logger.error('Generate property report error:', error);
     return errorResponse(res, error);
   }
 });
@@ -682,11 +912,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     // Generate unique property code (only if column exists)
     const propertyCode = await generatePropertyCode();
 
-    // Store amenities in documents field as JSON if provided
-    let documentsData: { amenities: string[] } | null = null;
-    if (data.amenities && Array.isArray(data.amenities) && data.amenities.length > 0) {
-      documentsData = { amenities: data.amenities };
-    }
+  // Store extra attributes in documents field (keeps schema unchanged)
+  let documentsData: { amenities?: string[]; salePrice?: number } | null = null;
+  if (data.amenities && Array.isArray(data.amenities) && data.amenities.length > 0) {
+    documentsData = { ...(documentsData || {}), amenities: data.amenities };
+  }
+  if (typeof data.salePrice === 'number') {
+    documentsData = { ...(documentsData || {}), salePrice: data.salePrice };
+  }
 
     const property = await prisma.property.create({
       data: {
@@ -727,7 +960,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    return successResponse(res, property, 201);
+    // Attach salePrice on response for client convenience
+    const salePrice = typeof documentsData?.salePrice === 'number' ? documentsData.salePrice : undefined;
+    return successResponse(res, salePrice !== undefined ? { ...property, salePrice } : property, 201);
   } catch (error) {
     logger.error('Create property error:', error);
     return errorResponse(res, error);
@@ -753,18 +988,25 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return errorResponse(res, 'Property not found', 404);
     }
 
-    // Handle amenities in update
+    // Handle amenities and sale price in update without schema change
     const updateData: Prisma.PropertyUpdateInput = { ...data };
-    if (data.amenities && Array.isArray(data.amenities)) {
-      // Use existingProperty already fetched above
-      let documentsData: { amenities?: string[] } = {};
+    if (data.amenities || typeof data.salePrice === 'number') {
+      let documentsData: { amenities?: string[]; salePrice?: number } = {};
       if (existingProperty.documents && typeof existingProperty.documents === 'object') {
-        documentsData = existingProperty.documents as { amenities?: string[] };
+        documentsData = { ...(existingProperty.documents as { amenities?: string[]; salePrice?: number }) };
       }
-      documentsData.amenities = data.amenities;
+
+      if (data.amenities && Array.isArray(data.amenities)) {
+        documentsData.amenities = data.amenities;
+        delete (updateData as { amenities?: unknown }).amenities;
+      }
+
+      if (typeof data.salePrice === 'number') {
+        documentsData.salePrice = data.salePrice;
+        delete (updateData as { salePrice?: unknown }).salePrice;
+      }
+
       updateData.documents = documentsData;
-      // Remove amenities from updateData as it's not a direct field
-      delete (updateData as { amenities?: unknown }).amenities;
     }
 
     if ('locationId' in data) {

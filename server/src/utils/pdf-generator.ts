@@ -393,3 +393,210 @@ export async function generateReceiptPDF(data: ReceiptPDFData): Promise<Buffer> 
   });
 }
 
+export interface PropertyReportData {
+  property: {
+    name?: string;
+    propertyCode?: string | null;
+    manualUniqueId?: string | null;
+    type?: string | null;
+    status?: string | null;
+    address?: string | null;
+    location?: string | null;
+    dealerName?: string | null;
+    salePrice?: number | null;
+    totalUnits?: number;
+    occupied?: number;
+    totalArea?: number | null;
+    yearBuilt?: number | null;
+    ownerName?: string | null;
+    ownerPhone?: string | null;
+  };
+  financeSummary: {
+    totalReceived: number;
+    totalExpenses: number;
+    pendingAmount: number;
+    entryCount: number;
+  };
+  financeRecords: Array<{
+    id: string;
+    amount: number;
+    category?: string | null;
+    referenceType?: string | null;
+    description?: string | null;
+    date?: Date | string | null;
+  }>;
+  deals: Array<{
+    id: string;
+    title?: string | null;
+    amount: number;
+    received: number;
+    pending: number;
+    status?: string | null;
+    stage?: string | null;
+    dealerName?: string | null;
+    clientName?: string | null;
+    createdAt?: Date | string | null;
+  }>;
+  sales: Array<{
+    id: string;
+    saleValue?: number | null;
+    saleDate?: Date | string | null;
+    buyerName?: string | null;
+    dealerName?: string | null;
+    status?: string | null;
+    profit?: number | null;
+  }>;
+}
+
+/**
+ * Generate Property PDF Report
+ * Keeps styling lightweight to match app's clean theme
+ */
+export function generatePropertyReportPDF(data: PropertyReportData, res: Response): void {
+  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  const safeName = data.property.name?.replace(/\s+/g, '-').toLowerCase() || 'property';
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${safeName}-report-${new Date().toISOString().split('T')[0]}.pdf"`
+  );
+
+  doc.pipe(res);
+
+  const formatCurrency = (amount?: number | null): string => {
+    if (amount === undefined || amount === null || Number.isNaN(amount)) return 'Rs 0';
+    return `Rs ${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatDate = (value?: string | Date | null): string => {
+    if (!value) return 'N/A';
+    const d = typeof value === 'string' ? new Date(value) : value;
+    if (Number.isNaN(d.getTime())) return 'N/A';
+    return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
+
+  // Header
+  doc.fontSize(20).font('Helvetica-Bold').text(data.property.name || 'Property Report', { align: 'center' });
+  doc.moveDown(0.3);
+  doc.fontSize(10).font('Helvetica').text(`Generated on ${new Date().toLocaleString('en-IN')}`, { align: 'center' });
+  doc.moveDown(1);
+
+  // Basic info
+  doc.fontSize(14).font('Helvetica-Bold').text('Basic Information', { underline: true });
+  doc.moveDown(0.4);
+  doc.fontSize(10).font('Helvetica');
+  doc.text(`System ID: ${data.property.propertyCode || 'N/A'}`);
+  doc.text(`Manual ID: ${data.property.manualUniqueId || 'N/A'}`);
+  doc.text(`Type: ${data.property.type || 'N/A'}`);
+  doc.text(`Status: ${data.property.status || 'N/A'}`);
+  doc.text(`Address: ${data.property.address || 'N/A'}`);
+  if (data.property.location) doc.text(`Location: ${data.property.location}`);
+  if (data.property.yearBuilt) doc.text(`Year Built: ${data.property.yearBuilt}`);
+  if (data.property.totalArea) doc.text(`Total Area: ${data.property.totalArea.toLocaleString()} sq ft`);
+  doc.moveDown(0.6);
+
+  // Pricing & ownership
+  doc.fontSize(14).font('Helvetica-Bold').text('Commercials & Ownership', { underline: true });
+  doc.moveDown(0.4);
+  doc.fontSize(10).font('Helvetica');
+  doc.text(`Sales Price: ${formatCurrency(data.property.salePrice)}`);
+  doc.text(`Dealer Assigned: ${data.property.dealerName || 'N/A'}`);
+  doc.text(`Owner: ${data.property.ownerName || 'N/A'}`);
+  doc.text(`Owner Contact: ${data.property.ownerPhone || 'N/A'}`);
+  doc.text(
+    `Units: ${data.property.occupied || 0} occupied of ${data.property.totalUnits ?? 0}`
+  );
+  doc.moveDown(0.6);
+
+  // Finance summary
+  doc.fontSize(14).font('Helvetica-Bold').text('Finance Summary', { underline: true });
+  doc.moveDown(0.4);
+  doc.fontSize(10).font('Helvetica');
+  doc.text(`Total Received: ${formatCurrency(data.financeSummary.totalReceived)}`);
+  doc.text(`Pending Amount: ${formatCurrency(data.financeSummary.pendingAmount)}`);
+  doc.text(`Total Expenses: ${formatCurrency(data.financeSummary.totalExpenses)}`);
+  doc.text(`Entries: ${data.financeSummary.entryCount}`);
+  doc.moveDown(0.6);
+
+  // Finance records table (compact)
+  if (data.financeRecords && data.financeRecords.length > 0) {
+    doc.fontSize(12).font('Helvetica-Bold').text('Finance Records (recent)', { underline: true });
+    doc.moveDown(0.3);
+    doc.fontSize(9).font('Helvetica-Bold');
+    const startY = doc.y;
+    const col1 = 50;
+    const col2 = col1 + 220;
+    const col3 = col2 + 80;
+    const col4 = col3 + 80;
+    doc.text('Description', col1, startY);
+    doc.text('Category', col2, startY);
+    doc.text('Amount', col3, startY, { width: 80, align: 'right' });
+    doc.text('Date', col4, startY, { width: 100 });
+    doc.moveTo(col1, startY + 12).lineTo(550, startY + 12).stroke();
+    doc.fontSize(9).font('Helvetica');
+    let currentY = startY + 20;
+    data.financeRecords.forEach((rec) => {
+      if (currentY > 720) {
+        doc.addPage();
+        currentY = 50;
+      }
+      doc.text(rec.description || rec.referenceType || 'Entry', col1, currentY, { width: 200 });
+      doc.text(rec.category || '-', col2, currentY);
+      doc.text(formatCurrency(rec.amount), col3, currentY, { width: 80, align: 'right' });
+      doc.text(formatDate(rec.date || undefined), col4, currentY, { width: 100 });
+      currentY += 18;
+    });
+    doc.moveDown(1);
+  }
+
+  // Deals section
+  doc.fontSize(12).font('Helvetica-Bold').text('Running Deals', { underline: true });
+  doc.moveDown(0.3);
+  if (!data.deals || data.deals.length === 0) {
+    doc.fontSize(10).font('Helvetica').text('No active deals.');
+  } else {
+    doc.fontSize(9).font('Helvetica');
+    data.deals.forEach((deal) => {
+      doc.text(`${deal.title || 'Deal'} (${deal.status || 'open'})`);
+      doc.text(`  Amount: ${formatCurrency(deal.amount)} | Received: ${formatCurrency(deal.received)} | Pending: ${formatCurrency(deal.pending)}`);
+      doc.text(
+        `  Client: ${deal.clientName || 'N/A'} | Dealer: ${deal.dealerName || 'N/A'} | Stage: ${deal.stage || 'N/A'} | Created: ${formatDate(deal.createdAt)}`
+      );
+      doc.moveDown(0.2);
+    });
+  }
+  doc.moveDown(0.6);
+
+  // Sales / booking details
+  doc.fontSize(12).font('Helvetica-Bold').text('Purchase / Booking Details', { underline: true });
+  doc.moveDown(0.3);
+  if (!data.sales || data.sales.length === 0) {
+    doc.fontSize(10).font('Helvetica').text('No sale/booking records found.');
+  } else {
+    doc.fontSize(9).font('Helvetica');
+    data.sales.forEach((sale) => {
+      doc.text(
+        `Sale: ${formatCurrency(sale.saleValue)} | Buyer: ${sale.buyerName || 'N/A'} | Dealer: ${sale.dealerName || 'N/A'} | Status: ${sale.status || 'N/A'} | Date: ${formatDate(sale.saleDate)}`
+      );
+      if (sale.profit !== undefined && sale.profit !== null) {
+        doc.text(`  Profit: ${formatCurrency(sale.profit)}`);
+      }
+      doc.moveDown(0.2);
+    });
+  }
+
+  // Footer
+  const pageHeight = doc.page.height;
+  const pageWidth = doc.page.width;
+  doc.fontSize(8).font('Helvetica');
+  doc.text(
+    'Generated by REMS - Property Report',
+    pageWidth / 2,
+    pageHeight - 40,
+    { align: 'center' }
+  );
+
+  doc.end();
+}
+

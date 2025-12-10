@@ -23,6 +23,7 @@ import {
   ShoppingCart,
   KeyRound,
   Loader2,
+  FileText,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -131,7 +132,7 @@ export function PropertiesView() {
   useEffect(() => {
     fetchProperties()
     fetchStats()
-    
+
     // Check for search query from URL
     const urlSearch = searchParams.get("search")
     if (urlSearch) {
@@ -163,7 +164,7 @@ export function PropertiesView() {
       // Backend returns { success: true, data: {...} }
       const responseData = response.data as any
       const data = responseData?.data || responseData || {}
-      
+
       // Always set stats boxes, even if data is empty
       setPropertyStats([
         {
@@ -286,6 +287,22 @@ export function PropertiesView() {
       ])
     } finally {
       setStatsLoading(false)
+    }
+  }
+
+  const handleGeneratePropertyReport = async (property: any) => {
+    try {
+      const response = await apiService.properties.getReport(String(property.id))
+      const blob = new Blob([response.data as Blob], { type: "application/pdf" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${(property.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error: any) {
+      console.error("Failed to generate property report", error)
+      handleApiError(error, "Failed to generate property report")
     }
   }
 
@@ -484,174 +501,185 @@ export function PropertiesView() {
               {properties
                 .filter((property) => {
                   // Search filter
-                  const matchesSearch = 
+                  const matchesSearch =
                     property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                     property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
-                  
+
                   // Status filter
                   const matchesStatus = filterStatus === "all" || property.status === filterStatus
-                  
+
                   // Type filter
                   const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
-                  
+
                   return matchesSearch && matchesStatus && matchesType
                 })
                 .map((property) => (
-              <Card key={property.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow">
-                {/* Property Image */}
-                {property.imageUrl ? (
-                  <div className="w-full h-48 overflow-hidden">
-                    <img
-                      src={
-                        property.imageUrl.startsWith('http') 
-                          ? property.imageUrl 
-                          : property.imageUrl.startsWith('/')
-                            ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
-                            : property.imageUrl
-                      }
-                      alt={property.name || "Property image"}
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        // SECURITY: Use React state instead of innerHTML to prevent XSS
-                        // Hide image on error and show icon instead
-                        const imgElement = e.target as HTMLImageElement;
-                        imgElement.style.display = 'none';
-                        const parent = imgElement.parentElement;
-                        if (parent && !parent.querySelector('.error-placeholder')) {
-                          // SECURITY: Create safe placeholder using DOM methods (no innerHTML)
-                          const placeholder = document.createElement('div');
-                          placeholder.className = 'w-full h-full flex items-center justify-center bg-muted error-placeholder';
-                          
-                          // Create SVG element safely
-                          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                          svg.setAttribute('class', 'h-12 w-12 text-muted-foreground');
-                          svg.setAttribute('fill', 'none');
-                          svg.setAttribute('viewBox', '0 0 24 24');
-                          svg.setAttribute('stroke', 'currentColor');
-                          
-                          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                          path.setAttribute('stroke-linecap', 'round');
-                          path.setAttribute('stroke-linejoin', 'round');
-                          path.setAttribute('stroke-width', '2');
-                          path.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
-                          
-                          svg.appendChild(path);
-                          placeholder.appendChild(svg);
-                          parent.appendChild(placeholder);
-                        }
-                      }}
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full h-48 bg-muted flex items-center justify-center">
-                    <Building2 className="h-12 w-12 text-muted-foreground" />
-                  </div>
-                )}
-
-                <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <h3 className="font-semibold text-foreground text-lg">{property.name}</h3>
-                      {property.propertyCode && (
-                        <p className="text-xs text-muted-foreground font-mono mt-1">
-                          Code: {property.propertyCode}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge variant="secondary">{property.type}</Badge>
-                        <Badge 
-                          variant={
-                            property.status === "Active" ? "default" : 
-                            property.status === "Maintenance" ? "destructive" :
-                            property.status === "For Sale" ? "secondary" :
-                            "outline"
+                  <Card key={property.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow">
+                    {/* Property Image */}
+                    {property.imageUrl ? (
+                      <div className="w-full h-48 overflow-hidden">
+                        <img
+                          src={
+                            property.imageUrl.startsWith('http')
+                              ? property.imageUrl
+                              : property.imageUrl.startsWith('/')
+                                ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
+                                : property.imageUrl
                           }
-                          className="cursor-pointer hover:opacity-80 transition-opacity"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.name })
-                          }}
-                        >
-                          {property.status}
-                        </Badge>
-                      </div>
-                    </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setSelectedProperty(property.id)}>
-                          <Eye className="h-4 w-4 mr-2" />
-                          View Details
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setEditingPropertyId(property.id)
-                          setShowAddDialog(true)
-                        }}>
-                          <Edit className="h-4 w-4 mr-2" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => {
-                          setStructurePropertyId(String(property.id))
-                          setStructurePropertyName(property.name || "")
-                          setShowStructureDialog(true)
-                        }}>
-                          <Building2 className="h-4 w-4 mr-2" />
-                          Create Structure
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          className="text-destructive"
-                          onClick={() => {
-                            setDeletingProperty({
-                              id: property.id,
-                              name: property.name,
-                              propertyCode: property.propertyCode,
-                            })
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                          alt={property.name || "Property image"}
+                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            // SECURITY: Use React state instead of innerHTML to prevent XSS
+                            // Hide image on error and show icon instead
+                            const imgElement = e.target as HTMLImageElement;
+                            imgElement.style.display = 'none';
+                            const parent = imgElement.parentElement;
+                            if (parent && !parent.querySelector('.error-placeholder')) {
+                              // SECURITY: Create safe placeholder using DOM methods (no innerHTML)
+                              const placeholder = document.createElement('div');
+                              placeholder.className = 'w-full h-full flex items-center justify-center bg-muted error-placeholder';
 
-                    <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-                    <div>
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <Home className="h-3 w-3" />
-                        <span className="text-xs">Units</span>
+                              // Create SVG element safely
+                              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                              svg.setAttribute('class', 'h-12 w-12 text-muted-foreground');
+                              svg.setAttribute('fill', 'none');
+                              svg.setAttribute('viewBox', '0 0 24 24');
+                              svg.setAttribute('stroke', 'currentColor');
+
+                              const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                              path.setAttribute('stroke-linecap', 'round');
+                              path.setAttribute('stroke-linejoin', 'round');
+                              path.setAttribute('stroke-width', '2');
+                              path.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
+
+                              svg.appendChild(path);
+                              placeholder.appendChild(svg);
+                              parent.appendChild(placeholder);
+                            }
+                          }}
+                        />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {property.occupied || 0}/{property.units || property._count?.units || 0}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <Users className="h-3 w-3" />
-                        <span className="text-xs">Occupied</span>
+                    ) : (
+                      <div className="w-full h-48 bg-muted flex items-center justify-center">
+                        <Building2 className="h-12 w-12 text-muted-foreground" />
                       </div>
-                      <p className="text-sm font-semibold text-foreground">
-                        {property.units || property._count?.units ? 
-                          Math.round(((property.occupied || 0) / (property.units || property._count?.units)) * 100) : 
-                          0}%
-                      </p>
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                        <DollarSign className="h-3 w-3" />
-                        <span className="text-xs">Revenue</span>
+                    )}
+
+                    <div className="p-6">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h3 className="font-semibold text-foreground text-lg">{property.name}</h3>
+                          {property.propertyCode && (
+                            <p className="text-xs text-muted-foreground font-mono mt-1">
+                              Code: {property.propertyCode}
+                            </p>
+                          )}
+                          {property.salePrice !== undefined && property.salePrice !== null && (
+                            <p className="text-sm text-foreground mt-1 font-semibold">
+                              Sale Price: Rs {Number(property.salePrice).toLocaleString("en-IN")}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1">
+                            <Badge variant="secondary">{property.type}</Badge>
+                            <Badge
+                              variant={
+                                property.status === "Active" ? "default" :
+                                  property.status === "Maintenance" ? "destructive" :
+                                    property.status === "For Sale" ? "secondary" :
+                                      "outline"
+                              }
+                              className="cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.name })
+                              }}
+                            >
+                              {property.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => setSelectedProperty(property.id)}>
+                              <Eye className="h-4 w-4 mr-2" />
+                              View Details
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => handleGeneratePropertyReport(property)}
+                            >
+                              <FileText className="h-4 w-4 mr-2" />
+                              Generate Report
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setEditingPropertyId(property.id)
+                              setShowAddDialog(true)
+                            }}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => {
+                              setStructurePropertyId(String(property.id))
+                              setStructurePropertyName(property.name || "")
+                              setShowStructureDialog(true)
+                            }}>
+                              <Building2 className="h-4 w-4 mr-2" />
+                              Create Structure
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="text-destructive"
+                              onClick={() => {
+                                setDeletingProperty({
+                                  id: property.id,
+                                  name: property.name,
+                                  propertyCode: property.propertyCode,
+                                })
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
-                      <p className="text-sm font-semibold text-foreground">{property.revenue || "Rs 0"}</p>
+
+                      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
+                        <div>
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <Home className="h-3 w-3" />
+                            <span className="text-xs">Units</span>
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {property.occupied || 0}/{property.units || property._count?.units || 0}
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <Users className="h-3 w-3" />
+                            <span className="text-xs">Occupied</span>
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {property.units || property._count?.units ?
+                              Math.round(((property.occupied || 0) / (property.units || property._count?.units)) * 100) :
+                              0}%
+                          </p>
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
+                            <DollarSign className="h-3 w-3" />
+                            <span className="text-xs">Revenue</span>
+                          </div>
+                          <p className="text-sm font-semibold text-foreground">{property.revenue || "Rs 0"}</p>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </Card>
+                  </Card>
                 ))}
             </div>
           )}
@@ -712,8 +740,8 @@ export function PropertiesView() {
           }}
         />
       )}
-      <AddPropertyDialog 
-        open={showAddDialog} 
+      <AddPropertyDialog
+        open={showAddDialog}
         onOpenChange={(open) => {
           setShowAddDialog(open)
           if (!open) {

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Building2, MapPin, Home, Users, DollarSign, Loader2 } from "lucide-react"
+import { Building2, MapPin, Home, Users, DollarSign, Loader2, FileText, Receipt } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { AddUnitDialog } from "./add-unit-dialog"
 import { AddTenantDialog } from "./add-tenant-dialog"
@@ -26,6 +26,9 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
   const [showAddTenantDialog, setShowAddTenantDialog] = useState(false)
   const [showAddLeaseDialog, setShowAddLeaseDialog] = useState(false)
   const [showAddPaymentDialog, setShowAddPaymentDialog] = useState(false)
+  const [financeSummary, setFinanceSummary] = useState<any | null>(null)
+  const [financeRecords, setFinanceRecords] = useState<any[]>([])
+  const [reportLoading, setReportLoading] = useState(false)
 
   useEffect(() => {
     if (open && propertyId) {
@@ -53,6 +56,8 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
       }
       
       setProperty(propertyData)
+      setFinanceSummary(propertyData.financeSummary || null)
+      setFinanceRecords(Array.isArray(propertyData.financeRecords) ? propertyData.financeRecords : [])
     } catch (err: any) {
       console.error("Failed to fetch property details:", err)
       setError(err.response?.data?.message || err.response?.data?.error || "Failed to fetch property details")
@@ -82,16 +87,46 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
     fetchPropertyDetails()
   }
 
+  const handleGenerateReport = async () => {
+    if (!propertyId) return
+    try {
+      setReportLoading(true)
+      const response = await apiService.properties.getReport(String(propertyId))
+      const blob = new Blob([response.data as Blob], { type: "application/pdf" })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${(property?.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
+      link.click()
+      window.URL.revokeObjectURL(url)
+    } catch (error) {
+      console.error("Failed to generate property report", error)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="w-[1100px] max-w-[95vw] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <DialogTitle className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
             {loading ? "Loading..." : property?.name || "Property Details"}
           </DialogTitle>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateReport}
+              disabled={reportLoading}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {reportLoading ? "Preparing..." : "Generate Full Report"}
+            </Button>
+          </div>
         </DialogHeader>
 
         {loading ? (
@@ -169,6 +204,22 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                   <div className="grid grid-cols-[120px,1fr] gap-2">
                     <span className="text-muted-foreground">Status</span>
                     <span className="text-foreground">{property.status || "N/A"}</span>
+                  </div>
+                  <div className="grid grid-cols-[120px,1fr] gap-2">
+                    <span className="text-muted-foreground">Sales Price</span>
+                    <span className="text-foreground">
+                      {property.salePrice !== undefined && property.salePrice !== null
+                        ? `Rs ${Number(property.salePrice).toLocaleString("en-IN")}`
+                        : "N/A"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[120px,1fr] gap-2">
+                    <span className="text-muted-foreground">Owner</span>
+                    <span className="text-foreground">{property.ownerName || "N/A"}</span>
+                  </div>
+                  <div className="grid grid-cols-[120px,1fr] gap-2">
+                    <span className="text-muted-foreground">Owner Phone</span>
+                    <span className="text-foreground">{property.ownerPhone || "N/A"}</span>
                   </div>
                 </div>
               </Card>
@@ -333,6 +384,70 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
               </Card>
             </div>
 
+            <div className="grid gap-4 md:grid-cols-3">
+              <Card className="space-y-4 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground">Finance Summary</p>
+                  <Receipt className="h-4 w-4 text-muted-foreground" />
+                </div>
+                <div className="grid grid-cols-1 gap-3 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total Received</span>
+                    <span className="font-semibold text-foreground">
+                      Rs {Number(financeSummary?.totalReceived || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Pending Amount</span>
+                    <span className="font-semibold text-foreground">
+                      Rs {Number(financeSummary?.pendingAmount || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Total Expenses</span>
+                    <span className="font-semibold text-foreground">
+                      Rs {Number(financeSummary?.totalExpenses || 0).toLocaleString("en-IN")}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Finance Entries</span>
+                    <span className="font-semibold text-foreground">
+                      {financeSummary?.entryCount || financeRecords.length || 0}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+
+              <Card className="space-y-3 p-4 md:col-span-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground">Finance Records</p>
+                  <span className="text-xs text-muted-foreground">Recent entries</span>
+                </div>
+                {financeRecords && financeRecords.length > 0 ? (
+                  <div className="space-y-3">
+                    {financeRecords.map((record) => (
+                      <div key={record.id} className="flex items-center justify-between rounded-md border p-3">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">
+                            {record.description || record.referenceType || "Entry"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {record.category || "Uncategorized"} •{" "}
+                            {record.date ? new Date(record.date).toLocaleDateString() : "N/A"}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">
+                          Rs {Number(record.amount || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No finance records yet.</p>
+                )}
+              </Card>
+            </div>
+
             {/* 7. Quick Actions */}
             <Card className="space-y-3 p-4">
               <p className="text-sm font-semibold tracking-wide text-muted-foreground">Quick Actions</p>
@@ -380,6 +495,38 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
               <Card className="space-y-2 p-4">
                 <p className="text-sm font-semibold tracking-wide text-muted-foreground">Description</p>
                 <p className="text-sm text-muted-foreground">{property.description}</p>
+              </Card>
+            )}
+
+            {property.activeDeals && property.activeDeals.length > 0 && (
+              <Card className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground">Active Deals</p>
+                  <span className="text-xs text-muted-foreground">{property.activeDeals.length} deal(s)</span>
+                </div>
+                <div className="space-y-3">
+                  {property.activeDeals.map((deal: any) => (
+                    <div key={deal.id} className="rounded-md border p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold text-foreground">{deal.title || "Deal"}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {deal.stage || "Open"} • {deal.status || "open"}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-foreground">
+                          Rs {Number(deal.amount || 0).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground mt-2">
+                        <span>Received: Rs {Number(deal.received || 0).toLocaleString("en-IN")}</span>
+                        <span>Pending: Rs {Number(deal.pending || 0).toLocaleString("en-IN")}</span>
+                        <span>Client: {deal.clientName || "N/A"}</span>
+                        <span>Dealer: {deal.dealerName || "N/A"}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
           </div>

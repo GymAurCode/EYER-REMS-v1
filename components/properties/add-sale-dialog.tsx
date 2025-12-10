@@ -145,21 +145,19 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
   const handlePropertyChange = (propertyId: string) => {
     const property = properties.find((p) => p.id === propertyId)
     setSelectedProperty(property)
-    // Get actual property value (could be from property.totalArea, property.value, or a custom field)
-    const value = property?.totalArea || property?.value || property?.actualValue || 0
+    // Prefer explicit sale price from property
+    const value =
+      (property?.salePrice !== undefined && property?.salePrice !== null
+        ? property.salePrice
+        : property?.value || property?.actualValue || 0) || 0
     setActualPropertyValue(value)
-    setFormData({ ...formData, propertyId })
-    
-    // Recalculate profit if sale value exists
-    if (formData.saleValue) {
-      const salePrice = parseFloat(formData.saleValue) || 0
-      setProfit(salePrice - value)
-    }
+    setFormData({ ...formData, propertyId, saleValue: value ? value.toString() : "" })
+    setProfit(0)
   }
 
   const handleSalePriceChange = (price: string) => {
     const salePrice = parseFloat(price) || 0
-    setFormData({ ...formData, saleValue: price })
+    setFormData((prev) => ({ ...prev, saleValue: price }))
     
     // Calculate profit
     setProfit(salePrice - actualPropertyValue)
@@ -214,6 +212,15 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
       }
 
       const saleValue = parseFloat(formData.saleValue)
+      if (actualPropertyValue && Math.abs(saleValue - actualPropertyValue) > 0.01) {
+        toast({
+          title: "Error",
+          description: "Sale price must match the property's configured sales price",
+          variant: "destructive",
+        })
+        setSubmitting(false)
+        return
+      }
       const commission = parseFloat(formData.commission) || 0
       
       // Calculate commission rate from commission and sale value
@@ -434,7 +441,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
             <h3 className="text-sm font-semibold text-foreground">Sale Details</h3>
             {selectedProperty && actualPropertyValue > 0 && (
               <div className="space-y-2 p-3 bg-muted rounded-lg">
-                <Label className="text-xs text-muted-foreground">Actual Property Value</Label>
+                <Label className="text-xs text-muted-foreground">Sales Price (Read-only)</Label>
                 <p className="text-lg font-semibold text-foreground">Rs {actualPropertyValue.toLocaleString("en-IN")}</p>
                 <p className="text-xs text-muted-foreground">This value is read-only</p>
               </div>
@@ -450,6 +457,10 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
                   onChange={(e) => handleSalePriceChange(e.target.value)}
                   placeholder="0.00"
                   required
+                readOnly={!!selectedProperty?.salePrice}
+                className={`${
+                  selectedProperty?.salePrice ? "bg-muted" : ""
+                }`}
                 />
               </div>
               {profit !== 0 && (

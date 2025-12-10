@@ -44,6 +44,7 @@ type PropertyFormData = {
   manualUniqueId: string // User-provided manual unique ID (editable)
   type: string
   status: string
+  salePrice: string
   addressLine1: string
   addressLine2: string
   city: string
@@ -69,6 +70,7 @@ function createEmptyFormData(): PropertyFormData {
     manualUniqueId: "", // User can enter manually
     type: "",
     status: "Vacant",
+    salePrice: "",
     addressLine1: "",
     addressLine2: "",
     city: "",
@@ -106,6 +108,11 @@ function validateForm(data: PropertyFormData) {
 
   if (!data.status) {
     errors.status = "Status is required"
+  }
+
+  const salePriceValue = parseFloat(data.salePrice || "0")
+  if (!data.salePrice.trim() || Number.isNaN(salePriceValue) || salePriceValue < 0) {
+    errors.salePrice = "Sales price is required and must be 0 or greater"
   }
 
   if (!data.addressLine1.trim()) {
@@ -267,6 +274,12 @@ export function AddPropertyDialog({ open, onOpenChange, onSuccess, propertyId }:
           manualUniqueId: propertyData.manualUniqueId || "",
           type: propertyData.type || "",
           status: propertyData.status || "Vacant",
+          salePrice:
+            propertyData.salePrice !== undefined && propertyData.salePrice !== null
+              ? propertyData.salePrice.toString()
+              : propertyData.documents?.salePrice
+                ? propertyData.documents.salePrice.toString()
+                : "",
           addressLine1,
           addressLine2,
           city,
@@ -387,7 +400,7 @@ export function AddPropertyDialog({ open, onOpenChange, onSuccess, propertyId }:
 
     // Mark all fields as touched on submit
     const allFields = [
-      'propertyName', 'type', 'status',
+      'propertyName', 'type', 'status', 'salePrice',
       'addressLine1', 'city', 'state', 'country', 'zipCode'
     ]
     setTouchedFields(new Set(allFields))
@@ -445,6 +458,7 @@ export function AddPropertyDialog({ open, onOpenChange, onSuccess, propertyId }:
         type: formData.type,
         address: fullAddress,
         status: formData.status,
+        salePrice: parseFloat(formData.salePrice || "0"),
         manualUniqueId: formData.manualUniqueId.trim() || undefined,
       }
 
@@ -643,6 +657,27 @@ export function AddPropertyDialog({ open, onOpenChange, onSuccess, propertyId }:
                 </SelectContent>
               </Select>
               {errors.status && <p className="text-xs text-destructive">{errors.status}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="salePrice">Sales Price</Label>
+              <Input
+                id="salePrice"
+                type="number"
+                min="0"
+                step="0.01"
+                value={formData.salePrice}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    salePrice: e.target.value,
+                  }))
+                }
+                onBlur={() => handleFieldBlur("salePrice")}
+                placeholder="Enter sales price"
+                className={errors.salePrice ? "border-destructive" : ""}
+              />
+              {errors.salePrice && <p className="text-xs text-destructive">{errors.salePrice}</p>}
             </div>
           </div>
 
