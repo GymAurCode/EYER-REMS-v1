@@ -629,6 +629,34 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       description: entry.description,
       date: entry.date,
     }));
+    // Get dealer ledger data if property has a dealer
+    let dealerLedger: any[] = []
+    if (property.dealerId) {
+      // Get dealer ledger entries for this property's dealer
+      try {
+        const dealerLedgerEntries = await prisma.dealerLedger.findMany({
+          where: {
+            dealerId: property.dealerId,
+          },
+          orderBy: { date: 'desc' },
+          take: 20, // Limit to recent 20 entries
+        })
+
+        dealerLedger = dealerLedgerEntries.map((entry) => ({
+          id: entry.id,
+          date: entry.date,
+          description: entry.description || '',
+          // Use debit/credit if available, otherwise use amount
+          debit: (entry as any).debit || 0,
+          credit: (entry as any).credit || 0,
+          balance: entry.balance || (entry as any).amount || 0,
+        }))
+      } catch (err) {
+        // Dealer ledger table might not exist or have different structure
+        console.warn('Dealer ledger not available:', err)
+        dealerLedger = []
+      }
+    }
 
     // Calculate stats
     const occupiedUnits = await prisma.unit.count({
@@ -694,6 +722,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       },
       financeRecords,
       activeDeals: dealSummaries,
+      dealerLedger,
     });
   } catch (error) {
     logger.error('Get property error:', error);
@@ -857,6 +886,93 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
     );
   } catch (error) {
     logger.error('Generate property report error:', error);
+    return errorResponse(res, error);
+  }
+});
+
+/**
+ * Get full property ledger (finance + payments) for a property
+ * @route GET /api/properties/:id/ledger
+ * @access Private
+ */
+router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const property = await prisma.property.findFirst({
+      where: { id, isDeleted: false },
+      select: { id: true, name: true, dealerId: true },
+    });
+
+    if (!property) {
+      return errorResponse(res, 'Property not found', 404);
+    }
+
+    const [financeEntries, dealPayments] = await Promise.all([
+      prisma.financeLedger.findMany({
+        where: { propertyId: id, isDeleted: false },
+        orderBy: { date: 'desc' },
+      }),
+      prisma.payment.findMany({
+        where: {
+          deal: { propertyId: id, isDeleted: false, deletedAt: null },
+          deletedAt: null,
+        },
+        orderBy: { date: 'desc' },
+        include: {
+          deal: { select: { id: true, title: true, dealAmount: true } },
+          createdBy: { select: { id: true, username: true, email: true } },
+        },
+      }),
+    ]);
+
+    const normalizedFinance = financeEntries.map((entry) => ({
+      id: entry.id,
+      date: entry.date,
+      category: entry.category,
+      amount: entry.amount,
+      referenceType: entry.referenceType,
+      description: entry.description,
+      type: entry.category === 'expense' ? 'expense' : 'income',
+    }));
+
+    const normalizedPayments = dealPayments.map((payment) => ({
+      id: payment.id,
+      date: payment.date,
+      amount: payment.amount,
+      paymentMode: payment.paymentMode,
+      paymentType: payment.paymentType,
+      dealId: payment.dealId,
+      dealTitle: payment.deal?.title,
+      recordedBy: payment.createdBy?.username || payment.createdBy?.email || 'System',
+      type: 'payment',
+    }));
+
+    const totalIncome = normalizedFinance
+      .filter((f) => f.type === 'income')
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    const totalExpenses = normalizedFinance
+      .filter((f) => f.type === 'expense')
+      .reduce((sum, f) => sum + (f.amount || 0), 0);
+    const totalPayments = normalizedPayments.reduce((sum, p) => sum + (p.amount || 0), 0);
+
+    return successResponse(res, {
+      summary: {
+        totalIncome,
+        totalExpenses,
+        totalPayments,
+        net: totalIncome - totalExpenses,
+      },
+      financeEntries: normalizedFinance,
+      payments: normalizedPayments,
+      property: {
+        id: property.id,
+        name: property.name,
+        dealerId: property.dealerId,
+      },
+    });
+  } catch (error) {
+    logger.error('Get property ledger error:', error);
     return errorResponse(res, error);
   }
 });

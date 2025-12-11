@@ -3,8 +3,8 @@
  * Implements deal lifecycle, stage transitions, and status computation
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
+import { Prisma } from '@prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
 import { generateSystemId, validateManualUniqueId } from './id-generation-service';
 
@@ -61,6 +61,22 @@ export interface UpdateDealPayload {
   updatedBy: string;
 }
 
+/**
+ * Interface for Deal value breakdown structure
+ * Contains financial details and commission information
+ */
+export interface DealValueBreakdown {
+  commissionType: CommissionType;
+  commissionRate: number;
+  dealerShare: number;
+  companyShare: number;
+  costPrice: number;
+  expenses: number;
+  profit: number;
+  dealerCommission: number;
+  companyCommission: number;
+}
+
 export class DealService {
   /**
    * Generate deterministic deal code
@@ -81,6 +97,23 @@ export class DealService {
    * Create a new deal with validation and business rules
    */
   static async createDeal(payload: CreateDealPayload): Promise<any> {
+    // Validate required fields
+    if (!payload.title?.trim()) {
+      throw new Error('Deal title is required');
+    }
+    
+    if (!payload.clientId?.trim()) {
+      throw new Error('Client ID is required');
+    }
+
+    if (!payload.dealAmount || payload.dealAmount <= 0) {
+      throw new Error('Valid deal amount is required');
+    }
+
+    if (!payload.createdBy?.trim()) {
+      throw new Error('Created by user ID is required');
+    }
+
     // Validate client exists
     const client = await prisma.client.findFirst({
       where: { id: payload.clientId, isDeleted: false },
@@ -266,6 +299,24 @@ export class DealService {
     notes?: string,
     probability?: number
   ): Promise<any> {
+    // Validate required parameters
+    if (!dealId?.trim()) {
+      throw new Error('Deal ID is required');
+    }
+
+    if (!newStage?.trim()) {
+      throw new Error('New stage is required');
+    }
+
+    if (!userId?.trim()) {
+      throw new Error('User ID is required');
+    }
+
+    // Validate probability if provided
+    if (probability !== undefined && (probability < 0 || probability > 100)) {
+      throw new Error('Probability must be between 0 and 100');
+    }
+
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
       include: {
@@ -281,6 +332,11 @@ export class DealService {
 
     if (deal.isDeleted || deal.deletedAt) {
       throw new Error('Cannot update deleted deal');
+    }
+
+    // Check if stage is actually changing
+    if (deal.stage === newStage && (probability === undefined || probability === deal.probability)) {
+      throw new Error('Stage and probability are unchanged');
     }
 
     const wasClosed = deal.stage === 'closed-won';
@@ -367,7 +423,7 @@ export class DealService {
     }
 
     // Calculate total paid
-    const totalPaid = deal.payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const totalPaid = deal.payments.reduce((sum: number, payment: any) => sum + payment.amount, 0);
 
     // Determine status and stage
     let status: string;
@@ -418,7 +474,7 @@ export class DealService {
     }
 
     // Trigger revenue recognition if deal is closed and not already recognized
-    if (status === 'closed' || (status === 'won' && deal.stage === 'closed-won')) {
+    if (status === 'closed' || (stage === 'closed-won' && deal.stage !== 'closed-won')) {
       try {
         await this.recognizeRevenueForDeal(dealId, prismaClient);
       } catch (error) {
@@ -434,6 +490,14 @@ export class DealService {
    * Update deal with financial calculations
    */
   static async updateDeal(dealId: string, payload: UpdateDealPayload): Promise<any> {
+    if (!dealId?.trim()) {
+      throw new Error('Deal ID is required');
+    }
+
+    if (!payload.updatedBy?.trim()) {
+      throw new Error('Updated by user ID is required');
+    }
+
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
       include: {
@@ -449,6 +513,11 @@ export class DealService {
 
     if (deal.isDeleted || deal.deletedAt) {
       throw new Error('Cannot update deleted deal');
+    }
+
+    // Validate deal amount if provided
+    if (payload.dealAmount !== undefined && (payload.dealAmount <= 0 || !payload.dealAmount)) {
+      throw new Error('Deal amount must be a positive number');
     }
 
     // Get current financial data from valueBreakdown or defaults
@@ -582,7 +651,7 @@ export class DealService {
     };
 
     // Determine payment mode from payments
-    const totalPaid = deal.payments.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaid = deal.payments.reduce((sum: number, p: any) => sum + p.amount, 0);
     let paymentMode: 'cash' | 'bank' | 'receivable' = 'receivable';
     if (deal.payments.length > 0) {
       const lastPayment = deal.payments[deal.payments.length - 1];
@@ -628,6 +697,27 @@ export class DealService {
    * Soft delete deal
    */
   static async deleteDeal(dealId: string, userId: string): Promise<void> {
+    // Validate required parameters
+    if (!dealId?.trim()) {
+      throw new Error('Deal ID is required');
+    }
+
+    if (!userId?.trim()) {
+      throw new Error('User ID is required');
+    }
+
+    const deal = await prisma.deal.findUnique({
+      where: { id: dealId },
+    });
+
+    if (!deal) {
+      throw new Error('Deal not found');
+    }
+
+    if (deal.isDeleted || deal.deletedAt) {
+      throw new Error('Deal is already deleted');
+    }
+
     await prisma.deal.update({
       where: { id: dealId },
       data: {

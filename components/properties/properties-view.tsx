@@ -30,7 +30,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { AddPropertyDialog } from "./add-property-dialog"
-import { PropertyDetailsDialog } from "./property-details-dialog"
 import { PropertyDeleteDialog } from "./property-delete-dialog"
 import { EditStatusDialog } from "./edit-status-dialog"
 import { PropertyStructureSetupDialog } from "./property-structure-setup-dialog"
@@ -51,7 +50,6 @@ export function PropertiesView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [filterStatus, setFilterStatus] = useState<string>("all")
   const [filterType, setFilterType] = useState<string>("all")
-  const [selectedProperty, setSelectedProperty] = useState<number | null>(null)
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingPropertyId, setEditingPropertyId] = useState<number | string | null>(null)
   const [editingStatusProperty, setEditingStatusProperty] = useState<any | null>(null)
@@ -224,8 +222,11 @@ export function PropertiesView() {
           href: "/details/tenants",
         },
       ])
-    } catch (err) {
-      console.error("Failed to fetch property stats:", err)
+    } catch (err: any) {
+      // Don't log timeout errors
+      if (err?.code !== 'ECONNABORTED' && !err?.message?.includes('timeout')) {
+        console.error("Failed to fetch property stats:", err)
+      }
       // Even on error, show boxes with default values
       setPropertyStats([
         {
@@ -607,7 +608,7 @@ export function PropertiesView() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setSelectedProperty(property.id)}>
+                            <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}>
                               <Eye className="h-4 w-4 mr-2" />
                               View Details
                             </DropdownMenuItem>
@@ -716,14 +717,6 @@ export function PropertiesView() {
         </TabsContent>
       </Tabs>
 
-      {/* Dialogs */}
-      {selectedProperty && (
-        <PropertyDetailsDialog
-          propertyId={selectedProperty}
-          open={!!selectedProperty}
-          onOpenChange={(open) => !open && setSelectedProperty(null)}
-        />
-      )}
       {deletingProperty && (
         <PropertyDeleteDialog
           open={!!deletingProperty}

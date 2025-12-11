@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/lib/theme-provider"
 import { AuthProvider } from "@/lib/auth-context"
 import { Toaster } from "@/components/ui/toaster"
 import { useEffect } from "react"
+import { SWRConfig } from "swr"
 
 const inter = Inter({ subsets: ["latin"] })
 
@@ -47,12 +48,29 @@ export default function RootLayout({
         <meta name="description" content="Comprehensive enterprise resource planning for real estate management" />
       </head>
       <body className={inter.className} suppressHydrationWarning>
-        <ThemeProvider defaultTheme="light" defaultAccent="blue">
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
-        </ThemeProvider>
+        <SWRConfig
+          value={{
+            revalidateOnFocus: false, // Disable revalidation on window focus to prevent rate limiting
+            revalidateOnReconnect: true, // Still revalidate when network reconnects
+            dedupingInterval: 60000, // Dedupe requests within 60 seconds
+            focusThrottleInterval: 60000, // Throttle focus revalidation to 60 seconds
+            errorRetryCount: 2, // Retry failed requests up to 2 times
+            errorRetryInterval: 2000, // Wait 2 seconds between retries
+            onError: (error) => {
+              // Don't log 429 errors to reduce console noise
+              if (error?.response?.status !== 429) {
+                console.error('SWR Error:', error)
+              }
+            },
+          }}
+        >
+          <ThemeProvider defaultTheme="light" defaultAccent="blue">
+            <AuthProvider>
+              {children}
+              <Toaster />
+            </AuthProvider>
+          </ThemeProvider>
+        </SWRConfig>
       </body>
     </html>
   )

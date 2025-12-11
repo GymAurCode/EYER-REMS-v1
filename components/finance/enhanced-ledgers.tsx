@@ -4,25 +4,48 @@ import { useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, Search } from "lucide-react"
 import { apiService } from "@/lib/api"
+import { DealerLedgerView } from "./dealer-ledger-view"
 
-type LedgerTab = "clients" | "properties" | "company"
+type LedgerTab = "clients" | "properties" | "company" | "dealer"
 
 export function EnhancedLedgers() {
   const [activeTab, setActiveTab] = useState<LedgerTab>("clients")
   const [clientRows, setClientRows] = useState<any[]>([])
   const [propertyRows, setPropertyRows] = useState<any[]>([])
   const [companyLedger, setCompanyLedger] = useState<any>(null)
+  const [dealers, setDealers] = useState<{ id: string; name: string }[]>([])
+  const [selectedDealerId, setSelectedDealerId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchLedgerData()
+    if (activeTab === "dealer" && dealers.length === 0) {
+      fetchDealers()
+    } else {
+      fetchLedgerData()
+    }
   }, [activeTab])
+
+  const fetchDealers = async () => {
+    try {
+      const response = await apiService.dealers.getAll()
+      const dealerPayload = response.data as any
+      setDealers(
+        Array.isArray(dealerPayload?.data ?? dealerPayload)
+          ? (dealerPayload.data ?? dealerPayload).map((d: any) => ({ id: d.id, name: d.name }))
+          : [],
+      )
+    } catch (err: any) {
+      setDealers([])
+    }
+  }
 
   const fetchLedgerData = async () => {
     try {
@@ -80,6 +103,7 @@ export function EnhancedLedgers() {
             { label: "Client Ledger", value: "clients" },
             { label: "Property Ledger", value: "properties" },
             { label: "Company Ledger", value: "company" },
+            { label: "Dealer Ledger", value: "dealer" },
           ].map((tab) => (
             <button
               key={tab.value}
@@ -102,6 +126,27 @@ export function EnhancedLedgers() {
               onChange={(event) => setSearchQuery(event.target.value)}
               className="pl-8"
             />
+          </div>
+        )}
+        {activeTab === "dealer" && (
+          <div className="relative w-full max-w-xs">
+            <Label className="sr-only">Select Dealer</Label>
+            <Select value={selectedDealerId} onValueChange={setSelectedDealerId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select dealer to view ledger" />
+              </SelectTrigger>
+              <SelectContent>
+                {dealers.length > 0 ? (
+                  dealers.map((dealer) => (
+                    <SelectItem key={dealer.id} value={dealer.id}>
+                      {dealer.name}
+                    </SelectItem>
+                  ))
+                ) : (
+                  <SelectItem value="none" disabled>No dealers found</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -315,6 +360,21 @@ export function EnhancedLedgers() {
                   </Table>
                 </div>
               </Card>
+            </div>
+          )}
+
+          {activeTab === "dealer" && (
+            <div className="space-y-4">
+              {!selectedDealerId ? (
+                <Card className="p-10 text-center text-muted-foreground">
+                  Please select a dealer to view their ledger
+                </Card>
+              ) : (
+                <DealerLedgerView
+                  dealerId={selectedDealerId}
+                  dealerName={dealers.find((d) => d.id === selectedDealerId)?.name}
+                />
+              )}
             </div>
           )}
         </>

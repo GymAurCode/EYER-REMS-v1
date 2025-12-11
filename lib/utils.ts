@@ -22,3 +22,17 @@ export function formatCurrency(value: number | string | null | undefined): strin
     return `Rs ${Math.round(numValue).toLocaleString("en-PK")}`
   }
 }
+
+/**
+ * Trigger a client-side JSON download for any data object.
+ */
+export function downloadJSON(data: unknown, filename: string) {
+  const safeName = filename.endsWith('.json') ? filename : `${filename}.json`
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = safeName
+  link.click()
+  URL.revokeObjectURL(url)
+}

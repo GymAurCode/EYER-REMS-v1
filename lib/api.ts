@@ -34,34 +34,41 @@ if (!normalizedBaseUrl.endsWith('/api')) {
 //   })
 // }
 
+// Request throttling and deduplication
+let lastRequestTime = 0
+const MIN_REQUEST_INTERVAL = 150 // Minimum 150ms between GET requests
+const MAX_CONCURRENT_REQUESTS = 8
+let activeRequests = 0
+
+// Request deduplication cache (prevents duplicate simultaneous requests)
+const pendingRequests = new Map<string, Promise<any>>()
+
+// Helper to throttle requests
+const throttleRequest = async (): Promise<void> => {
+  const now = Date.now()
+  const timeSinceLastRequest = now - lastRequestTime
+  
+  if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
+    await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest))
+  }
+  
+  lastRequestTime = Date.now()
+}
+
 // Create axios instance with default config
 const api = axios.create({
   baseURL: normalizedBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000,
+  timeout: 30000, // Increased to 30 seconds for slow queries
   withCredentials: true, // Required for CORS with credentials
 })
 
-// Request interceptor to add auth token, deviceId, and CSRF token
+// Request interceptor to add auth token, deviceId, CSRF token, and throttling
 api.interceptors.request.use(
   (config) => {
-    // Log the request URL in development for debugging (disabled)
-    // if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-    //   const base = config.baseURL?.replace(/\/+$/, '') || ''
-    //   const url = config.url?.startsWith('/') ? config.url : `/${config.url || ''}`
-    //   const fullUrl = `${base}${url}`
-    //   console.log('📤 API Request:', {
-    //     method: config.method?.toUpperCase(),
-    //     url: config.url,
-    //     baseURL: config.baseURL,
-    //     fullUrl,
-    //   })
-    // }
-
     // Ensure URLs start with / for proper axios URL combination
-    // Axios combines: baseURL (no trailing /) + URL (with leading /) = correct URL
     if (config.url && !config.url.startsWith('/')) {
       config.url = `/${config.url}`
     }
@@ -78,11 +85,7 @@ api.interceptors.request.use(
       const now = Date.now()
       const hoursSinceLogin = (now - loginTimestamp) / (1000 * 60 * 60)
 
-      // If 24 hours have passed since login, clear session
-      // But only reject the request, don't redirect here (let the auth context handle it)
       if (hoursSinceLogin >= 24) {
-        // Don't clear here - let the auth context handle it to avoid race conditions
-        // Just reject the request
         throw new Error('Session expired after 24 hours')
       }
     }
@@ -117,6 +120,12 @@ api.interceptors.request.use(
       }
     }
 
+    // Throttle GET requests only (skip throttling for POST/PUT/DELETE to avoid blocking user actions)
+    // Increment counter for GET requests (will be decremented in response/error handlers)
+    if (method === 'GET' && typeof window !== 'undefined') {
+      activeRequests++
+    }
+
     return config
   },
   (error) => {
@@ -127,6 +136,11 @@ api.interceptors.request.use(
 // Response interceptor for error handling, CSRF token updates, and token refresh
 api.interceptors.response.use(
   (response) => {
+    // Decrement active request counter for GET requests
+    if (response.config.method?.toUpperCase() === 'GET' && typeof window !== 'undefined') {
+      activeRequests = Math.max(0, activeRequests - 1)
+    }
+
     // Update last activity on successful response
     if (typeof window !== 'undefined') {
       sessionStorage.setItem('lastActivity', Date.now().toString())
@@ -173,14 +187,55 @@ api.interceptors.response.use(
     //   })
     // }
 
-    // Log failures for easier debugging in browser/console
-    console.error('API request failed', {
-      url: error.config?.url,
-      baseURL: error.config?.baseURL,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      message: error.message,
-    })
+    // Log failures for easier debugging in browser/console (skip 429 and timeout errors to reduce noise)
+    const isTimeoutError = error.code === 'ECONNABORTED' || error.message?.includes('timeout')
+    if (error.response?.status !== 429 && !isTimeoutError) {
+      console.error('API request failed', {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        message: error.message,
+      })
+    }
+
+    // Handle timeout errors - retry once with longer timeout
+    if (isTimeoutError && !originalRequest._retry) {
+      originalRequest._retry = true
+      originalRequest.timeout = 60000 // Increase timeout to 60 seconds for retry
+      
+      // Wait a bit before retrying
+      await new Promise(resolve => setTimeout(resolve, 1000))
+      
+      return api(originalRequest)
+    }
+
+    // Handle 429 Too Many Requests - add retry with exponential backoff
+    if (error.response?.status === 429) {
+      const retryCount = (originalRequest._retryCount as number) || 0
+      const maxRetries = 2
+      
+      if (retryCount < maxRetries) {
+        originalRequest._retry = true
+        originalRequest._retryCount = retryCount + 1
+        
+        // Exponential backoff: 2s, 4s (longer delays for rate limits)
+        const delay = Math.pow(2, retryCount + 1) * 1000
+        
+        // Clear from pending requests to allow retry
+        if (originalRequest.url) {
+          const requestKey = `${originalRequest.method?.toUpperCase()}:${originalRequest.url}`
+          pendingRequests.delete(requestKey)
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, delay))
+        
+        return api(originalRequest)
+      } else {
+        // Don't log 429 errors to reduce console noise
+        return Promise.reject(error)
+      }
+    }
 
     // Handle 401 Unauthorized - attempt token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -432,6 +487,7 @@ export const apiService = {
     },
     getById: (id: string) => api.get(`/properties/${id}`),
     getReport: (id: string) => api.get(`/properties/${id}/report`, { responseType: 'blob' }),
+    getLedger: (id: string) => api.get(`/properties/${id}/ledger`),
     create: (data: any) => api.post('/properties', data),
     update: (id: string, data: any) => api.put(`/properties/${id}`, data),
     delete: (id: string) => api.delete(`/properties/${id}`),
@@ -671,11 +727,13 @@ export const apiService = {
   finance: {
     getSummary: (params?: { propertyId?: string; startDate?: string; endDate?: string }) =>
       api.get('/finance/summary', { params }),
+    getAccountLedger: (accountId: string, params?: { propertyId?: string; startDate?: string; endDate?: string }) =>
+      api.get(`/finance-reports/ledger/account/${accountId}`, { params }),
   },
 
   // Finance - Transactions
   transactions: {
-    getAll: () => api.get('/finance/transactions'),
+    getAll: () => api.get('/finance/transactions', { timeout: 30000 }),
     getById: (id: number) => api.get(`/finance/transactions/${id}`),
     create: (data: any) => api.post('/finance/transactions', data),
     update: (id: number, data: any) => api.put(`/finance/transactions/${id}`, data),
@@ -788,13 +846,13 @@ export const apiService = {
     company: () => api.get('/finance/ledgers/company'),
   },
 
-  // Stats
+  // Stats (with longer timeout for slow queries)
   stats: {
-    getPropertiesStats: () => api.get('/stats/properties'),
-    getHRStats: () => api.get('/stats/hr'),
-    getCRMStats: () => api.get('/stats/crm'),
-    getFinanceStats: () => api.get('/stats/finance'),
-    getRevenueVsExpense: (months: number = 12) => api.get(`/stats/finance/revenue-vs-expense?months=${months}`),
+    getPropertiesStats: () => api.get('/stats/properties', { timeout: 30000 }),
+    getHRStats: () => api.get('/stats/hr', { timeout: 30000 }),
+    getCRMStats: () => api.get('/stats/crm', { timeout: 30000 }),
+    getFinanceStats: () => api.get('/stats/finance', { timeout: 30000 }),
+    getRevenueVsExpense: (months: number = 12) => api.get(`/stats/finance/revenue-vs-expense?months=${months}`, { timeout: 30000 }),
   },
 
   // Authentication

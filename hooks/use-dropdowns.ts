@@ -64,9 +64,15 @@ export const useDropdownOptions = (categoryKey?: string) => {
   const { data, error, mutate, isLoading } = useSWR(
     categoryKey ? ["dropdown", categoryKey] : null,
     async () => {
-      const response = await apiService.advanced.getDropdownByKey(categoryKey!)
-      const payload = response.data as any as DropdownByKeyResponse
-      return payload.options || payload.data?.options || []
+      try {
+        const response = await apiService.advanced.getDropdownByKey(categoryKey!)
+        const payload = response.data as any as DropdownByKeyResponse
+        return payload.options || payload.data?.options || []
+      } catch (err) {
+        // Fallback to empty options if the user lacks access (e.g., non-admin) or API fails
+        console.warn("Dropdown load failed", { categoryKey, err })
+        return []
+      }
     },
     { revalidateOnFocus: false }
   )

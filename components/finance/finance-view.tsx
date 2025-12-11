@@ -163,10 +163,13 @@ export function FinanceView() {
           href: "/details/commissions",
         },
       ])
-    } catch (err) {
-      console.error("Failed to fetch finance stats:", err)
+    } catch (err: any) {
+      // Don't log timeout errors to reduce console noise
+      if (err.code !== 'ECONNABORTED' && !err.message?.includes('timeout')) {
+        console.error("Failed to fetch finance stats:", err)
+      }
       setFinancialStats([])
-      setStatsError("Unable to load finance overview. Please try again later.")
+      setStatsError(null) // Don't show error message for timeouts, just show empty state
     } finally {
       setStatsLoading(false)
     }

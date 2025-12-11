@@ -15,7 +15,9 @@ export function useLocationTree() {
     "locations/tree",
     fetchLocationTree,
     {
-      revalidateOnFocus: true,
+      revalidateOnFocus: false, // Disabled to prevent rate limiting
+      revalidateOnReconnect: true,
+      dedupingInterval: 60000, // Cache for 60 seconds
     },
   );
 
