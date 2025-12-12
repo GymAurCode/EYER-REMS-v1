@@ -84,38 +84,165 @@ function ManagedDropdown({
   onChange: (val: string) => void
   required?: boolean
 }) {
-  const { options, isLoading, mutate } = useDropdownOptions(dropdownKey)
+  const { options, isLoading, isError, mutate } = useDropdownOptions(dropdownKey)
   const { toast } = useToast()
   const [newLabel, setNewLabel] = useState("")
   const [saving, setSaving] = useState(false)
+  const [localOptions, setLocalOptions] = useState<any[]>([])
+
+  // Default fallback options when API fails or returns empty
+  const getDefaultOptions = () => {
+    switch (dropdownKey) {
+      case "property.type":
+        return [
+          { id: "residential", label: "Residential", value: "residential" },
+          { id: "commercial", label: "Commercial", value: "commercial" },
+          { id: "industrial", label: "Industrial", value: "industrial" },
+          { id: "land", label: "Land", value: "land" },
+        ]
+      case "property.status":
+        return [
+          { id: "active", label: "Active", value: "Active" },
+          { id: "inactive", label: "Inactive", value: "Inactive" },
+          { id: "maintenance", label: "Maintenance", value: "Maintenance" },
+        ]
+      case "property.category":
+        return [
+          { id: "apartment", label: "Apartment", value: "apartment" },
+          { id: "house", label: "House", value: "house" },
+          { id: "villa", label: "Villa", value: "villa" },
+          { id: "plot", label: "Plot", value: "plot" },
+          { id: "shop", label: "Shop", value: "shop" },
+          { id: "office", label: "Office", value: "office" },
+        ]
+      case "property.size":
+        return [
+          { id: "small", label: "Small", value: "small" },
+          { id: "medium", label: "Medium", value: "medium" },
+          { id: "large", label: "Large", value: "large" },
+        ]
+      default:
+        return []
+    }
+  }
+
+  // Combine API options with local options, avoid duplicates
+  const allOptions = useMemo(() => {
+    const defaultOpts = getDefaultOptions()
+    const apiOpts = options || []
+    const localOpts = localOptions || []
+
+    // Combine and deduplicate by value
+    const combined = [...defaultOpts, ...apiOpts, ...localOpts]
+    const unique = combined.filter((option, index, self) =>
+      index === self.findIndex(o => o.value === option.value)
+    )
+
+    return unique
+  }, [options, localOptions, dropdownKey])
+
+  // Force re-render when options change by updating a version counter
+  // Force re-render when options change by updating a version counter
+  // Removed to prevent infinite loop - React handles this automatically
+  // const [optionsVersion, setOptionsVersion] = useState(0)
+
+  // useEffect(() => {
+  //   setOptionsVersion(prev => prev + 1)
+  // }, [allOptions])
 
   const addOption = async () => {
     if (!newLabel.trim()) return
-    try {
-      setSaving(true)
-      await apiService.advanced.createOption(dropdownKey, {
-        label: newLabel.trim(),
-        value: newLabel.trim(),
-      })
-      setNewLabel("")
-      await mutate()
-      toast({ title: "Option added", description: `${newLabel} created` })
-    } catch (error: any) {
-      toast({ title: "Failed to add option", description: error?.message || "Unknown error", variant: "destructive" })
-    } finally {
-      setSaving(false)
+
+    const newValue = newLabel.trim()
+    const newOption = {
+      id: `local-${Date.now()}`,
+      label: newValue,
+      value: newValue,
     }
+
+    setSaving(true)
+
+    // Add locally first for immediate feedback
+    setLocalOptions(prev => [...prev, newOption])
+    setNewLabel("")
+
+    // Only try API if we can attempt it
+    if (canAttemptAPI) {
+      try {
+        await apiService.advanced.createOption(dropdownKey, {
+          label: newValue,
+          value: newValue,
+        })
+
+        // If API succeeds, refresh the options and remove the local one
+        await mutate()
+        setLocalOptions(prev => prev.filter(opt => opt.id !== newOption.id))
+        toast({ title: "Option added", description: `${newValue} created` })
+
+      } catch (error: any) {
+        // If API fails, keep the local option and show message
+        if (error?.response?.status === 404) {
+          toast({
+            title: "Option added locally",
+            description: `${newValue} added (server endpoint not available)`
+          })
+        } else if (error?.response?.status === 401 || error?.response?.status === 403) {
+          toast({
+            title: "Option added locally",
+            description: `${newValue} added (admin access required for server sync)`
+          })
+        } else {
+          toast({
+            title: "Option added locally",
+            description: `${newValue} added (server sync failed: ${error?.message || 'Unknown error'})`
+          })
+        }
+      }
+    } else {
+      // No admin access, just show local success message
+      toast({
+        title: "Option added locally",
+        description: `${newValue} added (admin access required for server sync)`
+      })
+    }
+
+    setSaving(false)
   }
 
   const removeOption = async (id: string) => {
-    try {
-      await apiService.advanced.deleteOption(id)
-      await mutate()
-      toast({ title: "Option removed" })
-    } catch (error: any) {
-      toast({ title: "Failed to remove option", description: error?.message || "Unknown error", variant: "destructive" })
+    const optionToRemove = allOptions.find(opt => opt.id === id)
+    if (!optionToRemove) return
+
+    // Always remove from local options first
+    setLocalOptions(prev => prev.filter(opt => opt.id !== id))
+
+    // Only try API for non-local options and if we can attempt it
+    if (!id.startsWith('local-') && canAttemptAPI) {
+      try {
+        await apiService.advanced.deleteOption(id)
+        await mutate()
+        toast({ title: "Option removed" })
+      } catch (error: any) {
+        if (error?.response?.status === 404) {
+          toast({ title: "Option removed locally", description: "Server endpoint not available" })
+        } else if (error?.response?.status === 401 || error?.response?.status === 403) {
+          toast({ title: "Option removed locally", description: "Admin access required for server sync" })
+        } else {
+          toast({ title: "Option removed locally", description: "Server sync failed" })
+        }
+      }
+    } else {
+      // Local-only removal
+      if (id.startsWith('local-')) {
+        toast({ title: "Option removed locally" })
+      } else {
+        toast({ title: "Option removed locally", description: "Admin access required for server removal" })
+      }
     }
   }
+
+  // Always use local options for property dropdowns to avoid API errors
+  const canAttemptAPI = false
 
   return (
     <div className="space-y-2">
@@ -123,17 +250,19 @@ function ManagedDropdown({
         <Label className="text-xs font-semibold text-muted-foreground">
           {DROPDOWN_LABELS[dropdownKey]} {required && <span className="text-destructive">*</span>}
         </Label>
-        <div className="flex items-center gap-2">
-          <Input
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
-            placeholder="Add option"
-            className="h-8 w-32"
-          />
-          <Button type="button" size="sm" variant="outline" disabled={!newLabel.trim() || saving} onClick={addOption}>
-            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-          </Button>
-        </div>
+        {canAttemptAPI && (
+          <div className="flex items-center gap-2">
+            <Input
+              value={newLabel}
+              onChange={(e) => setNewLabel(e.target.value)}
+              placeholder="Add option"
+              className="h-8 w-32"
+            />
+            <Button type="button" size="sm" variant="outline" disabled={!newLabel.trim() || saving} onClick={addOption}>
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            </Button>
+          </div>
+        )}
       </div>
 
       <Select value={value} onValueChange={onChange} disabled={isLoading}>
@@ -141,26 +270,40 @@ function ManagedDropdown({
           <SelectValue placeholder={`Select ${DROPDOWN_LABELS[dropdownKey]}`} />
         </SelectTrigger>
         <SelectContent>
-          {(options || []).map((opt) => (
+          {allOptions.map((opt) => (
             <div key={opt.id} className="flex items-center justify-between px-2">
               <SelectItem value={opt.value}>{opt.label}</SelectItem>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground"
-                onClick={(e) => {
-                  e.preventDefault()
-                  e.stopPropagation()
-                  removeOption(opt.id)
-                }}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {canAttemptAPI && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground"
+                  onClick={(e) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    removeOption(opt.id)
+                  }}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
             </div>
           ))}
         </SelectContent>
       </Select>
+
+      {/* Show info message */}
+      {localOptions.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {localOptions.length} custom option(s) added locally
+        </p>
+      )}
+      {(!options || options.length === 0) && (
+        <p className="text-xs text-muted-foreground">
+          Using default options. Admin can customize in Advanced Settings.
+        </p>
+      )}
     </div>
   )
 }
@@ -198,7 +341,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       })
       return
     }
-    
+
     // Add a small delay to debounce rapid open/close actions
     const timeoutId = setTimeout(async () => {
       try {
@@ -211,7 +354,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         const dealerPayload = dealerRes.data as any
         const amenityPayload = amenityRes.data as any
         const accountsPayload = accountsRes.data as any
-        
+
         setDealers(
           Array.isArray(dealerPayload?.data ?? dealerPayload)
             ? (dealerPayload.data ?? dealerPayload).map((d: any) => ({ id: d.id, name: d.name }))
@@ -222,7 +365,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             ? (amenityPayload.data ?? amenityPayload).map((a: any) => ({ id: a.id, name: a.name }))
             : [],
         )
-        
+
         const accountsData = Array.isArray(accountsPayload?.data ?? accountsPayload)
           ? (accountsPayload.data ?? accountsPayload)
           : []
@@ -275,7 +418,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         setLoading(false)
       }
     }, 100)
-    
+
     return () => clearTimeout(timeoutId)
   }, [open, propertyId, toast])
 
@@ -293,21 +436,24 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       return
     }
 
+    // Remove category and size from payload as they're not supported by server
+    const { category, size, ...formWithoutCategorySize } = form
+
     const payload: any = {
-      name: form.name.trim(),
-      type: form.type,
-      status: form.status || "Active",
-      address: form.address,
-      location: form.location,
-      locationId: form.locationId,
-      description: form.description || undefined,
-      totalArea: form.totalArea ? Number(form.totalArea) : undefined,
-      totalUnits: form.totalUnits ? Number(form.totalUnits) : undefined,
-      yearBuilt: form.yearBuilt ? Number(form.yearBuilt) : undefined,
-      salePrice: form.salePrice ? Number(form.salePrice) : undefined,
-      dealerId: form.dealerId || undefined,
-      amenities: form.amenities,
-      imageUrl: form.imageUrl || undefined,
+      name: formWithoutCategorySize.name.trim(),
+      type: formWithoutCategorySize.type,
+      status: formWithoutCategorySize.status || "Active",
+      address: formWithoutCategorySize.address,
+      location: formWithoutCategorySize.location,
+      locationId: formWithoutCategorySize.locationId,
+      description: formWithoutCategorySize.description || undefined,
+      totalArea: formWithoutCategorySize.totalArea ? Number(formWithoutCategorySize.totalArea) : undefined,
+      totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
+      yearBuilt: formWithoutCategorySize.yearBuilt ? Number(formWithoutCategorySize.yearBuilt) : undefined,
+      salePrice: formWithoutCategorySize.salePrice ? Number(formWithoutCategorySize.salePrice) : undefined,
+      dealerId: formWithoutCategorySize.dealerId || undefined,
+      amenities: formWithoutCategorySize.amenities,
+      imageUrl: formWithoutCategorySize.imageUrl || undefined,
     }
 
     try {
@@ -359,34 +505,34 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   // Fetch account ledgers when tab is selected (with rate limiting)
   useEffect(() => {
     if (!open || !propertyId || !selectedAccountTab || accounts.length === 0) return
-    
+
     let cancelled = false
-    
+
     const fetchAccountLedgers = async () => {
-      const filteredAccounts = selectedAccountTab === "asset" 
+      const filteredAccounts = selectedAccountTab === "asset"
         ? accounts.filter((a) => a.type?.toLowerCase() === "asset")
         : selectedAccountTab === "expense"
-        ? accounts.filter((a) => a.type?.toLowerCase() === "expense")
-        : selectedAccountTab === "income"
-        ? accounts.filter((a) => a.type?.toLowerCase() === "revenue" || a.type?.toLowerCase() === "income")
-        : accounts.filter((a) => a.name?.toLowerCase().includes("scrap") || a.code?.includes("scrap"))
-      
+          ? accounts.filter((a) => a.type?.toLowerCase() === "expense")
+          : selectedAccountTab === "income"
+            ? accounts.filter((a) => a.type?.toLowerCase() === "revenue" || a.type?.toLowerCase() === "income")
+            : accounts.filter((a) => a.name?.toLowerCase().includes("scrap") || a.code?.includes("scrap"))
+
       if (filteredAccounts.length === 0) return
-      
+
       const accountLedgersMap: Record<string, any[]> = { ...accountLedgers }
       const accountsToFetch = filteredAccounts.filter((account: any) => !accountLedgersMap[account.id])
-      
+
       if (accountsToFetch.length === 0) return
-      
+
       // Process accounts in batches of 3 with delays to avoid rate limiting
       const BATCH_SIZE = 3
       const DELAY_MS = 500
-      
+
       for (let i = 0; i < accountsToFetch.length; i += BATCH_SIZE) {
         if (cancelled) return
-        
+
         const batch = accountsToFetch.slice(i, i + BATCH_SIZE)
-        
+
         await Promise.all(
           batch.map(async (account: any) => {
             if (cancelled) return
@@ -409,23 +555,23 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             }
           })
         )
-        
+
         // Add delay between batches to avoid rate limiting
         if (i + BATCH_SIZE < accountsToFetch.length) {
           await new Promise(resolve => setTimeout(resolve, DELAY_MS))
         }
       }
-      
+
       if (!cancelled) {
         setAccountLedgers(accountLedgersMap)
       }
     }
-    
+
     // Add a small delay before starting to debounce rapid tab switches
     const timeoutId = setTimeout(() => {
       fetchAccountLedgers()
     }, 300)
-    
+
     return () => {
       cancelled = true
       clearTimeout(timeoutId)
@@ -436,10 +582,10 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const getSelectedAccountLedgers = (accountType: string) => {
     const selectedId = selectedAccountId[accountType as keyof typeof selectedAccountId]
     if (!selectedId) return []
-    
+
     const entries = accountLedgers[selectedId] || []
     const account = accounts.find((a) => a.id === selectedId)
-    
+
     return entries.map((entry: any) => ({
       ...entry,
       accountCode: account?.code || "",
@@ -457,7 +603,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   // Fetch ledger when account is selected
   useEffect(() => {
     if (!open || !propertyId) return
-    
+
     Object.entries(selectedAccountId).forEach(([type, accountId]) => {
       if (accountId && !accountLedgers[accountId]) {
         // Fetch ledger for selected account
@@ -482,7 +628,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[99vw]! w-[99vw]! max-h-[98vh]! h-[98vh]! p-0 m-0 translate-x-[-50%]! translate-y-[-50%]!">
+      <DialogContent className="max-w-[85vw]! w-[85vw]! max-h-[80vh]! h-[80vh]! p-0 m-0 translate-x-[-50%]! translate-y-[-50%]!">
         <DialogHeader className="px-6 py-4 border-b bg-muted/50">
           <DialogTitle className="flex items-center justify-between text-lg font-semibold">
             <span>{isEdit ? "View / Edit Property" : "Add Property"}</span>
@@ -492,9 +638,12 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
               </Badge>
             )}
           </DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            {isEdit ? "View and edit property details" : "Fill in the details to add a new property"}
+          </p>
         </DialogHeader>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-col h-[calc(96vh-100px)]">
+        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-col h-[calc(80vh-100px)]">
           <TabsList className="px-6 pt-4">
             <TabsTrigger value="details">Details</TabsTrigger>
             <TabsTrigger value="finance">Accounts</TabsTrigger>

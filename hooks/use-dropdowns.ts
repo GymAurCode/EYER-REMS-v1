@@ -60,6 +60,8 @@ export const useDropdownCategories = () => {
   }
 }
 
+const EMPTY_ARRAY: any[] = []
+
 export const useDropdownOptions = (categoryKey?: string) => {
   const { data, error, mutate, isLoading } = useSWR(
     categoryKey ? ["dropdown", categoryKey] : null,
@@ -68,17 +70,23 @@ export const useDropdownOptions = (categoryKey?: string) => {
         const response = await apiService.advanced.getDropdownByKey(categoryKey!)
         const payload = response.data as any as DropdownByKeyResponse
         return payload.options || payload.data?.options || []
-      } catch (err) {
-        // Fallback to empty options if the user lacks access (e.g., non-admin) or API fails
-        console.warn("Dropdown load failed", { categoryKey, err })
+      } catch (err: any) {
+        // Only log errors that aren't permission-related
+        if (err?.response?.status !== 401 && err?.response?.status !== 403) {
+          console.warn("Dropdown load failed", { categoryKey, err })
+        }
         return []
       }
     },
-    { revalidateOnFocus: false }
+    {
+      revalidateOnFocus: false,
+      shouldRetryOnError: false, // Don't retry on error
+      errorRetryCount: 0, // Don't retry failed requests
+    }
   )
 
   return {
-    options: data || [],
+    options: data || EMPTY_ARRAY,
     isLoading,
     isError: Boolean(error),
     mutate,

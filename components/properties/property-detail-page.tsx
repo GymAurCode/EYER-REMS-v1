@@ -25,6 +25,8 @@ import {
 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { downloadJSON, formatCurrency } from "@/lib/utils"
+import { PropertyReport } from "@/components/reports/property-report"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 
 type PropertyResponse = {
   id: string | number
@@ -287,10 +289,35 @@ export function PropertyDetailPage() {
             <Printer className="h-4 w-4 mr-2" />
             Print / Save as PDF
           </Button>
-          <Button variant="outline" onClick={handleGenerateReport} disabled={reportLoading}>
-            <FileText className="h-4 w-4 mr-2" />
-            {reportLoading ? "Preparing..." : "Generate Report"}
-          </Button>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline">
+                <FileText className="h-4 w-4 mr-2" />
+                Generate Report
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-[850px] w-full max-h-[90vh] overflow-y-auto p-0 scrollbar-hide">
+              <div className="relative">
+                <div className="absolute top-4 right-4 z-10 print:hidden">
+                  <Button onClick={() => window.print()} size="sm" variant="default">
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Report
+                  </Button>
+                </div>
+                <div className="print-content">
+                  <PropertyReport
+                    property={{
+                      ...property,
+                      totalArea: formatArea(property.totalArea),
+                    }}
+                    financeSummary={financeSummary}
+                  />
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+
           <Button variant="outline" onClick={handleDownloadJson}>
             <Download className="h-4 w-4 mr-2" />
             Download JSON

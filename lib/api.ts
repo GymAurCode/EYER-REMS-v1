@@ -12,7 +12,12 @@ import axios from 'axios'
  * For development:
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
-const rawBaseUrl = process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : 'https://eyer-rems-v1-production-f00e.up.railway.app/api'
+const isDevelopment = process.env.NODE_ENV === 'development';
+const defaultBaseUrl = isDevelopment ? 'http://localhost:3001/api' : 'https://eyer-rems-v1-production-f00e.up.railway.app/api';
+// In development, prioritize localhost to avoid accidental production hits, unless specifically overridden by a LOCAL_API_URL
+const rawBaseUrl = isDevelopment
+  ? (process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:3001/api')
+  : (process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : defaultBaseUrl);
 // Normalize the base URL: remove trailing slashes, ensure it ends with /api (no trailing slash)
 let normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '') // Remove trailing slashes
 // Ensure the base URL includes /api
@@ -47,11 +52,11 @@ const pendingRequests = new Map<string, Promise<any>>()
 const throttleRequest = async (): Promise<void> => {
   const now = Date.now()
   const timeSinceLastRequest = now - lastRequestTime
-  
+
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     await new Promise(resolve => setTimeout(resolve, MIN_REQUEST_INTERVAL - timeSinceLastRequest))
   }
-  
+
   lastRequestTime = Date.now()
 }
 
@@ -203,10 +208,10 @@ api.interceptors.response.use(
     if (isTimeoutError && !originalRequest._retry) {
       originalRequest._retry = true
       originalRequest.timeout = 60000 // Increase timeout to 60 seconds for retry
-      
+
       // Wait a bit before retrying
       await new Promise(resolve => setTimeout(resolve, 1000))
-      
+
       return api(originalRequest)
     }
 
@@ -214,22 +219,22 @@ api.interceptors.response.use(
     if (error.response?.status === 429) {
       const retryCount = (originalRequest._retryCount as number) || 0
       const maxRetries = 2
-      
+
       if (retryCount < maxRetries) {
         originalRequest._retry = true
         originalRequest._retryCount = retryCount + 1
-        
+
         // Exponential backoff: 2s, 4s (longer delays for rate limits)
         const delay = Math.pow(2, retryCount + 1) * 1000
-        
+
         // Clear from pending requests to allow retry
         if (originalRequest.url) {
           const requestKey = `${originalRequest.method?.toUpperCase()}:${originalRequest.url}`
           pendingRequests.delete(requestKey)
         }
-        
+
         await new Promise(resolve => setTimeout(resolve, delay))
-        
+
         return api(originalRequest)
       } else {
         // Don't log 429 errors to reduce console noise
