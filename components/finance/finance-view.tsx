@@ -180,10 +180,10 @@ export function FinanceView() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground text-balance">Financial Management</h1>
-          <p className="text-muted-foreground mt-1">Track revenue, expenses, invoices, payments, and commissions</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground text-balance">Financial Management</h1>
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">Track revenue, expenses, invoices, payments, and commissions</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <ReportGenerator
             moduleName="Finance"
             availableFields={[
@@ -202,9 +202,10 @@ export function FinanceView() {
               return responseData?.data || responseData || []
             }}
           />
-          <Button onClick={() => setShowAddDialog(true)}>
+          <Button onClick={() => setShowAddDialog(true)} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
-            New Transaction
+            <span className="hidden sm:inline">New Transaction</span>
+            <span className="sm:hidden">New</span>
           </Button>
         </div>
       </div>
@@ -265,14 +266,16 @@ export function FinanceView() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
-          <TabsTrigger value="commissions">Commissions</TabsTrigger>
-          <TabsTrigger value="accounting">Accounting</TabsTrigger>
-          <TabsTrigger value="reports">Reports</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex min-w-full sm:min-w-0">
+            <TabsTrigger value="transactions" className="text-xs sm:text-sm">Transactions</TabsTrigger>
+            <TabsTrigger value="invoices" className="text-xs sm:text-sm">Invoices</TabsTrigger>
+            <TabsTrigger value="payments" className="text-xs sm:text-sm">Payments</TabsTrigger>
+            <TabsTrigger value="commissions" className="text-xs sm:text-sm">Commissions</TabsTrigger>
+            <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
+            <TabsTrigger value="reports" className="text-xs sm:text-sm">Reports</TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="transactions">
           <TransactionsView />

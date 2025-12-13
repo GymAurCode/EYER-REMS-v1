@@ -217,8 +217,8 @@ export function TransactionsView() {
           </div>
         ) : (
           <div className="divide-y divide-border">
-            {/* Sort Header */}
-            <div className="grid grid-cols-12 gap-4 p-4 bg-muted/30 text-xs font-medium text-muted-foreground">
+            {/* Desktop Sort Header - Hidden on mobile */}
+            <div className="hidden md:grid grid-cols-12 gap-4 p-4 bg-muted/30 text-xs font-medium text-muted-foreground">
               <div className="col-span-3 flex items-center gap-2 cursor-pointer hover:text-foreground" onClick={() => handleSort("date")}>
                 Date
                 <ArrowUpDown className="h-3 w-3" />
@@ -239,7 +239,77 @@ export function TransactionsView() {
               <div className="col-span-1 text-center">Actions</div>
             </div>
             {filteredAndSortedTransactions.map((transaction) => (
-            <div key={transaction.id} className="grid grid-cols-12 gap-4 p-4 hover:bg-muted/50 transition-colors items-center">
+            <>
+              {/* Mobile Card View */}
+              <div key={transaction.id} className="md:hidden p-4 space-y-3 hover:bg-muted/50 transition-colors border-b">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <div
+                      className={cn(
+                        "flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0",
+                        transaction.transactionType === "income" ? "bg-success/10" : "bg-destructive/10",
+                      )}
+                    >
+                      {transaction.transactionType === "income" ? (
+                        <ArrowDownRight className="h-4 w-4 text-success" />
+                      ) : (
+                        <ArrowUpRight className="h-4 w-4 text-destructive" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium text-foreground truncate">
+                        {transaction.description?.trim() || "No description"}
+                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {transaction.transactionCategory?.name || transaction.category || "Uncategorized"}
+                        </Badge>
+                        <Badge variant={transaction.transactionType === "income" ? "default" : "secondary"} className="text-xs">
+                          {transaction.transactionType === "income" ? "Income" : "Expense"}
+                        </Badge>
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                    onClick={() => setDeleteTarget(transaction)}
+                    disabled={deleting}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1">
+                      <Calendar className="h-3 w-3" />
+                      {new Date(transaction.date).toLocaleDateString()}
+                    </div>
+                    <div className="font-mono mt-1">
+                      {transaction.transactionCode || transaction.id.slice(0, 8)}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className={cn(
+                        "text-base font-semibold",
+                        transaction.transactionType === "income" ? "text-success" : "text-destructive",
+                      )}
+                    >
+                      {transaction.transactionType === "income" ? "+" : "-"}Rs {(transaction.totalAmount || transaction.amount || 0).toLocaleString("en-IN")}
+                    </p>
+                    <Badge variant={transaction.status === "completed" ? "default" : "outline"} className="text-xs mt-1">
+                      {transaction.status}
+                    </Badge>
+                  </div>
+                </div>
+                {transaction.property?.name && (
+                  <p className="text-xs text-muted-foreground truncate">{transaction.property.name}</p>
+                )}
+              </div>
+              {/* Desktop Grid View */}
+              <div key={`desktop-${transaction.id}`} className="hidden md:grid grid-cols-12 gap-4 p-4 hover:bg-muted/50 transition-colors items-center">
               <div className="col-span-3 flex items-center gap-3">
                 <div
                   className={cn(
@@ -311,6 +381,7 @@ export function TransactionsView() {
                 </Button>
               </div>
             </div>
+            </>
             ))}
           </div>
         )}

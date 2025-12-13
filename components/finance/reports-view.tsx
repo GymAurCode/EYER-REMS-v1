@@ -90,12 +90,13 @@ export function ReportsView() {
   return (
     <div className="space-y-6">
       {/* Report Actions */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-foreground">Financial Reports</h2>
-          <p className="text-sm text-muted-foreground mt-1">Comprehensive financial analytics and insights</p>
+          <h2 className="text-lg sm:text-xl font-semibold text-foreground">Financial Reports</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">Comprehensive financial analytics and insights</p>
         </div>
-        <ReportGenerator
+        <div className="w-full sm:w-auto">
+          <ReportGenerator
           moduleName="Financial Reports"
           availableFields={[
             "Date",
@@ -115,7 +116,8 @@ export function ReportsView() {
               ? responseData
               : []
           }}
-        />
+          />
+        </div>
       </div>
 
       {/* Summary Cards */}
@@ -163,9 +165,9 @@ export function ReportsView() {
       {/* Charts */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Revenue vs Expenses */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Revenue vs Expenses</h3>
-          <ResponsiveContainer width="100%" height={300}>
+        <Card className="p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Revenue vs Expenses</h3>
+          <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
             <LineChart data={revenueData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="month" stroke="hsl(var(--muted-foreground))" />
@@ -184,9 +186,9 @@ export function ReportsView() {
         </Card>
 
         {/* Expense by Category */}
-        <Card className="p-6">
-          <h3 className="text-lg font-semibold text-foreground mb-4">Expenses by Category</h3>
-          <ResponsiveContainer width="100%" height={300}>
+        <Card className="p-4 sm:p-6">
+          <h3 className="text-base sm:text-lg font-semibold text-foreground mb-4">Expenses by Category</h3>
+          <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
             <BarChart data={categoryData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
               <XAxis dataKey="category" stroke="hsl(var(--muted-foreground))" />

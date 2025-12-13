@@ -124,19 +124,21 @@ export function AccountingView() {
   return (
     <div className="space-y-6">
       <Tabs defaultValue="chart-of-accounts" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-7">
-          <TabsTrigger value="chart-of-accounts">Chart of Accounts</TabsTrigger>
-          <TabsTrigger value="bank-payment">Bank Payment</TabsTrigger>
-          <TabsTrigger value="bank-receipt">Bank Receipt</TabsTrigger>
-          <TabsTrigger value="cash-payment">Cash Payment</TabsTrigger>
-          <TabsTrigger value="cash-receipt">Cash Receipt</TabsTrigger>
-          <TabsTrigger value="journal">Journal Voucher</TabsTrigger>
-          <TabsTrigger value="ledgers">Ledgers</TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto">
+          <TabsList className="inline-flex min-w-full sm:min-w-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 w-full sm:w-auto">
+            <TabsTrigger value="chart-of-accounts" className="text-xs sm:text-sm whitespace-nowrap">Chart of Accounts</TabsTrigger>
+            <TabsTrigger value="bank-payment" className="text-xs sm:text-sm whitespace-nowrap">Bank Payment</TabsTrigger>
+            <TabsTrigger value="bank-receipt" className="text-xs sm:text-sm whitespace-nowrap">Bank Receipt</TabsTrigger>
+            <TabsTrigger value="cash-payment" className="text-xs sm:text-sm whitespace-nowrap">Cash Payment</TabsTrigger>
+            <TabsTrigger value="cash-receipt" className="text-xs sm:text-sm whitespace-nowrap">Cash Receipt</TabsTrigger>
+            <TabsTrigger value="journal" className="text-xs sm:text-sm whitespace-nowrap">Journal</TabsTrigger>
+            <TabsTrigger value="ledgers" className="text-xs sm:text-sm whitespace-nowrap">Ledgers</TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Chart of Accounts */}
         <TabsContent value="chart-of-accounts" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <div className="relative flex-1 max-w-md">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
@@ -146,14 +148,15 @@ export function AccountingView() {
                 className="pl-9"
               />
             </div>
-            <Button onClick={() => setShowAddAccountDialog(true)}>
+            <Button onClick={() => setShowAddAccountDialog(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               Add Account
             </Button>
           </div>
 
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Account Code</TableHead>
@@ -181,25 +184,28 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Bank Payment Vouchers */}
         <TabsContent value="bank-payment" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <h3 className="text-lg font-semibold">Bank Payment Vouchers</h3>
             <Button
               onClick={() => {
                 setVoucherType("bank-payment")
                 setShowAddVoucherDialog(true)
               }}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Voucher
             </Button>
           </div>
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Voucher No.</TableHead>
@@ -237,25 +243,28 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Bank Receipt Vouchers */}
         <TabsContent value="bank-receipt" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <h3 className="text-lg font-semibold">Bank Receipt Vouchers</h3>
             <Button
               onClick={() => {
                 setVoucherType("bank-receipt")
                 setShowAddVoucherDialog(true)
               }}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Voucher
             </Button>
           </div>
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Voucher No.</TableHead>
@@ -320,25 +329,28 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Cash Payment Vouchers */}
         <TabsContent value="cash-payment" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <h3 className="text-lg font-semibold">Cash Payment Vouchers</h3>
             <Button
               onClick={() => {
                 setVoucherType("cash-payment")
                 setShowAddVoucherDialog(true)
               }}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Voucher
             </Button>
           </div>
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Voucher No.</TableHead>
@@ -370,25 +382,28 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Cash Receipt Vouchers */}
         <TabsContent value="cash-receipt" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <h3 className="text-lg font-semibold">Cash Receipt Vouchers</h3>
             <Button
               onClick={() => {
                 setVoucherType("cash-receipt")
                 setShowAddVoucherDialog(true)
               }}
+              className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Voucher
             </Button>
           </div>
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Voucher No.</TableHead>
@@ -420,20 +435,22 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 
         {/* Journal Vouchers */}
         <TabsContent value="journal" className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
             <h3 className="text-lg font-semibold">Journal Vouchers</h3>
-            <Button onClick={() => setShowAddGeneralVoucherDialog(true)}>
+            <Button onClick={() => setShowAddGeneralVoucherDialog(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Journal Entry
             </Button>
           </div>
           <Card>
-            <Table>
+            <div className="overflow-x-auto">
+              <Table>
               <TableHeader>
                 <TableRow>
                   <TableHead>Voucher No.</TableHead>
@@ -465,6 +482,7 @@ export function AccountingView() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 

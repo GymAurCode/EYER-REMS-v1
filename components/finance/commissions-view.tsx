@@ -176,7 +176,9 @@ export function CommissionsView() {
 
       {/* Commissions Table */}
       <Card>
-        <Table>
+        <div className="overflow-x-auto">
+          {/* Desktop Table */}
+          <Table className="hidden md:table">
           <TableHeader>
             <TableRow>
               <TableHead>Commission ID</TableHead>
@@ -251,6 +253,67 @@ export function CommissionsView() {
             )}
           </TableBody>
         </Table>
+        {/* Mobile Card View */}
+        <div className="md:hidden divide-y">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-12 text-destructive">{error}</div>
+          ) : filteredCommissions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <FileText className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
+              <p className="text-sm font-medium text-foreground mb-1">
+                {commissions.length === 0 ? "No commissions yet" : "No commissions match your filters"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {commissions.length === 0 
+                  ? "Commissions will appear here when property sales are completed"
+                  : "Try adjusting your search or filter criteria"}
+              </p>
+            </div>
+          ) : (
+            filteredCommissions.map((commission) => (
+              <div
+                key={commission.id}
+                className="p-4 space-y-3 hover:bg-muted/50 transition-colors cursor-pointer"
+                onClick={() => router.push(`/details/commissions/${commission.id}`)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground truncate">{commission.dealerName}</p>
+                    <p className="text-xs text-muted-foreground truncate">{commission.dealerId}</p>
+                  </div>
+                  <Badge variant={commission.status === "paid" ? "default" : "secondary"}>{commission.status}</Badge>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Property:</span>
+                    <span className="text-foreground truncate ml-2">{commission.propertyName}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Sale Amount:</span>
+                    <span className="font-medium text-foreground">Rs {commission.saleAmount.toLocaleString("en-PK")}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Rate:</span>
+                    <span>{commission.commissionRate}%</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Commission:</span>
+                    <span className="font-semibold text-success">Rs {commission.commissionAmount.toLocaleString("en-PK")}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Date: {new Date(commission.date).toLocaleDateString()}</span>
+                    <Badge variant="outline" className="text-xs">{commission.transactionType}</Badge>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+        </div>
       </Card>
     </div>
   )

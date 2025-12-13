@@ -193,7 +193,7 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[720px] max-w-[90vw]">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[720px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[720px]">
         <DialogHeader>
           <DialogTitle>Record Deal Payment</DialogTitle>
           <DialogDescription>

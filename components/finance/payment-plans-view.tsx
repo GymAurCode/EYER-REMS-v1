@@ -472,7 +472,7 @@ export function PaymentPlansView() {
 
       {/* View Plan Dialog */}
       <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:w-[90vw] md:max-w-4xl max-w-[95vw] sm:max-w-[90vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Payment Plan Details</DialogTitle>
             <DialogDescription>

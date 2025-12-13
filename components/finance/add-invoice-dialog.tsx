@@ -245,7 +245,7 @@ export function AddInvoiceDialog({ open, onOpenChange, onSuccess }: AddInvoiceDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[800px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[800px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Create Invoice</DialogTitle>
           <DialogDescription>Build a complete tenant invoice with taxes, discounts, and payment terms.</DialogDescription>

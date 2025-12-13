@@ -49,7 +49,7 @@ export function AddAccountDialog({ open, onOpenChange }: AddAccountDialogProps) 
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[900px] max-w-[90vw]">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[900px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[900px]">
         <DialogHeader>
           <DialogTitle>Add New Account</DialogTitle>
           <DialogDescription>Create a new account in the chart of accounts</DialogDescription>

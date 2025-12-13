@@ -418,7 +418,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[800px] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[800px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Transaction</DialogTitle>
           <DialogDescription>Capture a balanced income or expense transaction with full audit detail.</DialogDescription>
@@ -692,7 +692,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
       {/* Add Category Dialog */}
       <Dialog open={showCategoryDialog} onOpenChange={setShowCategoryDialog}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="w-[95vw] sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Create New Category</DialogTitle>
             <DialogDescription>
