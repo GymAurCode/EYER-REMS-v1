@@ -52,7 +52,9 @@ export function FullScreenPropertyModal({ propertyId, open, onOpenChange }: Full
           totalReceived: propertyData.financeSummary?.totalReceived || 0,
           totalExpenses: propertyData.financeSummary?.totalExpenses || 0,
           pendingAmount: propertyData.financeSummary?.pendingAmount || 0,
-          entries: propertyData.financeSummary?.entryCount || 0
+          entries: propertyData.financeSummary?.entryCount || 0,
+          totalDue: propertyData.financeSummary?.totalDue || 0,
+          totalOutstanding: propertyData.financeSummary?.totalOutstanding || 0
         },
         runningDeals: (propertyData.activeDeals || []).map((deal: any) => ({
           id: deal.id,
@@ -198,10 +200,12 @@ export function FullScreenPropertyModal({ propertyId, open, onOpenChange }: Full
                   <div>
                     <InfoRow label="Total Received" value={formatCurrency(property.finance.totalReceived)} />
                     <InfoRow label="Total Expenses" value={formatCurrency(property.finance.totalExpenses)} />
+                    <InfoRow label="Total Due" value={formatCurrency(property.finance.totalDue)} />
                   </div>
 
                   <div>
                     <InfoRow label="Pending Amount" value={formatCurrency(property.finance.pendingAmount)} />
+                    <InfoRow label="Total Outstanding" value={formatCurrency(property.finance.totalOutstanding)} />
                     <InfoRow label="Entries" value={property.finance.entries.toString()} />
                   </div>
                 </div>

@@ -23,6 +23,7 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
   const [loading, setLoading] = useState(true)
   const [ledger, setLedger] = useState<any>(null)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
+  const [filter, setFilter] = useState<'all' | 'thisMonth'>('all')
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     paymentMode: "bank",
@@ -33,12 +34,12 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
     if (dealerId) {
       fetchLedger()
     }
-  }, [dealerId])
+  }, [dealerId, filter])
 
   const fetchLedger = async () => {
     try {
       setLoading(true)
-      const response = await apiService.dealerLedger.getLedger(dealerId)
+      const response = await apiService.dealerLedger.getLedger(dealerId, { period: filter })
       setLedger(response.data)
     } catch (error: any) {
       toast({
@@ -114,10 +115,21 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold">Dealer Ledger {dealerName && `- ${dealerName}`}</h3>
-          <Button onClick={() => setShowPaymentForm(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Record Payment
-          </Button>
+          <div className="flex gap-2">
+            <Select value={filter} onValueChange={(val: 'all' | 'thisMonth') => setFilter(val)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All</SelectItem>
+                <SelectItem value="thisMonth">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button onClick={() => setShowPaymentForm(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Record Payment
+            </Button>
+          </div>
         </div>
 
         {ledger?.summary && (

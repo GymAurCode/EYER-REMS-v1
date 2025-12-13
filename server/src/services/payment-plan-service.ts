@@ -811,7 +811,7 @@ export class PaymentPlanService {
       if (installmentId) {
         const installment = plan.installments.find((inst) => inst.id === installmentId);
         if (installment) {
-          const newPaidAmount = (installment.paidAmount || 0) + paymentAmount;
+          const newPaidAmount = Math.max(0, (installment.paidAmount || 0) + paymentAmount);
           const status = calculateInstallmentStatus(
             installment.amount,
             newPaidAmount,
@@ -823,7 +823,66 @@ export class PaymentPlanService {
             data: {
               paidAmount: newPaidAmount,
               status,
-              paidDate: status === 'paid' ? new Date() : installment.paidDate,
+              paidDate: status === 'paid' ? new Date() : (newPaidAmount === 0 ? null : installment.paidDate),
+            },
+          });
+        }
+      } else if (paymentAmount < 0) {
+        // When deleting a payment (negative amount), we need to recalculate all installments
+        // Find all installments that might have been affected by this payment
+        // This happens when payment was allocated via FIFO or other methods
+        // We'll recalculate all installments from scratch based on remaining payments
+        const allPayments = await prismaClient.payment.findMany({
+          where: {
+            dealId,
+            deletedAt: null,
+            installmentId: { not: null },
+          },
+          select: {
+            installmentId: true,
+            amount: true,
+          },
+        });
+
+        // Group payments by installment
+        const installmentPayments: Record<string, number> = {};
+        allPayments.forEach((p) => {
+          if (p.installmentId) {
+            installmentPayments[p.installmentId] = (installmentPayments[p.installmentId] || 0) + (p.amount || 0);
+          }
+        });
+
+        // Also check receipt allocations
+        const receipts = await prismaClient.dealReceipt.findMany({
+          where: {
+            dealId,
+          },
+          include: {
+            allocations: true,
+          },
+        });
+
+        receipts.forEach((receipt) => {
+          receipt.allocations.forEach((alloc) => {
+            installmentPayments[alloc.installmentId] = (installmentPayments[alloc.installmentId] || 0) + (alloc.amountAllocated || 0);
+          });
+        });
+
+        // Update all installments based on recalculated payments
+        for (const installment of plan.installments) {
+          const totalPaidForInstallment = installmentPayments[installment.id] || 0;
+          const status = calculateInstallmentStatus(
+            installment.amount,
+            totalPaidForInstallment,
+            installment.dueDate
+          );
+
+          await prismaClient.dealInstallment.update({
+            where: { id: installment.id },
+            data: {
+              paidAmount: totalPaidForInstallment,
+              status,
+              paidDate: status === 'paid' ? (installment.paidDate || new Date()) : (totalPaidForInstallment === 0 ? null : installment.paidDate),
             },
           });
         }

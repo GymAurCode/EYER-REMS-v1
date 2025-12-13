@@ -1192,24 +1192,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         </Card>
       )}
 
-      {/* Record Payment (Receipt) Card */}
-      {paymentPlan && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Record Payment</CardTitle>
-            <CardDescription>Create a receipt for payment received. Amount will be automatically allocated to installments using FIFO.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button
-              onClick={() => setReceiptDialogOpen(true)}
-              className="w-full"
-            >
-              <Receipt className="mr-2 h-4 w-4" />
-              Record Payment (Create Receipt)
-            </Button>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Installments List and Client Ledger */}
       {paymentPlan && (

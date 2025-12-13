@@ -294,7 +294,12 @@ export function TransactionsView() {
                   {transaction.status}
                 </Badge>
               </div>
-              <div className="col-span-1 flex items-center justify-center">
+              <div className="col-span-1 flex items-center justify-center gap-1">
+                {transaction.attachments && Array.isArray(transaction.attachments) && transaction.attachments.length > 0 && (
+                  <Badge variant="outline" className="text-xs">
+                    {transaction.attachments.length} file(s)
+                  </Badge>
+                )}
                 <Button
                   variant="ghost"
                   size="icon"

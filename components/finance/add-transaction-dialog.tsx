@@ -300,20 +300,40 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     try {
       const uploads: AttachmentMeta[] = []
       for (const file of Array.from(files)) {
+        // Validate file type
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png']
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast({ 
+            title: "Invalid file type", 
+            description: "Only PDF, JPG, and PNG files are allowed",
+            variant: "destructive" 
+          })
+          continue
+        }
+
         const base64 = await toBase64(file)
-        const response: any = await apiService.upload.file({ file: base64, filename: file.name })
+        // Use finance attachment endpoint
+        const response: any = await apiService.finance.uploadAttachment({ 
+          file: base64, 
+          filename: file.name 
+        })
         const responseData = response.data as any
         const uploaded = responseData?.data || responseData
         uploads.push({
           name: file.name,
-          url: uploaded?.url,
+          url: uploaded?.url || uploaded?.filename,
           mimeType: file.type,
           size: file.size,
         })
       }
       setFormData((prev) => ({ ...prev, attachments: [...prev.attachments, ...uploads] }))
-    } catch (error) {
-      toast({ title: "Failed to upload attachment", variant: "destructive" })
+      toast({ title: "Attachments uploaded successfully" })
+    } catch (error: any) {
+      toast({ 
+        title: "Failed to upload attachment", 
+        description: error.message || "Upload failed",
+        variant: "destructive" 
+      })
     } finally {
       setLoading((prev) => ({ ...prev, attachments: false }))
     }

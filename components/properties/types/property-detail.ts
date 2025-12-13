@@ -23,6 +23,8 @@ export interface FinanceSummary {
   totalExpenses: number
   pendingAmount: number
   entries: number
+  totalDue?: number
+  totalOutstanding?: number
 }
 
 export interface RunningDeal {

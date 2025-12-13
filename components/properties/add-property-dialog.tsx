@@ -2,22 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
-import { Card } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Loader2, Plus, Trash2, FileText } from "lucide-react"
+import { Loader2, Plus, Trash2 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
 import { LocationSelector } from "@/components/locations/location-selector"
-import { downloadJSON, formatCurrency } from "@/lib/utils"
 
 type PropertyForm = {
   name: string
@@ -315,12 +311,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [saving, setSaving] = useState(false)
   const [dealers, setDealers] = useState<{ id: string; name: string }[]>([])
   const [amenities, setAmenities] = useState<{ id: string; name: string }[]>([])
-  const [selectedTab, setSelectedTab] = useState("details")
-  const [selectedAccountTab, setSelectedAccountTab] = useState("asset")
   const [propertyData, setPropertyData] = useState<any>(null)
-  const [ledger, setLedger] = useState<any>(null)
   const [accounts, setAccounts] = useState<any[]>([])
-  const [accountLedgers, setAccountLedgers] = useState<Record<string, any[]>>({})
   const [selectedAccountId, setSelectedAccountId] = useState<Record<string, string>>({
     asset: "",
     expense: "",
@@ -331,8 +323,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   useEffect(() => {
     if (!open) {
-      setSelectedAccountTab("asset")
-      setAccountLedgers({})
       setSelectedAccountId({
         asset: "",
         expense: "",
@@ -396,18 +386,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             imageUrl: payload.imageUrl || "",
           })
 
-          // Fetch full ledger for the property
-          const ledgerRes = await apiService.properties.getLedger(String(propertyId))
-          const ledgerPayload = (ledgerRes.data as any)?.data ?? ledgerRes.data
-          setLedger(ledgerPayload)
-
-          // Initialize empty account ledgers - will be fetched on demand
-          setAccountLedgers({})
         } else {
           setForm(DEFAULT_FORM)
           setPropertyData(null)
-          setLedger(null)
-          setAccountLedgers({})
         }
       } catch (error: any) {
         // Don't show toast for rate limit errors, just log
@@ -502,129 +483,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const incomeAccounts = useMemo(() => accounts.filter((a) => a.type?.toLowerCase() === "revenue" || a.type?.toLowerCase() === "income"), [accounts])
   const scrapAccounts = useMemo(() => accounts.filter((a) => a.name?.toLowerCase().includes("scrap") || a.code?.includes("scrap")), [accounts])
 
-  // Fetch account ledgers when tab is selected (with rate limiting)
-  useEffect(() => {
-    if (!open || !propertyId || !selectedAccountTab || accounts.length === 0) return
-
-    let cancelled = false
-
-    const fetchAccountLedgers = async () => {
-      const filteredAccounts = selectedAccountTab === "asset"
-        ? accounts.filter((a) => a.type?.toLowerCase() === "asset")
-        : selectedAccountTab === "expense"
-          ? accounts.filter((a) => a.type?.toLowerCase() === "expense")
-          : selectedAccountTab === "income"
-            ? accounts.filter((a) => a.type?.toLowerCase() === "revenue" || a.type?.toLowerCase() === "income")
-            : accounts.filter((a) => a.name?.toLowerCase().includes("scrap") || a.code?.includes("scrap"))
-
-      if (filteredAccounts.length === 0) return
-
-      const accountLedgersMap: Record<string, any[]> = { ...accountLedgers }
-      const accountsToFetch = filteredAccounts.filter((account: any) => !accountLedgersMap[account.id])
-
-      if (accountsToFetch.length === 0) return
-
-      // Process accounts in batches of 3 with delays to avoid rate limiting
-      const BATCH_SIZE = 3
-      const DELAY_MS = 500
-
-      for (let i = 0; i < accountsToFetch.length; i += BATCH_SIZE) {
-        if (cancelled) return
-
-        const batch = accountsToFetch.slice(i, i + BATCH_SIZE)
-
-        await Promise.all(
-          batch.map(async (account: any) => {
-            if (cancelled) return
-            try {
-              const accountLedgerRes = await apiService.finance.getAccountLedger(account.id, {
-                propertyId: String(propertyId),
-              })
-              if (!cancelled) {
-                const accountLedgerData = (accountLedgerRes.data as any)?.entries ?? accountLedgerRes.data ?? []
-                accountLedgersMap[account.id] = Array.isArray(accountLedgerData) ? accountLedgerData : []
-              }
-            } catch (error: any) {
-              // Handle 429 rate limit errors gracefully
-              if (error.response?.status === 429) {
-                console.warn(`Rate limited for account ${account.id}, skipping...`)
-              }
-              if (!cancelled) {
-                accountLedgersMap[account.id] = []
-              }
-            }
-          })
-        )
-
-        // Add delay between batches to avoid rate limiting
-        if (i + BATCH_SIZE < accountsToFetch.length) {
-          await new Promise(resolve => setTimeout(resolve, DELAY_MS))
-        }
-      }
-
-      if (!cancelled) {
-        setAccountLedgers(accountLedgersMap)
-      }
-    }
-
-    // Add a small delay before starting to debounce rapid tab switches
-    const timeoutId = setTimeout(() => {
-      fetchAccountLedgers()
-    }, 300)
-
-    return () => {
-      cancelled = true
-      clearTimeout(timeoutId)
-    }
-  }, [open, propertyId, selectedAccountTab, accounts.length])
-
-  // Get ledger entries for selected account
-  const getSelectedAccountLedgers = (accountType: string) => {
-    const selectedId = selectedAccountId[accountType as keyof typeof selectedAccountId]
-    if (!selectedId) return []
-
-    const entries = accountLedgers[selectedId] || []
-    const account = accounts.find((a) => a.id === selectedId)
-
-    return entries.map((entry: any) => ({
-      ...entry,
-      accountCode: account?.code || "",
-      accountName: account?.name || "",
-    })).sort((a, b) => new Date(b.date || b.createdAt).getTime() - new Date(a.date || a.createdAt).getTime())
-  }
-
-  // Get selected account details
-  const getSelectedAccount = (accountType: string) => {
-    const selectedId = selectedAccountId[accountType as keyof typeof selectedAccountId]
-    if (!selectedId) return null
-    return accounts.find((a) => a.id === selectedId)
-  }
-
-  // Fetch ledger when account is selected
-  useEffect(() => {
-    if (!open || !propertyId) return
-
-    Object.entries(selectedAccountId).forEach(([type, accountId]) => {
-      if (accountId && !accountLedgers[accountId]) {
-        // Fetch ledger for selected account
-        apiService.finance.getAccountLedger(accountId, {
-          propertyId: String(propertyId),
-        }).then((res) => {
-          const data = (res.data as any)?.entries ?? res.data ?? []
-          setAccountLedgers((prev) => ({
-            ...prev,
-            [accountId]: Array.isArray(data) ? data : [],
-          }))
-        }).catch(() => {
-          setAccountLedgers((prev) => ({
-            ...prev,
-            [accountId]: [],
-          }))
-        })
-      }
-    })
-  }, [selectedAccountId, open, propertyId])
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -643,135 +501,231 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           </p>
         </DialogHeader>
 
-        <Tabs value={selectedTab} onValueChange={setSelectedTab} className="flex flex-col h-[calc(80vh-100px)]">
-          <TabsList className="px-6 pt-4">
-            <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="finance">Accounts</TabsTrigger>
-          </TabsList>
-
+        <div className="flex flex-col h-[calc(80vh-100px)]">
           <div className="flex-1 overflow-hidden">
-            <TabsContent value="details" className="h-full">
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <ScrollArea className="h-full px-6 pb-6">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                    <div className="lg:col-span-7 space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Name *</Label>
-                          <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Address *</Label>
-                          <Input
-                            value={form.address}
-                            onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ManagedDropdown
-                          dropdownKey="property.type"
-                          value={form.type}
-                          onChange={(val) => setForm((p) => ({ ...p, type: val }))}
-                          required
-                        />
-                        <ManagedDropdown
-                          dropdownKey="property.status"
-                          value={form.status}
-                          onChange={(val) => setForm((p) => ({ ...p, status: val }))}
-                          required
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <ManagedDropdown
-                          dropdownKey="property.category"
-                          value={form.category}
-                          onChange={(val) => setForm((p) => ({ ...p, category: val }))}
-                        />
-                        <ManagedDropdown
-                          dropdownKey="property.size"
-                          value={form.size}
-                          onChange={(val) => setForm((p) => ({ ...p, size: val }))}
-                        />
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Sale Price</Label>
-                          <Input
-                            type="number"
-                            value={form.salePrice}
-                            onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Dealer</Label>
-                          <Select
-                            value={form.dealerId || "none"}
-                            onValueChange={(val) =>
-                              setForm((p) => ({
-                                ...p,
-                                dealerId: val === "none" ? "" : val,
-                              }))
-                            }
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select dealer (optional)" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">None</SelectItem>
-                              {dealers.map((d) => (
-                                <SelectItem key={d.id} value={d.id}>
-                                  {d.name}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label>Total Area (sq ft)</Label>
-                          <Input
-                            type="number"
-                            value={form.totalArea}
-                            onChange={(e) => setForm((p) => ({ ...p, totalArea: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Total Units</Label>
-                          <Input
-                            type="number"
-                            value={form.totalUnits}
-                            onChange={(e) => setForm((p) => ({ ...p, totalUnits: e.target.value }))}
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Year Built</Label>
-                          <Input
-                            type="number"
-                            value={form.yearBuilt}
-                            onChange={(e) => setForm((p) => ({ ...p, yearBuilt: e.target.value }))}
-                          />
-                        </div>
-                      </div>
-
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <ScrollArea className="h-full px-6 pb-6">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                  <div className="lg:col-span-7 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label>Description</Label>
-                        <Textarea
-                          rows={3}
-                          value={form.description}
-                          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                        <Label>Name *</Label>
+                        <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Address *</Label>
+                        <Input
+                          value={form.address}
+                          onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
                         />
                       </div>
                     </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ManagedDropdown
+                        dropdownKey="property.type"
+                        value={form.type}
+                        onChange={(val) => setForm((p) => ({ ...p, type: val }))}
+                        required
+                      />
+                      <ManagedDropdown
+                        dropdownKey="property.status"
+                        value={form.status}
+                        onChange={(val) => setForm((p) => ({ ...p, status: val }))}
+                        required
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <ManagedDropdown
+                        dropdownKey="property.category"
+                        value={form.category}
+                        onChange={(val) => setForm((p) => ({ ...p, category: val }))}
+                      />
+                      <ManagedDropdown
+                        dropdownKey="property.size"
+                        value={form.size}
+                        onChange={(val) => setForm((p) => ({ ...p, size: val }))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Sale Price</Label>
+                        <Input
+                          type="number"
+                          value={form.salePrice}
+                          onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Dealer</Label>
+                        <Select
+                          value={form.dealerId || "none"}
+                          onValueChange={(val) =>
+                            setForm((p) => ({
+                              ...p,
+                              dealerId: val === "none" ? "" : val,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select dealer (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {dealers.map((d) => (
+                              <SelectItem key={d.id} value={d.id}>
+                                {d.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Total Area (sq ft)</Label>
+                        <Input
+                          type="number"
+                          value={form.totalArea}
+                          onChange={(e) => setForm((p) => ({ ...p, totalArea: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Total Units</Label>
+                        <Input
+                          type="number"
+                          value={form.totalUnits}
+                          onChange={(e) => setForm((p) => ({ ...p, totalUnits: e.target.value }))}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Year Built</Label>
+                        <Input
+                          type="number"
+                          value={form.yearBuilt}
+                          onChange={(e) => setForm((p) => ({ ...p, yearBuilt: e.target.value }))}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        rows={3}
+                        value={form.description}
+                        onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Asset Account</Label>
+                        <Select
+                          value={selectedAccountId.asset || "none"}
+                          onValueChange={(val) =>
+                            setSelectedAccountId((prev) => ({
+                              ...prev,
+                              asset: val === "none" ? "" : val,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select asset account (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {assetAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.code} - {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Expense Account</Label>
+                        <Select
+                          value={selectedAccountId.expense || "none"}
+                          onValueChange={(val) =>
+                            setSelectedAccountId((prev) => ({
+                              ...prev,
+                              expense: val === "none" ? "" : val,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select expense account (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {expenseAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.code} - {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Income Account</Label>
+                        <Select
+                          value={selectedAccountId.income || "none"}
+                          onValueChange={(val) =>
+                            setSelectedAccountId((prev) => ({
+                              ...prev,
+                              income: val === "none" ? "" : val,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select income account (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {incomeAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.code} - {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Scrap Account</Label>
+                        <Select
+                          value={selectedAccountId.scrap || "none"}
+                          onValueChange={(val) =>
+                            setSelectedAccountId((prev) => ({
+                              ...prev,
+                              scrap: val === "none" ? "" : val,
+                            }))
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select scrap account (optional)" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {scrapAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                {account.code} - {account.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
 
                     <div className="lg:col-span-5 space-y-4">
                       <div className="space-y-2">
@@ -833,398 +787,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                   </div>
                 </ScrollArea>
               )}
-            </TabsContent>
-
-            <TabsContent value="finance" className="h-full">
-              {loading ? (
-                <div className="flex items-center justify-center h-full">
-                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="flex flex-col h-full">
-                  <Tabs value={selectedAccountTab} onValueChange={setSelectedAccountTab} className="flex flex-col flex-1">
-                    <TabsList className="px-6 pt-4 flex-wrap">
-                      <TabsTrigger value="asset">Asset Account</TabsTrigger>
-                      <TabsTrigger value="expense">Expense Account</TabsTrigger>
-                      <TabsTrigger value="income">Income Account</TabsTrigger>
-                      <TabsTrigger value="scrap">Scrap Account</TabsTrigger>
-                    </TabsList>
-
-                    <div className="flex-1 overflow-hidden">
-                      <TabsContent value="asset" className="h-full">
-                        <ScrollArea className="h-full px-6 pb-6">
-                          <div className="space-y-4">
-                            <Card className="p-4">
-                              <div className="space-y-2">
-                                <Label className="text-base font-semibold">Select Asset Account</Label>
-                                <Select
-                                  value={selectedAccountId.asset}
-                                  onValueChange={(value) => setSelectedAccountId((prev) => ({ ...prev, asset: value }))}
-                                >
-                                  <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Select an asset account to view ledger" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    {assetAccounts.length > 0 ? (
-                                      assetAccounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id} className="py-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium">{account.code} - {account.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              Balance: {formatCurrency(Number(account.balance) || 0)}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="none" disabled>No asset accounts found</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </Card>
-
-                            {selectedAccountId.asset && getSelectedAccount("asset") && (
-                              <>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Code</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccount("asset")?.code}</p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Balance</p>
-                                    <p className="text-2xl font-semibold">
-                                      {formatCurrency(Number(getSelectedAccount("asset")?.balance) || 0)}
-                                    </p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Total Entries</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccountLedgers("asset").length}</p>
-                                  </Card>
-                                </div>
-
-                                <Card className="p-4 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold">
-                                      Ledger Entries - {getSelectedAccount("asset")?.name}
-                                    </p>
-                                    <Badge variant="secondary">{getSelectedAccountLedgers("asset").length} entries</Badge>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {getSelectedAccountLedgers("asset").length > 0 ? (
-                                      getSelectedAccountLedgers("asset").map((entry: any, idx: number) => (
-                                        <div key={entry.id || idx} className="flex items-center justify-between border rounded p-2">
-                                          <div>
-                                            <p className="text-sm font-medium">{entry.description || entry.accountName || "Entry"}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              {entry.accountCode} - {entry.accountName} •{" "}
-                                              {entry.date ? new Date(entry.date).toLocaleDateString() : "N/A"}
-                                            </p>
-                                          </div>
-                                          <p className="text-sm font-semibold">{formatCurrency(entry.amount || entry.debit || entry.credit || 0)}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No ledger entries for this account.</p>
-                                    )}
-                                  </div>
-                                </Card>
-                              </>
-                            )}
-
-                            {!selectedAccountId.asset && (
-                              <Card className="p-4">
-                                <p className="text-sm text-muted-foreground text-center py-8">
-                                  Please select an asset account to view its ledger entries
-                                </p>
-                              </Card>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </TabsContent>
-
-                      <TabsContent value="expense" className="h-full">
-                        <ScrollArea className="h-full px-6 pb-6">
-                          <div className="space-y-4">
-                            <Card className="p-4">
-                              <div className="space-y-2">
-                                <Label className="text-base font-semibold">Select Expense Account</Label>
-                                <Select
-                                  value={selectedAccountId.expense}
-                                  onValueChange={(value) => setSelectedAccountId((prev) => ({ ...prev, expense: value }))}
-                                >
-                                  <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Select an expense account to view ledger" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    {expenseAccounts.length > 0 ? (
-                                      expenseAccounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id} className="py-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium">{account.code} - {account.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              Balance: {formatCurrency(Number(account.balance) || 0)}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="none" disabled>No expense accounts found</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </Card>
-
-                            {selectedAccountId.expense && getSelectedAccount("expense") && (
-                              <>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Code</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccount("expense")?.code}</p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Balance</p>
-                                    <p className="text-2xl font-semibold">
-                                      {formatCurrency(Number(getSelectedAccount("expense")?.balance) || 0)}
-                                    </p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Total Entries</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccountLedgers("expense").length}</p>
-                                  </Card>
-                                </div>
-
-                                <Card className="p-4 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold">
-                                      Ledger Entries - {getSelectedAccount("expense")?.name}
-                                    </p>
-                                    <Badge variant="secondary">{getSelectedAccountLedgers("expense").length} entries</Badge>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {getSelectedAccountLedgers("expense").length > 0 ? (
-                                      getSelectedAccountLedgers("expense").map((entry: any, idx: number) => (
-                                        <div key={entry.id || idx} className="flex items-center justify-between border rounded p-2">
-                                          <div>
-                                            <p className="text-sm font-medium">{entry.description || entry.accountName || "Entry"}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              {entry.accountCode} - {entry.accountName} •{" "}
-                                              {entry.date ? new Date(entry.date).toLocaleDateString() : "N/A"}
-                                            </p>
-                                          </div>
-                                          <p className="text-sm font-semibold">{formatCurrency(entry.amount || entry.debit || entry.credit || 0)}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No ledger entries for this account.</p>
-                                    )}
-                                  </div>
-                                </Card>
-                              </>
-                            )}
-
-                            {!selectedAccountId.expense && (
-                              <Card className="p-4">
-                                <p className="text-sm text-muted-foreground text-center py-8">
-                                  Please select an expense account to view its ledger entries
-                                </p>
-                              </Card>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </TabsContent>
-
-                      <TabsContent value="income" className="h-full">
-                        <ScrollArea className="h-full px-6 pb-6">
-                          <div className="space-y-4">
-                            <Card className="p-4">
-                              <div className="space-y-2">
-                                <Label className="text-base font-semibold">Select Income Account</Label>
-                                <Select
-                                  value={selectedAccountId.income}
-                                  onValueChange={(value) => setSelectedAccountId((prev) => ({ ...prev, income: value }))}
-                                >
-                                  <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Select an income account to view ledger" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    {incomeAccounts.length > 0 ? (
-                                      incomeAccounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id} className="py-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium">{account.code} - {account.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              Balance: {formatCurrency(Number(account.balance) || 0)}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="none" disabled>No income accounts found</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </Card>
-
-                            {selectedAccountId.income && getSelectedAccount("income") && (
-                              <>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Code</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccount("income")?.code}</p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Balance</p>
-                                    <p className="text-2xl font-semibold">
-                                      {formatCurrency(Number(getSelectedAccount("income")?.balance) || 0)}
-                                    </p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Total Entries</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccountLedgers("income").length}</p>
-                                  </Card>
-                                </div>
-
-                                <Card className="p-4 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold">
-                                      Ledger Entries - {getSelectedAccount("income")?.name}
-                                    </p>
-                                    <Badge variant="secondary">{getSelectedAccountLedgers("income").length} entries</Badge>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {getSelectedAccountLedgers("income").length > 0 ? (
-                                      getSelectedAccountLedgers("income").map((entry: any, idx: number) => (
-                                        <div key={entry.id || idx} className="flex items-center justify-between border rounded p-2">
-                                          <div>
-                                            <p className="text-sm font-medium">{entry.description || entry.accountName || "Entry"}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              {entry.accountCode} - {entry.accountName} •{" "}
-                                              {entry.date ? new Date(entry.date).toLocaleDateString() : "N/A"}
-                                            </p>
-                                          </div>
-                                          <p className="text-sm font-semibold">{formatCurrency(entry.amount || entry.debit || entry.credit || 0)}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No ledger entries for this account.</p>
-                                    )}
-                                  </div>
-                                </Card>
-                              </>
-                            )}
-
-                            {!selectedAccountId.income && (
-                              <Card className="p-4">
-                                <p className="text-sm text-muted-foreground text-center py-8">
-                                  Please select an income account to view its ledger entries
-                                </p>
-                              </Card>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </TabsContent>
-
-                      <TabsContent value="scrap" className="h-full">
-                        <ScrollArea className="h-full px-6 pb-6">
-                          <div className="space-y-4">
-                            <Card className="p-4">
-                              <div className="space-y-2">
-                                <Label className="text-base font-semibold">Select Scrap Account</Label>
-                                <Select
-                                  value={selectedAccountId.scrap}
-                                  onValueChange={(value) => setSelectedAccountId((prev) => ({ ...prev, scrap: value }))}
-                                >
-                                  <SelectTrigger className="h-12 text-base">
-                                    <SelectValue placeholder="Select a scrap account to view ledger" />
-                                  </SelectTrigger>
-                                  <SelectContent className="max-h-[300px]">
-                                    {scrapAccounts.length > 0 ? (
-                                      scrapAccounts.map((account) => (
-                                        <SelectItem key={account.id} value={account.id} className="py-3">
-                                          <div className="flex flex-col">
-                                            <span className="font-medium">{account.code} - {account.name}</span>
-                                            <span className="text-xs text-muted-foreground">
-                                              Balance: {formatCurrency(Number(account.balance) || 0)}
-                                            </span>
-                                          </div>
-                                        </SelectItem>
-                                      ))
-                                    ) : (
-                                      <SelectItem value="none" disabled>No scrap accounts found</SelectItem>
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              </div>
-                            </Card>
-
-                            {selectedAccountId.scrap && getSelectedAccount("scrap") && (
-                              <>
-                                <div className="grid gap-4 md:grid-cols-3">
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Code</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccount("scrap")?.code}</p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Account Balance</p>
-                                    <p className="text-2xl font-semibold">
-                                      {formatCurrency(Number(getSelectedAccount("scrap")?.balance) || 0)}
-                                    </p>
-                                  </Card>
-                                  <Card className="p-4">
-                                    <p className="text-sm text-muted-foreground">Total Entries</p>
-                                    <p className="text-2xl font-semibold">{getSelectedAccountLedgers("scrap").length}</p>
-                                  </Card>
-                                </div>
-
-                                <Card className="p-4 space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-sm font-semibold">
-                                      Ledger Entries - {getSelectedAccount("scrap")?.name}
-                                    </p>
-                                    <Badge variant="secondary">{getSelectedAccountLedgers("scrap").length} entries</Badge>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {getSelectedAccountLedgers("scrap").length > 0 ? (
-                                      getSelectedAccountLedgers("scrap").map((entry: any, idx: number) => (
-                                        <div key={entry.id || idx} className="flex items-center justify-between border rounded p-2">
-                                          <div>
-                                            <p className="text-sm font-medium">{entry.description || entry.accountName || "Entry"}</p>
-                                            <p className="text-xs text-muted-foreground">
-                                              {entry.accountCode} - {entry.accountName} •{" "}
-                                              {entry.date ? new Date(entry.date).toLocaleDateString() : "N/A"}
-                                            </p>
-                                          </div>
-                                          <p className="text-sm font-semibold">{formatCurrency(entry.amount || entry.debit || entry.credit || 0)}</p>
-                                        </div>
-                                      ))
-                                    ) : (
-                                      <p className="text-sm text-muted-foreground">No ledger entries for this account.</p>
-                                    )}
-                                  </div>
-                                </Card>
-                              </>
-                            )}
-
-                            {!selectedAccountId.scrap && (
-                              <Card className="p-4">
-                                <p className="text-sm text-muted-foreground text-center py-8">
-                                  Please select a scrap account to view its ledger entries
-                                </p>
-                              </Card>
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </TabsContent>
-                    </div>
-                  </Tabs>
-                </div>
-              )}
-            </TabsContent>
           </div>
-        </Tabs>
+        </div>
 
         <div className="px-6 py-4 border-t bg-muted/50 flex items-center justify-end gap-3">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>

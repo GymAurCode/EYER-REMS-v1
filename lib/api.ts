@@ -734,6 +734,9 @@ export const apiService = {
       api.get('/finance/summary', { params }),
     getAccountLedger: (accountId: string, params?: { propertyId?: string; startDate?: string; endDate?: string }) =>
       api.get(`/finance-reports/ledger/account/${accountId}`, { params }),
+    uploadAttachment: (data: any) => api.post('/finance/upload-attachment', data),
+    getAttachment: (id: string) => api.get(`/finance/attachments/${id}`, { responseType: 'blob' }),
+    getAttachments: (params?: any) => api.get('/finance/attachments', { params }),
   },
 
   // Finance - Transactions
@@ -762,6 +765,7 @@ export const apiService = {
     update: (id: number, data: any) => api.put(`/finance/payments/${id}`, data),
     delete: (id: number) => api.delete(`/finance/payments/${id}`),
   },
+
 
   // Finance - Commissions
   commissions: {
@@ -846,7 +850,8 @@ export const apiService = {
 
   // Finance - Ledgers
   ledgers: {
-    clients: () => api.get('/finance/ledgers/clients'),
+    clients: (params?: any) => api.get('/finance/ledgers/clients', { params }),
+    clientById: (clientId: string, params?: any) => api.get(`/finance/ledger/client/${clientId}`, { params }),
     properties: () => api.get('/finance/ledgers/properties'),
     company: () => api.get('/finance/ledgers/company'),
   },

@@ -94,15 +94,20 @@ export class LedgerService {
   }
 
   /**
-   * Get client ledger (payments with running balance)
+   * Get client ledger (all credit/debit entries with running balance)
    */
-  static async getClientLedger(clientId?: string): Promise<any[]> {
+  static async getClientLedger(clientId?: string, filters?: { propertyId?: string; startDate?: Date; endDate?: Date; period?: 'thisMonth' | 'all' }): Promise<any[]> {
     const where: any = {
       deletedAt: null,
     };
 
     if (clientId) {
       where.clientId = clientId;
+    }
+
+    // Apply property filter if provided
+    if (filters?.propertyId) {
+      where.propertyId = filters.propertyId;
     }
 
     const deals = await prisma.deal.findMany({
@@ -115,55 +120,90 @@ export class LedgerService {
         client: { select: { id: true, name: true, clientCode: true } },
         property: { select: { id: true, name: true, propertyCode: true } },
         payments: {
-          where: { deletedAt: null },
+          where: { 
+            deletedAt: null,
+            ...(filters?.startDate || filters?.endDate ? {
+              date: {
+                ...(filters.startDate ? { gte: filters.startDate } : {}),
+                ...(filters.endDate ? { lte: filters.endDate } : {}),
+              }
+            } : {}),
+          },
           orderBy: { date: 'asc' },
+        },
+        paymentPlan: {
+          include: {
+            installments: {
+              where: { isDeleted: false },
+              orderBy: { dueDate: 'asc' },
+            },
+          },
         },
       },
     });
 
     const rows: any[] = [];
+    let runningBalance = 0;
 
     deals.forEach((deal) => {
-      let cumulative = 0;
-
-      if (deal.payments.length === 0) {
+      // Add deal creation as debit entry (amount owed)
+      const dealDate = deal.dealDate || deal.createdAt;
+      const dealAmount = deal.dealAmount || 0;
+      
+      // Apply date filter for deal entry
+      let includeDeal = true;
+      if (filters?.period === 'thisMonth') {
+        const now = new Date();
+        const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+        const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        includeDeal = dealDate >= firstDay && dealDate <= lastDay;
+      }
+      
+      if (includeDeal && (!filters?.startDate || dealDate >= filters.startDate) && (!filters?.endDate || dealDate <= filters.endDate)) {
+        runningBalance += dealAmount;
         rows.push({
           id: `DEAL-${deal.id}`,
           clientId: deal.client?.id || null,
           clientName: deal.client?.name || 'Unassigned Client',
+          propertyId: deal.property?.id || null,
           propertyName: deal.property?.name || 'Unassigned Property',
           dealTitle: deal.title,
           dealId: deal.id,
           paymentId: null,
-          paymentType: null,
+          paymentType: 'deal',
           paymentMode: null,
+          description: `Deal: ${deal.title}`,
           credit: 0,
-          date: deal.dealDate,
-          debit: Number(deal.dealAmount.toFixed(2)), // Changed from outstanding to debit
-          runningBalance: 0,
-        });
-      } else {
-        deal.payments.forEach((payment) => {
-          cumulative += payment.amount;
-          rows.push({
-            id: payment.id,
-            clientId: deal.client?.id || null,
-            clientName: deal.client?.name || 'Unassigned Client',
-            propertyName: deal.property?.name || 'Unassigned Property',
-            dealTitle: deal.title,
-            dealId: deal.id,
-            paymentId: payment.paymentId,
-            paymentType: payment.paymentType,
-            paymentMode: payment.paymentMode,
-            credit: payment.amount, // Changed from amount to credit
-            date: payment.date,
-            debit: Number(Math.max(0, deal.dealAmount - cumulative).toFixed(2)), // Changed from outstanding to debit
-            runningBalance: cumulative,
-          });
+          debit: Number(dealAmount.toFixed(2)),
+          date: dealDate,
+          runningBalance: Number(runningBalance.toFixed(2)),
         });
       }
+
+      // Add payment entries as credit (payments received)
+      deal.payments.forEach((payment) => {
+        runningBalance -= payment.amount;
+        rows.push({
+          id: payment.id,
+          clientId: deal.client?.id || null,
+          clientName: deal.client?.name || 'Unassigned Client',
+          propertyId: deal.property?.id || null,
+          propertyName: deal.property?.name || 'Unassigned Property',
+          dealTitle: deal.title,
+          dealId: deal.id,
+          paymentId: payment.paymentId,
+          paymentType: payment.paymentType || 'payment',
+          paymentMode: payment.paymentMode,
+          description: payment.remarks || `Payment ${payment.paymentId || ''}`,
+          credit: Number(payment.amount.toFixed(2)),
+          debit: 0,
+          date: payment.date,
+          runningBalance: Number(runningBalance.toFixed(2)),
+        });
+      });
     });
 
+    // Sort by date (ascending) for proper running balance calculation
     return rows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }
 

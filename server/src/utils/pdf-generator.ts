@@ -446,6 +446,20 @@ export interface PropertyReportData {
     status?: string | null;
     profit?: number | null;
   }>;
+  paymentPlans?: Array<{
+    dealId: string;
+    dealTitle?: string | null;
+    clientName?: string | null;
+    installments: Array<{
+      installmentNumber: number;
+      amount: number;
+      dueDate: Date | string;
+      paidAmount: number;
+      status: string;
+      paidDate?: Date | string | null;
+      remainingBalance: number;
+    }>;
+  }>;
 }
 
 /**
@@ -583,6 +597,61 @@ export function generatePropertyReportPDF(data: PropertyReportData, res: Respons
         doc.text(`  Profit: ${formatCurrency(sale.profit)}`);
       }
       doc.moveDown(0.2);
+    });
+  }
+  doc.moveDown(0.6);
+
+  // Payment Plans section
+  if (data.paymentPlans && data.paymentPlans.length > 0) {
+    doc.fontSize(12).font('Helvetica-Bold').text('Payment Plans', { underline: true });
+    doc.moveDown(0.3);
+    
+    data.paymentPlans.forEach((plan) => {
+      if (doc.y > 700) {
+        doc.addPage();
+      }
+      
+      doc.fontSize(10).font('Helvetica-Bold').text(`${plan.dealTitle || 'Deal'} - ${plan.clientName || 'N/A'}`);
+      doc.moveDown(0.2);
+      
+      // Table header
+      const tableStartY = doc.y;
+      const col1 = 50;
+      const col2 = col1 + 50;
+      const col3 = col2 + 100;
+      const col4 = col3 + 100;
+      const col5 = col4 + 100;
+      const col6 = col5 + 100;
+      
+      doc.fontSize(8).font('Helvetica-Bold');
+      doc.text('No.', col1, tableStartY);
+      doc.text('Amount', col2, tableStartY);
+      doc.text('Due Date', col3, tableStartY);
+      doc.text('Paid', col4, tableStartY, { width: 80, align: 'right' });
+      doc.text('Status', col5, tableStartY);
+      doc.text('Balance', col6, tableStartY, { width: 80, align: 'right' });
+      
+      doc.moveTo(col1, tableStartY + 10).lineTo(550, tableStartY + 10).stroke();
+      doc.fontSize(8).font('Helvetica');
+      
+      let currentY = tableStartY + 18;
+      plan.installments.forEach((inst) => {
+        if (currentY > 720) {
+          doc.addPage();
+          currentY = 50;
+        }
+        
+        doc.text(inst.installmentNumber.toString(), col1, currentY);
+        doc.text(formatCurrency(inst.amount), col2, currentY, { width: 90 });
+        doc.text(formatDate(inst.dueDate), col3, currentY, { width: 90 });
+        doc.text(formatCurrency(inst.paidAmount), col4, currentY, { width: 80, align: 'right' });
+        doc.text(inst.status || 'Pending', col5, currentY, { width: 90 });
+        doc.text(formatCurrency(inst.remainingBalance), col6, currentY, { width: 80, align: 'right' });
+        
+        currentY += 16;
+      });
+      
+      doc.moveDown(0.4);
     });
   }
 

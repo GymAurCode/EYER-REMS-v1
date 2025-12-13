@@ -554,6 +554,14 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
             payments: true,
             dealer: true,
             client: true,
+            paymentPlan: {
+              include: {
+                installments: {
+                  where: { isDeleted: false },
+                  orderBy: { dueDate: 'asc' },
+                },
+              },
+            },
           },
         },
         financeLedgers: {
@@ -704,6 +712,34 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Calculate Total Due and Total Outstanding from payment plans
+    let totalDue = 0;
+    let totalOutstanding = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Normalize to start of day
+
+    for (const deal of property.deals || []) {
+      if (deal.paymentPlan) {
+        for (const installment of deal.paymentPlan.installments) {
+          const installmentRemaining = installment.amount - (installment.paidAmount || 0);
+          totalOutstanding += installmentRemaining;
+
+          if (installment.dueDate <= today && installment.status !== 'Paid') {
+            totalDue += installmentRemaining;
+          }
+        }
+      } else {
+        // Fallback for deals without a payment plan (should not happen if plans are mandatory)
+        const dealTotalPaid = (deal.payments || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+        const dealRemaining = Math.max(0, (deal.dealAmount || 0) - dealTotalPaid);
+        totalOutstanding += dealRemaining;
+        // For simplicity, if no payment plan, consider all remaining as due if deal is active
+        if (deal.status !== 'closed' && deal.status !== 'lost' && deal.status !== 'cancelled') {
+          totalDue += dealRemaining;
+        }
+      }
+    }
+
     return successResponse(res, {
       ...property,
       ...(salePrice !== undefined ? { salePrice } : {}),
@@ -719,6 +755,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         totalExpenses: ledgerExpenses,
         pendingAmount: totalDealPending,
         entryCount: financeRecords.length,
+        totalDue,
+        totalOutstanding,
       },
       financeRecords,
       activeDeals: dealSummaries,
@@ -744,6 +782,131 @@ router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res: Respons
   } catch (error) {
     logger.error('Get property dashboard error:', error);
     return errorResponse(res, error);
+  }
+});
+
+/**
+ * Upload property document
+ * @route POST /api/property/upload-document
+ * @access Private
+ */
+router.post('/upload-document', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { file, filename, propertyId } = req.body;
+
+    if (!file || !propertyId) {
+      return res.status(400).json({
+        success: false,
+        error: 'File data and propertyId are required',
+      });
+    }
+
+    const dataUrlMatch = file.match(/^data:(.+);base64,(.+)$/);
+    if (!dataUrlMatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file format. Expected base64 data URL.',
+      });
+    }
+
+    const mimeType = dataUrlMatch[1];
+    const base64Data = dataUrlMatch[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Validate file type (PDF, JPG, PNG only)
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(mimeType.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Only PDF, JPG, and PNG files are allowed',
+      });
+    }
+
+    // Validate file using security utilities
+    const { validateFileUpload } = await import('../utils/file-security');
+    const validation = await validateFileUpload(
+      buffer,
+      mimeType,
+      filename
+    );
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'File validation failed',
+      });
+    }
+
+    // Save file securely
+    const { saveFileSecurely } = await import('../utils/file-security');
+    const { relativePath, filename: secureFilename } = await saveFileSecurely(
+      buffer,
+      filename || `property-document-${Date.now()}.${mimeType.split('/')[1]}`,
+      'properties',
+      req.user!.id
+    );
+
+    // Store attachment metadata in database
+    const attachment = await prisma.attachment.create({
+      data: {
+        fileName: secureFilename,
+        fileUrl: relativePath,
+        fileType: mimeType,
+        fileSize: buffer.length,
+        entityType: 'property',
+        entityId: propertyId,
+        propertyId: propertyId,
+        uploadedBy: req.user!.id,
+        description: `Property document: ${filename || secureFilename}`,
+      },
+    });
+
+    res.json({
+      success: true,
+      data: {
+        id: attachment.id,
+        url: relativePath,
+        filename: secureFilename,
+      },
+    });
+  } catch (error: any) {
+    logger.error('Upload property document error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload document',
+    });
+  }
+});
+
+/**
+ * Get property documents
+ * @route GET /api/property/documents/:propertyId
+ * @access Private
+ */
+router.get('/documents/:propertyId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { propertyId } = req.params;
+
+    const documents = await prisma.attachment.findMany({
+      where: {
+        entityType: 'property',
+        entityId: propertyId,
+        propertyId: propertyId,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: documents,
+    });
+  } catch (error: any) {
+    logger.error('Get property documents error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get documents',
+    });
   }
 });
 
@@ -838,6 +1001,44 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
     const totalDealReceived = dealSummaries.reduce((sum, d) => sum + d.received, 0);
     const totalDealPending = dealSummaries.reduce((sum, d) => sum + d.pending, 0);
 
+    // Fetch payment plans for all active deals
+    const paymentPlans: any[] = [];
+    for (const deal of activeDeals) {
+      try {
+        const paymentPlan = await prisma.paymentPlan.findUnique({
+          where: { dealId: deal.id },
+          include: {
+            installments: {
+              where: { isDeleted: false },
+              orderBy: { installmentNumber: 'asc' },
+            },
+            client: {
+              select: { name: true, clientCode: true },
+            },
+          },
+        });
+
+        if (paymentPlan) {
+          paymentPlans.push({
+            dealId: deal.id,
+            dealTitle: deal.title,
+            clientName: paymentPlan.client?.name || deal.client?.name || 'N/A',
+            installments: paymentPlan.installments.map((inst: any) => ({
+              installmentNumber: inst.installmentNumber,
+              amount: inst.amount,
+              dueDate: inst.dueDate,
+              paidAmount: inst.paidAmount || 0,
+              status: inst.status,
+              paidDate: inst.paidDate,
+              remainingBalance: Math.max(0, inst.amount - (inst.paidAmount || 0)),
+            })),
+          });
+        }
+      } catch (err) {
+        console.warn(`Failed to fetch payment plan for deal ${deal.id}:`, err);
+      }
+    }
+
     // Sales / booking details
     const saleEntries = (property.sales || []).map((sale: any) => ({
       id: sale.id,
@@ -881,6 +1082,7 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         financeRecords,
         deals: dealSummaries,
         sales: saleEntries,
+        paymentPlans,
       },
       res
     );

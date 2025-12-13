@@ -861,43 +861,178 @@ router.put('/payments/:id', authenticate, async (_req: AuthRequest, res: Respons
 
 router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const existingPayment = await prisma.payment.findUnique({
-      where: { id: req.params.id },
-      include: {
-        deal: true,
+    const userId = req.user?.id || '';
+    const { PaymentService } = await import('../services/payment-service');
+    
+    await PaymentService.deletePayment(req.params.id, userId);
+    
+    res.status(204).end();
+  } catch (error: any) {
+    console.error('Delete payment error:', error);
+    res.status(400).json({ error: error.message || 'Failed to delete payment' });
+  }
+});
+
+// -------------------- Finance Attachments --------------------
+// POST /finance/upload-attachment
+router.post('/upload-attachment', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { file, filename, transactionId, entryId } = req.body;
+
+    if (!file) {
+      return res.status(400).json({
+        success: false,
+        error: 'File data is required',
+      });
+    }
+
+    const dataUrlMatch = file.match(/^data:(.+);base64,(.+)$/);
+    if (!dataUrlMatch) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file format. Expected base64 data URL.',
+      });
+    }
+
+    const mimeType = dataUrlMatch[1];
+    const base64Data = dataUrlMatch[2];
+    const buffer = Buffer.from(base64Data, 'base64');
+
+    // Validate file type (PDF, JPG, PNG only)
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    if (!allowedTypes.includes(mimeType.toLowerCase())) {
+      return res.status(400).json({
+        success: false,
+        error: 'Only PDF, JPG, and PNG files are allowed',
+      });
+    }
+
+    // Validate file using security utilities
+    const { validateFileUpload } = await import('../utils/file-security');
+    const validation = await validateFileUpload(
+      buffer,
+      mimeType,
+      filename
+    );
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'File validation failed',
+      });
+    }
+
+    // Save file securely
+    const { saveFileSecurely } = await import('../utils/file-security');
+    const { relativePath, filename: secureFilename } = await saveFileSecurely(
+      buffer,
+      filename || `finance-attachment-${Date.now()}.${mimeType.split('/')[1]}`,
+      'finance',
+      req.user!.id
+    );
+
+    // Store attachment metadata in database using existing Attachment model
+    const entityId = transactionId || entryId || `finance-${Date.now()}`;
+    const attachment = await prisma.attachment.create({
+      data: {
+        fileName: secureFilename,
+        fileUrl: relativePath,
+        fileType: mimeType,
+        fileSize: buffer.length,
+        entityType: 'finance',
+        entityId: entityId,
+        uploadedBy: req.user!.id,
+        description: `Finance attachment for ${transactionId ? 'transaction' : 'entry'} ${entityId}`,
       },
     });
 
-    if (!existingPayment) {
-      return res.status(404).json({ error: 'Payment not found' });
-    }
+    res.json({
+      success: true,
+      data: {
+        id: attachment.id,
+        url: relativePath,
+        filename: secureFilename,
+      },
+    });
+  } catch (error: any) {
+    console.error('Upload finance attachment error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload attachment',
+    });
+  }
+});
 
-    await prisma.$transaction(async (tx) => {
-      await tx.ledgerEntry.deleteMany({ where: { paymentId: existingPayment.id } });
-      await tx.payment.delete({ where: { id: existingPayment.id } });
-
-      if (existingPayment.deal) {
-        const aggregate = await tx.payment.aggregate({
-          where: { dealId: existingPayment.dealId },
-          _sum: { amount: true },
-        });
-
-        const totalPaid = aggregate._sum.amount || 0;
-        const desiredStatus = totalPaid >= existingPayment.deal.dealAmount ? 'won' : 'in_progress';
-
-        if (desiredStatus !== existingPayment.deal.status) {
-          await tx.deal.update({
-            where: { id: existingPayment.dealId },
-            data: { status: desiredStatus },
-          });
-        }
-      }
+// GET /finance/attachments/:id
+router.get('/attachments/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const attachment = await prisma.attachment.findUnique({
+      where: { id: req.params.id },
     });
 
-    res.status(204).end();
-  } catch (error) {
-    console.error('Delete payment error:', error);
-    res.status(400).json({ error: 'Failed to delete payment' });
+    if (!attachment || attachment.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'Attachment not found',
+      });
+    }
+
+    const fs = await import('fs');
+    const path = await import('path');
+    const filePath = path.join(process.cwd(), 'public', attachment.fileUrl);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'File not found on disk',
+      });
+    }
+
+    const fileBuffer = fs.readFileSync(filePath);
+    res.setHeader('Content-Type', attachment.fileType || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
+    res.send(fileBuffer);
+  } catch (error: any) {
+    console.error('Get finance attachment error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get attachment',
+    });
+  }
+});
+
+// GET /finance/attachments - Get all attachments for a transaction/entry
+router.get('/attachments', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { transactionId, entryId } = req.query;
+    const entityId = (transactionId || entryId) as string;
+
+    if (!entityId) {
+      return res.status(400).json({
+        success: false,
+        error: 'transactionId or entryId is required',
+      });
+    }
+
+    const attachments = await prisma.attachment.findMany({
+      where: {
+        entityType: 'finance',
+        entityId: entityId,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      data: attachments,
+    });
+  } catch (error: any) {
+    console.error('Get finance attachments error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get attachments',
+    });
   }
 });
 
@@ -945,7 +1080,16 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
     const voucherNumber = req.body.voucherNumber || generateDocumentCode('PV');
     const voucherDate = normalizeDateInput(date);
     const isReceipt = voucherType.includes('receipt');
+    const isBankReceived = voucherType.toLowerCase().includes('bank') && isReceipt;
     const normalizedAttachments = normalizeAttachments(attachments);
+    
+    // Bank Received Voucher requires mandatory attachment
+    if (isBankReceived && (!normalizedAttachments || normalizedAttachments.length === 0)) {
+      return res.status(400).json({ 
+        error: 'Bank Received Voucher requires a mandatory voucher upload. Please attach the voucher file.' 
+      });
+    }
+    
     const categoryId = transactionCategoryId || expenseCategoryId || null;
     const category = categoryId
       ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
@@ -1181,12 +1325,68 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
   try {
     const { LedgerService } = await import('../services/ledger-service');
     const clientId = req.query.clientId as string | undefined;
+    const propertyId = req.query.propertyId as string | undefined;
+    const period = req.query.period as 'thisMonth' | 'all' | undefined;
+    
+    const filters: any = {};
+    if (propertyId) filters.propertyId = propertyId;
+    if (period) filters.period = period;
+    
+    // Handle date range
+    if (req.query.startDate) {
+      filters.startDate = new Date(req.query.startDate as string);
+    }
+    if (req.query.endDate) {
+      filters.endDate = new Date(req.query.endDate as string);
+    }
+    
+    // Handle "thisMonth" period
+    if (period === 'thisMonth') {
+      const now = new Date();
+      filters.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
 
-    const rows = await LedgerService.getClientLedger(clientId);
+    const rows = await LedgerService.getClientLedger(clientId, filters);
     res.json(rows);
   } catch (error) {
     console.error('Client ledger error:', error);
     res.status(500).json({ error: 'Failed to fetch client ledger' });
+  }
+});
+
+// GET /ledger/client/:clientId - Specific client ledger route
+router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { LedgerService } = await import('../services/ledger-service');
+    const clientId = req.params.clientId;
+    const propertyId = req.query.propertyId as string | undefined;
+    const period = req.query.period as 'thisMonth' | 'all' | undefined;
+    
+    const filters: any = {};
+    if (propertyId) filters.propertyId = propertyId;
+    if (period) filters.period = period;
+    
+    // Handle date range
+    if (req.query.startDate) {
+      filters.startDate = new Date(req.query.startDate as string);
+    }
+    if (req.query.endDate) {
+      filters.endDate = new Date(req.query.endDate as string);
+    }
+    
+    // Handle "thisMonth" period
+    if (period === 'thisMonth') {
+      const now = new Date();
+      filters.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+
+    const rows = await LedgerService.getClientLedger(clientId, filters);
+    res.json({ success: true, data: rows });
+  } catch (error: any) {
+    console.error('Client ledger error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to fetch client ledger' });
   }
 });
 
@@ -2274,6 +2474,44 @@ router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, re
     if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
     if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
     if (req.query.dealId) filters.dealId = req.query.dealId as string;
+    if (req.query.period) filters.period = req.query.period as 'thisMonth' | 'all';
+    
+    // Handle "thisMonth" period
+    if (req.query.period === 'thisMonth') {
+      const now = new Date();
+      filters.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
+
+    const ledger = await DealerLedgerService.getDealerLedger(req.params.dealerId, filters);
+
+    res.json({ success: true, data: ledger });
+  } catch (error: any) {
+    console.error('Get dealer ledger error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get dealer ledger',
+    });
+  }
+});
+
+// GET /ledger/dealer/:dealerId - Specific dealer ledger route
+router.get('/ledger/dealer/:dealerId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { DealerLedgerService } = await import('../services/dealer-ledger-service');
+
+    const filters: any = {};
+    if (req.query.startDate) filters.startDate = new Date(req.query.startDate as string);
+    if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
+    if (req.query.dealId) filters.dealId = req.query.dealId as string;
+    if (req.query.period) filters.period = req.query.period as 'thisMonth' | 'all';
+    
+    // Handle "thisMonth" period
+    if (req.query.period === 'thisMonth') {
+      const now = new Date();
+      filters.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    }
 
     const ledger = await DealerLedgerService.getDealerLedger(req.params.dealerId, filters);
 
