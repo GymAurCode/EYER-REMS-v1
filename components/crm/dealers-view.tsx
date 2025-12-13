@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import { useRouter } from "next/navigation"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,7 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { apiService } from "@/lib/api"
-import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase } from "lucide-react"
+import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -39,6 +40,7 @@ const formatDate = (value?: string | null) => {
 }
 
 export function DealersView({ refreshKey = 0 }: DealersViewProps) {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [dealers, setDealers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -237,6 +239,24 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                          <DropdownMenuItem
+                            onSelect={(event) => {
+                              event.preventDefault()
+                              router.push(`/ledger/dealer/${dealer.id}`)
+                            }}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onSelect={(event) => {
+                              event.preventDefault()
+                              router.push(`/ledger/dealer/${dealer.id}`)
+                            }}
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Open Ledger
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onSelect={(event) => {
                               event.preventDefault()

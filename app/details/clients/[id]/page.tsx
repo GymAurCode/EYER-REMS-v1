@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone } from "lucide-react"
+import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone, FileText } from "lucide-react"
 
 import { apiService } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
@@ -175,28 +175,34 @@ export default function ClientDetailPage() {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <div className="flex-1">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase">
-                {client.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")
-                  .slice(0, 2)}
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground">{client.name}</h1>
-                <div className="flex flex-wrap items-center gap-2 mt-2">
-                  <Badge variant={clientType === "Corporate" ? "default" : "secondary"}>{clientType}</Badge>
-                  <Badge variant={statusVariant}>{statusLabel}</Badge>
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" onClick={() => router.back()} aria-label="Go back">
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase">
+                  {client.name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")
+                    .slice(0, 2)}
+                </div>
+                <div>
+                  <h1 className="text-3xl font-bold text-foreground">{client.name}</h1>
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    <Badge variant={clientType === "Corporate" ? "default" : "secondary"}>{clientType}</Badge>
+                    <Badge variant={statusVariant}>{statusLabel}</Badge>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+          <Button onClick={() => router.push(`/ledger/client/${client.id}`)}>
+            <FileText className="mr-2 h-4 w-4" />
+            Open Ledger
+          </Button>
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">

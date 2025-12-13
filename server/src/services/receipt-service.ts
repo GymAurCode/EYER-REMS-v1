@@ -226,13 +226,31 @@ export class ReceiptService {
       }
 
       if (deal) {
-        // Calculate total paid: installments paid amount + down payment
+        // Calculate total paid: only count actual installment payments
+        // Down payment is only included if there's evidence it's been paid
         const installmentPaidAmount = deal.installments.reduce(
           (sum, inst) => sum + (inst.paidAmount || 0),
           0
         );
+        
+        // Check if down payment has been paid by looking at unallocated payment amount
+        // If receipt amount exceeds total allocated to installments, the excess could be for down payment
+        const totalAllocated = allocations.reduce(
+          (sum, alloc) => sum + alloc.amountAllocated,
+          0
+        );
+        const unallocatedAmount = payload.amount - totalAllocated;
         const downPayment = deal.paymentPlan?.downPayment || 0;
-        const totalPaid = installmentPaidAmount + downPayment;
+        
+        // Only include down payment if there's unallocated payment that could be for it
+        // This ensures down payment is only counted when a real payment is recorded
+        // Check if: payment amount exactly matches down payment (and no allocations), OR unallocated amount covers down payment
+        const isDownPaymentPaid = downPayment > 0 && (
+          (payload.amount === downPayment && totalAllocated === 0) || // Payment exactly for down payment
+          unallocatedAmount >= downPayment // Unallocated amount covers down payment
+        );
+        const downPaymentPaid = isDownPaymentPaid ? downPayment : 0;
+        const totalPaid = installmentPaidAmount + downPaymentPaid;
         
         await tx.deal.update({
           where: { id: payload.dealId },
@@ -259,10 +277,14 @@ export class ReceiptService {
               (sum, inst) => sum + (inst.paidAmount || 0),
               0
             );
-            // Include down payment in total paid
-            const downPayment = paymentPlan.downPayment || 0;
-            const totalPaidPlan = installmentPaidAmount + downPayment;
-            const dealAmount = paymentPlan.totalAmount || totalExpected + downPayment;
+            // Only include down payment if it's been paid (unallocated amount covers it or payment exactly matches)
+            const isDownPaymentPaidForPlan = downPayment > 0 && (
+              (payload.amount === downPayment && totalAllocated === 0) || // Payment exactly for down payment
+              unallocatedAmount >= downPayment // Unallocated amount covers down payment
+            );
+            const downPaymentPaidForPlan = isDownPaymentPaidForPlan ? downPayment : 0;
+            const totalPaidPlan = installmentPaidAmount + downPaymentPaidForPlan;
+            const dealAmount = paymentPlan.totalAmount || totalExpected + (paymentPlan.downPayment || 0);
             const remaining = dealAmount - totalPaidPlan;
 
             let status = 'Pending';

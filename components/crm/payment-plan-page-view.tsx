@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft, CalendarIcon, Plus, Trash2, Loader2, Save, Edit, DollarSign, FileText, Download, Receipt } from "lucide-react"
+import { ArrowLeft, CalendarIcon, Plus, Trash2, Loader2, Save, Edit, DollarSign, FileText, Download, Receipt, Upload, X, ImageIcon } from "lucide-react"
 import { ReceiptCreationDialog } from "./receipt-creation-dialog"
 import { ClientLedgerView } from "./client-ledger-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -73,6 +73,8 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   const [paymentMode, setPaymentMode] = useState("cash")
   const [paymentDate, setPaymentDate] = useState<Date>(new Date())
   const [paymentReferenceNumber, setPaymentReferenceNumber] = useState("")
+  const [paymentAttachments, setPaymentAttachments] = useState<Array<{ url: string; name: string; mimeType?: string }>>([])
+  const [uploadingPaymentAttachments, setUploadingPaymentAttachments] = useState(false)
 
   // Report generation
   const [generatingReport, setGeneratingReport] = useState(false)
@@ -481,6 +483,72 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
   }
 
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+
+  const handlePaymentAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || !files.length) return
+
+    setUploadingPaymentAttachments(true)
+    try {
+      const uploads: Array<{ url: string; name: string; mimeType?: string }> = []
+      
+      for (const file of Array.from(files)) {
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast({
+            title: "Invalid file type",
+            description: `File "${file.name}" is not supported. Only PDF, JPG, PNG, GIF, and WEBP files are allowed`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `File "${file.name}" exceeds 10MB limit`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        const base64 = await toBase64(file)
+        uploads.push({
+          url: base64,
+          name: file.name,
+          mimeType: file.type,
+        })
+      }
+
+      if (uploads.length > 0) {
+        setPaymentAttachments((prev) => [...prev, ...uploads])
+        toast({ title: `${uploads.length} file(s) added successfully` })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to add attachment",
+        description: error?.message || "Upload failed",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingPaymentAttachments(false)
+      if (e.target) {
+        e.target.value = ""
+      }
+    }
+  }
+
+  const handleRemovePaymentAttachment = (index: number) => {
+    setPaymentAttachments((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
   const handleRecordPayment = async () => {
     if (!selectedInstallment || !paymentAmount) return
 
@@ -518,6 +586,8 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         })
         setPaymentDialogOpen(false)
         setPaymentAmount("")
+        setPaymentReferenceNumber("")
+        setPaymentAttachments([])
         setSelectedInstallment(null)
         await loadDeal()
       }
@@ -1310,6 +1380,62 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                 onChange={(e) => setPaymentReferenceNumber(e.target.value)}
                 placeholder="Enter reference or cheque number"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Attachments (Bank Receipt, etc.)</Label>
+              <div className="space-y-2">
+                <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                  <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                  <Label htmlFor="payment-attachment-upload" className="cursor-pointer">
+                    <span className="text-sm text-muted-foreground">Click to upload documents</span>
+                    <Input
+                      id="payment-attachment-upload"
+                      type="file"
+                      accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                      multiple
+                      onChange={handlePaymentAttachmentUpload}
+                      disabled={uploadingPaymentAttachments}
+                      className="hidden"
+                    />
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG, GIF, WEBP up to 10MB each</p>
+                </div>
+                {uploadingPaymentAttachments && (
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Uploading attachments...
+                  </div>
+                )}
+                {paymentAttachments.length > 0 && (
+                  <div className="space-y-2">
+                    {paymentAttachments.map((attachment, idx) => {
+                      const isImage = attachment.mimeType?.startsWith('image/') || attachment.url.startsWith('data:image')
+                      return (
+                        <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
+                            {isImage ? (
+                              <ImageIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                            ) : (
+                              <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                            )}
+                            <span className="text-sm truncate">{attachment.name}</span>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRemovePaymentAttachment(idx)}
+                            className="flex-shrink-0"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -8,17 +8,16 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, Search } from "lucide-react"
+import { Loader2, Search, RefreshCw } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { DealerLedgerView } from "./dealer-ledger-view"
 
-type LedgerTab = "clients" | "properties" | "company" | "dealer"
+type LedgerTab = "clients" | "properties" | "dealer"
 
 export function EnhancedLedgers() {
   const [activeTab, setActiveTab] = useState<LedgerTab>("clients")
   const [clientRows, setClientRows] = useState<any[]>([])
   const [propertyRows, setPropertyRows] = useState<any[]>([])
-  const [companyLedger, setCompanyLedger] = useState<any>(null)
   const [dealers, setDealers] = useState<{ id: string; name: string }[]>([])
   const [selectedDealerId, setSelectedDealerId] = useState<string>("")
   const [searchQuery, setSearchQuery] = useState("")
@@ -31,7 +30,16 @@ export function EnhancedLedgers() {
     } else {
       fetchLedgerData()
     }
-  }, [activeTab])
+  }, [activeTab, selectedDealerId])
+
+  // Refresh data when dealer is selected
+  useEffect(() => {
+    if (activeTab === "dealer" && selectedDealerId) {
+      // DealerLedgerView will handle its own data fetching
+    } else if (activeTab !== "dealer") {
+      fetchLedgerData()
+    }
+  }, [selectedDealerId])
 
   const fetchDealers = async () => {
     try {
@@ -52,22 +60,36 @@ export function EnhancedLedgers() {
       setLoading(true)
       setError(null)
       if (activeTab === "clients") {
-        const response = await apiService.ledgers.clients()
-        const data = Array.isArray(response.data) ? response.data : []
+        const response: any = await apiService.ledgers.clients()
+        const responseData = response?.data
+        // Handle different response structures
+        const data = Array.isArray(responseData?.data) 
+          ? responseData.data 
+          : Array.isArray(responseData) 
+            ? responseData 
+            : Array.isArray(response?.data) 
+              ? response.data 
+              : []
         setClientRows(data)
       } else if (activeTab === "properties") {
-        const response = await apiService.ledgers.properties()
-        const data = Array.isArray(response.data) ? response.data : []
+        const response: any = await apiService.ledgers.properties()
+        const responseData = response?.data
+        // Handle different response structures
+        const data = Array.isArray(responseData?.data) 
+          ? responseData.data 
+          : Array.isArray(responseData) 
+            ? responseData 
+            : Array.isArray(response?.data) 
+              ? response.data 
+              : []
         setPropertyRows(data)
-      } else {
-        const response = await apiService.ledgers.company()
-        setCompanyLedger(response.data || null)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch ledger data")
+      const errorMessage = err?.response?.data?.message || err?.response?.data?.error || err?.message || "Failed to fetch ledger data"
+      setError(errorMessage)
       setClientRows([])
       setPropertyRows([])
-      setCompanyLedger(null)
+      console.error(`Failed to fetch ${activeTab} ledger:`, err)
     } finally {
       setLoading(false)
     }
@@ -102,7 +124,6 @@ export function EnhancedLedgers() {
           {[
             { label: "Client Ledger", value: "clients" },
             { label: "Property Ledger", value: "properties" },
-            { label: "Company Ledger", value: "company" },
             { label: "Dealer Ledger", value: "dealer" },
           ].map((tab) => (
             <button
@@ -117,6 +138,16 @@ export function EnhancedLedgers() {
             </button>
           ))}
         </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={fetchLedgerData}
+          disabled={loading || activeTab === "dealer"}
+          className="ml-auto"
+        >
+          <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
         {(activeTab === "clients" || activeTab === "properties") && (
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -157,7 +188,13 @@ export function EnhancedLedgers() {
           Loading ledger data...
         </Card>
       ) : error ? (
-        <Card className="p-10 text-center text-destructive">{error}</Card>
+        <Card className="p-10 text-center">
+          <p className="text-destructive mb-4">{error}</p>
+          <Button variant="outline" onClick={fetchLedgerData}>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Retry
+          </Button>
+        </Card>
       ) : (
         <>
           {activeTab === "clients" && (
@@ -183,25 +220,25 @@ export function EnhancedLedgers() {
                         </TableCell>
                       </TableRow>
                     ) : (
-                      filteredClientRows.map((row) => (
-                        <TableRow key={row.id}>
-                          <TableCell className="font-medium">{row.paymentId || "Deal Opening"}</TableCell>
+                      filteredClientRows.map((row, idx) => (
+                        <TableRow key={row.id || row.paymentId || idx}>
+                          <TableCell className="font-medium">{row.paymentId || row.id || "Deal Opening"}</TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">{row.dealTitle}</span>
-                              <span className="text-xs text-muted-foreground">Deal ID: {row.dealId}</span>
+                              <span className="font-medium">{row.dealTitle || row.deal?.title || "—"}</span>
+                              <span className="text-xs text-muted-foreground">Deal ID: {row.dealId || row.deal?.id || "—"}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span>{row.clientName}</span>
-                              <span className="text-xs text-muted-foreground">{row.propertyName}</span>
+                              <span>{row.clientName || row.client?.name || "—"}</span>
+                              <span className="text-xs text-muted-foreground">{row.propertyName || row.property?.name || "—"}</span>
                             </div>
                           </TableCell>
                           <TableCell>
                             <div className="flex flex-col text-sm">
-                              <span className="capitalize">{row.paymentType}</span>
-                              <span className="text-xs text-muted-foreground">{row.paymentMode?.replace("_", " ")}</span>
+                              <span className="capitalize">{row.paymentType || row.type || "—"}</span>
+                              <span className="text-xs text-muted-foreground">{row.paymentMode?.replace("_", " ") || row.mode || "—"}</span>
                             </div>
                           </TableCell>
                           <TableCell className="text-right font-medium">
@@ -211,7 +248,7 @@ export function EnhancedLedgers() {
                             {row.outstanding ? `Rs ${Number(row.outstanding).toLocaleString("en-PK")}` : "Rs 0"}
                           </TableCell>
                           <TableCell className="text-right text-sm text-muted-foreground">
-                            {new Date(row.date).toLocaleDateString()}
+                            {row.date ? new Date(row.date).toLocaleDateString() : "—"}
                           </TableCell>
                         </TableRow>
                       ))
@@ -228,12 +265,12 @@ export function EnhancedLedgers() {
                 <Card className="p-10 text-center text-muted-foreground">No property ledger data available.</Card>
               ) : (
                 filteredPropertyRows.map((property) => (
-                  <Card key={property.propertyId || property.propertyName} className="p-5">
+                  <Card key={property.propertyId || property.id || property.propertyName || Math.random()} className="p-5">
                     <div className="flex flex-wrap items-center justify-between gap-4 border-b pb-4">
                       <div>
-                        <h3 className="text-lg font-semibold">{property.propertyName}</h3>
+                        <h3 className="text-lg font-semibold">{property.propertyName || property.name || "Unnamed Property"}</h3>
                         <p className="text-sm text-muted-foreground">
-                          {property.propertyCode ? `Code: ${property.propertyCode}` : "No property code"}
+                          {property.propertyCode ? `Code: ${property.propertyCode}` : property.code ? `Code: ${property.code}` : "No property code"}
                         </p>
                       </div>
                       <div className="grid grid-cols-3 gap-4 text-right text-sm">
@@ -269,23 +306,23 @@ export function EnhancedLedgers() {
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {property.payments.length === 0 ? (
+                          {(!property.payments || property.payments.length === 0) ? (
                             <TableRow>
                               <TableCell colSpan={5} className="py-6 text-center text-muted-foreground">
                                 No payments recorded for this property.
                               </TableCell>
                             </TableRow>
                           ) : (
-                            property.payments.map((payment: any) => (
-                              <TableRow key={payment.id}>
-                                <TableCell className="font-medium">{payment.dealTitle}</TableCell>
-                                <TableCell>{payment.paymentId}</TableCell>
-                                <TableCell className="capitalize">{payment.paymentMode?.replace("_", " ")}</TableCell>
+                            property.payments.map((payment: any, idx: number) => (
+                              <TableRow key={payment.id || payment.paymentId || idx}>
+                                <TableCell className="font-medium">{payment.dealTitle || payment.deal?.title || "—"}</TableCell>
+                                <TableCell>{payment.paymentId || payment.id || "—"}</TableCell>
+                                <TableCell className="capitalize">{payment.paymentMode?.replace("_", " ") || payment.mode || "—"}</TableCell>
                                 <TableCell className="text-right">
                                   {payment.amount ? `Rs ${Number(payment.amount).toLocaleString("en-PK")}` : "Rs 0"}
                                 </TableCell>
                                 <TableCell className="text-right text-sm text-muted-foreground">
-                                  {new Date(payment.date).toLocaleDateString()}
+                                  {payment.date ? new Date(payment.date).toLocaleDateString() : "—"}
                                 </TableCell>
                               </TableRow>
                             ))
@@ -296,70 +333,6 @@ export function EnhancedLedgers() {
                   </Card>
                 ))
               )}
-            </div>
-          )}
-
-          {activeTab === "company" && companyLedger && (
-            <div className="space-y-5">
-              <div className="grid gap-4 md:grid-cols-4">
-                <SummaryCard title="Cash Account" value={companyLedger.summary?.cashBalance ?? 0} />
-                <SummaryCard title="Bank Account" value={companyLedger.summary?.bankBalance ?? 0} />
-                <SummaryCard title="Receivables" value={companyLedger.summary?.receivables ?? 0} muted />
-                <SummaryCard title="Payables" value={companyLedger.summary?.payables ?? 0} muted />
-              </div>
-              <Card className="p-0">
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Date</TableHead>
-                        <TableHead>Deal</TableHead>
-                        <TableHead>Debit</TableHead>
-                        <TableHead>Credit</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
-                        <TableHead>Payment</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {companyLedger.entries?.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                            No ledger entries found.
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        companyLedger.entries.map((entry: any) => (
-                          <TableRow key={entry.id}>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {new Date(entry.date).toLocaleDateString()}
-                            </TableCell>
-                            <TableCell>
-                              <div className="flex flex-col">
-                                <span className="font-medium">{entry.dealTitle || "Deal Settlement"}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {entry.clientName} • {entry.propertyName}
-                                </span>
-                              </div>
-                            </TableCell>
-                            <TableCell>{entry.accountDebit}</TableCell>
-                            <TableCell>{entry.accountCredit}</TableCell>
-                            <TableCell className="text-right font-semibold">
-                              {entry.amount ? `Rs ${Number(entry.amount).toLocaleString("en-PK")}` : "Rs 0"}
-                            </TableCell>
-                            <TableCell>
-                              {entry.paymentId ? (
-                                <Badge variant="secondary">{entry.paymentId}</Badge>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Auto entry</span>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </Card>
             </div>
           )}
 
@@ -383,22 +356,4 @@ export function EnhancedLedgers() {
   )
 }
 
-function SummaryCard({
-  title,
-  value,
-  muted = false,
-}: {
-  title: string
-  value: number
-  muted?: boolean
-}) {
-  return (
-    <Card className="p-4">
-      <p className="text-sm text-muted-foreground">{title}</p>
-      <p className={`text-2xl font-semibold ${muted ? "text-muted-foreground" : "text-foreground"}`}>
-        {value ? `Rs ${Number(value).toLocaleString("en-PK")}` : "Rs 0"}
-      </p>
-    </Card>
-  )
-}
 

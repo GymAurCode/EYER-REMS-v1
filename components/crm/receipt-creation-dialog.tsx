@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { CalendarIcon, Loader2, DollarSign } from "lucide-react"
+import { CalendarIcon, Loader2, DollarSign, Upload, X, FileText, ImageIcon } from "lucide-react"
 import { format } from "date-fns"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
@@ -38,6 +38,74 @@ export function ReceiptCreationDialog({
   const [notes, setNotes] = useState("")
   const [referenceNumber, setReferenceNumber] = useState("")
   const [manualUniqueId, setManualUniqueId] = useState("")
+  const [attachments, setAttachments] = useState<Array<{ url: string; name: string; mimeType?: string }>>([])
+  const [uploadingAttachments, setUploadingAttachments] = useState(false)
+
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || !files.length) return
+
+    setUploadingAttachments(true)
+    try {
+      const uploads: Array<{ url: string; name: string; mimeType?: string }> = []
+      
+      for (const file of Array.from(files)) {
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast({
+            title: "Invalid file type",
+            description: `File "${file.name}" is not supported. Only PDF, JPG, PNG, GIF, and WEBP files are allowed`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `File "${file.name}" exceeds 10MB limit`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        const base64 = await toBase64(file)
+        uploads.push({
+          url: base64,
+          name: file.name,
+          mimeType: file.type,
+        })
+      }
+
+      if (uploads.length > 0) {
+        setAttachments((prev) => [...prev, ...uploads])
+        toast({ title: `${uploads.length} file(s) added successfully` })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to add attachment",
+        description: error?.message || "Upload failed",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingAttachments(false)
+      if (e.target) {
+        e.target.value = ""
+      }
+    }
+  }
+
+  const handleRemoveAttachment = (index: number) => {
+    setAttachments((prev) => prev.filter((_, idx) => idx !== index))
+  }
 
   const handleSubmit = async () => {
     if (!amount || parseFloat(amount) <= 0) {
@@ -60,6 +128,11 @@ export function ReceiptCreationDialog({
         notes: notes || null,
         referenceNumber: referenceNumber.trim() || undefined,
         manualUniqueId: manualUniqueId.trim() || undefined,
+        attachments: attachments.length > 0 ? attachments.map(a => ({
+          name: a.name,
+          url: a.url,
+          mimeType: a.mimeType,
+        })) : undefined,
       })
 
       if (response?.data?.success || response?.success) {
@@ -70,7 +143,9 @@ export function ReceiptCreationDialog({
         setAmount("")
         setNotes("")
         setReferenceNumber("")
+        setManualUniqueId("")
         setDate(new Date())
+        setAttachments([])
         onOpenChange(false)
         onSuccess?.()
       } else {
@@ -183,6 +258,62 @@ export function ReceiptCreationDialog({
               placeholder="Additional notes about this payment..."
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Attachments (Bank Receipt, etc.)</Label>
+            <div className="space-y-2">
+              <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                <Label htmlFor="receipt-attachment-upload" className="cursor-pointer">
+                  <span className="text-sm text-muted-foreground">Click to upload documents</span>
+                  <Input
+                    id="receipt-attachment-upload"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                    multiple
+                    onChange={handleAttachmentUpload}
+                    disabled={uploadingAttachments}
+                    className="hidden"
+                  />
+                </Label>
+                <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG, GIF, WEBP up to 10MB each</p>
+              </div>
+              {uploadingAttachments && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Uploading attachments...
+                </div>
+              )}
+              {attachments.length > 0 && (
+                <div className="space-y-2">
+                  {attachments.map((attachment, idx) => {
+                    const isImage = attachment.mimeType?.startsWith('image/') || attachment.url.startsWith('data:image')
+                    return (
+                      <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          {isImage ? (
+                            <ImageIcon className="h-4 w-4 text-primary flex-shrink-0" />
+                          ) : (
+                            <FileText className="h-4 w-4 text-primary flex-shrink-0" />
+                          )}
+                          <span className="text-sm truncate">{attachment.name}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveAttachment(idx)}
+                          className="flex-shrink-0"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
         <DialogFooter>

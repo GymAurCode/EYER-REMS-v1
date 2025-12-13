@@ -2023,10 +2023,10 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
           startDate: installments[0]?.dueDate ? new Date(installments[0].dueDate) : new Date(),
           notes: req.body.notes || null,
           isActive: true,
-          status: downPayment > 0 ? 'Partially Paid' : 'Pending',
-          downPayment: downPayment || 0, // Save down payment amount
-          totalPaid: downPayment || 0, // Add down payment to total paid
-          remaining: dealAmount - (downPayment || 0), // Calculate remaining
+          status: 'Pending', // Down payment is planned, not paid - always start as Pending
+          downPayment: downPayment || 0, // Save down payment amount (pending, not paid)
+          totalPaid: 0, // Down payment is not paid yet - only count actual payments
+          remaining: dealAmount, // Full amount remaining until payments are recorded
         },
       });
 
@@ -2141,13 +2141,13 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Respons
       orderBy: { createdAt: 'desc' },
     });
 
-    // Calculate summary for each plan (include down payment in paid amount)
+    // Calculate summary for each plan
+    // Use payment plan's totalPaid field which only includes down payment if it's been paid
     const plansWithSummary = plans.map((plan) => {
       const installments = plan.installments;
       const totalAmount = plan.totalAmount || installments.reduce((sum, i) => sum + i.amount, 0);
-      const installmentPaidAmount = installments.reduce((sum, i) => sum + i.paidAmount, 0);
-      const downPayment = plan.downPayment || 0;
-      const paidAmount = installmentPaidAmount + downPayment; // Include down payment in paid amount
+      // Use plan.totalPaid which correctly reflects actual payments (including down payment only if paid)
+      const paidAmount = plan.totalPaid || 0;
       const paidCount = installments.filter((i) => i.status === 'paid').length;
       const overdueCount = installments.filter(
         (i) => i.status === 'overdue' || (i.status === 'unpaid' && new Date(i.dueDate) < new Date())
@@ -2161,9 +2161,9 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Respons
           unpaidInstallments: installments.length - paidCount,
           overdueInstallments: overdueCount,
           totalAmount,
-          paidAmount, // Includes down payment
+          paidAmount, // Uses plan.totalPaid which only includes down payment if actually paid
           remainingAmount: totalAmount - paidAmount,
-          downPayment: downPayment,
+          downPayment: plan.downPayment || 0,
         },
       };
     });
@@ -2191,15 +2191,15 @@ router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest,
 
     const summary = await PaymentPlanService.getInstallmentSummary(req.params.dealId);
 
-    // Include down payment in paid amount for summary
+    // Use payment plan's totalPaid which correctly reflects actual payments
+    // Down payment is only included if it's been paid (recorded via Payment/Receipt module)
     const downPayment = plan.downPayment || 0;
-    const installmentPaidAmount = summary.paidAmount || 0;
-    const totalPaidAmount = installmentPaidAmount + downPayment;
+    const totalPaidAmount = plan.totalPaid || 0; // This already includes down payment if paid
     const totalAmount = plan.totalAmount || summary.totalAmount || 0;
 
     const summaryWithDownPayment = {
       ...summary,
-      paidAmount: totalPaidAmount, // Include down payment
+      paidAmount: totalPaidAmount, // Uses plan.totalPaid which only includes down payment if actually paid
       remainingAmount: Math.max(0, totalAmount - totalPaidAmount),
       downPayment: downPayment,
       totalAmount: totalAmount, // Use plan total amount (includes down payment + installments)
@@ -2521,6 +2521,50 @@ router.get('/ledger/dealer/:dealerId', authenticate, async (req: AuthRequest, re
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get dealer ledger',
+    });
+  }
+});
+
+// -------------------- Unified Ledger API --------------------
+// GET /api/finance/ledger/{type}/{id} - Unified ledger endpoint
+// This route must come AFTER specific routes like /ledger/client/:id and /ledger/dealer/:id
+// to avoid route conflicts. It handles property, client, and dealer ledgers.
+router.get('/ledger/:type/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { UnifiedLedgerService } = await import('../services/unified-ledger-service');
+    const { type, id } = req.params;
+
+    console.log(`[Unified Ledger] Request received: type=${type}, id=${id}`);
+
+    if (!['client', 'dealer', 'property'].includes(type)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid ledger type. Must be client, dealer, or property',
+      });
+    }
+
+    const filters: any = {};
+    if (req.query.startDate) {
+      filters.startDate = new Date(req.query.startDate as string);
+    }
+    if (req.query.endDate) {
+      filters.endDate = new Date(req.query.endDate as string);
+    }
+
+    console.log(`[Unified Ledger] Fetching ledger for ${type} with ID: ${id}`);
+    const ledger = await UnifiedLedgerService.getLedger(type as 'client' | 'dealer' | 'property', id, filters);
+    console.log(`[Unified Ledger] Successfully fetched ledger for ${type} ${id}`);
+
+    res.json({
+      success: true,
+      data: ledger,
+    });
+  } catch (error: any) {
+    console.error(`[Unified Ledger] Error for ${req.params.type} ${req.params.id}:`, error);
+    const statusCode = error.message?.includes('not found') ? 404 : 500;
+    res.status(statusCode).json({
+      success: false,
+      error: error.message || 'Failed to fetch ledger',
     });
   }
 });

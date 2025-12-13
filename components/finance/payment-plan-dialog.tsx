@@ -112,7 +112,7 @@ export function PaymentPlanDialog({
       
       toast({
         title: "Down Payment Applied",
-        description: `Down payment of Rs ${calculatedDownPayment.toLocaleString("en-IN")} has been ${downPaymentAction === "cut" ? "deducted" : "recorded as paid"}. Installments recalculated.`,
+        description: `Down payment of Rs ${calculatedDownPayment.toLocaleString("en-IN")} has been ${downPaymentAction === "cut" ? "deducted from installments" : "planned (pending payment)"}. Installments recalculated.`,
       })
     } else {
       toast({

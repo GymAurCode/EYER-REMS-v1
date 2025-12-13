@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -9,11 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Plus, Trash2 } from "lucide-react"
+import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
-import { LocationSelector } from "@/components/locations/location-selector"
 
 type PropertyForm = {
   name: string
@@ -60,13 +59,14 @@ type AddPropertyDialogProps = {
   onSuccess?: () => void
 }
 
-type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size"
+type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size" | "property.location"
 
 const DROPDOWN_LABELS: Record<DropdownKey, string> = {
   "property.type": "Type",
   "property.category": "Category",
   "property.status": "Status",
   "property.size": "Size",
+  "property.location": "Location",
 }
 
 function ManagedDropdown({
@@ -117,6 +117,8 @@ function ManagedDropdown({
           { id: "medium", label: "Medium", value: "medium" },
           { id: "large", label: "Large", value: "large" },
         ]
+      case "property.location":
+        return [] // No default options - locations must be added via Advanced Options
       default:
         return []
     }
@@ -266,26 +268,47 @@ function ManagedDropdown({
           <SelectValue placeholder={`Select ${DROPDOWN_LABELS[dropdownKey]}`} />
         </SelectTrigger>
         <SelectContent>
-          {allOptions.map((opt) => (
-            <div key={opt.id} className="flex items-center justify-between px-2">
-              <SelectItem value={opt.value}>{opt.label}</SelectItem>
-              {canAttemptAPI && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7 text-muted-foreground"
-                  onClick={(e) => {
-                    e.preventDefault()
-                    e.stopPropagation()
-                    removeOption(opt.id)
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
+          {allOptions.length === 0 ? (
+            <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+              {dropdownKey === "property.location" 
+                ? "No locations available. Add locations in Advanced Options."
+                : "No options available"}
             </div>
-          ))}
+          ) : (
+            allOptions.map((opt) => (
+              <div key={opt.id} className="flex items-center justify-between px-2">
+                <SelectItem value={opt.value}>
+                  {dropdownKey === "property.location" && opt.label.includes(">") ? (
+                    <span className="flex items-center gap-1">
+                      {opt.label.split(">").map((part: string, idx: number, arr: string[]) => (
+                        <span key={idx}>
+                          <span className="font-medium">{part.trim()}</span>
+                          {idx < arr.length - 1 && <span className="text-muted-foreground mx-1">›</span>}
+                        </span>
+                      ))}
+                    </span>
+                  ) : (
+                    opt.label
+                  )}
+                </SelectItem>
+                {canAttemptAPI && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground"
+                    onClick={(e) => {
+                      e.preventDefault()
+                      e.stopPropagation()
+                      removeOption(opt.id)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
+            ))
+          )}
         </SelectContent>
       </Select>
 
@@ -295,7 +318,12 @@ function ManagedDropdown({
           {localOptions.length} custom option(s) added locally
         </p>
       )}
-      {(!options || options.length === 0) && (
+      {dropdownKey === "property.location" && (!options || options.length === 0) && localOptions.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No locations available. Add locations in Advanced Options (e.g., "Country &gt; State &gt; City").
+        </p>
+      )}
+      {dropdownKey !== "property.location" && (!options || options.length === 0) && (
         <p className="text-xs text-muted-foreground">
           Using default options. Admin can customize in Advanced Settings.
         </p>
@@ -319,6 +347,10 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     income: "",
     scrap: "",
   })
+  const [imagePreview, setImagePreview] = useState<string | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
+  const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const isEdit = Boolean(propertyId)
 
   useEffect(() => {
@@ -329,6 +361,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         income: "",
         scrap: "",
       })
+      setImagePreview(null)
+      setAttachments([])
       return
     }
 
@@ -375,20 +409,38 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             size: payload.size || "",
             address: payload.address || "",
             location: payload.location || "",
-            locationId: payload.locationId || null,
+            locationId: null,
             salePrice: payload.salePrice?.toString() || documents.salePrice?.toString() || "",
+            imageUrl: payload.imageUrl || "",
             totalArea: payload.totalArea?.toString() || "",
             totalUnits: payload.totalUnits?.toString() || "",
             yearBuilt: payload.yearBuilt?.toString() || "",
             dealerId: payload.dealerId || "",
             amenities: Array.isArray(payload.amenities) ? payload.amenities : documents.amenities || [],
             description: payload.description || "",
-            imageUrl: payload.imageUrl || "",
           })
+          setImagePreview(payload.imageUrl || null)
+
+          // Load existing attachments
+          try {
+            const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
+            const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
+            setAttachments(Array.isArray(attachmentsData) ? attachmentsData.map((a: any) => ({
+              id: a.id,
+              url: a.fileUrl,
+              name: a.fileName,
+              mimeType: a.fileType,
+            })) : [])
+          } catch (err) {
+            // Ignore if attachments endpoint fails
+            console.warn("Failed to load attachments", err)
+          }
 
         } else {
           setForm(DEFAULT_FORM)
           setPropertyData(null)
+          setImagePreview(null)
+          setAttachments([])
         }
       } catch (error: any) {
         // Don't show toast for rate limit errors, just log
@@ -425,8 +477,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       type: formWithoutCategorySize.type,
       status: formWithoutCategorySize.status || "Active",
       address: formWithoutCategorySize.address,
-      location: formWithoutCategorySize.location,
-      locationId: formWithoutCategorySize.locationId,
+      location: formWithoutCategorySize.location || undefined,
       description: formWithoutCategorySize.description || undefined,
       totalArea: formWithoutCategorySize.totalArea ? Number(formWithoutCategorySize.totalArea) : undefined,
       totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
@@ -439,13 +490,45 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
     try {
       setSaving(true)
+      let createdPropertyId: string | null = null
+      
       if (isEdit) {
         await apiService.properties.update(String(propertyId), payload)
         toast({ title: "Property updated" })
+        createdPropertyId = String(propertyId)
       } else {
-        await apiService.properties.create(payload)
+        const createResponse: any = await apiService.properties.create(payload)
+        const createdData = createResponse?.data?.data || createResponse?.data || createResponse
+        createdPropertyId = createdData?.id || createdData?.propertyId || null
         toast({ title: "Property created" })
       }
+
+      // Upload attachments that were added but not yet saved (for new properties)
+      if (createdPropertyId && attachments.length > 0) {
+        const unsavedAttachments = attachments.filter(a => !a.id) // Only upload attachments without IDs
+        if (unsavedAttachments.length > 0) {
+          try {
+            for (const attachment of unsavedAttachments) {
+              if (attachment.url.startsWith('data:')) {
+                // It's a base64 file, upload it
+                await apiService.properties.uploadDocument(createdPropertyId, {
+                  file: attachment.url,
+                  filename: attachment.name,
+                })
+              }
+            }
+            toast({ title: "Attachments uploaded successfully" })
+          } catch (attachError: any) {
+            console.warn("Failed to upload some attachments", attachError)
+            toast({
+              title: "Property saved",
+              description: "Some attachments failed to upload. You can add them later.",
+              variant: "default",
+            })
+          }
+        }
+      }
+
       onSuccess?.()
       onOpenChange(false)
     } catch (error: any) {
@@ -477,6 +560,147 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   const amenitySelected = useMemo(() => new Set(form.amenities), [form.amenities])
 
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an image file",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate file size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please select an image smaller than 10MB",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setUploadingImage(true)
+      const base64 = await toBase64(file)
+      const response: any = await apiService.upload.image({
+        image: base64,
+        filename: file.name,
+      })
+      const responseData = response.data as any
+      const imageUrl = responseData?.data?.url || responseData?.url || base64
+      setForm((p) => ({ ...p, imageUrl }))
+      setImagePreview(imageUrl)
+      toast({ title: "Image uploaded successfully" })
+    } catch (error: any) {
+      toast({
+        title: "Failed to upload image",
+        description: error?.response?.data?.error || error?.message || "Upload failed",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleRemoveImage = () => {
+    setForm((p) => ({ ...p, imageUrl: "" }))
+    setImagePreview(null)
+  }
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || !files.length) return
+
+    setUploadingAttachments(true)
+    try {
+      const uploads: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
+      
+      for (const file of Array.from(files)) {
+        // Validate file type
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast({
+            title: "Invalid file type",
+            description: `File "${file.name}" is not supported. Only PDF, JPG, PNG, GIF, and WEBP files are allowed`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `File "${file.name}" exceeds 10MB limit`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        const base64 = await toBase64(file)
+        
+        // If editing, upload to property
+        if (propertyId) {
+          const response: any = await apiService.properties.uploadDocument(String(propertyId), {
+            file: base64,
+            filename: file.name,
+          })
+          const responseData = response.data as any
+          const uploaded = responseData?.data || responseData
+          uploads.push({
+            id: uploaded?.id,
+            url: uploaded?.url || uploaded?.filename,
+            name: file.name,
+            mimeType: file.type,
+          })
+        } else {
+          // For new properties, store locally until property is created
+          uploads.push({
+            url: base64, // Store base64 temporarily
+            name: file.name,
+            mimeType: file.type,
+          })
+        }
+      }
+
+      if (uploads.length > 0) {
+        setAttachments((prev) => [...prev, ...uploads])
+        toast({ title: `${uploads.length} file(s) uploaded successfully` })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to upload attachment",
+        description: error?.response?.data?.error || error?.message || "Upload failed",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingAttachments(false)
+      // Reset input
+      if (e.target) {
+        e.target.value = ""
+      }
+    }
+  }
+
+  const handleRemoveAttachment = async (index: number) => {
+    const attachment = attachments[index]
+    // If it has an ID, it's already saved - could delete from server, but for now just remove from list
+    setAttachments((prev) => prev.filter((_, idx) => idx !== index))
+  }
+
   // Filter accounts by type
   const assetAccounts = useMemo(() => accounts.filter((a) => a.type?.toLowerCase() === "asset"), [accounts])
   const expenseAccounts = useMemo(() => accounts.filter((a) => a.type?.toLowerCase() === "expense"), [accounts])
@@ -486,7 +710,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[85vw]! w-[85vw]! max-h-[80vh]! h-[80vh]! p-0 m-0 translate-x-[-50%]! translate-y-[-50%]!">
+      <DialogContent className="!max-w-[93vw] !w-[93vw] max-h-[90vh] p-0 flex flex-col sm:!w-[93vw] sm:!max-w-[93vw]">
         <DialogHeader className="px-6 py-4 border-b bg-muted/50">
           <DialogTitle className="flex items-center justify-between text-lg font-semibold">
             <span>{isEdit ? "View / Edit Property" : "Add Property"}</span>
@@ -501,14 +725,15 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           </p>
         </DialogHeader>
 
-        <div className="flex flex-col h-[calc(80vh-100px)]">
-          <div className="flex-1 overflow-hidden">
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-y-auto">
             {loading ? (
               <div className="flex items-center justify-center h-full">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <ScrollArea className="h-full px-6 pb-6">
+              <ScrollArea className="h-full">
+                <div className="px-6 pb-4">
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                   <div className="lg:col-span-7 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -624,126 +849,14 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                       />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Asset Account</Label>
-                        <Select
-                          value={selectedAccountId.asset || "none"}
-                          onValueChange={(val) =>
-                            setSelectedAccountId((prev) => ({
-                              ...prev,
-                              asset: val === "none" ? "" : val,
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select asset account (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {assetAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Expense Account</Label>
-                        <Select
-                          value={selectedAccountId.expense || "none"}
-                          onValueChange={(val) =>
-                            setSelectedAccountId((prev) => ({
-                              ...prev,
-                              expense: val === "none" ? "" : val,
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select expense account (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {expenseAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Income Account</Label>
-                        <Select
-                          value={selectedAccountId.income || "none"}
-                          onValueChange={(val) =>
-                            setSelectedAccountId((prev) => ({
-                              ...prev,
-                              income: val === "none" ? "" : val,
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select income account (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {incomeAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Scrap Account</Label>
-                        <Select
-                          value={selectedAccountId.scrap || "none"}
-                          onValueChange={(val) =>
-                            setSelectedAccountId((prev) => ({
-                              ...prev,
-                              scrap: val === "none" ? "" : val,
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select scrap account (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {scrapAccounts.map((account) => (
-                              <SelectItem key={account.id} value={account.id}>
-                                {account.code} - {account.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
                   </div>
 
                     <div className="lg:col-span-5 space-y-4">
-                      <div className="space-y-2">
-                        <Label>Location</Label>
-                        <LocationSelector
-                          value={form.locationId}
-                          onChange={(node) =>
-                            setForm((p) => ({
-                              ...p,
-                              locationId: node?.id ?? null,
-                              location: node?.name ?? "",
-                            }))
-                          }
-                        />
-                        {form.location && (
-                          <p className="text-xs text-muted-foreground">Selected: {form.location}</p>
-                        )}
-                      </div>
+                      <ManagedDropdown
+                        dropdownKey="property.location"
+                        value={form.location}
+                        onChange={(val) => setForm((p) => ({ ...p, location: val, locationId: null }))}
+                      />
 
                       <div className="space-y-2">
                         <Label>Amenities</Label>
@@ -776,21 +889,217 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Image URL</Label>
-                        <Input
-                          value={form.imageUrl}
-                          onChange={(e) => setForm((p) => ({ ...p, imageUrl: e.target.value }))}
-                          placeholder="/uploads/property.jpg or https://..."
-                        />
+                        <Label>Property Image</Label>
+                        <div className="space-y-2">
+                          {imagePreview ? (
+                            <div className="relative">
+                              <img
+                                src={imagePreview}
+                                alt="Property preview"
+                                className="w-full h-48 object-cover rounded-lg border"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={handleRemoveImage}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                              <Label htmlFor="image-upload" className="cursor-pointer">
+                                <span className="text-sm text-muted-foreground">Click to upload or drag and drop</span>
+                                <Input
+                                  id="image-upload"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  disabled={uploadingImage}
+                                  className="hidden"
+                                />
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-2">PNG, JPG, GIF up to 10MB</p>
+                            </div>
+                          )}
+                          {uploadingImage && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Uploading image...
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Attachments</Label>
+                        <div className="space-y-2">
+                          <div className="border-2 border-dashed rounded-lg p-4 text-center">
+                            <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
+                            <Label htmlFor="attachment-upload" className="cursor-pointer">
+                              <span className="text-sm text-muted-foreground">Click to upload documents</span>
+                              <Input
+                                id="attachment-upload"
+                                type="file"
+                                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+                                multiple
+                                onChange={handleAttachmentUpload}
+                                disabled={uploadingAttachments}
+                                className="hidden"
+                              />
+                            </Label>
+                            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG, GIF, WEBP up to 10MB each</p>
+                          </div>
+                          {uploadingAttachments && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Uploading attachments...
+                            </div>
+                          )}
+                          {attachments.length > 0 && (
+                            <div className="space-y-2">
+                              {attachments.map((attachment, idx) => {
+                                const isImage = attachment.mimeType?.startsWith('image/') || attachment.url.startsWith('data:image')
+                                return (
+                                  <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      {isImage ? (
+                                        <ImageIcon className="h-4 w-4 text-primary shrink-0" />
+                                      ) : (
+                                        <FileText className="h-4 w-4 text-primary shrink-0" />
+                                      )}
+                                      <span className="text-sm truncate">{attachment.name}</span>
+                                    </div>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleRemoveAttachment(idx)}
+                                      className="shrink-0"
+                                    >
+                                      <X className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Asset Account</Label>
+                          <Select
+                            value={selectedAccountId.asset || "none"}
+                            onValueChange={(val) =>
+                              setSelectedAccountId((prev) => ({
+                                ...prev,
+                                asset: val === "none" ? "" : val,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select asset account (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {assetAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Expense Account</Label>
+                          <Select
+                            value={selectedAccountId.expense || "none"}
+                            onValueChange={(val) =>
+                              setSelectedAccountId((prev) => ({
+                                ...prev,
+                                expense: val === "none" ? "" : val,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select expense account (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {expenseAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Income Account</Label>
+                          <Select
+                            value={selectedAccountId.income || "none"}
+                            onValueChange={(val) =>
+                              setSelectedAccountId((prev) => ({
+                                ...prev,
+                                income: val === "none" ? "" : val,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select income account (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {incomeAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Scrap Account</Label>
+                          <Select
+                            value={selectedAccountId.scrap || "none"}
+                            onValueChange={(val) =>
+                              setSelectedAccountId((prev) => ({
+                                ...prev,
+                                scrap: val === "none" ? "" : val,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select scrap account (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {scrapAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  {account.code} - {account.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </ScrollArea>
+                </div>
+              </ScrollArea>
               )}
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-muted/50 flex items-center justify-end gap-3">
+        <DialogFooter className="px-6 py-2 border-t bg-muted/50 mt-0 gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
@@ -798,7 +1107,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             {isEdit ? "Save Changes" : "Create Property"}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   )

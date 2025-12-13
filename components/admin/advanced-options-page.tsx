@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { DropdownManager } from "@/components/admin/dropdown-manager"
 import { AmenitiesManager } from "@/components/admin/amenities-manager"
+import { LocationManager } from "@/components/admin/location-manager"
 import { BulkExport } from "@/components/admin/bulk-export"
 import { BulkImport } from "@/components/admin/bulk-import"
 import { BulkExcelExport } from "@/components/admin/bulk-excel-export"
@@ -30,6 +31,8 @@ export function AdvancedOptionsPage() {
       </Card>
 
       <DropdownManager />
+
+      <LocationManager />
 
       <AmenitiesManager />
 

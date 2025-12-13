@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, Calendar, Loader2, Plus } from "lucide-react"
+import { DollarSign, Calendar, Loader2, Plus, RefreshCw } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
@@ -39,14 +39,20 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
   const fetchLedger = async () => {
     try {
       setLoading(true)
-      const response = await apiService.dealerLedger.getLedger(dealerId, { period: filter })
-      setLedger(response.data)
+      const response: any = await apiService.dealerLedger.getLedger(dealerId, { period: filter })
+      const responseData = response?.data
+      // Handle different response structures
+      const ledgerData = responseData?.data || responseData || response?.data || null
+      setLedger(ledgerData)
     } catch (error: any) {
+      const errorMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message || "Failed to fetch dealer ledger"
       toast({
         title: "Error",
-        description: error.message || "Failed to fetch dealer ledger",
+        description: errorMessage,
         variant: "destructive",
       })
+      setLedger(null)
+      console.error("Failed to fetch dealer ledger:", error)
     } finally {
       setLoading(false)
     }
@@ -125,6 +131,10 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
                 <SelectItem value="thisMonth">This Month</SelectItem>
               </SelectContent>
             </Select>
+            <Button variant="outline" size="sm" onClick={fetchLedger} disabled={loading}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+              Refresh
+            </Button>
             <Button onClick={() => setShowPaymentForm(true)}>
               <Plus className="mr-2 h-4 w-4" />
               Record Payment

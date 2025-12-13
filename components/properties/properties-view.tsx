@@ -18,12 +18,12 @@ import {
   Filter,
   MoreVertical,
   Edit,
+  FileText,
   Trash2,
   Eye,
   ShoppingCart,
   KeyRound,
   Loader2,
-  FileText,
 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
@@ -40,8 +40,11 @@ import { SalesView } from "./sales-view"
 import { BuyersView } from "./buyers-view"
 import { SellersView } from "./sellers-view"
 import { ReportGenerator } from "@/components/shared/report-generator"
+import { PropertyReportHTML } from "@/components/reports/property-report-html"
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { apiService } from "@/lib/api"
 import { PropertyToasts, handleApiError } from "@/lib/toast-utils"
+import { formatCurrency } from "@/lib/utils"
 
 export function PropertiesView() {
   const router = useRouter()
@@ -65,6 +68,9 @@ export function PropertiesView() {
   const [showStructureDialog, setShowStructureDialog] = useState(false)
   const [structurePropertyId, setStructurePropertyId] = useState<string | null>(null)
   const [structurePropertyName, setStructurePropertyName] = useState<string>("")
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [reportProperty, setReportProperty] = useState<any>(null)
+  const [reportLoading, setReportLoading] = useState(false)
 
   const updateActiveTab = useCallback(
     (value: string, { shouldPersistQuery = true }: { shouldPersistQuery?: boolean } = {}) => {
@@ -293,19 +299,82 @@ export function PropertiesView() {
 
   const handleGeneratePropertyReport = async (property: any) => {
     try {
-      const response = await apiService.properties.getReport(String(property.id))
-      const blob = new Blob([response.data as Blob], { type: "application/pdf" })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${(property.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
+      setReportLoading(true)
+      setReportProperty(null)
+      
+      // Fetch full property details with deals and payment plan
+      const response: any = await apiService.properties.getById(String(property.id))
+      const propertyData = response?.data?.data || response?.data || property
+      
+      setReportProperty(propertyData)
+      setReportDialogOpen(true)
     } catch (error: any) {
-      console.error("Failed to generate property report", error)
-      handleApiError(error, "Failed to generate property report")
+      console.error("Failed to fetch property details for report", error)
+      handleApiError(error, "Failed to load property details")
+    } finally {
+      setReportLoading(false)
     }
   }
+
+  // Get payment plan from first deal that has one (same logic as property-detail-page)
+  const reportPaymentPlan = reportProperty?.deals ? (() => {
+    for (const deal of reportProperty.deals) {
+      if (deal.paymentPlan) {
+        const plan = deal.paymentPlan
+        const installments = plan.installments || []
+        const totalInstallments = installments.length
+        const installmentAmount = totalInstallments > 0 ? installments[0].amount || 0 : 0
+        
+        // Calculate duration (months)
+        let duration = "N/A"
+        if (installments.length > 0) {
+          const firstDate = new Date(installments[0].dueDate || Date.now())
+          const lastDate = new Date(installments[installments.length - 1].dueDate || Date.now())
+          const months = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+          duration = `${months} Months`
+        }
+
+        return {
+          totalAmount: plan.totalAmount || 0,
+          downPayment: plan.downPayment || 0,
+          installments: totalInstallments,
+          installmentAmount: installmentAmount,
+          duration: duration,
+          schedule: installments.map((inst: any, idx: number) => {
+            let dateStr = "N/A"
+            if (inst.dueDate) {
+              const date = new Date(inst.dueDate)
+              const day = String(date.getDate()).padStart(2, "0")
+              const month = date.toLocaleDateString("en-US", { month: "short" })
+              const year = date.getFullYear()
+              dateStr = `${day} ${month} ${year}`
+            }
+            return {
+              no: inst.installmentNumber || idx + 1,
+              date: dateStr,
+              amount: formatCurrency(inst.amount || 0),
+              status: inst.status === "paid" ? "Paid" : inst.status === "overdue" ? "Overdue" : "Pending",
+            }
+          }),
+        }
+      }
+    }
+    return null
+  })() : null
+
+  // Prepare deals data for report
+  const reportDeals = reportProperty?.deals ? reportProperty.deals.map((deal: any) => {
+    const totalReceived = deal.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0
+    const dealAmount = deal.dealAmount || deal.amount || 0
+    return {
+      title: deal.title || "N/A",
+      contactName: deal.contactName || deal.client?.name || "N/A",
+      amount: dealAmount,
+      received: totalReceived,
+      pending: Math.max(0, dealAmount - totalReceived),
+      stage: deal.stage || "N/A",
+    }
+  }) : []
 
   return (
     <div className="space-y-6">
@@ -610,7 +679,11 @@ export function PropertiesView() {
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}>
                               <Eye className="h-4 w-4 mr-2" />
-                              View Details
+                              View
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => router.push(`/ledger/property/${property.id}`)}>
+                              <FileText className="h-4 w-4 mr-2" />
+                              Open Ledger
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleGeneratePropertyReport(property)}
@@ -803,6 +876,31 @@ export function PropertiesView() {
           }}
         />
       )}
+
+      {/* Property Report Dialog */}
+      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+        <DialogContent className="max-w-[1000px] w-full max-h-[90vh] overflow-hidden p-0">
+          <DialogTitle className="sr-only">Property Report</DialogTitle>
+          {reportLoading ? (
+            <div className="flex items-center justify-center h-[90vh]">
+              <Loader2 className="h-8 w-8 animate-spin" />
+            </div>
+          ) : reportProperty ? (
+            <div className="h-[90vh] overflow-y-auto">
+              <PropertyReportHTML
+                property={{
+                  ...reportProperty,
+                  totalArea: reportProperty.totalArea,
+                }}
+                financeSummary={reportProperty.financeSummary || {}}
+                paymentPlan={reportPaymentPlan || undefined}
+                deals={reportDeals}
+                hideActions={false}
+              />
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

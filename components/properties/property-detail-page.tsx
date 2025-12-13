@@ -11,12 +11,10 @@ import { Skeleton } from "@/components/ui/skeleton"
 import {
   ArrowLeft,
   Building2,
-  Download,
+  Calendar,
   FileText,
   Home,
-  Loader2,
   MapPin,
-  Printer,
   Receipt,
   Users,
   User,
@@ -24,9 +22,10 @@ import {
   DollarSign,
 } from "lucide-react"
 import { apiService } from "@/lib/api"
-import { downloadJSON, formatCurrency } from "@/lib/utils"
-import { PropertyReport } from "@/components/reports/property-report"
-import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { formatCurrency } from "@/lib/utils"
+import { PropertyReportHTML } from "@/components/reports/property-report-html"
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ImageLightbox } from "@/components/shared/image-lightbox"
 
 type PropertyResponse = {
   id: string | number
@@ -57,8 +56,27 @@ type PropertyResponse = {
     title?: string
     stage?: string
     amount?: number
+    dealAmount?: number
     contactName?: string
     contactPhone?: string
+    client?: {
+      name?: string
+    }
+    payments?: Array<{
+      amount?: number
+    }>
+    paymentPlan?: {
+      id?: string | number
+      totalAmount?: number
+      downPayment?: number
+      installments?: Array<{
+        installmentNumber?: number
+        amount?: number
+        dueDate?: string | Date
+        paidAmount?: number
+        status?: string
+      }>
+    }
   }>
 }
 
@@ -81,7 +99,10 @@ export function PropertyDetailPage() {
   const [property, setProperty] = useState<PropertyResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [reportLoading, setReportLoading] = useState(false)
+  const [reportDialogOpen, setReportDialogOpen] = useState(false)
+  const [attachments, setAttachments] = useState<Array<{ id: string; fileUrl: string; fileName: string; fileType: string }>>([])
+  const [lightboxOpen, setLightboxOpen] = useState(false)
+  const [lightboxIndex, setLightboxIndex] = useState(0)
 
   useEffect(() => {
     if (propertyId) {
@@ -96,6 +117,16 @@ export function PropertyDetailPage() {
       const response: any = await apiService.properties.getById(String(propertyId))
       const data = response?.data?.data || response?.data || null
       setProperty(data)
+
+      // Load attachments
+      try {
+        const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
+        const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
+        setAttachments(Array.isArray(attachmentsData) ? attachmentsData : [])
+      } catch (err) {
+        // Ignore if attachments endpoint fails
+        console.warn("Failed to load attachments", err)
+      }
     } catch (err: any) {
       console.error("Failed to fetch property", err)
       setError(err?.response?.data?.message || err?.message || "Failed to load property")
@@ -104,32 +135,69 @@ export function PropertyDetailPage() {
     }
   }
 
-  const handlePrint = () => window.print()
+  // Get payment plan from first deal that has one
+  const paymentPlan = useMemo(() => {
+    if (!property?.deals) return null
+    for (const deal of property.deals) {
+      if (deal.paymentPlan) {
+        const plan = deal.paymentPlan
+        const installments = plan.installments || []
+        const totalInstallments = installments.length
+        const installmentAmount = totalInstallments > 0 ? installments[0].amount || 0 : 0
+        
+        // Calculate duration (months)
+        let duration = "N/A"
+        if (installments.length > 0) {
+          const firstDate = new Date(installments[0].dueDate || Date.now())
+          const lastDate = new Date(installments[installments.length - 1].dueDate || Date.now())
+          const months = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+          duration = `${months} Months`
+        }
 
-  const handleDownloadJson = () => {
-    if (!property) return
-    const name = property.name?.replace(/\s+/g, "-").toLowerCase() || "property"
-    downloadJSON(property, `${name}-${propertyId}`)
-  }
-
-  const handleGenerateReport = async () => {
-    if (!propertyId) return
-    try {
-      setReportLoading(true)
-      const response = await apiService.properties.getReport(String(propertyId))
-      const blob = new Blob([response.data as Blob], { type: "application/pdf" })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${(property?.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
-    } catch (err) {
-      console.error("Failed to generate property report", err)
-    } finally {
-      setReportLoading(false)
+        return {
+          totalAmount: plan.totalAmount || 0,
+          downPayment: plan.downPayment || 0,
+          installments: totalInstallments,
+          installmentAmount: installmentAmount,
+          duration: duration,
+          schedule: installments.map((inst, idx) => {
+            let dateStr = "N/A"
+            if (inst.dueDate) {
+              const date = new Date(inst.dueDate)
+              const day = String(date.getDate()).padStart(2, "0")
+              const month = date.toLocaleDateString("en-US", { month: "short" })
+              const year = date.getFullYear()
+              dateStr = `${day} ${month} ${year}`
+            }
+            return {
+              no: inst.installmentNumber || idx + 1,
+              date: dateStr,
+              amount: formatCurrency(inst.amount || 0),
+              status: inst.status === "paid" ? "Paid" : inst.status === "overdue" ? "Overdue" : "Pending",
+            }
+          }),
+        }
+      }
     }
-  }
+    return null
+  }, [property])
+
+  // Prepare deals data for report
+  const dealsForReport = useMemo(() => {
+    if (!property?.deals) return []
+    return property.deals.map((deal) => {
+      const totalReceived = deal.payments?.reduce((sum, p) => sum + (p.amount || 0), 0) || 0
+      const dealAmount = deal.dealAmount || deal.amount || 0
+      return {
+        title: deal.title || "N/A",
+        contactName: deal.contactName || deal.client?.name || "N/A",
+        amount: dealAmount,
+        received: totalReceived,
+        pending: Math.max(0, dealAmount - totalReceived),
+        stage: deal.stage || "N/A",
+      }
+    })
+  }, [property])
 
   const metrics = useMemo(() => {
     const unitsValue =
@@ -285,43 +353,29 @@ export function PropertyDetailPage() {
           <p className="text-muted-foreground">{property.location || property.address || "No location provided"}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={handlePrint}>
-            <Printer className="h-4 w-4 mr-2" />
-            Print / Save as PDF
-          </Button>
-
-          <Dialog>
+          <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="default">
                 <FileText className="h-4 w-4 mr-2" />
                 Generate Report
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-[850px] w-full max-h-[90vh] overflow-y-auto p-0 scrollbar-hide">
-              <div className="relative">
-                <div className="absolute top-4 right-4 z-10 print:hidden">
-                  <Button onClick={() => window.print()} size="sm" variant="default">
-                    <Printer className="h-4 w-4 mr-2" />
-                    Print Report
-                  </Button>
-                </div>
-                <div className="print-content">
-                  <PropertyReport
-                    property={{
-                      ...property,
-                      totalArea: formatArea(property.totalArea),
-                    }}
-                    financeSummary={financeSummary}
-                  />
-                </div>
+            <DialogContent className="max-w-[1000px] w-full max-h-[90vh] overflow-hidden p-0">
+              <DialogTitle className="sr-only">Property Report</DialogTitle>
+              <div className="h-[90vh] overflow-y-auto">
+                <PropertyReportHTML
+                  property={{
+                    ...property,
+                    totalArea: property.totalArea,
+                  }}
+                  financeSummary={financeSummary}
+                  paymentPlan={paymentPlan || undefined}
+                  deals={dealsForReport}
+                  hideActions={false}
+                />
               </div>
             </DialogContent>
           </Dialog>
-
-          <Button variant="outline" onClick={handleDownloadJson}>
-            <Download className="h-4 w-4 mr-2" />
-            Download JSON
-          </Button>
         </div>
       </div>
 
@@ -351,6 +405,10 @@ export function PropertyDetailPage() {
               <p className="text-sm font-semibold text-foreground">Basic Information</p>
               <p className="text-sm text-muted-foreground">Overview of the property details</p>
             </div>
+            <Button onClick={() => router.push(`/ledger/property/${propertyId}`)} variant="outline" size="sm">
+              <FileText className="mr-2 h-4 w-4" />
+              Open Ledger
+            </Button>
           </div>
           <Separator className="my-4" />
           <div className="grid gap-4 md:grid-cols-2">
@@ -438,6 +496,77 @@ export function PropertyDetailPage() {
         </Card>
       </div>
 
+      {paymentPlan && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Payment Plan</p>
+              <p className="text-sm text-muted-foreground">Installment schedule for this property</p>
+            </div>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <Separator className="my-4" />
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-4">
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Total Amount</p>
+              <p className="text-sm font-semibold">{formatCurrency(paymentPlan.totalAmount)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Down Payment</p>
+              <p className="text-sm font-semibold">{formatCurrency(paymentPlan.downPayment)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Installments</p>
+              <p className="text-sm font-semibold">{paymentPlan.installments}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Installment Amount</p>
+              <p className="text-sm font-semibold">{formatCurrency(paymentPlan.installmentAmount)}</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-muted-foreground">Duration</p>
+              <p className="text-sm font-semibold">{paymentPlan.duration}</p>
+            </div>
+          </div>
+          {paymentPlan.schedule && paymentPlan.schedule.length > 0 && (
+            <div className="rounded-lg border border-border/60">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>#</TableHead>
+                    <TableHead>Due Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {paymentPlan.schedule.map((schedule, idx) => (
+                    <TableRow key={idx}>
+                      <TableCell>{schedule.no}</TableCell>
+                      <TableCell>{schedule.date}</TableCell>
+                      <TableCell>{schedule.amount}</TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            schedule.status === "Paid"
+                              ? "default"
+                              : schedule.status === "Overdue"
+                                ? "destructive"
+                                : "secondary"
+                          }
+                        >
+                          {schedule.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </Card>
+      )}
+
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -468,10 +597,10 @@ export function PropertyDetailPage() {
                 <TableRow key={deal.id || deal.title}>
                   <TableCell className="font-medium text-foreground">{deal.title || "Untitled Deal"}</TableCell>
                   <TableCell>{deal.stage || "N/A"}</TableCell>
-                  <TableCell>{formatCurrency(deal.amount || 0)}</TableCell>
+                  <TableCell>{formatCurrency(deal.amount || deal.dealAmount || 0)}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span>{deal.contactName || "N/A"}</span>
+                      <span>{deal.contactName || deal.client?.name || "N/A"}</span>
                       {deal.contactPhone && <span className="text-xs text-muted-foreground">{deal.contactPhone}</span>}
                     </div>
                   </TableCell>
@@ -519,6 +648,93 @@ export function PropertyDetailPage() {
           </div>
         </div>
       </Card>
+
+      {/* Attachments Section */}
+      {attachments.length > 0 && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="text-sm font-semibold text-foreground">Attachments</p>
+              <p className="text-sm text-muted-foreground">Documents and images for this property</p>
+            </div>
+            <FileText className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {attachments.map((attachment, idx) => {
+              const isImage = attachment.fileType?.startsWith('image/')
+              const imageUrl = attachment.fileUrl.startsWith('http')
+                ? attachment.fileUrl
+                : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.fileUrl}`
+              
+              return (
+                <div
+                  key={attachment.id || idx}
+                  className="relative group cursor-pointer"
+                  onClick={() => {
+                    if (isImage) {
+                      const imageAttachments = attachments.filter(a => a.fileType?.startsWith('image/'))
+                      const imageIndex = imageAttachments.findIndex(a => a.id === attachment.id)
+                      setLightboxIndex(imageIndex >= 0 ? imageIndex : 0)
+                      setLightboxOpen(true)
+                    } else {
+                      window.open(imageUrl, '_blank')
+                    }
+                  }}
+                >
+                  {isImage ? (
+                    <div className="aspect-square rounded-lg border overflow-hidden bg-muted">
+                      <img
+                        src={imageUrl}
+                        alt={attachment.fileName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        onError={(e) => {
+                          ;(e.target as HTMLImageElement).style.display = "none"
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                        <FileText className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="aspect-square rounded-lg border bg-muted flex flex-col items-center justify-center p-2 group-hover:bg-muted/80 transition-colors">
+                      <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+                      <p className="text-xs text-center text-muted-foreground truncate w-full px-1">
+                        {attachment.fileName}
+                      </p>
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground mt-1 truncate" title={attachment.fileName}>
+                    {attachment.fileName}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+        </Card>
+      )}
+
+      {/* Image Lightbox */}
+      {attachments.length > 0 && (
+        <ImageLightbox
+          images={attachments
+            .filter(a => a.fileType?.startsWith('image/'))
+            .map(a => ({
+              url: a.fileUrl.startsWith('http')
+                ? a.fileUrl
+                : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${a.fileUrl}`,
+              name: a.fileName,
+            }))}
+          currentIndex={lightboxIndex}
+          open={lightboxOpen}
+          onClose={() => setLightboxOpen(false)}
+          onNavigate={(index) => {
+            const imageAttachments = attachments.filter(a => a.fileType?.startsWith('image/'))
+            if (index >= 0 && index < imageAttachments.length) {
+              setLightboxIndex(index)
+            }
+          }}
+        />
+      )}
     </div>
   )
 }

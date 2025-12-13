@@ -497,6 +497,8 @@ export const apiService = {
     update: (id: string, data: any) => api.put(`/properties/${id}`, data),
     delete: (id: string) => api.delete(`/properties/${id}`),
     getStructure: (id: string) => api.get(`/properties/${id}/structure`),
+    uploadDocument: (propertyId: string, data: { file: string; filename: string }) => api.post(`/property/upload-document?propertyId=${propertyId}`, data),
+    getDocuments: (propertyId: string) => api.get(`/property/documents/${propertyId}`),
     createFloor: (id: string, data: any) => api.post(`/properties/${id}/floors`, data),
   },
 
@@ -854,6 +856,9 @@ export const apiService = {
     clientById: (clientId: string, params?: any) => api.get(`/finance/ledger/client/${clientId}`, { params }),
     properties: () => api.get('/finance/ledgers/properties'),
     company: () => api.get('/finance/ledgers/company'),
+    // Unified ledger endpoint
+    getLedger: (type: 'client' | 'dealer' | 'property', id: string, params?: any) => 
+      api.get(`/finance/ledger/${type}/${id}`, { params }),
   },
 
   // Stats (with longer timeout for slow queries)

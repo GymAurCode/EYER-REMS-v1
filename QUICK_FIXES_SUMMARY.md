@@ -91,7 +91,7 @@ npm outdated
 |-------|----------|--------|--------|
 | Connection Pooling | 🔴 Critical | High | Low (5 min) |
 | Console.log Statements | 🟡 High | Medium | Medium (2-3 hours) |
-| Missing Pagination | 🟡 High | High | High (1-2 days) |
+| Missing Pagination | 🟡 High | High | High (1-2 days) | 
 | Image Optimization | 🟢 Medium | Medium | Low (1 min) |
 | Dependency Versions | 🟢 Medium | Low | Medium (1 hour) |
 

@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users } from "lucide-react"
+import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { AddClientDialog } from "./add-client-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -209,6 +209,24 @@ export function ClientsView() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        router.push(`/details/clients/${client.id}`)
+                      }}
+                    >
+                        <Eye className="mr-2 h-4 w-4" />
+                        View
+                      </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={(event) => {
+                        event.preventDefault()
+                        router.push(`/ledger/client/${client.id}`)
+                      }}
+                    >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Open Ledger
+                      </DropdownMenuItem>
                     <DropdownMenuItem
                       onSelect={(event) => {
                         event.preventDefault()
