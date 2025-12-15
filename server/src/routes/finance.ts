@@ -2056,9 +2056,9 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
         data: {
           dealId,
           clientId,
-          numberOfInstallments: installments.length,
+          numberOfInstallments: installments.length + (downPayment > 0 ? 1 : 0), // Include down payment as installment
           totalAmount: dealAmount,
-          totalExpected: totalAmount,
+          totalExpected: totalAmount + (downPayment || 0), // Include down payment in total
           startDate: installments[0]?.dueDate ? new Date(installments[0].dueDate) : new Date(),
           notes: req.body.notes || null,
           isActive: true,
@@ -2069,15 +2069,38 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
         },
       });
 
-      // Create installments with manual amounts
-      const createdInstallments = await Promise.all(
+      const createdInstallments: any[] = [];
+
+      // Create down payment as first installment (installmentNumber: 0) if down payment exists
+      if (downPayment > 0) {
+        const downPaymentInstallment = await tx.dealInstallment.create({
+          data: {
+            paymentPlanId: plan.id,
+            dealId,
+            clientId,
+            installmentNumber: 0, // Down payment is installment 0
+            type: 'down_payment', // Special type for down payment
+            amount: downPayment,
+            dueDate: new Date(), // Due date is today or can be set to start date
+            status: 'Pending', // Down payment is pending until paid
+            paidAmount: 0,
+            remaining: downPayment,
+            paymentMode: null,
+            notes: 'Down Payment',
+          },
+        });
+        createdInstallments.push(downPaymentInstallment);
+      }
+
+      // Create regular installments (starting from installmentNumber: 1)
+      const regularInstallments = await Promise.all(
         installments.map((inst: any, index: number) =>
           tx.dealInstallment.create({
             data: {
               paymentPlanId: plan.id,
               dealId,
               clientId,
-              installmentNumber: index + 1,
+              installmentNumber: index + 1, // Start from 1 (0 is down payment)
               type: inst.type || null,
               amount: inst.amount,
               dueDate: new Date(inst.dueDate),
@@ -2090,6 +2113,8 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
           })
         )
       );
+
+      createdInstallments.push(...regularInstallments);
 
       return {
         ...plan,

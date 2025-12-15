@@ -22,6 +22,7 @@ import { format } from "date-fns"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useDropdownOptions } from "@/hooks/use-dropdowns"
 
 interface PaymentPlanPageViewProps {
   dealId: string
@@ -54,9 +55,8 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   const [downPaymentType, setDownPaymentType] = useState<"percentage" | "manual">("manual")
   const [downPaymentPercentage, setDownPaymentPercentage] = useState<string>("")
   const [downPaymentAmount, setDownPaymentAmount] = useState<string>("")
-  const [appliedDownPayment, setAppliedDownPayment] = useState<number>(0)
-  const [isDownPaymentApplied, setIsDownPaymentApplied] = useState(false)
-  const [downPaymentAction, setDownPaymentAction] = useState<"cut" | "pay">("cut")
+  // Get installment types from advance options
+  const { options: installmentTypeOptions } = useDropdownOptions("payment.installment.type")
 
   const [numberOfInstallments, setNumberOfInstallments] = useState(3)
   const [installmentsInput, setInstallmentsInput] = useState<string>("3")
@@ -215,29 +215,10 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
 
   // Calculate remaining amount after down payment
   const remainingAmount = () => {
-    const downPayment = isDownPaymentApplied ? appliedDownPayment : calculatedDownPayment()
+    const downPayment = calculatedDownPayment()
     return Math.max(0, (deal?.dealAmount || 0) - downPayment)
   }
 
-  // Apply down payment
-  const handleApplyDownPayment = () => {
-    const dp = calculatedDownPayment()
-    if (dp > 0 && deal?.dealAmount && dp <= deal.dealAmount) {
-      setAppliedDownPayment(dp)
-      setIsDownPaymentApplied(true)
-      setDownPaymentAction("pay") // Mark as paid so it shows in summary
-      toast({
-        title: "Down Payment Applied",
-        description: `Down payment of Rs ${dp.toLocaleString("en-IN")} has been applied. Remaining: Rs ${remainingAmount().toLocaleString("en-IN")}`,
-      })
-    } else {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid down payment amount",
-        variant: "destructive",
-      })
-    }
-  }
 
   // Generate installments based on type - each installment has its own type
   const handleGenerateInstallments = (type: 'monthly' | 'quarterly' | 'yearly' | 'custom') => {
@@ -342,11 +323,11 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     try {
       setSaving(true)
 
-      // Validate down payment is applied (only for create, not update)
-      if (!isEditMode && (!isDownPaymentApplied || appliedDownPayment <= 0)) {
+      // Validate down payment (only for create, not update)
+      if (!isEditMode && calculatedDownPayment() <= 0) {
         toast({
           title: "Validation Error",
-          description: "Down payment is required. Please enter and apply down payment first.",
+          description: "Down payment is required. Please enter down payment amount.",
           variant: "destructive",
         })
         return
@@ -402,8 +383,8 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
           return
         }
 
-        // Preserve down payment when updating - get it from existing plan or use applied one
-        const downPaymentToSave = paymentPlan?.downPayment || appliedDownPayment || 0
+        // Preserve down payment when updating - get it from existing plan or use calculated one
+        const downPaymentToSave = paymentPlan?.downPayment || calculatedDownPayment() || 0
 
         const response: any = await apiService.paymentPlans.update(planId, {
           installments: installmentsPayload,
@@ -422,8 +403,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
           setInstallments([])
           setDownPaymentPercentage("")
           setDownPaymentAmount("")
-          setAppliedDownPayment(0)
-          setIsDownPaymentApplied(false)
           setNotes("")
         }
       } else {
@@ -439,7 +418,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         const response: any = await apiService.paymentPlans.create({
           dealId,
           clientId: deal?.clientId || "",
-          downPayment: appliedDownPayment, // Include down payment for backend validation
+          downPayment: calculatedDownPayment(), // Include down payment for backend validation
           installments: installmentsPayload,
           notes: notes || null,
         })
@@ -455,8 +434,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
           setInstallments([])
           setDownPaymentPercentage("")
           setDownPaymentAmount("")
-          setAppliedDownPayment(0)
-          setIsDownPaymentApplied(false)
           setIsEditMode(false)
           setNotes("")
         }
@@ -742,20 +719,9 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   // Get saved down payment from payment plan (handle nested structure)
   const savedDownPayment = paymentPlan?.downPayment || (paymentPlan as any)?.paymentPlan?.downPayment || 0
 
-  // If user has applied down payment in the form, show it immediately
-  if (isDownPaymentApplied && appliedDownPayment > 0) {
-    if (paymentPlan && savedDownPayment > 0) {
-      // Existing plan: backend summary already includes saved down payment
-      // Replace it with the newly applied amount
-      totalPaidAmount = (totalPaidAmount - savedDownPayment) + appliedDownPayment
-    } else {
-      // New plan: add the applied down payment
-      totalPaidAmount = totalPaidAmount + appliedDownPayment
-    }
-  } else if (!isDownPaymentApplied && paymentPlan && savedDownPayment > 0) {
-    // If down payment is not applied in form but exists in saved plan, it's already in apiSummary
-    // No need to add it again
-  }
+  // Down payment is now automatically included as installment #0 when plan is created
+  // So it's already counted in the installments and doesn't need special handling here
+  // The summary from backend already includes all installments including down payment
 
   // Calculate final summary with down payment included
   // If no apiSummary and no deal, show zeros (but still show the summary card)
@@ -856,8 +822,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                   setInstallments([])
                   setDownPaymentPercentage("")
                   setDownPaymentAmount("")
-                  setAppliedDownPayment(0)
-                  setIsDownPaymentApplied(false)
                   setNotes("")
                 }}>
                   Cancel
@@ -877,8 +841,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                   <Label>Down Payment Type</Label>
                   <Select value={downPaymentType} onValueChange={(value: "percentage" | "manual") => {
                     setDownPaymentType(value)
-                    setIsDownPaymentApplied(false)
-                    setAppliedDownPayment(0)
                   }}>
                     <SelectTrigger>
                       <SelectValue />
@@ -904,8 +866,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                           const num = parseFloat(value)
                           if (value === "" || (!isNaN(num) && num >= 0 && num <= 100)) {
                             setDownPaymentPercentage(value)
-                            setIsDownPaymentApplied(false)
-                            setAppliedDownPayment(0)
                           }
                         }}
                         placeholder="0.00"
@@ -930,8 +890,6 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                           const num = parseFloat(value)
                           if (value === "" || (!isNaN(num) && num >= 0 && num <= (deal?.dealAmount || 0))) {
                             setDownPaymentAmount(value)
-                            setIsDownPaymentApplied(false)
-                            setAppliedDownPayment(0)
                           }
                         }}
                         placeholder="0.00"
@@ -939,26 +897,19 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     </>
                   )}
                 </div>
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    onClick={handleApplyDownPayment}
-                    disabled={calculatedDownPayment() <= 0 || isDownPaymentApplied}
-                    className="w-full"
-                  >
-                    {isDownPaymentApplied ? "Applied" : "Apply Down Payment"}
-                  </Button>
-                </div>
               </div>
-              {isDownPaymentApplied && appliedDownPayment > 0 && (
+              {calculatedDownPayment() > 0 && (
                 <div className="bg-muted p-3 rounded-lg space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Applied Down Payment:</span>
-                    <span className="text-sm font-semibold">Rs {appliedDownPayment.toLocaleString("en-IN")}</span>
+                    <span className="text-sm font-medium">Down Payment:</span>
+                    <span className="text-sm font-semibold">Rs {calculatedDownPayment().toLocaleString("en-IN")}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Remaining Amount:</span>
+                    <span className="text-sm font-medium">Remaining Amount for Installments:</span>
                     <span className="text-sm font-semibold">Rs {remainingAmount().toLocaleString("en-IN")}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground pt-1 border-t">
+                    Note: Down payment will be automatically included as a pending installment when you create the plan.
                   </div>
                 </div>
               )}
@@ -1020,7 +971,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     type="button"
                     variant="outline"
                     onClick={() => handleGenerateInstallments('monthly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Generate {numberOfInstallments} Monthly
@@ -1029,7 +980,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     type="button"
                     variant="outline"
                     onClick={() => handleGenerateInstallments('quarterly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Generate {numberOfInstallments} Quarterly
@@ -1038,7 +989,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     type="button"
                     variant="outline"
                     onClick={() => handleGenerateInstallments('yearly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Generate {numberOfInstallments} Yearly
@@ -1047,7 +998,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                     type="button"
                     variant="outline"
                     onClick={() => handleGenerateInstallments('custom')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0 || !isDownPaymentApplied}
+                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
                   >
                     <Plus className="mr-2 h-4 w-4" />
                     Generate {numberOfInstallments} Custom
@@ -1059,7 +1010,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
               <div className="space-y-4">
                 {installments.length === 0 ? (
                   <div className="text-center text-muted-foreground py-8 border rounded-lg">
-                    No installments yet. Apply down payment first, then generate installments by type.
+                    No installments yet. Enter down payment and generate installments by type.
                   </div>
                 ) : (
                   (() => {
@@ -1115,9 +1066,24 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                                       <SelectValue placeholder="Select Type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="monthly">Monthly</SelectItem>
-                                      <SelectItem value="quarterly">Quarterly</SelectItem>
-                                      <SelectItem value="yearly">Yearly</SelectItem>
+                                      {/* Default options */}
+                                      {(!installmentTypeOptions || installmentTypeOptions.length === 0) && (
+                                        <>
+                                          <SelectItem value="monthly">Monthly</SelectItem>
+                                          <SelectItem value="quarterly">Quarterly</SelectItem>
+                                          <SelectItem value="yearly">Yearly</SelectItem>
+                                          <SelectItem value="custom">Custom</SelectItem>
+                                        </>
+                                      )}
+                                      {/* Options from advance options */}
+                                      {installmentTypeOptions && installmentTypeOptions.length > 0 && installmentTypeOptions
+                                        .filter(opt => opt.isActive !== false)
+                                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                        .map((option) => (
+                                          <SelectItem key={option.id} value={option.value}>
+                                            {option.label}
+                                          </SelectItem>
+                                        ))}
                                       <SelectItem value="custom">Custom</SelectItem>
                                     </SelectContent>
                                   </Select>
@@ -1216,13 +1182,11 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                 setInstallments([])
                 setDownPaymentPercentage("")
                 setDownPaymentAmount("")
-                setAppliedDownPayment(0)
-                setIsDownPaymentApplied(false)
                 setNotes("")
               }}>
                 Reset
               </Button>
-              <Button onClick={handleSave} disabled={saving || !isDownPaymentApplied}>
+              <Button onClick={handleSave} disabled={saving}>
                 {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                 {isEditMode ? "Update Plan" : "Create Plan"}
               </Button>

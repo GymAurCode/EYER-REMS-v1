@@ -16,6 +16,7 @@ import { apiService } from "@/lib/api"
 import api from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import { useDropdownOptions } from "@/hooks/use-dropdowns"
 
 interface PaymentPlanDialogProps {
   open: boolean
@@ -54,9 +55,8 @@ export function PaymentPlanDialog({
   const [downPaymentType, setDownPaymentType] = useState<"percentage" | "manual">("manual")
   const [downPaymentPercentage, setDownPaymentPercentage] = useState<string>("")
   const [downPaymentAmount, setDownPaymentAmount] = useState<string>("")
-  const [downPaymentAction, setDownPaymentAction] = useState<"cut" | "pay">("cut")
-  const [appliedDownPayment, setAppliedDownPayment] = useState<number>(0)
-  const [isDownPaymentApplied, setIsDownPaymentApplied] = useState(false)
+  // Get installment types from advance options
+  const { options: installmentTypeOptions } = useDropdownOptions("payment.installment.type")
 
   // Calculate downpayment amount
   const calculatedDownPayment = useMemo(() => {
@@ -71,77 +71,19 @@ export function PaymentPlanDialog({
     }
   }, [downPaymentType, downPaymentPercentage, downPaymentAmount, dealAmount])
 
-  // Handle Apply Down Payment
-  const handleApplyDownPayment = () => {
-    if (calculatedDownPayment > 0) {
-      setAppliedDownPayment(calculatedDownPayment)
-      setIsDownPaymentApplied(true)
-      
-      // Force recalculation of installments
-      const newRemaining = downPaymentAction === "cut" 
-        ? Math.max(0, dealAmount - calculatedDownPayment)
-        : dealAmount
-      
-      const defaultAmount = newRemaining / numberOfInstallments
-      const newInstallments: InstallmentRow[] = []
-      
-      for (let i = 0; i < numberOfInstallments; i++) {
-        const dueDate = new Date(startDate)
-        dueDate.setMonth(dueDate.getMonth() + i)
-        
-        newInstallments.push({
-          id: Date.now() + i,
-          installmentNumber: i + 1,
-          type: "",
-          amount: Math.round(defaultAmount * 100) / 100,
-          period: "",
-          dueDate,
-          paymentMode: "bank",
-          notes: "",
-        })
-      }
-      
-      // Adjust last installment to account for rounding
-      const total = newInstallments.reduce((sum, inst) => sum + inst.amount, 0)
-      if (Math.abs(total - newRemaining) > 0.01) {
-        newInstallments[newInstallments.length - 1].amount += newRemaining - total
-        newInstallments[newInstallments.length - 1].amount = Math.round(newInstallments[newInstallments.length - 1].amount * 100) / 100
-      }
-      
-      setInstallments(newInstallments)
-      
-      toast({
-        title: "Down Payment Applied",
-        description: `Down payment of Rs ${calculatedDownPayment.toLocaleString("en-IN")} has been ${downPaymentAction === "cut" ? "deducted from installments" : "planned (pending payment)"}. Installments recalculated.`,
-      })
-    } else {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid down payment amount",
-        variant: "destructive",
-      })
-    }
-  }
-
-  // Calculate remaining amount after downpayment
-  // Only use applied down payment for calculations
-  // If "cut" is selected, deduct from deal amount
-  // If "pay" is selected, don't deduct (down payment is separate, already paid)
+  // Calculate remaining amount after downpayment (for installments calculation)
   const remainingAmount = useMemo(() => {
-    if (isDownPaymentApplied && downPaymentAction === "cut" && appliedDownPayment > 0) {
-      return Math.max(0, dealAmount - appliedDownPayment)
+    if (calculatedDownPayment > 0) {
+      return Math.max(0, dealAmount - calculatedDownPayment)
     }
     return dealAmount
-  }, [dealAmount, appliedDownPayment, downPaymentAction, isDownPaymentApplied])
+  }, [dealAmount, calculatedDownPayment])
 
   // Reset down payment state when dialog opens
   useEffect(() => {
     if (open) {
-      setIsDownPaymentApplied(false)
-      setAppliedDownPayment(0)
       setDownPaymentPercentage("")
       setDownPaymentAmount("")
-      setDownPaymentAction("cut")
     }
   }, [open])
 
@@ -158,7 +100,7 @@ export function PaymentPlanDialog({
         newInstallments.push({
           id: Date.now() + i, // Unique ID for each installment
           installmentNumber: i + 1,
-          type: "", // Monthly, Quarterly, Yearly
+          type: "", // Will be selected from dropdown
           amount: Math.round(defaultAmount * 100) / 100,
           period: "", // Period in months/quarters/years
           dueDate,
@@ -193,12 +135,11 @@ export function PaymentPlanDialog({
     try {
       setLoading(true)
 
-      // Validate downpayment (use applied amount if applied, otherwise use calculated)
-      const downPaymentToValidate = isDownPaymentApplied ? appliedDownPayment : calculatedDownPayment
-      if (downPaymentToValidate < 0 || downPaymentToValidate > dealAmount) {
+      // Validate downpayment
+      if (calculatedDownPayment < 0 || calculatedDownPayment > dealAmount) {
         toast({
           title: "Validation Error",
-          description: `Down payment amount (${downPaymentToValidate.toLocaleString()}) cannot exceed deal amount (${dealAmount.toLocaleString()})`,
+          description: `Down payment amount (${calculatedDownPayment.toLocaleString()}) cannot exceed deal amount (${dealAmount.toLocaleString()})`,
           variant: "destructive",
         })
         return
@@ -210,7 +151,7 @@ export function PaymentPlanDialog({
       if (Math.abs(total - expectedTotal) > 0.01) {
         toast({
           title: "Validation Error",
-          description: `Total installment amount (${total.toLocaleString()}) must equal ${downPaymentAction === "cut" ? "remaining amount after down payment" : "deal amount"} (${expectedTotal.toLocaleString()})`,
+          description: `Total installment amount (${total.toLocaleString()}) must equal remaining amount after down payment (${expectedTotal.toLocaleString()})`,
           variant: "destructive",
         })
         return
@@ -226,20 +167,19 @@ export function PaymentPlanDialog({
         return
       }
 
-      // Submit - use the correct endpoint
-      // Use applied down payment if applied, otherwise use calculated
-      const finalDownPayment = isDownPaymentApplied ? appliedDownPayment : calculatedDownPayment
-      const response = await api.post('/finance/payment-plans', {
+      // Submit - down payment will be included as pending installment automatically
+      const response = await api.post('/finance/payment-plans/create', {
         dealId,
         clientId,
-        numberOfInstallments,
         totalAmount: dealAmount,
-        downPayment: finalDownPayment,
-        downPaymentAction: downPaymentAction,
-        startDate: startDate.toISOString(),
-        installmentAmounts: installments.map((i) => i.amount),
-        dueDates: installments.map((i) => i.dueDate?.toISOString()),
-        paymentModes: installments.map((i) => i.paymentMode),
+        downPayment: calculatedDownPayment, // Will be added as pending installment
+        installments: installments.map((i) => ({
+          amount: i.amount,
+          dueDate: i.dueDate?.toISOString(),
+          type: i.type || null,
+          paymentMode: i.paymentMode || null,
+          notes: i.notes || null,
+        })),
         notes,
       })
 
@@ -290,8 +230,6 @@ export function PaymentPlanDialog({
                   <Label>Down Payment Type</Label>
                   <Select value={downPaymentType} onValueChange={(value: "percentage" | "manual") => {
                     setDownPaymentType(value)
-                    setIsDownPaymentApplied(false)
-                    setAppliedDownPayment(0)
                   }}>
                     <SelectTrigger>
                       <SelectValue />
@@ -317,8 +255,6 @@ export function PaymentPlanDialog({
                           const num = parseFloat(value)
                           if (value === "" || (!isNaN(num) && num >= 0 && num <= 100)) {
                             setDownPaymentPercentage(value)
-                            setIsDownPaymentApplied(false)
-                            setAppliedDownPayment(0)
                           }
                         }}
                         placeholder="0.00"
@@ -343,8 +279,6 @@ export function PaymentPlanDialog({
                           const num = parseFloat(value)
                           if (value === "" || (!isNaN(num) && num >= 0 && num <= dealAmount)) {
                             setDownPaymentAmount(value)
-                            setIsDownPaymentApplied(false)
-                            setAppliedDownPayment(0)
                           }
                         }}
                         placeholder="0.00"
@@ -352,95 +286,21 @@ export function PaymentPlanDialog({
                     </>
                   )}
                 </div>
-                {calculatedDownPayment > 0 && (
-                  <div>
-                    <Label>Action</Label>
-                    <Select value={downPaymentAction} onValueChange={(value: "cut" | "pay") => {
-                      setDownPaymentAction(value)
-                      setIsDownPaymentApplied(false)
-                      setAppliedDownPayment(0)
-                    }}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cut">Cut (Deduct)</SelectItem>
-                        <SelectItem value="pay">Pay (Already Paid)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {downPaymentAction === "cut" 
-                        ? "Amount will be deducted from deal amount"
-                        : "Amount already paid, won't deduct from deal"}
-                    </p>
-                  </div>
-                )}
-              </div>
-              <div className="flex items-end gap-2">
-                <Button
-                  type="button"
-                  onClick={handleApplyDownPayment}
-                  disabled={calculatedDownPayment <= 0 || (isDownPaymentApplied && appliedDownPayment === calculatedDownPayment)}
-                  className="w-full"
-                  variant={isDownPaymentApplied && appliedDownPayment === calculatedDownPayment ? "secondary" : "default"}
-                >
-                  {isDownPaymentApplied && appliedDownPayment === calculatedDownPayment ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Applied
-                    </>
-                  ) : (
-                    "Apply Down Payment"
-                  )}
-                </Button>
-                {isDownPaymentApplied && appliedDownPayment > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => {
-                      setIsDownPaymentApplied(false)
-                      setAppliedDownPayment(0)
-                      toast({
-                        title: "Down Payment Removed",
-                        description: "Down payment has been removed. Installments recalculated.",
-                      })
-                    }}
-                  >
-                    Remove
-                  </Button>
-                )}
               </div>
             </div>
-            {isDownPaymentApplied && appliedDownPayment > 0 && (
+            {calculatedDownPayment > 0 && (
               <div className="bg-muted p-3 rounded-lg space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Applied Down Payment:</span>
-                  <span className="text-sm font-semibold">Rs {appliedDownPayment.toLocaleString("en-IN")}</span>
+                  <span className="text-sm font-medium">Down Payment:</span>
+                  <span className="text-sm font-semibold">Rs {calculatedDownPayment.toLocaleString("en-IN")}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">Action:</span>
-                  <span className="text-sm font-semibold capitalize">
-                    {downPaymentAction === "cut" ? "Cut (Deducted)" : "Pay (Already Paid)"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium">
-                    {downPaymentAction === "cut" ? "Remaining Amount:" : "Total Deal Amount:"}
-                  </span>
+                  <span className="text-sm font-medium">Remaining Amount for Installments:</span>
                   <span className="text-sm font-semibold">Rs {remainingAmount.toLocaleString("en-IN")}</span>
                 </div>
-                {downPaymentAction === "pay" && (
-                  <div className="text-xs text-muted-foreground pt-1 border-t">
-                    Note: Down payment is already paid separately. Installments will be calculated from full deal amount.
-                  </div>
-                )}
-              </div>
-            )}
-            {calculatedDownPayment > 0 && !isDownPaymentApplied && (
-              <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 p-3 rounded-lg">
-                <p className="text-sm text-amber-800 dark:text-amber-200">
-                  Entered amount: Rs {calculatedDownPayment.toLocaleString("en-IN")}. Click "Apply Down Payment" to deduct this amount.
-                </p>
+                <div className="text-xs text-muted-foreground pt-1 border-t">
+                  Note: Down payment will be automatically included as a pending installment when you create the plan.
+                </div>
               </div>
             )}
           </div>
@@ -457,7 +317,7 @@ export function PaymentPlanDialog({
                 onChange={(e) => setNumberOfInstallments(Math.max(1, parseInt(e.target.value) || 1))}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Installments will be calculated from remaining amount after down payment
+                Installments will be calculated from remaining amount after down payment. Down payment will be added as pending installment automatically.
               </p>
             </div>
             <div>
@@ -509,9 +369,24 @@ export function PaymentPlanDialog({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="">Select Type</SelectItem>
-                            <SelectItem value="monthly">Monthly</SelectItem>
-                            <SelectItem value="quarterly">Quarterly</SelectItem>
-                            <SelectItem value="yearly">Yearly</SelectItem>
+                            {/* Default options */}
+                            {(!installmentTypeOptions || installmentTypeOptions.length === 0) && (
+                              <>
+                                <SelectItem value="monthly">Monthly</SelectItem>
+                                <SelectItem value="quarterly">Quarterly</SelectItem>
+                                <SelectItem value="yearly">Yearly</SelectItem>
+                                <SelectItem value="custom">Custom</SelectItem>
+                              </>
+                            )}
+                            {/* Options from advance options */}
+                            {installmentTypeOptions && installmentTypeOptions.length > 0 && installmentTypeOptions
+                              .filter(opt => opt.isActive !== false)
+                              .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                              .map((option) => (
+                                <SelectItem key={option.id} value={option.value}>
+                                  {option.label}
+                                </SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
@@ -590,21 +465,11 @@ export function PaymentPlanDialog({
               <div className="text-sm text-muted-foreground">
                 Installments Total: Rs {installments.reduce((sum, inst) => sum + inst.amount, 0).toLocaleString("en-IN")}
               </div>
-              {isDownPaymentApplied && appliedDownPayment > 0 && (
+              {calculatedDownPayment > 0 && (
                 <div className="text-sm font-semibold">
-                  {downPaymentAction === "cut" ? (
-                    <>
-                      Down Payment: Rs {appliedDownPayment.toLocaleString("en-IN")} + Installments: Rs{" "}
-                      {installments.reduce((sum, inst) => sum + inst.amount, 0).toLocaleString("en-IN")} = Total: Rs{" "}
-                      {dealAmount.toLocaleString("en-IN")}
-                    </>
-                  ) : (
-                    <>
-                      Down Payment (Paid): Rs {appliedDownPayment.toLocaleString("en-IN")} + Installments: Rs{" "}
-                      {installments.reduce((sum, inst) => sum + inst.amount, 0).toLocaleString("en-IN")} = Total: Rs{" "}
-                      {(appliedDownPayment + installments.reduce((sum, inst) => sum + inst.amount, 0)).toLocaleString("en-IN")}
-                    </>
-                  )}
+                  Down Payment: Rs {calculatedDownPayment.toLocaleString("en-IN")} + Installments: Rs{" "}
+                  {installments.reduce((sum, inst) => sum + inst.amount, 0).toLocaleString("en-IN")} = Total: Rs{" "}
+                  {dealAmount.toLocaleString("en-IN")}
                 </div>
               )}
             </div>

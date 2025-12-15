@@ -159,6 +159,22 @@ h2{margin:0 0 10px 0;font-size:18px}
 .money{color:var(--danger)}
 table{width:100%;border-collapse:collapse;margin-top:10px}
 th,td{padding:10px;border-bottom:1px solid #eef1f5;text-align:left}
+.payment-table{width:100%;border-collapse:separate;border-spacing:0;margin-top:16px;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.payment-table thead{background:linear-gradient(135deg,#0f766e,#14b8a6);color:#fff}
+.payment-table thead th{padding:14px 12px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.5px;border:none}
+.payment-table tbody tr{border-bottom:1px solid #eef1f5;transition:background 0.2s}
+.payment-table tbody tr:hover{background:#f8fafc}
+.payment-table tbody tr:last-child{border-bottom:none}
+.payment-table tbody td{padding:12px;font-size:14px;color:#1f2937}
+.payment-table tbody td:first-child{font-weight:600;color:#0f766e}
+.payment-table tbody td:nth-child(3){font-weight:600;color:#059669}
+.payment-table .status-badge{display:inline-block;padding:4px 10px;border-radius:12px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px}
+.payment-table .status-paid{background:#d1fae5;color:#065f46}
+.payment-table .status-pending{background:#fef3c7;color:#92400e}
+.payment-table .status-overdue{background:#fee2e2;color:#991b1b}
+.payment-table .summary-row{background:#f0fdf4;font-weight:700;border-top:2px solid #0f766e}
+.payment-table .summary-row td{color:#065f46;padding:14px 12px;font-size:15px}
+.payment-table .summary-label{text-transform:uppercase;font-size:12px;letter-spacing:0.5px;opacity:0.8}
 .actions{display:flex;gap:10px;margin-top:14px}
 button{
   border:0;border-radius:8px;
@@ -228,17 +244,22 @@ button{
 
 ${reportData.paymentPlan ? `<!-- PAYMENT PLAN -->
 <section class="card">
-<h2>Payment Plan</h2>
-<div class="grid">
-  <div class="row"><span class="label">Total Amount</span><span id="planTotal" class="value"></span></div>
-  <div class="row"><span class="label">Down Payment</span><span id="downPayment" class="value"></span></div>
-  <div class="row"><span class="label">Installments</span><span id="installments" class="value"></span></div>
-  <div class="row"><span class="label">Installment Amount</span><span id="installmentAmount" class="value"></span></div>
-  <div class="row"><span class="label">Duration</span><span id="duration" class="value"></span></div>
+<h2 style="margin-bottom:20px;color:#0f766e;font-size:20px;font-weight:700">Payment Plan</h2>
+<div class="grid" style="margin-bottom:24px;padding:16px;background:#f8fafc;border-radius:8px">
+  <div class="row"><span class="label">Total Amount</span><span id="planTotal" class="value" style="color:#059669;font-size:16px"></span></div>
+  <div class="row"><span class="label">Down Payment</span><span id="downPayment" class="value" style="color:#059669;font-size:16px"></span></div>
+  <div class="row"><span class="label">Installments</span><span id="installments" class="value" style="color:#0f766e;font-size:16px"></span></div>
+  <div class="row"><span class="label">Installment Amount</span><span id="installmentAmount" class="value" style="color:#059669;font-size:16px"></span></div>
+  <div class="row"><span class="label">Duration</span><span id="duration" class="value" style="color:#0f766e;font-size:16px"></span></div>
 </div>
-<table>
+<table class="payment-table">
 <thead>
-<tr><th>#</th><th>Due Date</th><th>Amount</th><th>Status</th></tr>
+<tr>
+  <th style="width:60px">#</th>
+  <th style="width:180px">Due Date</th>
+  <th style="width:150px;text-align:right">Amount</th>
+  <th style="width:120px;text-align:center">Status</th>
+</tr>
 </thead>
 <tbody id="paymentRows"></tbody>
 </table>
@@ -310,9 +331,50 @@ ${hideActions ? "" : `<div class="actions">
       if (installmentAmountEl && data.paymentPlan) installmentAmountEl.textContent = data.paymentPlan.installmentAmount || "Rs 0";
       if (durationEl && data.paymentPlan) durationEl.textContent = data.paymentPlan.duration || "N/A";
       if (paymentRowsEl && data.paymentPlan && data.paymentPlan.schedule) {
-        paymentRowsEl.innerHTML = data.paymentPlan.schedule
-          .map(p => \`<tr><td>\${p.no || ''}</td><td>\${p.date || 'N/A'}</td><td>\${p.amount || 'Rs 0'}</td><td>\${p.status || 'Pending'}</td></tr>\`)
-          .join("");
+        const schedule = data.paymentPlan.schedule || [];
+        let totalAmount = 0;
+        let paidCount = 0;
+        let pendingCount = 0;
+        let overdueCount = 0;
+        
+        const rows = schedule.map(p => {
+          const amount = parseFloat((p.amount || '0').replace(/[^0-9.]/g, '')) || 0;
+          totalAmount += amount;
+          
+          const status = (p.status || 'Pending').toLowerCase();
+          let statusClass = 'status-pending';
+          let statusText = 'Pending';
+          
+          if (status === 'paid') {
+            statusClass = 'status-paid';
+            statusText = 'Paid';
+            paidCount++;
+          } else if (status === 'overdue') {
+            statusClass = 'status-overdue';
+            statusText = 'Overdue';
+            overdueCount++;
+          } else {
+            pendingCount++;
+          }
+          
+          return \`<tr>
+            <td>\${p.no || ''}</td>
+            <td>\${p.date || 'N/A'}</td>
+            <td style="text-align:right;font-family:'Courier New',monospace">\${p.amount || 'Rs 0'}</td>
+            <td style="text-align:center"><span class="status-badge \${statusClass}">\${statusText}</span></td>
+          </tr>\`;
+        }).join("");
+        
+        // Add summary row
+        const summaryRow = \`<tr class="summary-row">
+          <td colspan="2" class="summary-label">Total Installments: \${schedule.length} | Paid: \${paidCount} | Pending: \${pendingCount} | Overdue: \${overdueCount}</td>
+          <td style="text-align:right;font-family:'Courier New',monospace">\${data.paymentPlan.totalAmount || 'Rs 0'}</td>
+          <td style="text-align:center">
+            <span style="color:#059669;font-weight:700">\${paidCount}/\${schedule.length} Paid</span>
+          </td>
+        </tr>\`;
+        
+        paymentRowsEl.innerHTML = rows + summaryRow;
       }
       ` : ""}
       
