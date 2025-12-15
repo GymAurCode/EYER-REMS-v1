@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { AddClientDialog } from "./add-client-dialog"
@@ -144,7 +145,7 @@ export function ClientsView() {
         </div>
       </div>
 
-      {/* Clients Grid */}
+      {/* Clients Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -172,118 +173,136 @@ export function ClientsView() {
           </div>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => (
-            <Card key={client.id} className="p-6 hover:shadow-lg hover:scale-[1.02] transition-all">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold"
-                    onClick={() => openClientDetails(client.id)}
-                    role="button"
-                  >
-                    {client.name
-                      .split(" ")
-                      .map((n: string) => n[0])
-                      .join("")
-                      .slice(0, 2)}
-                  </div>
-                  <div onClick={() => openClientDetails(client.id)} role="button">
-                    <h3 className="font-semibold text-foreground">{client.name}</h3>
-                    <Badge variant="secondary" className="mt-1">
-                      {client.type}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {client.status === "vip" && <Badge variant="default">VIP</Badge>}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        router.push(`/details/clients/${client.id}`)
-                      }}
-                    >
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        router.push(`/ledger/client/${client.id}`)
-                      }}
-                    >
-                        <FileText className="mr-2 h-4 w-4" />
-                        Open Ledger
-                      </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        handleEditClient(client)
-                      }}
-                    >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onSelect={(event) => {
-                        event.preventDefault()
-                        confirmDeleteClient(client)
-                      }}
-                    >
-                        <Trash className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </div>
-
-              <div className="space-y-2 mb-4" onClick={() => openClientDetails(client.id)} role="button">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="h-4 w-4" />
-                  <span className="truncate">{client.email || "—"}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="h-4 w-4" />
-                  <span>{client.phone || "—"}</span>
-                </div>
-                {client.company && client.company !== "-" && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Building2 className="h-4 w-4" />
-                    <span>{client.company}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="pt-4 border-t border-border" onClick={() => openClientDetails(client.id)} role="button">
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Status</p>
-                    <p className="font-medium text-foreground mt-1 capitalize">{client.status}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Added On</p>
-                    <p className="font-medium text-foreground mt-1">
-                      {client.createdAt ? new Date(client.createdAt).toLocaleDateString() : "—"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
+        <Card className="p-0">
+          <div className="p-4 border-b">
+            <p className="text-sm text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{filteredClients.length}</span> of <span className="font-semibold text-foreground">{clients.length}</span> clients
+            </p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Client Name</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Added On</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredClients.map((client) => (
+                <TableRow
+                  key={client.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => openClientDetails(client.id)}
+                >
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase flex-shrink-0">
+                        {client.name
+                          .split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .slice(0, 2)}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{client.name}</p>
+                        {client.status === "vip" && (
+                          <Badge variant="default" className="mt-1 text-xs">VIP</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="secondary">{client.type}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    {client.company && client.company !== "-" ? (
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <span>{client.company}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate max-w-[200px]">{client.email || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{client.phone || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <span className="capitalize">{client.status || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    {client.createdAt ? new Date(client.createdAt).toLocaleDateString() : "—"}
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            router.push(`/details/clients/${client.id}`)
+                          }}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          View
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            router.push(`/ledger/client/${client.id}`)
+                          }}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          Open Ledger
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            handleEditClient(client)
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            confirmDeleteClient(client)
+                          }}
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
       <AddClientDialog
         open={showAddDialog}

@@ -1,6 +1,7 @@
 import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import logger from '../utils/logger';
 
 const router = (express as any).Router();
 
@@ -11,17 +12,17 @@ router.get('/export', authenticate, async (_req: AuthRequest, res: Response) => 
     const safeFetch = async (modelName: string, query: () => Promise<any>) => {
       try {
         const result = await query();
-        console.log(`✓ Successfully fetched ${modelName}: ${Array.isArray(result) ? result.length : 'N/A'} records`);
+        logger.info(`✓ Successfully fetched ${modelName}: ${Array.isArray(result) ? result.length : 'N/A'} records`);
         return result;
       } catch (error: any) {
         // Check if it's a Prisma schema mismatch error
         if (error?.message?.includes('does not exist in the current database')) {
-          console.warn(`⚠ Schema mismatch for ${modelName}: ${error.message}. Skipping this model.`);
+          logger.warn(`⚠ Schema mismatch for ${modelName}: ${error.message}. Skipping this model.`);
           return [];
         }
-        console.error(`✗ Error fetching ${modelName}:`, error?.message || error);
+        logger.error(`✗ Error fetching ${modelName}:`, error?.message || error);
         if (error?.stack) {
-          console.error(`Stack trace for ${modelName}:`, error.stack);
+          logger.error(`Stack trace for ${modelName}:`, error.stack);
         }
         return [];
       }
@@ -150,11 +151,11 @@ router.get('/export', authenticate, async (_req: AuthRequest, res: Response) => 
       },
     };
 
-    console.log('Export completed successfully');
+    logger.info('Export completed successfully');
     res.json(backupData);
   } catch (error: any) {
-    console.error('Export error:', error);
-    console.error('Error stack:', error?.stack);
+    logger.error('Export error:', error);
+    logger.error('Error stack:', error?.stack);
     res.status(500).json({
       success: false,
       error: 'Failed to export data',
@@ -177,7 +178,7 @@ const safeImport = async (
 
   try {
     await importFn(data);
-    console.log(`✓ Successfully imported ${modelName}: ${data.length} records`);
+    logger.info(`✓ Successfully imported ${modelName}: ${data.length} records`);
   } catch (error: any) {
     // Check if it's a schema mismatch error
     if (
@@ -185,10 +186,10 @@ const safeImport = async (
       error?.message?.includes('Unknown column') ||
       error?.message?.includes('Unknown field')
     ) {
-      console.warn(`⚠ Schema mismatch for ${modelName}: ${error.message}. Skipping this model.`);
+      logger.warn(`⚠ Schema mismatch for ${modelName}: ${error.message}. Skipping this model.`);
       return;
     }
-    console.error(`✗ Error importing ${modelName}:`, error?.message || error);
+    logger.error(`✗ Error importing ${modelName}:`, error?.message || error);
     throw error; // Re-throw if it's not a schema mismatch
   }
 };
@@ -206,8 +207,8 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
       });
     }
 
-    console.log('Starting import process...');
-    console.log('Data keys:', Object.keys(data));
+    logger.info('Starting import process...');
+    logger.info('Data keys:', Object.keys(data));
 
     // Validate data structure
     if (data.properties && !Array.isArray(data.properties)) {
@@ -220,7 +221,7 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
     // Start a transaction to ensure all-or-nothing import
     // Set a longer timeout for large imports (10 minutes)
     await prisma.$transaction(async (tx) => {
-      console.log('Deleting existing data...');
+      logger.info('Deleting existing data...');
       // Delete all existing data (in reverse order of dependencies)
       // Execute sequentially to avoid foreign key constraint issues
       try {
@@ -249,16 +250,16 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
         await tx.account.deleteMany({});
         await tx.message.deleteMany({});
         await tx.role.deleteMany({});
-        console.log('Existing data deleted successfully');
+        logger.info('Existing data deleted successfully');
       } catch (deleteError: any) {
-        console.error('Error during delete phase:', deleteError?.message);
+        logger.error('Error during delete phase:', deleteError?.message);
         throw new Error(`Failed to clear existing data: ${deleteError?.message || 'Unknown error'}`);
       }
 
       // Import data in correct order (respecting dependencies)
-      console.log('Starting to import data...');
+      logger.info('Starting to import data...');
       await safeImport(tx, 'properties', data.properties, async (properties) => {
-        console.log(`Importing ${properties.length} properties...`);
+        logger.info(`Importing ${properties.length} properties...`);
         await tx.property.createMany({
           data: properties.map((p: any) => {
             // Filter out fields that might not exist in current schema
@@ -583,7 +584,7 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
             
             // Validate required fields
             if (!entryData.entryNumber) {
-              console.warn('Skipping journal entry without entryNumber:', entryData.id);
+              logger.warn('Skipping journal entry without entryNumber:', entryData.id);
               continue;
             }
 
@@ -593,12 +594,12 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
                   .map((line: any) => {
                     // Validate journal line has required fields
                     if (!line.accountId) {
-                      console.warn('Skipping journal line without accountId:', line.id);
+                      logger.warn('Skipping journal line without accountId:', line.id);
                       return null;
                     }
                     // Check if account exists
                     if (!accountIds.has(line.accountId)) {
-                      console.warn(`Skipping journal line with non-existent accountId ${line.accountId}:`, line.id);
+                      logger.warn(`Skipping journal line with non-existent accountId ${line.accountId}:`, line.id);
                       return null;
                     }
                     return {
@@ -624,10 +625,10 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
               },
             });
           } catch (entryError: any) {
-            console.error(`Error importing journal entry ${entry.id}:`, entryError?.message);
+            logger.error(`Error importing journal entry ${entry.id}:`, entryError?.message);
             // Continue with next entry instead of failing entire import
             if (entryError?.code === 'P2002') {
-              console.warn(`Journal entry ${entry.id} already exists, skipping...`);
+              logger.warn(`Journal entry ${entry.id} already exists, skipping...`);
               continue;
             }
             throw entryError;
@@ -734,25 +735,25 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
       timeout: 600000, // 10 minutes timeout for large imports
     });
 
-    console.log('Import completed successfully');
+    logger.info('Import completed successfully');
     res.json({
       success: true,
       message: 'Data imported successfully',
     });
   } catch (error: any) {
-    console.error('=== IMPORT ERROR ===');
-    console.error('Import error:', error);
-    console.error('Error code:', error?.code);
-    console.error('Error message:', error?.message);
-    console.error('Error name:', error?.name);
+    logger.error('=== IMPORT ERROR ===');
+    logger.error('Import error:', error);
+    logger.error('Error code:', error?.code);
+    logger.error('Error message:', error?.message);
+    logger.error('Error name:', error?.name);
     if (error?.meta) {
-      console.error('Error meta:', JSON.stringify(error.meta, null, 2));
+      logger.error('Error meta:', JSON.stringify(error.meta, null, 2));
     }
     if (error?.cause) {
-      console.error('Error cause:', error.cause);
+      logger.error('Error cause:', error.cause);
     }
-    console.error('Error stack:', error?.stack);
-    console.error('==================');
+    logger.error('Error stack:', error?.stack);
+    logger.error('==================');
     
     // Provide more helpful error messages
     let errorMessage = 'Failed to import data';
@@ -786,7 +787,7 @@ router.post('/import', authenticate, async (req: AuthRequest, res: Response) => 
         }),
       });
     } else {
-      console.error('Response already sent, cannot send error response');
+      logger.error('Response already sent, cannot send error response');
     }
   }
 });
@@ -797,7 +798,7 @@ router.post('/clear-all', authenticate, async (req: AuthRequest, res: Response) 
     // Log the deletion action
     const userId = req.user?.id || 'unknown';
     const timestamp = new Date().toISOString();
-    console.log(`[CLEAR ALL DATA] User ${userId} initiated data deletion at ${timestamp}`);
+    logger.info(`[CLEAR ALL DATA] User ${userId} initiated data deletion at ${timestamp}`);
 
     // Perform atomic deletion in a transaction
     await prisma.$transaction(async (tx) => {
@@ -848,7 +849,7 @@ router.post('/clear-all', authenticate, async (req: AuthRequest, res: Response) 
       // Only data records are deleted, not system configuration
     });
 
-    console.log(`[CLEAR ALL DATA] Successfully deleted all data by user ${userId} at ${timestamp}`);
+    logger.info(`[CLEAR ALL DATA] Successfully deleted all data by user ${userId} at ${timestamp}`);
 
     res.json({
       success: true,
@@ -858,7 +859,7 @@ router.post('/clear-all', authenticate, async (req: AuthRequest, res: Response) 
     });
   } catch (error: any) {
     const errorMessage = error?.message || 'Failed to clear data';
-    console.error('[CLEAR ALL DATA] Error:', errorMessage, error);
+    logger.error('[CLEAR ALL DATA] Error:', errorMessage, error);
     
     res.status(500).json({
       success: false,

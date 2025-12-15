@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Building2,
   Plus,
@@ -557,7 +558,7 @@ export function PropertiesView() {
             </Popover>
           </div>
 
-          {/* Properties Grid */}
+          {/* Properties Table */}
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -567,92 +568,124 @@ export function PropertiesView() {
           ) : properties.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No properties found</div>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {properties
-                .filter((property) => {
-                  // Search filter
-                  const matchesSearch =
-                    property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                    property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
+            <Card className="p-0">
+              <div className="p-4 border-b">
+                <p className="text-sm text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">
+                    {properties.filter((property) => {
+                      const matchesSearch =
+                        property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
+                      const matchesStatus = filterStatus === "all" || property.status === filterStatus
+                      const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
+                      return matchesSearch && matchesStatus && matchesType
+                    }).length}
+                  </span> of <span className="font-semibold text-foreground">{properties.length}</span> properties
+                </p>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Property Name</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Address</TableHead>
+                    <TableHead>Units</TableHead>
+                    <TableHead>Occupied</TableHead>
+                    <TableHead>Sale Price</TableHead>
+                    <TableHead>Revenue</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {properties
+                    .filter((property) => {
+                      // Search filter
+                      const matchesSearch =
+                        property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
 
-                  // Status filter
-                  const matchesStatus = filterStatus === "all" || property.status === filterStatus
+                      // Status filter
+                      const matchesStatus = filterStatus === "all" || property.status === filterStatus
 
-                  // Type filter
-                  const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
+                      // Type filter
+                      const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
 
-                  return matchesSearch && matchesStatus && matchesType
-                })
-                .map((property) => (
-                  <Card key={property.id} className="p-0 overflow-hidden hover:shadow-lg transition-shadow">
-                    {/* Property Image */}
-                    {property.imageUrl ? (
-                      <div className="w-full h-48 overflow-hidden">
-                        <img
-                          src={
-                            property.imageUrl.startsWith('http')
-                              ? property.imageUrl
-                              : property.imageUrl.startsWith('/')
-                                ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
-                                : property.imageUrl
-                          }
-                          alt={property.name || "Property image"}
-                          className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            // SECURITY: Use React state instead of innerHTML to prevent XSS
-                            // Hide image on error and show icon instead
-                            const imgElement = e.target as HTMLImageElement;
-                            imgElement.style.display = 'none';
-                            const parent = imgElement.parentElement;
-                            if (parent && !parent.querySelector('.error-placeholder')) {
-                              // SECURITY: Create safe placeholder using DOM methods (no innerHTML)
-                              const placeholder = document.createElement('div');
-                              placeholder.className = 'w-full h-full flex items-center justify-center bg-muted error-placeholder';
-
-                              // Create SVG element safely
-                              const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                              svg.setAttribute('class', 'h-12 w-12 text-muted-foreground');
-                              svg.setAttribute('fill', 'none');
-                              svg.setAttribute('viewBox', '0 0 24 24');
-                              svg.setAttribute('stroke', 'currentColor');
-
-                              const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                              path.setAttribute('stroke-linecap', 'round');
-                              path.setAttribute('stroke-linejoin', 'round');
-                              path.setAttribute('stroke-width', '2');
-                              path.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
-
-                              svg.appendChild(path);
-                              placeholder.appendChild(svg);
-                              parent.appendChild(placeholder);
-                            }
-                          }}
-                        />
-                      </div>
-                    ) : (
-                      <div className="w-full h-48 bg-muted flex items-center justify-center">
-                        <Building2 className="h-12 w-12 text-muted-foreground" />
-                      </div>
-                    )}
-
-                    <div className="p-6">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground text-lg">{property.name}</h3>
-                          {property.propertyCode && (
-                            <p className="text-xs text-muted-foreground font-mono mt-1">
-                              Code: {property.propertyCode}
-                            </p>
-                          )}
-                          {property.salePrice !== undefined && property.salePrice !== null && (
-                            <p className="text-sm text-foreground mt-1 font-semibold">
-                              Sale Price: Rs {Number(property.salePrice).toLocaleString("en-IN")}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="secondary">{property.type}</Badge>
+                      return matchesSearch && matchesStatus && matchesType
+                    })
+                    .map((property) => {
+                      const totalUnits = property.units || property._count?.units || 0
+                      const occupiedUnits = property.occupied || 0
+                      const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0
+                      
+                      return (
+                        <TableRow
+                          key={property.id}
+                          className="cursor-pointer hover:bg-muted/50"
+                          onClick={() => router.push(`/property/${property.id}`)}
+                        >
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-3">
+                              {property.imageUrl ? (
+                                <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
+                                  <img
+                                    src={
+                                      property.imageUrl.startsWith('http')
+                                        ? property.imageUrl
+                                        : property.imageUrl.startsWith('/')
+                                          ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
+                                          : property.imageUrl
+                                    }
+                                    alt={property.name || "Property"}
+                                    className="h-full w-full object-cover"
+                                    onError={(e) => {
+                                      const imgElement = e.target as HTMLImageElement;
+                                      imgElement.style.display = 'none';
+                                      const parent = imgElement.parentElement;
+                                      if (parent && !parent.querySelector('.error-placeholder')) {
+                                        const placeholder = document.createElement('div');
+                                        placeholder.className = 'h-full w-full flex items-center justify-center bg-muted error-placeholder';
+                                        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                                        svg.setAttribute('class', 'h-6 w-6 text-muted-foreground');
+                                        svg.setAttribute('fill', 'none');
+                                        svg.setAttribute('viewBox', '0 0 24 24');
+                                        svg.setAttribute('stroke', 'currentColor');
+                                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                                        path.setAttribute('stroke-linecap', 'round');
+                                        path.setAttribute('stroke-linejoin', 'round');
+                                        path.setAttribute('stroke-width', '2');
+                                        path.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
+                                        svg.appendChild(path);
+                                        placeholder.appendChild(svg);
+                                        parent.appendChild(placeholder);
+                                      }
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                                  <Building2 className="h-5 w-5 text-primary" />
+                                </div>
+                              )}
+                              <div>
+                                <p className="font-semibold">{property.name || "N/A"}</p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-xs font-mono text-muted-foreground">
+                              {property.propertyCode || "—"}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">{property.type || "—"}</Badge>
+                          </TableCell>
+                          <TableCell>
                             <Badge
                               variant={
                                 property.status === "Active" ? "default" :
@@ -666,96 +699,101 @@ export function PropertiesView() {
                                 setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.name })
                               }}
                             >
-                              {property.status}
+                              {property.status || "—"}
                             </Badge>
-                          </div>
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon">
-                              <MoreVertical className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}>
-                              <Eye className="h-4 w-4 mr-2" />
-                              View
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/ledger/property/${property.id}`)}>
-                              <FileText className="h-4 w-4 mr-2" />
-                              Open Ledger
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => handleGeneratePropertyReport(property)}
-                            >
-                              <FileText className="h-4 w-4 mr-2" />
-                              Generate Report
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setEditingPropertyId(property.id)
-                              setShowAddDialog(true)
-                            }}>
-                              <Edit className="h-4 w-4 mr-2" />
-                              Edit
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => {
-                              setStructurePropertyId(String(property.id))
-                              setStructurePropertyName(property.name || "")
-                              setShowStructureDialog(true)
-                            }}>
-                              <Building2 className="h-4 w-4 mr-2" />
-                              Create Structure
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              className="text-destructive"
-                              onClick={() => {
-                                setDeletingProperty({
-                                  id: property.id,
-                                  name: property.name,
-                                  propertyCode: property.propertyCode,
-                                })
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-3 pt-3 border-t border-border">
-                        <div>
-                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                            <Home className="h-3 w-3" />
-                            <span className="text-xs">Units</span>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {property.occupied || 0}/{property.units || property._count?.units || 0}
-                          </p>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                            <Users className="h-3 w-3" />
-                            <span className="text-xs">Occupied</span>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {property.units || property._count?.units ?
-                              Math.round(((property.occupied || 0) / (property.units || property._count?.units)) * 100) :
-                              0}%
-                          </p>
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-1 text-muted-foreground mb-1">
-                            <DollarSign className="h-3 w-3" />
-                            <span className="text-xs">Revenue</span>
-                          </div>
-                          <p className="text-sm font-semibold text-foreground">{property.revenue || "Rs 0"}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground max-w-[200px]">
+                              <MapPin className="h-3 w-3 flex-shrink-0" />
+                              <span className="truncate">{property.address || property.location || "—"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Home className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold">{occupiedUnits}/{totalUnits}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold">{occupancyRate}%</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            {property.salePrice !== undefined && property.salePrice !== null ? (
+                              <span className="font-semibold">
+                                Rs {Number(property.salePrice).toLocaleString("en-IN")}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <DollarSign className="h-4 w-4 text-muted-foreground" />
+                              <span className="font-semibold">{property.revenue || "Rs 0"}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreVertical className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}>
+                                  <Eye className="h-4 w-4 mr-2" />
+                                  View
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => router.push(`/ledger/property/${property.id}`)}>
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Open Ledger
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleGeneratePropertyReport(property)}
+                                >
+                                  <FileText className="h-4 w-4 mr-2" />
+                                  Generate Report
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setEditingPropertyId(property.id)
+                                  setShowAddDialog(true)
+                                }}>
+                                  <Edit className="h-4 w-4 mr-2" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                  setStructurePropertyId(String(property.id))
+                                  setStructurePropertyName(property.name || "")
+                                  setShowStructureDialog(true)
+                                }}>
+                                  <Building2 className="h-4 w-4 mr-2" />
+                                  Create Structure
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  className="text-destructive"
+                                  onClick={() => {
+                                    setDeletingProperty({
+                                      id: property.id,
+                                      name: property.name,
+                                      propertyCode: property.propertyCode,
+                                    })
+                                  }}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" />
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                </TableBody>
+              </Table>
+            </Card>
           )}
         </TabsContent>
 

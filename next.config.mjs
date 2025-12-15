@@ -9,7 +9,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   images: {
-    unoptimized: true,
+    unoptimized: false,
   },
   webpack: (config, { isServer }) => {
     // Fix for webpack hash calculation issues

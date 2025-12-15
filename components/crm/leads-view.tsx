@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Search,
   Plus,
@@ -134,7 +135,7 @@ export function LeadsView() {
         </div>
       </div>
 
-      {/* Leads Grid */}
+      {/* Leads Table */}
       {loading ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -162,114 +163,158 @@ export function LeadsView() {
           </div>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2">
-          {filteredLeads.map((lead) => (
-          <Card key={lead.id} className="p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div>
-                <h3 className="font-semibold text-foreground text-lg">{lead.name}</h3>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge
-                    variant={
-                      lead.status === "new"
-                        ? "secondary"
-                        : lead.status === "qualified"
-                          ? "default"
-                          : lead.status === "negotiation"
-                            ? "outline"
-                            : "secondary"
-                    }
-                  >
-                    {lead.status}
-                  </Badge>
-                  {lead.source && <Badge variant="outline">{lead.source}</Badge>}
-                </div>
-              </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      openEditLead(lead)
-                    }}
-                  >
-                    <Pencil className="mr-2 h-4 w-4" />
-                    Edit
-                  </DropdownMenuItem>
-                  {lead.status !== "converted" && (
-                    <DropdownMenuItem
-                      onSelect={async (event) => {
-                        event.preventDefault()
-                        try {
-                          await apiService.leads.convertToClient(lead.id)
-                          toast({ title: "Lead converted to client successfully", variant: "success" })
-                          fetchLeads()
-                        } catch (err: any) {
-                          console.error("Failed to convert lead", err)
-                          toast({ 
-                            title: "Failed to convert lead", 
-                            description: err.response?.data?.error || err.response?.data?.message || "An error occurred",
-                            variant: "destructive" 
-                          })
-                        }
-                      }}
+        <Card className="p-0">
+          <div className="p-4 border-b">
+            <p className="text-sm text-muted-foreground">
+              Showing <span className="font-semibold text-foreground">{filteredLeads.length}</span> of <span className="font-semibold text-foreground">{leads.length}</span> leads
+            </p>
+          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Lead Name</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Phone</TableHead>
+                <TableHead>Interest</TableHead>
+                <TableHead>Budget</TableHead>
+                <TableHead>Assigned To</TableHead>
+                <TableHead>Created Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredLeads.map((lead) => (
+                <TableRow key={lead.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase flex-shrink-0">
+                        {lead.name
+                          ?.split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .slice(0, 2) || "?"}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{lead.name || "N/A"}</p>
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        lead.status === "new"
+                          ? "secondary"
+                          : lead.status === "qualified"
+                            ? "default"
+                            : lead.status === "negotiation"
+                              ? "outline"
+                              : "secondary"
+                      }
                     >
-                      <UserCheck className="mr-2 h-4 w-4" />
-                      Convert to Client
-                    </DropdownMenuItem>
-                  )}
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      confirmDeleteLead(lead)
-                    }}
-                  >
-                    <Trash className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Mail className="h-4 w-4" />
-                <span className="truncate">{lead.email}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Phone className="h-4 w-4" />
-                <span>{lead.phone}</span>
-              </div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <MapPin className="h-4 w-4" />
-                <span>{lead.interest}</span>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-border">
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <div>
-                  <p className="text-muted-foreground">Budget</p>
-                  <p className="font-medium text-foreground mt-1">{lead.budget}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Assigned To</p>
-                  <p className="font-medium text-foreground mt-1">{lead.assignedTo}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-3">
-                <Calendar className="h-3 w-3" />
-                Created {new Date(lead.createdDate).toLocaleDateString()}
-              </div>
-            </div>
-          </Card>
-          ))}
-        </div>
+                      {lead.status || "—"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {lead.source ? (
+                      <Badge variant="outline">{lead.source}</Badge>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-muted-foreground" />
+                      <span className="truncate max-w-[200px]">{lead.email || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-muted-foreground" />
+                      <span>{lead.phone || "—"}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    {lead.interest ? (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-muted-foreground" />
+                        <span>{lead.interest}</span>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="font-medium">{lead.budget || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <span>{lead.assignedTo || "—"}</span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Calendar className="h-4 w-4 text-muted-foreground" />
+                      <span className="text-sm">
+                        {lead.createdDate ? new Date(lead.createdDate).toLocaleDateString() : "—"}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            openEditLead(lead)
+                          }}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        {lead.status !== "converted" && (
+                          <DropdownMenuItem
+                            onSelect={async (event) => {
+                              event.preventDefault()
+                              try {
+                                await apiService.leads.convertToClient(lead.id)
+                                toast({ title: "Lead converted to client successfully", variant: "success" })
+                                fetchLeads()
+                              } catch (err: any) {
+                                console.error("Failed to convert lead", err)
+                                toast({ 
+                                  title: "Failed to convert lead", 
+                                  description: err.response?.data?.error || err.response?.data?.message || "An error occurred",
+                                  variant: "destructive" 
+                                })
+                              }
+                            }}
+                          >
+                            <UserCheck className="mr-2 h-4 w-4" />
+                            Convert to Client
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem
+                          onSelect={(event) => {
+                            event.preventDefault()
+                            confirmDeleteLead(lead)
+                          }}
+                        >
+                          <Trash className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
 
       {/* Add Lead Dialog */}

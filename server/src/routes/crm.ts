@@ -4,16 +4,30 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
 import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
+import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
+import { successResponse } from '../utils/error-handler';
 
 const router = (express as any).Router();
 
 // Leads
-router.get('/leads', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const leads = await prisma.lead.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(leads);
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    const [leads, total] = await Promise.all([
+      prisma.lead.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.lead.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, leads, 200, pagination);
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch leads' });
   }
@@ -152,7 +166,7 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
       data: client,
     });
   } catch (error: any) {
-    console.error('Convert lead to client error:', error);
+    logger.error('Convert lead to client error:', error);
     res.status(500).json({ 
       error: 'Failed to convert lead to client',
       message: error.message || 'Unknown error',
@@ -227,6 +241,9 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response
 router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { search } = req.query;
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
     const where: any = {};
     
     if (search) {
@@ -241,11 +258,18 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
       ];
     }
     
-    const clients = await prisma.client.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-    });
-    res.json(clients);
+    const [clients, total] = await Promise.all([
+      prisma.client.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.client.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, clients, 200, pagination);
   } catch {
     res.status(500).json({ error: 'Failed to fetch clients' });
   }
@@ -274,7 +298,7 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
     if (!client) return res.status(404).json({ error: 'Client not found' });
     res.json(client);
   } catch (error) {
-    console.error('Failed to fetch client by id:', error);
+    logger.error('Failed to fetch client by id:', error);
     res.status(500).json({ error: 'Failed to fetch client' });
   }
 });
@@ -388,6 +412,9 @@ router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Respon
 router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { search } = req.query;
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
     const where: any = {};
     
     if (search) {
@@ -401,11 +428,18 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
       ];
     }
     
-    const dealers = await prisma.dealer.findMany({ 
-      where,
-      orderBy: { createdAt: 'desc' } 
-    });
-    res.json(dealers);
+    const [dealers, total] = await Promise.all([
+      prisma.dealer.findMany({ 
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.dealer.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, dealers, 200, pagination);
   } catch {
     res.status(500).json({ error: 'Failed to fetch dealers' });
   }
@@ -518,35 +552,46 @@ router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res: Respon
 });
 
 // Deals
-router.get('/deals', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const deals = await prisma.deal.findMany({
-      where: { isDeleted: false },
-      orderBy: { createdAt: 'desc' },
-      include: { 
-        client: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            clientCode: true,
-            status: true,
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = { isDeleted: false };
+    const [deals, total] = await Promise.all([
+      prisma.deal.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: { 
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              clientCode: true,
+              status: true,
+            },
+          },
+          dealer: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              dealerCode: true,
+              isActive: true,
+            },
           },
         },
-        dealer: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            phone: true,
-            dealerCode: true,
-            isActive: true,
-          },
-        },
-      },
-    });
-    res.json(deals);
+        skip,
+        take: limit,
+      }),
+      prisma.deal.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, deals, 200, pagination);
   } catch (error: any) {
     logger.error('Error fetching deals:', error);
     logger.error('Error details:', {
@@ -592,7 +637,7 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
     if (!deal) return res.status(404).json({ error: 'Deal not found' });
     res.json(deal);
   } catch (error: any) {
-    console.error('Get deal error:', error);
+    logger.error('Get deal error:', error);
     res.status(500).json({ error: 'Failed to fetch deal' });
   }
 });
@@ -690,7 +735,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
 
     res.json({ success: true, data: response });
   } catch (error: any) {
-    console.error('Get payment plan error:', error);
+    logger.error('Get payment plan error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get payment plan',
@@ -804,7 +849,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     const { generatePaymentPlanPDF } = await import('../utils/pdf-generator');
     generatePaymentPlanPDF(pdfData, res);
   } catch (error: any) {
-    console.error('Generate PDF error:', error);
+    logger.error('Generate PDF error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to generate PDF',
@@ -847,7 +892,7 @@ router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, re
 
     res.json({ success: true, data: plan });
   } catch (error: any) {
-    console.error('Create payment plan error:', error);
+    logger.error('Create payment plan error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to create payment plan',
@@ -888,7 +933,7 @@ router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res: Resp
 
     res.json({ success: true, data: updatedPlan });
   } catch (error: any) {
-    console.error('Update payment plan error:', error);
+    logger.error('Update payment plan error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to update payment plan',
@@ -938,7 +983,7 @@ router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res: R
 
     res.json({ success: true, data: payment });
   } catch (error: any) {
-    console.error('Create payment error:', error);
+    logger.error('Create payment error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to create payment',
@@ -1035,7 +1080,7 @@ router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(deal);
   } catch (error: any) {
-    console.error('Create deal error:', error);
+    logger.error('Create deal error:', error);
     res.status(400).json({ error: error.message || 'Failed to create deal' });
   }
 });
@@ -1104,16 +1149,28 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
 });
 
 // Communications
-router.get('/communications', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/communications', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const communications = await prisma.communication.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        client: true,
-        lead: true,
-      },
-    });
-    res.json(communications);
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    const [communications, total] = await Promise.all([
+      prisma.communication.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          client: true,
+          lead: true,
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.communication.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, communications, 200, pagination);
   } catch {
     res.status(500).json({ error: 'Failed to fetch communications' });
   }

@@ -4,6 +4,9 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncInvoiceToFinanceLedger, updateTenantLedger, generateMonthlyInvoices, syncCommissionToFinanceLedger } from '../services/workflows';
 import { getOverdueRentAlerts } from '../services/tenant-alerts';
+import logger from '../utils/logger';
+import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
+import { successResponse } from '../utils/error-handler';
 
 const router = (express as any).Router();
 
@@ -162,7 +165,7 @@ router.get('/accounts', authenticate, async (_req: AuthRequest, res: Response) =
 
     res.json(accountsWithBalances);
   } catch (error) {
-    console.error('Get accounts error:', error);
+    logger.error('Get accounts error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch accounts';
     res.status(500).json({
       error: 'Failed to fetch accounts',
@@ -177,7 +180,7 @@ router.get('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
     if (!item) return res.status(404).json({ error: 'Account not found' });
     res.json(item);
   } catch (error) {
-    console.error('Get account error:', error);
+    logger.error('Get account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch account';
     res.status(500).json({
       error: 'Failed to fetch account',
@@ -197,7 +200,7 @@ router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) =
     });
     res.status(201).json(item);
   } catch (error) {
-    console.error('Create account error:', error);
+    logger.error('Create account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to create account';
     res.status(400).json({
       error: 'Failed to create account',
@@ -214,7 +217,7 @@ router.put('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
     });
     res.json(item);
   } catch (error) {
-    console.error('Update account error:', error);
+    logger.error('Update account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to update account';
     res.status(400).json({
       error: 'Failed to update account',
@@ -228,7 +231,7 @@ router.delete('/accounts/:id', authenticate, async (req: AuthRequest, res: Respo
     await prisma.account.delete({ where: { id: req.params.id } });
     res.status(204).end();
   } catch (error) {
-    console.error('Delete account error:', error);
+    logger.error('Delete account error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to delete account';
     res.status(400).json({
       error: 'Failed to delete account',
@@ -249,7 +252,7 @@ router.get('/transaction-categories', authenticate, async (_req: AuthRequest, re
     });
     res.json(items);
   } catch (error) {
-    console.error('Get transaction categories error:', error);
+    logger.error('Get transaction categories error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to fetch transaction categories';
     res.status(500).json({
       error: 'Failed to fetch transaction categories',
@@ -279,7 +282,7 @@ router.post('/transaction-categories', authenticate, async (req: AuthRequest, re
     });
     res.status(201).json(item);
   } catch (error) {
-    console.error('Create transaction category error:', error);
+    logger.error('Create transaction category error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to create transaction category';
     res.status(400).json({
       error: 'Failed to create transaction category',
@@ -316,7 +319,7 @@ router.delete('/transaction-categories/:id', authenticate, async (req: AuthReque
     await prisma.transactionCategory.delete({ where: { id: req.params.id } });
     res.status(204).end();
   } catch (error) {
-    console.error('Delete transaction category error:', error);
+    logger.error('Delete transaction category error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Failed to delete transaction category';
     res.status(400).json({
       error: 'Failed to delete transaction category',
@@ -326,33 +329,45 @@ router.delete('/transaction-categories/:id', authenticate, async (req: AuthReque
 });
 
 // Transactions
-router.get('/transactions', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/transactions', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const items = await prisma.transaction.findMany({
-      orderBy: { date: 'desc' },
-      include: {
-        transactionCategory: true,
-        debitAccount: true,
-        creditAccount: true,
-        tenant: true,
-        dealer: true,
-        property: true,
-        journalEntry: {
-          include: {
-            lines: {
-              select: {
-                accountId: true,
-                debit: true,
-                credit: true,
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    const [items, total] = await Promise.all([
+      prisma.transaction.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: {
+          transactionCategory: true,
+          debitAccount: true,
+          creditAccount: true,
+          tenant: true,
+          dealer: true,
+          property: true,
+          journalEntry: {
+            include: {
+              lines: {
+                select: {
+                  accountId: true,
+                  debit: true,
+                  credit: true,
+                },
               },
             },
           },
         },
-      },
-    });
-    res.json(items);
+        skip,
+        take: limit,
+      }),
+      prisma.transaction.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, items, 200, pagination);
   } catch (error: any) {
-    console.error('Fetch transactions failed:', error);
+    logger.error('Fetch transactions failed:', error);
     res.status(500).json({ error: 'Failed to fetch transactions' });
   }
 });
@@ -553,22 +568,34 @@ router.delete('/transactions/:id', authenticate, async (req: AuthRequest, res: R
 });
 
 // Invoices
-router.get('/invoices', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/invoices', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const items = await prisma.invoice.findMany({
-      orderBy: { createdAt: 'desc' },
-      include: {
-        tenant: true,
-        property: true,
-        tenantAccount: true,
-        incomeAccount: true,
-        tenantPayments: true,
-        createdBy: { select: { id: true, username: true, email: true } },
-      },
-    });
-    res.json(items);
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    const [items, total] = await Promise.all([
+      prisma.invoice.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          tenant: true,
+          property: true,
+          tenantAccount: true,
+          incomeAccount: true,
+          tenantPayments: true,
+          createdBy: { select: { id: true, username: true, email: true } },
+        },
+        skip,
+        take: limit,
+      }),
+      prisma.invoice.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, items, 200, pagination);
   } catch (error) {
-    console.error('Get invoices error:', error);
+    logger.error('Get invoices error:', error);
     res.status(500).json({ error: 'Failed to fetch invoices' });
   }
 });
@@ -589,7 +616,7 @@ router.get('/invoices/:id', authenticate, async (req: AuthRequest, res: Response
     if (!item) return res.status(404).json({ error: 'Invoice not found' });
     res.json(item);
   } catch (error) {
-    console.error('Get invoice error:', error);
+    logger.error('Get invoice error:', error);
     res.status(500).json({ error: 'Failed to fetch invoice' });
   }
 });
@@ -752,24 +779,36 @@ router.delete('/invoices/:id', authenticate, async (req: AuthRequest, res: Respo
 });
 
 // Payments
-router.get('/payments', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const payments = await prisma.payment.findMany({
-      orderBy: { date: 'desc' },
-      include: {
-        deal: {
-          include: {
-            client: { select: { id: true, name: true, clientCode: true } },
-            property: { select: { id: true, name: true, propertyCode: true } },
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
+
+    const where: any = { deletedAt: null };
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        orderBy: { date: 'desc' },
+        include: {
+          deal: {
+            include: {
+              client: { select: { id: true, name: true, clientCode: true } },
+              property: { select: { id: true, name: true, propertyCode: true } },
+            },
           },
+          ledgerEntries: true,
+          createdBy: { select: { id: true, username: true, email: true } },
         },
-        ledgerEntries: true,
-        createdBy: { select: { id: true, username: true, email: true } },
-      },
-    });
-    res.json(payments);
+        skip,
+        take: limit,
+      }),
+      prisma.payment.count({ where }),
+    ]);
+
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, payments, 200, pagination);
   } catch (error) {
-    console.error('Get payments error:', error);
+    logger.error('Get payments error:', error);
     res.status(500).json({ error: 'Failed to fetch payments' });
   }
 });
@@ -796,7 +835,7 @@ router.get('/payments/:id', authenticate, async (req: AuthRequest, res: Response
 
     res.json(payment);
   } catch (error) {
-    console.error('Get payment error:', error);
+    logger.error('Get payment error:', error);
     res.status(500).json({ error: 'Failed to fetch payment' });
   }
 });
@@ -850,7 +889,7 @@ router.post('/payments', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    console.error('Create payment error:', error);
+    logger.error('Create payment error:', error);
     res.status(400).json({ error: error?.message || 'Failed to create payment' });
   }
 });
@@ -868,7 +907,7 @@ router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Respo
     
     res.status(204).end();
   } catch (error: any) {
-    console.error('Delete payment error:', error);
+    logger.error('Delete payment error:', error);
     res.status(400).json({ error: error.message || 'Failed to delete payment' });
   }
 });
@@ -955,7 +994,7 @@ router.post('/upload-attachment', authenticate, async (req: AuthRequest, res: Re
       },
     });
   } catch (error: any) {
-    console.error('Upload finance attachment error:', error);
+    logger.error('Upload finance attachment error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to upload attachment',
@@ -993,7 +1032,7 @@ router.get('/attachments/:id', authenticate, async (req: AuthRequest, res: Respo
     res.setHeader('Content-Disposition', `attachment; filename="${attachment.fileName}"`);
     res.send(fileBuffer);
   } catch (error: any) {
-    console.error('Get finance attachment error:', error);
+    logger.error('Get finance attachment error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get attachment',
@@ -1028,7 +1067,7 @@ router.get('/attachments', authenticate, async (req: AuthRequest, res: Response)
       data: attachments,
     });
   } catch (error: any) {
-    console.error('Get finance attachments error:', error);
+    logger.error('Get finance attachments error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get attachments',
@@ -1350,7 +1389,7 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
     const rows = await LedgerService.getClientLedger(clientId, filters);
     res.json(rows);
   } catch (error) {
-    console.error('Client ledger error:', error);
+    logger.error('Client ledger error:', error);
     res.status(500).json({ error: 'Failed to fetch client ledger' });
   }
 });
@@ -1385,7 +1424,7 @@ router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, re
     const rows = await LedgerService.getClientLedger(clientId, filters);
     res.json({ success: true, data: rows });
   } catch (error: any) {
-    console.error('Client ledger error:', error);
+    logger.error('Client ledger error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch client ledger' });
   }
 });
@@ -1398,7 +1437,7 @@ router.get('/ledgers/properties', authenticate, async (req: AuthRequest, res: Re
     const rows = await LedgerService.getPropertyLedger(propertyId);
     res.json(rows);
   } catch (error) {
-    console.error('Property ledger error:', error);
+    logger.error('Property ledger error:', error);
     res.status(500).json({ error: 'Failed to fetch property ledger' });
   }
 });
@@ -1415,7 +1454,7 @@ router.get('/ledgers/company', authenticate, async (req: AuthRequest, res: Respo
     const result = await LedgerService.getCompanyLedger(filters);
     res.json(result);
   } catch (error) {
-    console.error('Company ledger error:', error);
+    logger.error('Company ledger error:', error);
     res.status(500).json({ error: 'Failed to fetch company ledger' });
   }
 });
@@ -1432,7 +1471,7 @@ router.get('/alerts/overdue-rent', authenticate, async (req: AuthRequest, res: R
       data: alerts,
     });
   } catch (error) {
-    console.error('Get overdue rent alerts error:', error);
+    logger.error('Get overdue rent alerts error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch overdue rent alerts',
@@ -1452,7 +1491,7 @@ router.post('/invoices/generate-monthly', authenticate, async (req: AuthRequest,
       count: invoices.length,
     });
   } catch (error) {
-    console.error('Generate monthly invoices error:', error);
+    logger.error('Generate monthly invoices error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate monthly invoices',
@@ -1557,7 +1596,7 @@ router.get('/rent-due', authenticate, async (req: AuthRequest, res: Response) =>
       summary,
     });
   } catch (error) {
-    console.error('Get rent due list error:', error);
+    logger.error('Get rent due list error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch rent due list',
@@ -1648,7 +1687,7 @@ router.get('/commissions', authenticate, async (req: AuthRequest, res: Response)
       },
     });
   } catch (error) {
-    console.error('Get commissions error:', error);
+    logger.error('Get commissions error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to fetch commissions',
@@ -1728,7 +1767,7 @@ router.post('/commissions/:id/pay', authenticate, async (req: AuthRequest, res: 
       },
     });
   } catch (error) {
-    console.error('Pay commission error:', error);
+    logger.error('Pay commission error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to process commission payment',
@@ -1951,7 +1990,7 @@ router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res: R
       },
     });
   } catch (error) {
-    console.error('Bank reconciliation error:', error);
+    logger.error('Bank reconciliation error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to generate bank reconciliation',
@@ -2060,7 +2099,7 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
 
     res.json({ success: true, data: paymentPlan });
   } catch (error: any) {
-    console.error('Create payment plan error:', error);
+    logger.error('Create payment plan error:', error);
 
     // Ensure we always return JSON, even on unexpected errors
     if (!res.headersSent) {
@@ -2093,7 +2132,7 @@ router.post('/payment-plans', authenticate, async (req: AuthRequest, res: Respon
 
     res.json({ success: true, data: plan });
   } catch (error: any) {
-    console.error('Create payment plan error:', error);
+    logger.error('Create payment plan error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to create payment plan',
@@ -2105,41 +2144,48 @@ router.post('/payment-plans', authenticate, async (req: AuthRequest, res: Respon
 router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, dealId, clientId } = req.query;
+    const { page, limit } = parsePaginationQuery(req.query);
+    const skip = (page - 1) * limit;
 
     const where: any = { isActive: true };
     if (status) where.status = status;
     if (dealId) where.dealId = dealId;
     if (clientId) where.clientId = clientId;
 
-    const plans = await prisma.paymentPlan.findMany({
-      where,
-      include: {
-        deal: {
-          select: {
-            id: true,
-            dealCode: true,
-            title: true,
-            dealAmount: true,
-            status: true,
-            stage: true,
+    const [plans, total] = await Promise.all([
+      prisma.paymentPlan.findMany({
+        where,
+        include: {
+          deal: {
+            select: {
+              id: true,
+              dealCode: true,
+              title: true,
+              dealAmount: true,
+              status: true,
+              stage: true,
+            },
+          },
+          client: {
+            select: {
+              id: true,
+              name: true,
+              clientCode: true,
+              email: true,
+              phone: true,
+            },
+          },
+          installments: {
+            where: { isDeleted: false },
+            orderBy: { installmentNumber: 'asc' },
           },
         },
-        client: {
-          select: {
-            id: true,
-            name: true,
-            clientCode: true,
-            email: true,
-            phone: true,
-          },
-        },
-        installments: {
-          where: { isDeleted: false },
-          orderBy: { installmentNumber: 'asc' },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.paymentPlan.count({ where }),
+    ]);
 
     // Calculate summary for each plan
     // Use payment plan's totalPaid field which only includes down payment if it's been paid
@@ -2168,9 +2214,10 @@ router.get('/payment-plans', authenticate, async (req: AuthRequest, res: Respons
       };
     });
 
-    res.json({ success: true, data: plansWithSummary });
+    const pagination = calculatePagination(page, limit, total);
+    return successResponse(res, plansWithSummary, 200, pagination);
   } catch (error: any) {
-    console.error('Get payment plans error:', error);
+    logger.error('Get payment plans error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get payment plans',
@@ -2207,7 +2254,7 @@ router.get('/payment-plans/deal/:dealId', authenticate, async (req: AuthRequest,
 
     res.json({ success: true, data: { ...plan, summary: summaryWithDownPayment } });
   } catch (error: any) {
-    console.error('Get payment plan error:', error);
+    logger.error('Get payment plan error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get payment plan',
@@ -2309,7 +2356,7 @@ router.get('/payment-plans/reports', authenticate, async (req: AuthRequest, res:
 
     res.json({ success: true, data: { installments: installmentsWithDownPayment, summary } });
   } catch (error: any) {
-    console.error('Get installment reports error:', error);
+    logger.error('Get installment reports error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get installment reports',
@@ -2332,7 +2379,7 @@ router.put('/installments/:id', authenticate, async (req: AuthRequest, res: Resp
 
     res.json({ success: true, data: installment });
   } catch (error: any) {
-    console.error('Update installment error:', error);
+    logger.error('Update installment error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to update installment',
@@ -2355,7 +2402,7 @@ router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, 
 
     res.json({ success: true, data: installment });
   } catch (error: any) {
-    console.error('Record installment payment error:', error);
+    logger.error('Record installment payment error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to record payment',
@@ -2456,7 +2503,7 @@ router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Respo
       });
     }
   } catch (error: any) {
-    console.error('Export receipts error:', error);
+    logger.error('Export receipts error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to export receipts',
@@ -2487,7 +2534,7 @@ router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, re
 
     res.json({ success: true, data: ledger });
   } catch (error: any) {
-    console.error('Get dealer ledger error:', error);
+    logger.error('Get dealer ledger error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get dealer ledger',
@@ -2517,7 +2564,7 @@ router.get('/ledger/dealer/:dealerId', authenticate, async (req: AuthRequest, re
 
     res.json({ success: true, data: ledger });
   } catch (error: any) {
-    console.error('Get dealer ledger error:', error);
+    logger.error('Get dealer ledger error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get dealer ledger',
@@ -2534,7 +2581,7 @@ router.get('/ledger/:type/:id', authenticate, async (req: AuthRequest, res: Resp
     const { UnifiedLedgerService } = await import('../services/unified-ledger-service');
     const { type, id } = req.params;
 
-    console.log(`[Unified Ledger] Request received: type=${type}, id=${id}`);
+    logger.info(`[Unified Ledger] Request received: type=${type}, id=${id}`);
 
     if (!['client', 'dealer', 'property'].includes(type)) {
       return res.status(400).json({
@@ -2551,16 +2598,16 @@ router.get('/ledger/:type/:id', authenticate, async (req: AuthRequest, res: Resp
       filters.endDate = new Date(req.query.endDate as string);
     }
 
-    console.log(`[Unified Ledger] Fetching ledger for ${type} with ID: ${id}`);
+    logger.info(`[Unified Ledger] Fetching ledger for ${type} with ID: ${id}`);
     const ledger = await UnifiedLedgerService.getLedger(type as 'client' | 'dealer' | 'property', id, filters);
-    console.log(`[Unified Ledger] Successfully fetched ledger for ${type} ${id}`);
+    logger.info(`[Unified Ledger] Successfully fetched ledger for ${type} ${id}`);
 
     res.json({
       success: true,
       data: ledger,
     });
   } catch (error: any) {
-    console.error(`[Unified Ledger] Error for ${req.params.type} ${req.params.id}:`, error);
+    logger.error(`[Unified Ledger] Error for ${req.params.type} ${req.params.id}:`, error);
     const statusCode = error.message?.includes('not found') ? 404 : 500;
     res.status(statusCode).json({
       success: false,
@@ -2584,7 +2631,7 @@ router.post('/dealer-ledger/:dealerId/payment', authenticate, async (req: AuthRe
 
     res.json({ success: true, data: entry });
   } catch (error: any) {
-    console.error('Record dealer payment error:', error);
+    logger.error('Record dealer payment error:', error);
     res.status(400).json({
       success: false,
       error: error.message || 'Failed to record dealer payment',
@@ -2601,7 +2648,7 @@ router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthReq
 
     res.json({ success: true, data: { balance } });
   } catch (error: any) {
-    console.error('Get dealer balance error:', error);
+    logger.error('Get dealer balance error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get dealer balance',
@@ -2632,7 +2679,7 @@ router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, r
       error: 'Payment plan cannot be updated after creation. Please create a new payment plan if changes are needed.'
     });
   } catch (error: any) {
-    console.error('Update payment plan error:', error);
+    logger.error('Update payment plan error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to update payment plan',
@@ -2678,7 +2725,7 @@ router.post('/receipts/create', authenticate, async (req: AuthRequest, res: Resp
       message: `Receipt created and ${result.totalAllocated.toFixed(2)} allocated to installments`,
     });
   } catch (error: any) {
-    console.error('Create receipt error:', error);
+    logger.error('Create receipt error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to create receipt',
@@ -2693,7 +2740,7 @@ router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res: Resp
     const receipts = await ReceiptService.getReceiptsByDealId(req.params.dealId);
     res.json({ success: true, data: receipts });
   } catch (error: any) {
-    console.error('Get receipts error:', error);
+    logger.error('Get receipts error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get receipts',
@@ -2751,7 +2798,7 @@ router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res: Resp
     res.setHeader('Content-Disposition', `attachment; filename="receipt-${receipt.receiptNo}.pdf"`);
     res.send(pdfBuffer);
   } catch (error: any) {
-    console.error('Generate receipt PDF error:', error);
+    logger.error('Generate receipt PDF error:', error);
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to generate receipt PDF',
