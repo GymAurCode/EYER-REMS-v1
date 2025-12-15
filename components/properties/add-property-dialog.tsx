@@ -401,6 +401,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           setPropertyData(payload)
 
           const documents = typeof payload.documents === "object" ? payload.documents : {}
+          const dealerId = payload.dealerId || payload.dealer?.id || ""
+          const imageUrl = payload.imageUrl || ""
+          
           setForm({
             name: payload.name || "",
             type: payload.type || "",
@@ -411,15 +414,22 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             location: payload.location || "",
             locationId: null,
             salePrice: payload.salePrice?.toString() || documents.salePrice?.toString() || "",
-            imageUrl: payload.imageUrl || "",
+            imageUrl: imageUrl,
             totalArea: payload.totalArea?.toString() || "",
             totalUnits: payload.totalUnits?.toString() || "",
             yearBuilt: payload.yearBuilt?.toString() || "",
-            dealerId: payload.dealerId || "",
+            dealerId: dealerId,
             amenities: Array.isArray(payload.amenities) ? payload.amenities : documents.amenities || [],
             description: payload.description || "",
           })
-          setImagePreview(payload.imageUrl || null)
+          setImagePreview(imageUrl || null)
+          
+          // Log for debugging
+          console.log("Property loaded:", { 
+            dealerId, 
+            dealer: payload.dealer, 
+            imageUrl: imageUrl ? `${imageUrl.substring(0, 50)}...` : "none" 
+          })
 
           // Load existing attachments
           try {
@@ -472,7 +482,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     // Remove category and size from payload as they're not supported by server
     const { category, size, ...formWithoutCategorySize } = form
 
-    const payload: any = {
+      const payload: any = {
       name: formWithoutCategorySize.name.trim(),
       type: formWithoutCategorySize.type,
       status: formWithoutCategorySize.status || "Active",
@@ -483,10 +493,13 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
       yearBuilt: formWithoutCategorySize.yearBuilt ? Number(formWithoutCategorySize.yearBuilt) : undefined,
       salePrice: formWithoutCategorySize.salePrice ? Number(formWithoutCategorySize.salePrice) : undefined,
-      dealerId: formWithoutCategorySize.dealerId || undefined,
+      dealerId: formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim() ? formWithoutCategorySize.dealerId.trim() : undefined,
       amenities: formWithoutCategorySize.amenities,
-      imageUrl: formWithoutCategorySize.imageUrl || undefined,
+      imageUrl: formWithoutCategorySize.imageUrl && formWithoutCategorySize.imageUrl.trim() ? formWithoutCategorySize.imageUrl.trim() : undefined,
     }
+    
+    // Log payload for debugging
+    console.log("Property save payload:", { ...payload, imageUrl: payload.imageUrl ? `${payload.imageUrl.substring(0, 50)}...` : "none", dealerId: payload.dealerId || "none" })
 
     try {
       setSaving(true)
@@ -599,15 +612,34 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         image: base64,
         filename: file.name,
       })
-      const responseData = response.data as any
-      const imageUrl = responseData?.data?.url || responseData?.url || base64
-      setForm((p) => ({ ...p, imageUrl }))
+      
+      // Try multiple response paths to get the image URL
+      const responseData = response?.data || response
+      const imageUrl = 
+        responseData?.data?.url || 
+        responseData?.data?.data?.url ||
+        responseData?.url || 
+        responseData?.imageUrl ||
+        (typeof responseData === 'string' ? responseData : null) ||
+        base64
+      
+      if (!imageUrl || imageUrl === base64) {
+        console.warn("Image upload response structure unexpected:", response)
+        toast({
+          title: "Warning",
+          description: "Image uploaded but URL format may be incorrect. Please verify after saving.",
+          variant: "default",
+        })
+      }
+      
+      setForm((p) => ({ ...p, imageUrl: imageUrl || "" }))
       setImagePreview(imageUrl)
       toast({ title: "Image uploaded successfully" })
     } catch (error: any) {
+      console.error("Image upload error:", error)
       toast({
         title: "Failed to upload image",
-        description: error?.response?.data?.error || error?.message || "Upload failed",
+        description: error?.response?.data?.error || error?.response?.data?.message || error?.message || "Upload failed",
         variant: "destructive",
       })
     } finally {
@@ -710,7 +742,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="!max-w-[93vw] !w-[93vw] max-h-[90vh] p-0 flex flex-col sm:!w-[93vw] sm:!max-w-[93vw]">
+      <DialogContent className="max-w-[93vw]! w-[93vw]! max-h-[90vh] p-0 flex flex-col sm:w-[93vw]! sm:max-w-[93vw]!">
         <DialogHeader className="px-6 py-4 border-b bg-muted/50">
           <DialogTitle className="flex items-center justify-between text-lg font-semibold">
             <span>{isEdit ? "View / Edit Property" : "Add Property"}</span>

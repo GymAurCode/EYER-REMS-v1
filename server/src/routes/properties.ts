@@ -740,8 +740,30 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
+    // Fetch dealer information if dealerId exists
+    let dealer = null;
+    if (property.dealerId) {
+      try {
+        const dealerData = await prisma.dealer.findUnique({
+          where: { id: property.dealerId },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            company: true,
+            commissionRate: true,
+          },
+        });
+        dealer = dealerData;
+      } catch (err) {
+        console.warn('Failed to fetch dealer for property:', err);
+      }
+    }
+
     return successResponse(res, {
       ...property,
+      dealer, // Include dealer information
       ...(salePrice !== undefined ? { salePrice } : {}),
       amenities, // Add amenities to response
       occupied: occupiedUnits,
