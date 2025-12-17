@@ -20,12 +20,17 @@ import {
   User,
   Phone,
   DollarSign,
+  Upload,
+  Loader2,
 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import { PropertyReportHTML } from "@/components/reports/property-report-html"
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ImageLightbox } from "@/components/shared/image-lightbox"
+import { useToast } from "@/hooks/use-toast"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 type PropertyResponse = {
   id: string | number
@@ -103,12 +108,92 @@ export function PropertyDetailPage() {
   const [attachments, setAttachments] = useState<Array<{ id: string; fileUrl: string; fileName: string; fileType: string }>>([])
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
+  const [uploadingAttachments, setUploadingAttachments] = useState(false)
+  const { toast } = useToast()
 
   useEffect(() => {
     if (propertyId) {
       fetchProperty()
     }
   }, [propertyId])
+
+  const fetchAttachments = async () => {
+    if (!propertyId) return
+    try {
+      const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
+      const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
+      setAttachments(Array.isArray(attachmentsData) ? attachmentsData : [])
+    } catch (err) {
+      // Ignore if attachments endpoint fails
+      console.warn("Failed to load attachments", err)
+    }
+  }
+
+  const toBase64 = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result as string)
+      reader.onerror = (error) => reject(error)
+    })
+
+  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || !files.length || !propertyId) return
+
+    setUploadingAttachments(true)
+    try {
+      for (const file of Array.from(files)) {
+        // Validate file type
+        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+        if (!allowedTypes.includes(file.type.toLowerCase())) {
+          toast({
+            title: "Invalid file type",
+            description: `File "${file.name}" is not supported. Only PDF, JPG, PNG, GIF, and WEBP files are allowed`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        // Validate file size (max 10MB)
+        if (file.size > 10 * 1024 * 1024) {
+          toast({
+            title: "File too large",
+            description: `File "${file.name}" exceeds 10MB limit`,
+            variant: "destructive",
+          })
+          continue
+        }
+
+        const base64 = await toBase64(file)
+        
+        const response: any = await apiService.properties.uploadDocument(String(propertyId), {
+          file: base64,
+          filename: file.name,
+        })
+        
+        const responseData = response.data as any
+        const uploaded = responseData?.data || responseData
+        
+        // Refresh attachments list
+        await fetchAttachments()
+        
+        toast({ title: `File "${file.name}" uploaded successfully` })
+      }
+    } catch (error: any) {
+      toast({
+        title: "Failed to upload attachment",
+        description: error?.response?.data?.error || error?.message || "Upload failed",
+        variant: "destructive",
+      })
+    } finally {
+      setUploadingAttachments(false)
+      // Reset input
+      if (e.target) {
+        e.target.value = ""
+      }
+    }
+  }
 
   const fetchProperty = async () => {
     try {
@@ -119,14 +204,7 @@ export function PropertyDetailPage() {
       setProperty(data)
 
       // Load attachments
-      try {
-        const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
-        const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
-        setAttachments(Array.isArray(attachmentsData) ? attachmentsData : [])
-      } catch (err) {
-        // Ignore if attachments endpoint fails
-        console.warn("Failed to load attachments", err)
-      }
+      await fetchAttachments()
     } catch (err: any) {
       console.error("Failed to fetch property", err)
       setError(err?.response?.data?.message || err?.message || "Failed to load property")
@@ -650,15 +728,47 @@ export function PropertyDetailPage() {
       </Card>
 
       {/* Attachments Section */}
-      {attachments.length > 0 && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <p className="text-sm font-semibold text-foreground">Attachments</p>
-              <p className="text-sm text-muted-foreground">Documents and images for this property</p>
-            </div>
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Attachments</p>
+            <p className="text-sm text-muted-foreground">Documents and images for this property</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Input
+              id="attachment-upload"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
+              multiple
+              onChange={handleAttachmentUpload}
+              disabled={uploadingAttachments}
+              className="hidden"
+            />
+            <Label htmlFor="attachment-upload" className="cursor-pointer">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploadingAttachments}
+                onClick={() => document.getElementById('attachment-upload')?.click()}
+              >
+                {uploadingAttachments ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Add Attachment
+                  </>
+                )}
+              </Button>
+            </Label>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </div>
+        </div>
+        {attachments.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {attachments.map((attachment, idx) => {
               const isImage = attachment.fileType?.startsWith('image/')
@@ -710,8 +820,14 @@ export function PropertyDetailPage() {
               )
             })}
           </div>
-        </Card>
-      )}
+        ) : (
+          <div className="text-center py-8 border border-dashed rounded-lg">
+            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-3" />
+            <p className="text-sm text-muted-foreground mb-2">No attachments yet</p>
+            <p className="text-xs text-muted-foreground">Click "Add Attachment" to upload documents or images</p>
+          </div>
+        )}
+      </Card>
 
       {/* Image Lightbox */}
       {attachments.length > 0 && (

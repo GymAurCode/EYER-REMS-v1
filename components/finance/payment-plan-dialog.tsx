@@ -56,7 +56,7 @@ export function PaymentPlanDialog({
   const [downPaymentPercentage, setDownPaymentPercentage] = useState<string>("")
   const [downPaymentAmount, setDownPaymentAmount] = useState<string>("")
   // Get installment types from advance options
-  const { options: installmentTypeOptions } = useDropdownOptions("payment.installment.type")
+  const { options: installmentTypeOptions } = useDropdownOptions("installment.type")
 
   // Calculate downpayment amount
   const calculatedDownPayment = useMemo(() => {
@@ -368,25 +368,20 @@ export function PaymentPlanDialog({
                             <SelectValue placeholder="Select Type" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Select Type</SelectItem>
-                            {/* Default options */}
-                            {(!installmentTypeOptions || installmentTypeOptions.length === 0) && (
-                              <>
-                                <SelectItem value="monthly">Monthly</SelectItem>
-                                <SelectItem value="quarterly">Quarterly</SelectItem>
-                                <SelectItem value="yearly">Yearly</SelectItem>
-                                <SelectItem value="custom">Custom</SelectItem>
-                              </>
+                            {installmentTypeOptions && installmentTypeOptions.length > 0 ? (
+                              installmentTypeOptions
+                                .filter(opt => opt.isActive !== false)
+                                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                .map((option) => (
+                                  <SelectItem key={option.id} value={option.value}>
+                                    {option.label}
+                                  </SelectItem>
+                                ))
+                            ) : (
+                              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                No installment types available. Add types in Advanced Options.
+                              </div>
                             )}
-                            {/* Options from advance options */}
-                            {installmentTypeOptions && installmentTypeOptions.length > 0 && installmentTypeOptions
-                              .filter(opt => opt.isActive !== false)
-                              .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                              .map((option) => (
-                                <SelectItem key={option.id} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
                           </SelectContent>
                         </Select>
                       </TableCell>
