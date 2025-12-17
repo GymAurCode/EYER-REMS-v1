@@ -45,10 +45,10 @@ export interface PaymentPlanPDFData {
 }
 
 /**
- * Generate Payment Plan PDF - Beautiful formatted report
+ * Generate Payment Plan PDF - Beautiful formatted report (Single Page Optimized)
  */
 export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response): void {
-  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  const doc = new PDFDocument({ margin: 30, size: 'A4' });
   
   // Set response headers
   res.setHeader('Content-Type', 'application/pdf');
@@ -61,7 +61,8 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
   doc.pipe(res);
 
   const pageWidth = doc.page.width;
-  const pageMargin = 40;
+  const pageHeight = doc.page.height;
+  const pageMargin = 30;
   const contentWidth = pageWidth - (pageMargin * 2);
 
   // Colors
@@ -101,126 +102,107 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
     doc.restore();
   };
 
-  // ============ HEADER SECTION ============
-  // Header background
-  drawRect(0, 0, pageWidth, 100, primaryColor);
+  // ============ HEADER SECTION (Compact) ============
+  drawRect(0, 0, pageWidth, 70, primaryColor);
   
   doc.fillColor('#ffffff');
-  doc.fontSize(24).font('Helvetica-Bold').text('PAYMENT PLAN', pageMargin, 25, { align: 'center' });
-  doc.fontSize(12).font('Helvetica').text('Payment Schedule Report', pageMargin, 55, { align: 'center' });
-  doc.fontSize(9).text(`Generated: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, pageMargin, 75, { align: 'center' });
+  doc.fontSize(20).font('Helvetica-Bold').text('PAYMENT PLAN REPORT', pageMargin, 15, { align: 'center' });
+  doc.fontSize(9).font('Helvetica').text(`Generated: ${new Date().toLocaleDateString('en-IN', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}`, pageMargin, 45, { align: 'center' });
 
   doc.fillColor('#000000');
-  let currentY = 120;
+  let currentY = 80;
 
-  // ============ DEAL INFO BOX ============
-  drawRect(pageMargin, currentY, contentWidth, 80, lightGray);
-  drawRect(pageMargin, currentY, 4, 80, accentColor);
+  // ============ DEAL & PROPERTY INFO (Combined Box) ============
+  const infoBoxHeight = 75;
+  drawRect(pageMargin, currentY, contentWidth, infoBoxHeight, lightGray);
+  drawRect(pageMargin, currentY, 4, infoBoxHeight, accentColor);
   
   doc.fillColor(primaryColor);
-  doc.fontSize(14).font('Helvetica-Bold').text('Deal Information', pageMargin + 15, currentY + 10);
+  doc.fontSize(11).font('Helvetica-Bold').text('Deal & Property Information', pageMargin + 12, currentY + 8);
   
   doc.fillColor(darkGray);
-  doc.fontSize(10).font('Helvetica');
+  doc.fontSize(9).font('Helvetica');
   
-  // Two column layout
-  const leftCol = pageMargin + 15;
-  const rightCol = pageMargin + contentWidth / 2 + 10;
+  const leftCol = pageMargin + 12;
+  const midCol = pageMargin + contentWidth / 3;
+  const rightCol = pageMargin + (contentWidth * 2) / 3;
   
-  doc.text(`Deal Code: ${data.deal.dealCode || 'N/A'}`, leftCol, currentY + 30);
-  doc.text(`Title: ${data.deal.title}`, leftCol, currentY + 45);
-  doc.font('Helvetica-Bold').text(`Deal Amount: ${formatCurrency(data.deal.dealAmount)}`, leftCol, currentY + 60);
+  // Row 1
+  doc.text(`Deal Code: ${data.deal.dealCode || 'N/A'}`, leftCol, currentY + 25);
+  doc.text(`Title: ${data.deal.title}`, midCol, currentY + 25);
+  doc.font('Helvetica-Bold').text(`Amount: ${formatCurrency(data.deal.dealAmount)}`, rightCol, currentY + 25);
   
+  // Row 2 - Property Details
   doc.font('Helvetica');
   if (data.deal.property) {
-    doc.text(`Property: ${data.deal.property.name || 'N/A'}`, rightCol, currentY + 30);
+    doc.text(`Property: ${data.deal.property.name || 'N/A'}`, leftCol, currentY + 40);
+    doc.text(`Property Code: ${data.deal.property.propertyCode || 'N/A'}`, midCol, currentY + 40);
   }
   if (data.deal.dealer) {
-    doc.text(`Dealer: ${data.deal.dealer.name || 'N/A'}`, rightCol, currentY + 45);
+    doc.text(`Dealer: ${data.deal.dealer.name || 'N/A'}`, rightCol, currentY + 40);
   }
 
-  currentY += 95;
-
-  // ============ CLIENT INFO BOX ============
+  // Row 3 - Client Details
   if (data.deal.client) {
-    drawRect(pageMargin, currentY, contentWidth, 60, lightGray);
-    drawRect(pageMargin, currentY, 4, 60, successColor);
-    
-    doc.fillColor(primaryColor);
-    doc.fontSize(14).font('Helvetica-Bold').text('Client Details', pageMargin + 15, currentY + 10);
-    
-    doc.fillColor(darkGray);
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Name: ${data.deal.client.name || 'N/A'}`, leftCol, currentY + 30);
-    if (data.deal.client.email) doc.text(`Email: ${data.deal.client.email}`, rightCol, currentY + 30);
-    if (data.deal.client.phone) doc.text(`Phone: ${data.deal.client.phone}`, leftCol, currentY + 45);
-    
-    currentY += 75;
+    doc.text(`Client: ${data.deal.client.name || 'N/A'}`, leftCol, currentY + 55);
+    if (data.deal.client.phone) doc.text(`Phone: ${data.deal.client.phone}`, midCol, currentY + 55);
+    if (data.deal.client.email) doc.text(`Email: ${data.deal.client.email}`, rightCol, currentY + 55);
   }
 
-  // ============ PAYMENT SUMMARY CARDS ============
-  doc.fillColor(primaryColor);
-  doc.fontSize(14).font('Helvetica-Bold').text('Payment Summary', pageMargin, currentY);
-  currentY += 25;
+  currentY += infoBoxHeight + 10;
 
-  const cardWidth = (contentWidth - 30) / 4;
-  const cardHeight = 60;
+  // ============ PAYMENT SUMMARY (Compact Cards) ============
+  const cardWidth = (contentWidth - 20) / 4;
+  const cardHeight = 45;
+  const downPayment = data.summary.downPayment || 0;
   
   // Card 1: Total Amount
   drawRect(pageMargin, currentY, cardWidth, cardHeight, '#dbeafe');
   doc.fillColor('#1e40af');
-  doc.fontSize(9).font('Helvetica').text('Total Amount', pageMargin + 8, currentY + 8);
-  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.totalAmount), pageMargin + 8, currentY + 28);
+  doc.fontSize(8).font('Helvetica').text('Total Amount', pageMargin + 6, currentY + 6);
+  doc.fontSize(11).font('Helvetica-Bold').text(formatCurrency(data.summary.totalAmount), pageMargin + 6, currentY + 22);
 
-  // Card 2: Down Payment (if available)
-  const downPayment = data.summary.downPayment || 0;
-  drawRect(pageMargin + cardWidth + 10, currentY, cardWidth, cardHeight, '#fef3c7');
+  // Card 2: Down Payment
+  drawRect(pageMargin + cardWidth + 5, currentY, cardWidth, cardHeight, '#fef3c7');
   doc.fillColor('#92400e');
-  doc.fontSize(9).font('Helvetica').text('Down Payment', pageMargin + cardWidth + 18, currentY + 8);
-  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(downPayment), pageMargin + cardWidth + 18, currentY + 28);
+  doc.fontSize(8).font('Helvetica').text('Down Payment', pageMargin + cardWidth + 11, currentY + 6);
+  doc.fontSize(11).font('Helvetica-Bold').text(formatCurrency(downPayment), pageMargin + cardWidth + 11, currentY + 22);
 
   // Card 3: Paid Amount
-  drawRect(pageMargin + (cardWidth + 10) * 2, currentY, cardWidth, cardHeight, '#d1fae5');
+  drawRect(pageMargin + (cardWidth + 5) * 2, currentY, cardWidth, cardHeight, '#d1fae5');
   doc.fillColor('#065f46');
-  doc.fontSize(9).font('Helvetica').text('Paid Amount', pageMargin + (cardWidth + 10) * 2 + 8, currentY + 8);
-  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.paidAmount), pageMargin + (cardWidth + 10) * 2 + 8, currentY + 28);
+  doc.fontSize(8).font('Helvetica').text('Paid Amount', pageMargin + (cardWidth + 5) * 2 + 6, currentY + 6);
+  doc.fontSize(11).font('Helvetica-Bold').text(formatCurrency(data.summary.paidAmount), pageMargin + (cardWidth + 5) * 2 + 6, currentY + 22);
 
   // Card 4: Remaining
-  drawRect(pageMargin + (cardWidth + 10) * 3, currentY, cardWidth, cardHeight, '#fee2e2');
+  drawRect(pageMargin + (cardWidth + 5) * 3, currentY, cardWidth, cardHeight, '#fee2e2');
   doc.fillColor('#991b1b');
-  doc.fontSize(9).font('Helvetica').text('Remaining', pageMargin + (cardWidth + 10) * 3 + 8, currentY + 8);
-  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.remainingAmount), pageMargin + (cardWidth + 10) * 3 + 8, currentY + 28);
+  doc.fontSize(8).font('Helvetica').text('Remaining', pageMargin + (cardWidth + 5) * 3 + 6, currentY + 6);
+  doc.fontSize(11).font('Helvetica-Bold').text(formatCurrency(data.summary.remainingAmount), pageMargin + (cardWidth + 5) * 3 + 6, currentY + 22);
 
-  currentY += cardHeight + 15;
+  currentY += cardHeight + 8;
 
-  // Progress Bar
-  const progressBarWidth = contentWidth;
-  const progressBarHeight = 20;
+  // Progress Bar (Compact)
+  const progressBarHeight = 14;
   const progress = Math.min(data.summary.progress, 100);
   
-  drawRect(pageMargin, currentY, progressBarWidth, progressBarHeight, '#e5e7eb');
-  drawRect(pageMargin, currentY, (progressBarWidth * progress) / 100, progressBarHeight, progress >= 100 ? successColor : accentColor);
+  drawRect(pageMargin, currentY, contentWidth, progressBarHeight, '#e5e7eb');
+  drawRect(pageMargin, currentY, (contentWidth * progress) / 100, progressBarHeight, progress >= 100 ? successColor : accentColor);
   
-  doc.fillColor('#ffffff');
-  doc.fontSize(10).font('Helvetica-Bold').text(`${progress.toFixed(1)}% Complete`, pageMargin + progressBarWidth / 2 - 30, currentY + 4);
+  doc.fillColor(progress > 50 ? '#ffffff' : darkGray);
+  doc.fontSize(8).font('Helvetica-Bold').text(`${progress.toFixed(1)}% Complete`, pageMargin + contentWidth / 2 - 25, currentY + 3);
   
-  currentY += progressBarHeight + 25;
+  currentY += progressBarHeight + 15;
 
   // ============ INSTALLMENTS TABLE ============
   if (data.installments && data.installments.length > 0) {
-    // Check if we need a new page
-    if (currentY > 500) {
-      doc.addPage();
-      currentY = 50;
-    }
-
     doc.fillColor(primaryColor);
-    doc.fontSize(14).font('Helvetica-Bold').text('Installment Schedule', pageMargin, currentY);
-    currentY += 25;
+    doc.fontSize(11).font('Helvetica-Bold').text('Installment Schedule', pageMargin, currentY);
+    currentY += 18;
 
-    // Table configuration
+    // Table configuration (compact)
     const tableLeft = pageMargin;
-    const colWidths = [35, 90, 85, 90, 90, 70, 55];
+    const colWidths = [30, 75, 75, 80, 80, 80, 60];
     const cols = [
       tableLeft,
       tableLeft + colWidths[0],
@@ -230,23 +212,23 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
       tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4],
       tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5],
     ];
-    const rowHeight = 22;
+    const rowHeight = 18;
 
     // Table Header
-    drawRect(tableLeft, currentY, contentWidth, rowHeight + 4, primaryColor);
+    drawRect(tableLeft, currentY, contentWidth, rowHeight + 2, primaryColor);
     doc.fillColor('#ffffff');
-    doc.fontSize(9).font('Helvetica-Bold');
-    doc.text('#', cols[0] + 5, currentY + 7);
-    doc.text('Type', cols[1] + 5, currentY + 7);
-    doc.text('Due Date', cols[2] + 5, currentY + 7);
-    doc.text('Amount', cols[3] + 5, currentY + 7);
-    doc.text('Paid', cols[4] + 5, currentY + 7);
-    doc.text('Balance', cols[5] + 5, currentY + 7);
-    doc.text('Status', cols[6] + 5, currentY + 7);
+    doc.fontSize(8).font('Helvetica-Bold');
+    doc.text('#', cols[0] + 4, currentY + 5);
+    doc.text('Type', cols[1] + 4, currentY + 5);
+    doc.text('Due Date', cols[2] + 4, currentY + 5);
+    doc.text('Amount', cols[3] + 4, currentY + 5);
+    doc.text('Paid', cols[4] + 4, currentY + 5);
+    doc.text('Balance', cols[5] + 4, currentY + 5);
+    doc.text('Status', cols[6] + 4, currentY + 5);
 
-    currentY += rowHeight + 4;
+    currentY += rowHeight + 2;
 
-    // Add Down Payment row if exists
+    // Down Payment row
     if (downPayment > 0) {
       const dpStatus = data.summary.paidAmount >= downPayment ? 'PAID' : 'PENDING';
       const dpPaid = Math.min(data.summary.paidAmount, downPayment);
@@ -254,43 +236,46 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
       
       drawRect(tableLeft, currentY, contentWidth, rowHeight, '#fef3c7');
       doc.fillColor(darkGray);
-      doc.fontSize(9).font('Helvetica-Bold');
-      doc.text('DP', cols[0] + 5, currentY + 6);
-      doc.text('Down Payment', cols[1] + 5, currentY + 6);
+      doc.fontSize(8).font('Helvetica-Bold');
+      doc.text('DP', cols[0] + 4, currentY + 5);
+      doc.text('Down Payment', cols[1] + 4, currentY + 5);
       doc.font('Helvetica');
-      doc.text('-', cols[2] + 5, currentY + 6);
-      doc.text(formatCurrency(downPayment), cols[3] + 5, currentY + 6);
-      doc.text(formatCurrency(dpPaid), cols[4] + 5, currentY + 6);
-      doc.text(formatCurrency(dpRemaining), cols[5] + 5, currentY + 6);
-      
-      // Status badge
-      const statusColor = dpStatus === 'PAID' ? successColor : warningColor;
-      doc.fillColor(statusColor);
-      doc.fontSize(8).font('Helvetica-Bold').text(dpStatus, cols[6] + 5, currentY + 6);
-      
+      doc.text('-', cols[2] + 4, currentY + 5);
+      doc.text(formatCurrency(downPayment), cols[3] + 4, currentY + 5);
+      doc.text(formatCurrency(dpPaid), cols[4] + 4, currentY + 5);
+      doc.text(formatCurrency(dpRemaining), cols[5] + 4, currentY + 5);
+      doc.fillColor(dpStatus === 'PAID' ? successColor : warningColor);
+      doc.fontSize(7).font('Helvetica-Bold').text(dpStatus, cols[6] + 4, currentY + 5);
       currentY += rowHeight;
     }
 
     // Table Rows - Installments
-    doc.fontSize(9).font('Helvetica');
+    doc.fontSize(8).font('Helvetica');
+    
+    // Calculate available space for rows
+    const footerSpace = 50;
+    const availableHeight = pageHeight - currentY - footerSpace;
+    const maxRowsPerPage = Math.floor(availableHeight / rowHeight);
+    
     data.installments.forEach((inst, index) => {
-      if (currentY > 750) {
+      // Check if we need a new page
+      if (currentY > pageHeight - footerSpace - rowHeight) {
         doc.addPage();
-        currentY = 50;
+        currentY = 30;
         
         // Redraw header on new page
-        drawRect(tableLeft, currentY, contentWidth, rowHeight + 4, primaryColor);
+        drawRect(tableLeft, currentY, contentWidth, rowHeight + 2, primaryColor);
         doc.fillColor('#ffffff');
-        doc.fontSize(9).font('Helvetica-Bold');
-        doc.text('#', cols[0] + 5, currentY + 7);
-        doc.text('Type', cols[1] + 5, currentY + 7);
-        doc.text('Due Date', cols[2] + 5, currentY + 7);
-        doc.text('Amount', cols[3] + 5, currentY + 7);
-        doc.text('Paid', cols[4] + 5, currentY + 7);
-        doc.text('Balance', cols[5] + 5, currentY + 7);
-        doc.text('Status', cols[6] + 5, currentY + 7);
-        currentY += rowHeight + 4;
-        doc.fontSize(9).font('Helvetica');
+        doc.fontSize(8).font('Helvetica-Bold');
+        doc.text('#', cols[0] + 4, currentY + 5);
+        doc.text('Type', cols[1] + 4, currentY + 5);
+        doc.text('Due Date', cols[2] + 4, currentY + 5);
+        doc.text('Amount', cols[3] + 4, currentY + 5);
+        doc.text('Paid', cols[4] + 4, currentY + 5);
+        doc.text('Balance', cols[5] + 4, currentY + 5);
+        doc.text('Status', cols[6] + 4, currentY + 5);
+        currentY += rowHeight + 2;
+        doc.fontSize(8).font('Helvetica');
       }
 
       const remaining = (inst.amount || 0) - (inst.paidAmount || 0);
@@ -302,10 +287,10 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
       doc.fillColor(darkGray);
       doc.text(inst.installmentNumber.toString(), cols[0] + 5, currentY + 6);
       doc.text('Installment', cols[1] + 5, currentY + 6);
-      doc.text(formatDate(inst.dueDate), cols[2] + 5, currentY + 6);
-      doc.text(formatCurrency(inst.amount || 0), cols[3] + 5, currentY + 6);
-      doc.text(formatCurrency(inst.paidAmount || 0), cols[4] + 5, currentY + 6);
-      doc.text(formatCurrency(remaining), cols[5] + 5, currentY + 6);
+      doc.text(formatDate(inst.dueDate), cols[2] + 4, currentY + 5);
+      doc.text(formatCurrency(inst.amount || 0), cols[3] + 4, currentY + 5);
+      doc.text(formatCurrency(inst.paidAmount || 0), cols[4] + 4, currentY + 5);
+      doc.text(formatCurrency(remaining), cols[5] + 4, currentY + 5);
       
       // Status with color
       let statusColor = darkGray;
@@ -314,43 +299,40 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
       else if (status === 'PARTIAL') statusColor = warningColor;
       
       doc.fillColor(statusColor);
-      doc.fontSize(8).font('Helvetica-Bold').text(status, cols[6] + 5, currentY + 6);
-      doc.fontSize(9).font('Helvetica');
-
-      // Draw bottom border
-      doc.strokeColor('#d1d5db').lineWidth(0.5);
-      doc.moveTo(tableLeft, currentY + rowHeight).lineTo(tableLeft + contentWidth, currentY + rowHeight).stroke();
+      doc.fontSize(7).font('Helvetica-Bold').text(status, cols[6] + 4, currentY + 5);
+      doc.fontSize(8).font('Helvetica');
 
       currentY += rowHeight;
     });
 
     // Table footer with totals
-    currentY += 5;
-    drawRect(tableLeft, currentY, contentWidth, rowHeight + 2, '#e5e7eb');
-    doc.fillColor(primaryColor);
-    doc.fontSize(10).font('Helvetica-Bold');
-    doc.text('TOTAL', cols[1] + 5, currentY + 6);
-    
-    const totalInstallments = data.installments.reduce((sum, i) => sum + (i.amount || 0), 0) + downPayment;
-    const totalPaidInst = data.installments.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
-    const totalRemaining = data.installments.reduce((sum, i) => sum + ((i.amount || 0) - (i.paidAmount || 0)), 0);
-    
-    doc.text(formatCurrency(totalInstallments), cols[3] + 5, currentY + 6);
-    doc.text(formatCurrency(data.summary.paidAmount), cols[4] + 5, currentY + 6);
-    doc.text(formatCurrency(data.summary.remainingAmount), cols[5] + 5, currentY + 6);
+    if (currentY < pageHeight - 60) {
+      currentY += 3;
+      drawRect(tableLeft, currentY, contentWidth, rowHeight, '#e5e7eb');
+      doc.fillColor(primaryColor);
+      doc.fontSize(8).font('Helvetica-Bold');
+      doc.text('TOTAL', cols[1] + 4, currentY + 5);
+      
+      const totalInstallments = data.installments.reduce((sum, i) => sum + (i.amount || 0), 0) + downPayment;
+      
+      doc.text(formatCurrency(totalInstallments), cols[3] + 4, currentY + 5);
+      doc.text(formatCurrency(data.summary.paidAmount), cols[4] + 4, currentY + 5);
+      doc.text(formatCurrency(data.summary.remainingAmount), cols[5] + 4, currentY + 5);
+    }
   }
 
-  // ============ FOOTER ============
-  const pageHeight = doc.page.height;
+  // ============ FOOTER (on current page only) ============
+  // Only add footer if there's content on the page
+  const footerY = Math.max(currentY + 20, pageHeight - 40);
   
-  // Footer line
-  doc.strokeColor('#d1d5db').lineWidth(1);
-  doc.moveTo(pageMargin, pageHeight - 60).lineTo(pageWidth - pageMargin, pageHeight - 60).stroke();
-  
-  doc.fillColor('#6b7280');
-  doc.fontSize(8).font('Helvetica');
-  doc.text('This is a computer-generated document. No signature required.', pageMargin, pageHeight - 45, { align: 'center' });
-  doc.text('Real Estate Management System', pageMargin, pageHeight - 32, { align: 'center' });
+  if (footerY < pageHeight - 15) {
+    doc.strokeColor('#d1d5db').lineWidth(0.5);
+    doc.moveTo(pageMargin, footerY).lineTo(pageWidth - pageMargin, footerY).stroke();
+    
+    doc.fillColor('#9ca3af');
+    doc.fontSize(7).font('Helvetica');
+    doc.text('This is a computer-generated document. No signature required. | Real Estate Management System', pageMargin, footerY + 8, { align: 'center', width: contentWidth });
+  }
 
   // Finalize PDF
   doc.end();

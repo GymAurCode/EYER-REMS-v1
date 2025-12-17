@@ -14,7 +14,7 @@ import { Progress } from "@/components/ui/progress"
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ArrowLeft, CalendarIcon, Plus, Trash2, Loader2, Save, Edit, DollarSign, FileText, Download, Receipt, Upload, X, ImageIcon } from "lucide-react"
+import { ArrowLeft, CalendarIcon, Plus, Trash2, Loader2, Save, Edit, DollarSign, FileText, Download, Receipt, Upload, X, ImageIcon, Printer } from "lucide-react"
 import { ReceiptCreationDialog } from "./receipt-creation-dialog"
 import { ClientLedgerView } from "./client-ledger-view"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -711,6 +711,44 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
   }
 
+  const handlePrintReport = async () => {
+    if (!deal) return
+
+    try {
+      setGeneratingReport(true)
+
+      // Generate PDF report from backend
+      const response = await apiService.deals.getPaymentPlanPDF(dealId)
+
+      // Create blob from response
+      const blob = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data as any], { type: 'application/pdf' })
+      const url = URL.createObjectURL(blob)
+      
+      // Open in new window for printing
+      const printWindow = window.open(url, '_blank')
+      if (printWindow) {
+        printWindow.onload = () => {
+          printWindow.print()
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: "Print dialog opened",
+      })
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to open print dialog",
+        variant: "destructive",
+      })
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
+
   // Calculate paid amount including down payment
   // Backend summary includes down payment for existing plans
   // For new plans or when user applies down payment, we need to add it
@@ -764,14 +802,24 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         </div>
         <div className="flex items-center gap-2">
           {paymentPlan && (
-            <Button variant="outline" onClick={handleGenerateReport} disabled={generatingReport}>
-              {generatingReport ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <FileText className="mr-2 h-4 w-4" />
-              )}
-              Generate PDF Report
-            </Button>
+            <>
+              <Button variant="outline" onClick={handlePrintReport} disabled={generatingReport}>
+                {generatingReport ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Printer className="mr-2 h-4 w-4" />
+                )}
+                Print
+              </Button>
+              <Button variant="outline" onClick={handleGenerateReport} disabled={generatingReport}>
+                {generatingReport ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <FileText className="mr-2 h-4 w-4" />
+                )}
+                Download PDF
+              </Button>
+            </>
           )}
         </div>
       </div>
