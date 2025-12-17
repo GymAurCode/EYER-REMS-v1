@@ -604,7 +604,8 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
     const { includeDeleted } = req.query;
 
     // Show all deals by default, filter deleted only if explicitly requested
-    const where: any = includeDeleted === 'true' ? {} : { isDeleted: false };
+    // Handle null/undefined isDeleted - show deals where isDeleted is false OR null
+    const where: any = includeDeleted === 'true' ? {} : { OR: [{ isDeleted: false }, { isDeleted: null }] };
     const [deals, total] = await Promise.all([
       prisma.deal.findMany({
         where,
