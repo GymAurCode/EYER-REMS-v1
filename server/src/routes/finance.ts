@@ -1110,6 +1110,7 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
       preparedByUserId,
       approvedByUserId,
       counterAccountId,
+      dealId,
     } = req.body;
 
     if (!voucherType || !paymentMethod || !accountId || !amount || !date) {
@@ -1150,6 +1151,17 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
     }
 
     const voucher = await prisma.$transaction(async (tx) => {
+      // Validate deal exists if dealId is provided
+      if (dealId) {
+        const deal = await tx.deal.findUnique({
+          where: { id: dealId },
+          select: { id: true },
+        });
+        if (!deal) {
+          return res.status(400).json({ error: 'Deal not found' });
+        }
+      }
+
       const createdVoucher = await tx.voucher.create({
         data: {
           voucherNumber,
@@ -1157,6 +1169,7 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
           paymentMethod,
           accountId,
           expenseCategoryId: categoryId,
+          dealId: dealId || null,
           description: description || null,
           referenceNumber: referenceNumber || null,
           amount,

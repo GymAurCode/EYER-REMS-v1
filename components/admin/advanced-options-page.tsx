@@ -4,6 +4,8 @@ import { useState } from "react"
 import { DropdownManager } from "@/components/admin/dropdown-manager"
 import { AmenitiesManager } from "@/components/admin/amenities-manager"
 import { LocationManager } from "@/components/admin/location-manager"
+import { SubsidiaryManager } from "@/components/admin/subsidiary-manager"
+import { InstallmentTypeManager } from "@/components/admin/installment-type-manager"
 import { BulkExport } from "@/components/admin/bulk-export"
 import { BulkImport } from "@/components/admin/bulk-import"
 import { BulkExcelExport } from "@/components/admin/bulk-excel-export"
@@ -33,6 +35,10 @@ export function AdvancedOptionsPage() {
       <DropdownManager />
 
       <LocationManager />
+
+      <SubsidiaryManager />
+
+      <InstallmentTypeManager />
 
       <AmenitiesManager />
 

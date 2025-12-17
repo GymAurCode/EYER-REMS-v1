@@ -350,6 +350,68 @@ export async function validateManualUniqueId(
 }
 
 /**
+ * Validate TID (Transaction ID) - must be unique across Property, Deal, and Client
+ * 
+ * @param tid - Transaction ID to validate
+ * @param excludePropertyId - Optional property ID to exclude from check (for updates)
+ * @param excludeDealId - Optional deal ID to exclude from check (for updates)
+ * @param excludeClientId - Optional client ID to exclude from check (for updates)
+ * @param tx - Optional transaction client
+ * @returns true if valid, throws error if invalid
+ */
+export async function validateTID(
+  tid: string,
+  excludePropertyId?: string,
+  excludeDealId?: string,
+  excludeClientId?: string,
+  tx?: Prisma.TransactionClient
+): Promise<boolean> {
+  if (!tid || tid.trim() === '') {
+    throw new Error('TID is required');
+  }
+
+  const client = tx || prisma;
+  const trimmedTid = tid.trim();
+
+  // Check for conflicts across Property, Deal, and Client
+  const [existingProperty, existingDeal, existingClient] = await Promise.all([
+    client.property.findFirst({
+      where: {
+        tid: trimmedTid,
+        ...(excludePropertyId ? { id: { not: excludePropertyId } } : {}),
+      },
+    }),
+    client.deal.findFirst({
+      where: {
+        tid: trimmedTid,
+        isDeleted: false,
+        deletedAt: null,
+        ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
+      },
+    }),
+    client.client.findFirst({
+      where: {
+        tid: trimmedTid,
+        isDeleted: false,
+        ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
+      },
+    }),
+  ]);
+
+  if (existingProperty) {
+    throw new Error(`TID "${trimmedTid}" already exists for a property`);
+  }
+  if (existingDeal) {
+    throw new Error(`TID "${trimmedTid}" already exists for a deal`);
+  }
+  if (existingClient) {
+    throw new Error(`TID "${trimmedTid}" already exists for a client`);
+  }
+
+  return true;
+}
+
+/**
  * Extract year and counter from system ID
  * Useful for migration or analysis
  */

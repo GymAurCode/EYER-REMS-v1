@@ -44,7 +44,7 @@ interface LedgerData {
 }
 
 interface LedgerViewProps {
-  type: "client" | "dealer" | "property"
+  type: "client" | "dealer" | "property" | "deal"
   id: string
   onClose?: () => void
   showBackButton?: boolean
@@ -70,8 +70,13 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
       
       console.log(`Fetching ledger for ${type} with ID: ${id}`)
       
-      // Make API call
-      const response: any = await apiService.ledgers.getLedger(type, id)
+      // Make API call - handle deal type separately
+      let response: any
+      if (type === 'deal') {
+        response = await apiService.deals.getLedger(id)
+      } else {
+        response = await apiService.ledgers.getLedger(type, id)
+      }
       
       console.log("Ledger API response:", response)
       
@@ -95,6 +100,35 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
       // Validate data structure
       if (!data) {
         throw new Error("No data received from server")
+      }
+      
+      // Handle deal type response structure
+      if (type === 'deal' && data.deal) {
+        // Transform deal ledger response to match expected format
+        const entries = (data.entries || []).map((entry: any) => ({
+          id: entry.id,
+          date: entry.date,
+          referenceNo: entry.payment?.paymentId || entry.payment?.referenceNumber || entry.id,
+          description: entry.remarks || `Payment ${entry.payment?.paymentId || ''}`,
+          debit: entry.debitAccount ? entry.amount : 0,
+          credit: entry.creditAccount ? entry.amount : 0,
+          runningBalance: 0, // Will be calculated below
+          accountHead: entry.debitAccount?.name || entry.creditAccount?.name || '',
+          linkedEntityType: 'payment',
+          linkedEntityId: entry.payment?.id,
+          payment: entry.payment,
+        }))
+        
+        // Calculate running balance
+        let runningBalance = 0
+        entries.forEach((entry: any) => {
+          runningBalance += entry.debit - entry.credit
+          entry.runningBalance = runningBalance
+        })
+        
+        data.entries = entries
+        data.entityName = data.deal.title || data.deal.dealCode || `Deal ${id.substring(0, 8)}`
+        data.entityId = data.deal.id
       }
       
       // Ensure required fields exist

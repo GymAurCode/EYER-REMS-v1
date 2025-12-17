@@ -56,8 +56,9 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   const [downPaymentPercentage, setDownPaymentPercentage] = useState<string>("")
   const [downPaymentAmount, setDownPaymentAmount] = useState<string>("")
   // Get installment types from advance options
-  const { options: installmentTypeOptions } = useDropdownOptions("payment.installment.type")
+  const { options: installmentTypeOptions } = useDropdownOptions("installment.type")
 
+  const [selectedInstallmentType, setSelectedInstallmentType] = useState<string>("")
   const [numberOfInstallments, setNumberOfInstallments] = useState(3)
   const [installmentsInput, setInstallmentsInput] = useState<string>("3")
   const [startDate, setStartDate] = useState<Date>(new Date())
@@ -220,8 +221,17 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
   }
 
 
-  // Generate installments based on type - each installment has its own type
-  const handleGenerateInstallments = (type: 'monthly' | 'quarterly' | 'yearly' | 'custom') => {
+  // Generate installments based on selected type
+  const handleApplyInstallmentType = () => {
+    if (!selectedInstallmentType) {
+      toast({
+        title: "Error",
+        description: "Please select an installment type",
+        variant: "destructive",
+      })
+      return
+    }
+
     if (!deal || (deal.dealAmount || 0) <= 0) {
       toast({
         title: "Error",
@@ -241,10 +251,13 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     }
 
     const newInstallments: InstallmentRow[] = []
-    const monthsPerInstallment = type === 'quarterly' ? 3
-      : type === 'yearly' ? 12
-        : type === 'monthly' ? 1
-          : 1 // Default to monthly
+    // Determine months per installment based on type value
+    const typeValue = selectedInstallmentType.toLowerCase()
+    const monthsPerInstallment = typeValue.includes('quarterly') || typeValue.includes('quarter') ? 3
+      : typeValue.includes('yearly') || typeValue.includes('year') || typeValue.includes('annual') ? 12
+        : typeValue.includes('monthly') || typeValue.includes('month') ? 1
+          : typeValue.includes('bi-annual') || typeValue.includes('biannual') ? 6
+            : 1 // Default to monthly
 
     const currentMaxNumber = installments.length > 0
       ? Math.max(...installments.map(inst => inst.installmentNumber))
@@ -257,7 +270,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       newInstallments.push({
         id: Date.now() + i, // Unique ID
         installmentNumber: currentMaxNumber + i + 1,
-        type: type, // Each installment has its own type
+        type: selectedInstallmentType, // Use the selected type from dropdown
         amount: 0, // Manual entry - NO auto-calculation
         period: "",
         dueDate,
@@ -268,18 +281,29 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
 
     setInstallments([...installments, ...newInstallments])
 
+    // Get the label for the type
+    const typeLabel = installmentTypeOptions?.find(opt => opt.value === selectedInstallmentType)?.label || selectedInstallmentType
+
     toast({
       title: "Success",
-      description: `${numberOfInstallments} ${type} installment(s) generated. Please enter amounts manually.`,
+      description: `${numberOfInstallments} ${typeLabel} installment(s) generated. Please enter amounts manually.`,
     })
+
+    // Reset selection and number input for next type
+    setSelectedInstallmentType("")
+    setInstallmentsInput("3")
+    setNumberOfInstallments(3)
   }
 
   // Add one more installment of the same type
   const handleAddOneMore = (type: string) => {
-    const monthsPerInstallment = type === 'quarterly' ? 3
-      : type === 'yearly' ? 12
-        : type === 'monthly' ? 1
-          : 1
+    // Determine months per installment based on type value
+    const typeValue = type.toLowerCase()
+    const monthsPerInstallment = typeValue.includes('quarterly') || typeValue.includes('quarter') ? 3
+      : typeValue.includes('yearly') || typeValue.includes('year') || typeValue.includes('annual') ? 12
+        : typeValue.includes('monthly') || typeValue.includes('month') ? 1
+          : typeValue.includes('bi-annual') || typeValue.includes('biannual') ? 6
+            : 1 // Default to monthly
 
     const sameTypeInstallments = installments.filter(inst => inst.type === type)
     const lastSameTypeIndex = installments.findLastIndex(inst => inst.type === type)
@@ -1060,49 +1084,93 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                 </div>
               </div>
 
-              {/* Generate Installments Buttons - One for each type */}
+              {/* Generate Installments - Dynamic Type Selection */}
               <div className="space-y-2">
                 <Label>Generate Installments</Label>
                 <p className="text-sm text-muted-foreground mb-2">
-                  Generate installments by type. Each installment will have its own independent type.
+                  Select an installment type and number of installments, then click Apply. You can apply multiple types sequentially.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleGenerateInstallments('monthly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Generate {numberOfInstallments} Monthly
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleGenerateInstallments('quarterly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Generate {numberOfInstallments} Quarterly
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleGenerateInstallments('yearly')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Generate {numberOfInstallments} Yearly
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => handleGenerateInstallments('custom')}
-                    disabled={!deal || (deal.dealAmount || 0) <= 0 || numberOfInstallments <= 0}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Generate {numberOfInstallments} Custom
-                  </Button>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Installment Type</Label>
+                    <Select
+                      value={selectedInstallmentType}
+                      onValueChange={(value) => {
+                        setSelectedInstallmentType(value)
+                        // Prompt user to enter number of installments when type is selected
+                        if (value && numberOfInstallments <= 0) {
+                          setInstallmentsInput("3")
+                          setNumberOfInstallments(3)
+                        }
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select installment type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {installmentTypeOptions && installmentTypeOptions.length > 0 ? (
+                          installmentTypeOptions
+                            .filter(opt => opt.isActive !== false)
+                            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                            .map((option) => (
+                              <SelectItem key={option.id} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))
+                        ) : (
+                          <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                            No installment types available. Add types in Advanced Options.
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {installmentTypeOptions && installmentTypeOptions.length === 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        No installment types available. Add types in Advanced Options.
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Number of Installments</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={installmentsInput}
+                      onChange={(e) => {
+                        const value = e.target.value
+                        setInstallmentsInput(value)
+                        const num = parseInt(value, 10)
+                        if (!isNaN(num) && num > 0) {
+                          setNumberOfInstallments(num)
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const value = parseInt(e.target.value, 10)
+                        if (isNaN(value) || value < 1) {
+                          setInstallmentsInput("1")
+                          setNumberOfInstallments(1)
+                        } else {
+                          setInstallmentsInput(value.toString())
+                        }
+                      }}
+                      placeholder="Enter number"
+                      disabled={!selectedInstallmentType}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>&nbsp;</Label>
+                    <Button
+                      type="button"
+                      variant="default"
+                      onClick={handleApplyInstallmentType}
+                      disabled={!deal || (deal.dealAmount || 0) <= 0 || !selectedInstallmentType || numberOfInstallments <= 0}
+                      className="w-full"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Apply
+                    </Button>
+                  </div>
                 </div>
               </div>
 
@@ -1166,25 +1234,21 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                                       <SelectValue placeholder="Select Type" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      {/* Default options */}
-                                      {(!installmentTypeOptions || installmentTypeOptions.length === 0) && (
-                                        <>
-                                          <SelectItem value="monthly">Monthly</SelectItem>
-                                          <SelectItem value="quarterly">Quarterly</SelectItem>
-                                          <SelectItem value="yearly">Yearly</SelectItem>
-                                          <SelectItem value="custom">Custom</SelectItem>
-                                        </>
-                                      )}
                                       {/* Options from advance options */}
-                                      {installmentTypeOptions && installmentTypeOptions.length > 0 && installmentTypeOptions
-                                        .filter(opt => opt.isActive !== false)
-                                        .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
-                                        .map((option) => (
-                                          <SelectItem key={option.id} value={option.value}>
-                                            {option.label}
-                                          </SelectItem>
-                                        ))}
-                                      <SelectItem value="custom">Custom</SelectItem>
+                                      {installmentTypeOptions && installmentTypeOptions.length > 0 ? (
+                                        installmentTypeOptions
+                                          .filter(opt => opt.isActive !== false)
+                                          .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0))
+                                          .map((option) => (
+                                            <SelectItem key={option.id} value={option.value}>
+                                              {option.label}
+                                            </SelectItem>
+                                          ))
+                                      ) : (
+                                        <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                          No installment types available. Add types in Advanced Options.
+                                        </div>
+                                      )}
                                     </SelectContent>
                                   </Select>
                                 </TableCell>

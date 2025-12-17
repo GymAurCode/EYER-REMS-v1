@@ -208,7 +208,7 @@ export class ReceiptService {
         if (!existingPayment) {
           // Generate system ID for payment: pay-YY-####
           const paymentCode = await generateSystemId('pay');
-          await tx.payment.create({
+          const createdPayment = await tx.payment.create({
             data: {
               paymentId: paymentCode,
               dealId: payload.dealId,
@@ -220,6 +220,47 @@ export class ReceiptService {
               remarks: `Receipt ${receiptNo} - ${payload.notes || 'Payment received'}`,
               createdByUserId: payload.receivedBy || null,
               manualUniqueId: null, // Payment created from receipt doesn't have manual ID
+            },
+          });
+
+          // Create double-entry ledger entries for the payment
+          // This ensures every payment has corresponding ledger entries
+          const { PaymentService } = await import('./payment-service');
+          const { debitAccountId, creditAccountId } = await PaymentService.getPaymentAccounts(payload.method.toLowerCase() as 'cash' | 'bank');
+          
+          // Get account names for legacy compatibility
+          const debitAccount = await tx.account.findUnique({ where: { id: debitAccountId } });
+          const creditAccount = await tx.account.findUnique({ where: { id: creditAccountId } });
+          
+          const remarks = `Receipt ${receiptNo} - ${payload.method} payment${payload.notes ? ` - ${payload.notes}` : ''}`;
+
+          // Debit: Cash/Bank Account
+          await tx.ledgerEntry.create({
+            data: {
+              dealId: payload.dealId,
+              paymentId: createdPayment.id,
+              debitAccountId,
+              creditAccountId: null,
+              accountDebit: debitAccount?.name || '', // Legacy field
+              accountCredit: '', // Legacy field
+              amount: payload.amount,
+              remarks: `Payment received: ${remarks}`,
+              date: receiptDate,
+            },
+          });
+
+          // Credit: Accounts Receivable
+          await tx.ledgerEntry.create({
+            data: {
+              dealId: payload.dealId,
+              paymentId: createdPayment.id,
+              debitAccountId: null,
+              creditAccountId,
+              accountDebit: '', // Legacy field
+              accountCredit: creditAccount?.name || '', // Legacy field
+              amount: payload.amount,
+              remarks: `Payment received: ${remarks}`,
+              date: receiptDate,
             },
           });
         }

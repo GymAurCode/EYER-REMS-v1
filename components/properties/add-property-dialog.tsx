@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
 
 type PropertyForm = {
+  tid: string // Transaction ID - unique across Property, Deal, Client
   name: string
   type: string
   status: string
@@ -23,6 +24,7 @@ type PropertyForm = {
   address: string
   location: string
   locationId: string | null
+  propertySubsidiary: string
   salePrice: string
   totalArea: string
   totalUnits: string
@@ -34,6 +36,7 @@ type PropertyForm = {
 }
 
 const DEFAULT_FORM: PropertyForm = {
+  tid: "",
   name: "",
   type: "",
   status: "Active",
@@ -42,6 +45,7 @@ const DEFAULT_FORM: PropertyForm = {
   address: "",
   location: "",
   locationId: null,
+  propertySubsidiary: "",
   salePrice: "",
   totalArea: "",
   totalUnits: "",
@@ -59,7 +63,7 @@ type AddPropertyDialogProps = {
   onSuccess?: () => void
 }
 
-type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size" | "property.location"
+type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size" | "property.location" | "property.subsidiary"
 
 const DROPDOWN_LABELS: Record<DropdownKey, string> = {
   "property.type": "Type",
@@ -67,6 +71,7 @@ const DROPDOWN_LABELS: Record<DropdownKey, string> = {
   "property.status": "Status",
   "property.size": "Size",
   "property.location": "Location",
+  "property.subsidiary": "Subsidiary",
 }
 
 function ManagedDropdown({
@@ -119,6 +124,8 @@ function ManagedDropdown({
         ]
       case "property.location":
         return [] // No default options - locations must be added via Advanced Options
+      case "property.subsidiary":
+        return [] // No default options - subsidiaries must be added via Advanced Options
       default:
         return []
     }
@@ -272,6 +279,8 @@ function ManagedDropdown({
             <div className="px-2 py-6 text-center text-sm text-muted-foreground">
               {dropdownKey === "property.location" 
                 ? "No locations available. Add locations in Advanced Options."
+                : dropdownKey === "property.subsidiary"
+                ? "No subsidiaries available. Add subsidiaries in Advanced Options."
                 : "No options available"}
             </div>
           ) : (
@@ -323,7 +332,12 @@ function ManagedDropdown({
           No locations available. Add locations in Advanced Options (e.g., "Country &gt; State &gt; City").
         </p>
       )}
-      {dropdownKey !== "property.location" && (!options || options.length === 0) && (
+      {dropdownKey === "property.subsidiary" && (!options || options.length === 0) && localOptions.length === 0 && (
+        <p className="text-xs text-muted-foreground">
+          No subsidiaries available. Add subsidiaries in Advanced Options.
+        </p>
+      )}
+      {dropdownKey !== "property.location" && dropdownKey !== "property.subsidiary" && (!options || options.length === 0) && (
         <p className="text-xs text-muted-foreground">
           Using default options. Admin can customize in Advanced Settings.
         </p>
@@ -405,6 +419,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           const imageUrl = payload.imageUrl || ""
           
           setForm({
+            tid: payload.tid || "",
             name: payload.name || "",
             type: payload.type || "",
             status: payload.status || "Active",
@@ -413,6 +428,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             address: payload.address || "",
             location: payload.location || "",
             locationId: null,
+            propertySubsidiary: payload.propertySubsidiary || "",
             salePrice: payload.salePrice?.toString() || documents.salePrice?.toString() || "",
             imageUrl: imageUrl,
             totalArea: payload.totalArea?.toString() || "",
@@ -467,6 +483,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   const handleSave = async () => {
     const errors: string[] = []
+    if (!form.tid.trim()) errors.push("TID")
     if (!form.name.trim()) errors.push("Name")
     if (!form.type.trim()) errors.push("Type")
     if (!form.address.trim()) errors.push("Address")
@@ -483,11 +500,13 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     const { category, size, ...formWithoutCategorySize } = form
 
       const payload: any = {
+      tid: formWithoutCategorySize.tid.trim(),
       name: formWithoutCategorySize.name.trim(),
       type: formWithoutCategorySize.type,
       status: formWithoutCategorySize.status || "Active",
       address: formWithoutCategorySize.address,
       location: formWithoutCategorySize.location || undefined,
+      propertySubsidiary: formWithoutCategorySize.propertySubsidiary || undefined,
       description: formWithoutCategorySize.description || undefined,
       totalArea: formWithoutCategorySize.totalArea ? Number(formWithoutCategorySize.totalArea) : undefined,
       totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
@@ -770,9 +789,24 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                   <div className="lg:col-span-7 space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
+                        <Label>TID (Transaction ID) *</Label>
+                        <Input 
+                          value={form.tid} 
+                          onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value.toUpperCase().trim() }))}
+                          placeholder="Enter unique TID"
+                          disabled={isEdit}
+                          className={isEdit ? "bg-muted" : ""}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          {isEdit ? "TID cannot be changed after creation" : "Unique identifier across Property, Deal, and Client"}
+                        </p>
+                      </div>
+                      <div className="space-y-2">
                         <Label>Name *</Label>
                         <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
                       </div>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Address *</Label>
                         <Input
@@ -888,6 +922,12 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                         dropdownKey="property.location"
                         value={form.location}
                         onChange={(val) => setForm((p) => ({ ...p, location: val, locationId: null }))}
+                      />
+
+                      <ManagedDropdown
+                        dropdownKey="property.subsidiary"
+                        value={form.propertySubsidiary}
+                        onChange={(val) => setForm((p) => ({ ...p, propertySubsidiary: val }))}
                       />
 
                       <div className="space-y-2">

@@ -1,13 +1,11 @@
 /**
  * Soft Delete Service
  * Handles soft deletion of records and moves them to recycle bin
- * Records are kept for 30 days before permanent deletion
+ * Records are kept indefinitely until manually removed
  */
 
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
-
-const RETENTION_DAYS = 30;
 
 interface SoftDeleteOptions {
   entityType: string;
@@ -24,7 +22,9 @@ export async function softDeleteRecord(options: SoftDeleteOptions): Promise<void
   const { entityType, entityId, entityName, deletedBy, deletedByName } = options;
   
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + RETENTION_DAYS * 24 * 60 * 60 * 1000);
+  // Set expiresAt to far future date (year 2099) to keep records indefinitely
+  // Records will only be deleted when manually removed
+  const expiresAt = new Date('2099-12-31T23:59:59.999Z');
 
   await prisma.$transaction(async (tx) => {
     // Get the full record data before soft deleting
@@ -153,74 +153,14 @@ export async function softDeleteRecord(options: SoftDeleteOptions): Promise<void
 
 /**
  * Permanently delete expired records from recycle bin
- * Should be called by a scheduled job
+ * DISABLED: Records are now kept indefinitely until manually removed
+ * This function is kept for backward compatibility but does nothing
  */
 export async function cleanupExpiredRecords(): Promise<number> {
-  const now = new Date();
-  
-  // Find expired records
-  const expiredRecords = await prisma.deletedRecord.findMany({
-    where: {
-      expiresAt: { lt: now },
-    },
-  });
-
-  if (expiredRecords.length === 0) {
-    logger.info('No expired records to clean up');
-    return 0;
-  }
-
-  // Permanently delete the original records and recycle bin entries
-  let deletedCount = 0;
-  
-  for (const record of expiredRecords) {
-    try {
-      await prisma.$transaction(async (tx) => {
-        // Permanently delete the original record
-        switch (record.entityType) {
-          case 'lead':
-            await tx.lead.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'client':
-            await tx.client.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'dealer':
-            await tx.dealer.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'deal':
-            await tx.deal.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'employee':
-            await tx.employee.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'property':
-            await tx.property.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'unit':
-            await tx.unit.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'tenant':
-            await tx.tenant.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'lease':
-            await tx.lease.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-          case 'communication':
-            await tx.communication.delete({ where: { id: record.entityId } }).catch(() => {});
-            break;
-        }
-
-        // Delete from recycle bin
-        await tx.deletedRecord.delete({ where: { id: record.id } });
-        deletedCount++;
-      }, { timeout: 30000 });
-    } catch (error) {
-      logger.error(`Failed to permanently delete ${record.entityType} ${record.entityId}:`, error);
-    }
-  }
-
-  logger.info(`Cleaned up ${deletedCount} expired records from recycle bin`);
-  return deletedCount;
+  // Auto-cleanup is disabled - records are kept indefinitely
+  // Records can only be deleted manually through the UI
+  logger.info('Auto-cleanup is disabled. Records are kept indefinitely until manually removed.');
+  return 0;
 }
 
 export const SoftDeleteService = {

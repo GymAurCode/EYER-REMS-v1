@@ -37,6 +37,7 @@ interface ClientFormData {
   clientType?: string
   clientCategory?: string
   propertyInterest?: string
+  propertySubsidiary?: string
   billingAddress?: string
   notes?: string
   tags?: string[]
@@ -90,6 +91,7 @@ const defaultFormState = {
   clientType: "",
   clientCategory: "",
   propertyInterest: "",
+  propertySubsidiary: "",
   billingAddress: "",
   notes: "",
   tags: [] as string[],
@@ -136,6 +138,7 @@ export function AddClientDialog({
           clientType: initialData.clientType || "",
           clientCategory: initialData.clientCategory || "",
           propertyInterest: initialData.propertyInterest || "",
+          propertySubsidiary: initialData.propertySubsidiary || "",
           billingAddress: initialData.billingAddress || "",
           notes: "",
           tags: Array.isArray(initialData.tags) ? initialData.tags : [],
@@ -299,6 +302,7 @@ export function AddClientDialog({
       if (formData.clientType) payload.clientType = formData.clientType
       if (formData.clientCategory) payload.clientCategory = formData.clientCategory
       if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
+      if (formData.propertySubsidiary?.trim()) payload.propertySubsidiary = formData.propertySubsidiary.trim()
       if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
       // Store notes and file attachments in attachments JSON field
       const attachmentsData: any = {}
@@ -522,6 +526,16 @@ export function AddClientDialog({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="property-subsidiary">Property Subsidiary</Label>
+                  <Input
+                    id="property-subsidiary"
+                    placeholder="Enter property subsidiary"
+                    value={formData.propertySubsidiary}
+                    onChange={(event) => setFormData({ ...formData, propertySubsidiary: event.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Enter the property subsidiary name</p>
                 </div>
                 <div className="grid gap-2 md:col-span-2">
                   <Label htmlFor="client-address">Address</Label>

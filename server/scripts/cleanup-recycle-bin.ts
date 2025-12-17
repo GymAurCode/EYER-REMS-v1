@@ -1,24 +1,27 @@
 /**
  * Cleanup Recycle Bin Script
  * 
- * This script permanently deletes records that have been in the recycle bin
- * for more than 30 days.
+ * DISABLED: Auto-cleanup is disabled. Records are kept indefinitely until manually removed.
  * 
- * Run this as a scheduled task (cron job) daily:
- * - Windows Task Scheduler: npx ts-node scripts/cleanup-recycle-bin.ts
- * - Linux cron: 0 2 * * * cd /path/to/server && npx ts-node scripts/cleanup-recycle-bin.ts
- * - Railway/Heroku: Use their scheduled job features
+ * This script is kept for backward compatibility but does nothing.
+ * Records can only be deleted manually through the UI.
+ * 
+ * NOTE: If you have a scheduled task running this script, you should disable it.
+ * - Windows Task Scheduler: Disable the scheduled task
+ * - Linux cron: Remove the cron job entry
+ * - Railway/Heroku: Disable the scheduled job
  */
 
 import { cleanupExpiredRecords } from '../src/services/soft-delete-service';
 import logger from '../src/utils/logger';
 
 async function main() {
-  logger.info('Starting recycle bin cleanup...');
+  logger.info('Recycle bin cleanup script called, but auto-cleanup is disabled.');
+  logger.info('Records are kept indefinitely until manually removed.');
   
   try {
     const deletedCount = await cleanupExpiredRecords();
-    logger.info(`Cleanup completed. ${deletedCount} expired records permanently deleted.`);
+    logger.info(`Cleanup completed. ${deletedCount} records deleted (auto-cleanup is disabled).`);
     process.exit(0);
   } catch (error) {
     logger.error('Cleanup failed:', error);

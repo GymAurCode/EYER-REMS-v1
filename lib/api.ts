@@ -657,8 +657,10 @@ export const apiService = {
 
   // CRM - Deals
   deals: {
+    getLedger: (dealId: string) => api.get(`/crm/deals/${dealId}/ledger`),
     getAll: () => api.get('/crm/deals'),
     getById: (id: string) => api.get(`/crm/deals/${id}`),
+    searchByTID: (tid: string) => api.get(`/crm/search/tid/${tid}`),
     create: (data: any) => api.post('/crm/deals', data),
     update: (id: string, data: any) => api.put(`/crm/deals/${id}`, data),
     delete: (id: string) => api.delete(`/crm/deals/${id}`),

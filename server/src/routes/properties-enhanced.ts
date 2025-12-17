@@ -16,7 +16,7 @@ import {
 } from '../services/workflows';
 import { createAttachment, getAttachments } from '../services/attachments';
 import { getPropertyDashboard } from '../services/analytics';
-import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
 import multer from 'multer';
 
 const router = (express as any).Router();
@@ -24,6 +24,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas
 const createPropertySchema = z.object({
+  tid: z.string().min(1, 'TID is required'), // Transaction ID - required and unique
   name: z.string().min(1),
   title: z.string().optional(),
   type: z.string().min(1),
@@ -91,6 +92,7 @@ router.get(
           { address: { contains: search as string, mode: 'insensitive' } },
           { propertyCode: { contains: search as string, mode: 'insensitive' } },
           { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+          { tid: { contains: search as string, mode: 'insensitive' } },
         ];
       }
 
@@ -163,7 +165,12 @@ router.post(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const data = createPropertySchema.parse(req.body);
-      const { manualUniqueId, ...propertyData } = data as any;
+      const { manualUniqueId, tid, ...propertyData } = data as any;
+
+      // Validate TID - must be unique across Property, Deal, and Client
+      if (tid) {
+        await validateTID(tid.trim());
+      }
 
       // Validate manual unique ID if provided
       if (manualUniqueId) {
@@ -178,6 +185,7 @@ router.post(
           data: {
             ...propertyData,
             propertyCode,
+            tid: tid?.trim() || null,
             manualUniqueId: manualUniqueId?.trim() || null,
           },
         });
@@ -222,10 +230,16 @@ router.put(
       }
 
       const data = updatePropertySchema.parse(req.body);
+      const { tid, ...updateData } = data as any;
+
+      // TID cannot be changed after creation
+      if (tid !== undefined && tid !== oldProperty.tid) {
+        return res.status(400).json({ error: 'TID cannot be changed after property creation' });
+      }
 
       const property = await prisma.property.update({
         where: { id: req.params.id },
-        data,
+        data: updateData,
         include: {
           units: { where: { isDeleted: false } },
           tenancies: { where: { status: 'active' } },

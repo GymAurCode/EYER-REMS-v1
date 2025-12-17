@@ -115,6 +115,10 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             <CreditCard className="mr-2 h-4 w-4" />
             Payment Plan
           </Button>
+          <Button variant="outline" onClick={() => router.push(`/finance/ledger/deal/${dealId}`)}>
+            <FileText className="mr-2 h-4 w-4" />
+            View Ledger
+          </Button>
         </div>
       </div>
 

@@ -6,7 +6,7 @@
 import prisma from '../prisma/client';
 import { Prisma } from '@prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
-import { generateSystemId, validateManualUniqueId } from './id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID } from './id-generation-service';
 
 export interface CreateDealPayload {
   title: string;
@@ -35,6 +35,7 @@ export interface CreateDealPayload {
   notes?: string;
   createdBy: string;
   manualUniqueId?: string; // User-provided manual unique ID
+  tid?: string; // Transaction ID - unique across Property, Deal, Client
 }
 
 export interface UpdateDealPayload {
@@ -177,6 +178,11 @@ export class DealService {
       }
     }
 
+    // Validate TID - must be unique across Property, Deal, and Client
+    if (payload.tid) {
+      await validateTID(payload.tid.trim());
+    }
+
     // Validate manual unique ID if provided
     if (payload.manualUniqueId) {
       await validateManualUniqueId(payload.manualUniqueId, 'dl');
@@ -260,6 +266,7 @@ export class DealService {
           notes: payload.notes,
           createdBy: payload.createdBy,
           manualUniqueId: payload.manualUniqueId?.trim() || null,
+          tid: payload.tid?.trim() || null,
           isDeleted: false,
         },
       });

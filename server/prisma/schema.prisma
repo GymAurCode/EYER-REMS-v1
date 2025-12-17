@@ -103,6 +103,7 @@ model Property {
   type                     String
   address                  String
   location                 String?
+  propertySubsidiary      String?
   status                   String               @default("Vacant")
   imageUrl                 String?
   description              String?
@@ -126,6 +127,7 @@ model Property {
   title                    String?
   locationId               String?
   manualUniqueId           String?              @unique
+  tid                      String?              @unique // Transaction ID - unique across Property, Deal, Client
   attachments              Attachment[]         @relation("PropertyAttachments")
   blocks                   Block[]
   buyers                   Buyer[]
@@ -149,9 +151,11 @@ model Property {
   @@index([type])
   @@index([propertyCode])
   @@index([manualUniqueId])
+  @@index([tid])
   @@index([city])
   @@index([location])
   @@index([locationId])
+  @@index([propertySubsidiary])
 }
 
 model Location {
@@ -792,9 +796,11 @@ model Client {
   isDeleted           Boolean           @default(false)
   postalCode          String?
   propertyInterest    String?
+  propertySubsidiary  String?
   tags                Json?
   updatedBy           String?
   manualUniqueId      String?           @unique
+  tid                 String?           @unique // Transaction ID - unique across Property, Deal, Client
   activities          CRMActivity[]
   assignedAgent       User?             @relation("ClientAssignedToUser", fields: [assignedAgentId], references: [id])
   assignedDealer      Dealer?           @relation("ClientAssignedDealer", fields: [assignedDealerId], references: [id])
@@ -809,11 +815,13 @@ model Client {
 
   @@index([clientCode])
   @@index([manualUniqueId])
+  @@index([tid])
   @@index([assignedDealerId])
   @@index([assignedAgentId])
   @@index([status])
   @@index([clientCategory])
   @@index([isDeleted])
+  @@index([propertySubsidiary])
 }
 
 model ContactPerson {
@@ -933,6 +941,7 @@ model Deal {
   deletedAt           DateTime?
   deletedBy           String?
   manualUniqueId      String?           @unique
+  tid                 String?           @unique // Transaction ID - unique across Property, Deal, Client
   activities          CRMActivity[]
   communications      Communication[]
   client              Client?           @relation(fields: [clientId], references: [id])
@@ -949,9 +958,11 @@ model Deal {
   payments            Payment[]
   paymentPlan         PaymentPlan?
   stageHistory        StageHistory[]
+  vouchers            Voucher[]                @relation("VoucherDeal")
 
   @@index([dealCode])
   @@index([manualUniqueId])
+  @@index([tid])
   @@index([clientId])
   @@index([dealerId])
   @@index([propertyId])
@@ -1451,6 +1462,7 @@ model Voucher {
   paymentMethod     String
   accountId         String
   expenseCategoryId String?
+  dealId            String?              // Link to deal for bank receipt vouchers
   description       String?
   referenceNumber   String?
   amount            Float
@@ -1465,6 +1477,8 @@ model Voucher {
   expenseCategory   TransactionCategory? @relation(fields: [expenseCategoryId], references: [id])
   journalEntry      JournalEntry?        @relation("JournalEntryVouchers", fields: [journalEntryId], references: [id])
   preparedBy        User?                @relation("VoucherPreparedBy", fields: [preparedByUserId], references: [id])
+  deal              Deal?                @relation("VoucherDeal", fields: [dealId], references: [id], onDelete: SetNull)
+  @@index([dealId])
 }
 
 model Commission {
@@ -1995,7 +2009,7 @@ model CsrfToken {
   @@index([expiresAt])
 }
 
-// Recycle Bin - Stores soft-deleted records for 30-day recovery
+// Recycle Bin - Stores soft-deleted records indefinitely until manually removed
 model DeletedRecord {
   id           String   @id @default(uuid())
   entityType   String   // lead, client, dealer, deal, employee, etc.
@@ -2005,7 +2019,7 @@ model DeletedRecord {
   deletedBy    String?  // User ID who deleted
   deletedByName String? // User name for display
   deletedAt    DateTime @default(now())
-  expiresAt    DateTime // Auto-calculated: deletedAt + 30 days
+  expiresAt    DateTime // Set to far future date (2099) - records kept indefinitely
 
   @@index([entityType])
   @@index([entityId])

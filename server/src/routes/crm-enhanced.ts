@@ -11,7 +11,7 @@ import { createAuditLog } from '../services/audit-log';
 import { syncDealToFinanceLedger } from '../services/workflows';
 import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alerts';
 import { createAttachment, saveUploadedFile } from '../services/attachments';
-import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
 import multer from 'multer';
 
 const router = (express as any).Router();
@@ -41,6 +41,7 @@ const createLeadSchema = z.object({
 });
 
 const createClientSchema = z.object({
+  tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
   name: z.string().min(1),
   email: z.string().email().optional(),
   phone: z.string().optional(),
@@ -49,6 +50,7 @@ const createClientSchema = z.object({
   cnic: z.string().optional(),
   address: z.string().optional(),
   propertyInterest: z.string().optional(),
+  propertySubsidiary: z.string().optional(),
   assignedDealerId: z.string().uuid().optional(),
   assignedAgentId: z.string().uuid().optional(),
 });
@@ -57,6 +59,7 @@ const DEAL_ROLE_OPTIONS = ['buyer', 'seller', 'tenant', 'landlord', 'investor', 
 const DEAL_STATUS_OPTIONS = ['open', 'in_progress', 'won', 'lost', 'cancelled'] as const;
 
 const createDealSchema = z.object({
+  tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
   title: z.string().min(1),
   clientId: z.string().uuid(),
   propertyId: z.string().uuid(),
@@ -348,8 +351,15 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
         { phone: { contains: search as string, mode: 'insensitive' } },
         { clientCode: { contains: search as string, mode: 'insensitive' } },
         { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+        { tid: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
+    }
+    
+    // Search by TID (Transaction ID) - searches across Property, Deal, Client
+    const { tid } = req.query;
+    if (tid) {
+      where.tid = tid as string;
     }
 
     const clients = await prisma.client.findMany({
@@ -376,7 +386,12 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
 router.post('/clients', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const parsedData = createClientSchema.parse(req.body);
-    const { manualUniqueId, ...data } = parsedData as any;
+    const { manualUniqueId, tid, ...data } = parsedData as any;
+
+    // Validate TID - must be unique across Property, Deal, and Client
+    if (tid) {
+      await validateTID(tid.trim());
+    }
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
@@ -393,6 +408,7 @@ router.post('/clients', requireAuth, requirePermission('crm.clients.create'), as
         data: {
           ...data,
           clientCode,
+          tid: tid?.trim() || null,
           manualUniqueId: manualUniqueId?.trim() || null,
           srNo: nextSrNo,
           clientNo: `CL-${String(nextSrNo).padStart(4, '0')}`,
@@ -457,19 +473,108 @@ router.post('/clients/:id/upload-cnic', requireAuth, requirePermission('crm.clie
   }
 });
 
+// ==================== GLOBAL TID SEARCH ====================
+
+// Search by TID across Property, Deal, and Client - returns the deal
+router.get('/search/tid/:tid', requireAuth, requirePermission('crm.deals.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const { tid } = req.params;
+    
+    if (!tid || tid.trim() === '') {
+      return res.status(400).json({ error: 'TID is required' });
+    }
+
+    // Search for deal by TID (primary search - returns deal)
+    const deal = await prisma.deal.findFirst({
+      where: {
+        tid: tid.trim(),
+        isDeleted: false,
+        deletedAt: null,
+      },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            clientCode: true,
+            tid: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            name: true,
+            propertyCode: true,
+            tid: true,
+          },
+        },
+        dealer: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        paymentPlan: {
+          include: {
+            installments: {
+              where: { isDeleted: false },
+              orderBy: { dueDate: 'asc' },
+            },
+          },
+        },
+        payments: {
+          where: { deletedAt: null },
+          orderBy: { date: 'desc' },
+          take: 10,
+        },
+      },
+    });
+
+    if (!deal) {
+      return res.status(404).json({ 
+        error: 'Deal not found with this TID',
+        message: `No deal found with TID: ${tid}`,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: deal,
+      message: `Deal found with TID: ${tid}`,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ==================== DEALS ====================
 
 // Get all deals
 router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { stage, clientId, dealerId, propertyId, status } = req.query;
-    const where: any = { isDeleted: false };
+    const { stage, clientId, dealerId, propertyId, status, search, tid } = req.query;
+    const where: any = { isDeleted: false, deletedAt: null };
 
     if (stage) where.stage = stage;
     if (clientId) where.clientId = clientId;
     if (dealerId) where.dealerId = dealerId;
     if (propertyId) where.propertyId = propertyId;
     if (status) where.status = status;
+    
+    // Search by TID (Transaction ID) - searches across Property, Deal, Client
+    if (tid) {
+      where.tid = tid as string;
+    }
+    
+    // General search
+    if (search) {
+      where.OR = [
+        { title: { contains: search as string, mode: 'insensitive' } },
+        { dealCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+        { tid: { contains: search as string, mode: 'insensitive' } },
+      ];
+    }
 
     const deals = await prisma.deal.findMany({
       where,
@@ -496,11 +601,12 @@ router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (re
 router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const parsedData = createDealSchema.parse(req.body);
-    const { manualUniqueId, ...data } = parsedData as any;
+    const { manualUniqueId, tid, ...data } = parsedData as any;
     
     const { DealService } = await import('../services/deal-service');
     
     const deal = await DealService.createDeal({
+      tid: tid?.trim() || undefined,
       title: data.title,
       clientId: data.clientId,
       propertyId: data.propertyId,
@@ -820,22 +926,28 @@ router.put('/deals/:id', requireAuth, requirePermission('crm.deals.update'), asy
       updateData.expectedRevenue = (value * probability) / 100;
     }
 
+    // TID cannot be changed after creation
+    if (updateData.tid !== undefined && updateData.tid !== oldDeal.tid) {
+      return res.status(400).json({ error: 'TID cannot be changed after deal creation' });
+    }
+    const { tid, ...dataWithoutTid } = updateData;
+
     // Handle date conversions
-    if (updateData.dealDate) {
-      updateData.dealDate = new Date(updateData.dealDate);
+    if (dataWithoutTid.dealDate) {
+      dataWithoutTid.dealDate = new Date(dataWithoutTid.dealDate);
     }
 
-    if (updateData.expectedClosingDate) {
-      updateData.expectedClosingDate = new Date(updateData.expectedClosingDate);
+    if (dataWithoutTid.expectedClosingDate) {
+      dataWithoutTid.expectedClosingDate = new Date(dataWithoutTid.expectedClosingDate);
     }
-    if (updateData.actualClosingDate) {
-      updateData.actualClosingDate = new Date(updateData.actualClosingDate);
+    if (dataWithoutTid.actualClosingDate) {
+      dataWithoutTid.actualClosingDate = new Date(dataWithoutTid.actualClosingDate);
     }
 
     const deal = await prisma.deal.update({
       where: { id },
       data: {
-        ...updateData,
+        ...dataWithoutTid,
         updatedBy: req.user?.id,
       },
       include: {

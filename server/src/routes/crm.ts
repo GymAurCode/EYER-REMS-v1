@@ -377,9 +377,23 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
 
 router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const oldClient = await prisma.client.findUnique({
+      where: { id: req.params.id },
+    });
+    
+    if (!oldClient) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    // TID cannot be changed after creation
+    if (req.body.tid !== undefined && req.body.tid !== oldClient.tid) {
+      return res.status(400).json({ error: 'TID cannot be changed after client creation' });
+    }
+    const { tid, ...updateData } = req.body;
+
     const client = await prisma.client.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
     });
 
     await createActivity({
@@ -664,6 +678,122 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+/**
+ * Get ledger entries for a specific deal
+ * @route GET /api/crm/deals/:id/ledger
+ * @access Private
+ */
+router.get('/deals/:id/ledger', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const deal = await prisma.deal.findUnique({
+      where: { id },
+      select: { id: true, dealCode: true, title: true, clientId: true, propertyId: true },
+    });
+
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+
+    // Get all ledger entries for this deal
+    const ledgerEntries = await prisma.ledgerEntry.findMany({
+      where: {
+        dealId: id,
+        deletedAt: null,
+      },
+      include: {
+        payment: {
+          select: {
+            id: true,
+            paymentId: true,
+            amount: true,
+            paymentType: true,
+            paymentMode: true,
+            referenceNumber: true,
+            date: true,
+            remarks: true,
+          },
+        },
+        debitAccount: {
+          select: { id: true, name: true, code: true },
+        },
+        creditAccount: {
+          select: { id: true, name: true, code: true },
+        },
+        deal: {
+          select: {
+            id: true,
+            dealCode: true,
+            title: true,
+            client: { select: { id: true, name: true, clientCode: true } },
+            property: { select: { id: true, name: true, propertyCode: true } },
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    // Format entries for response
+    const formattedEntries = ledgerEntries.map((entry) => ({
+      id: entry.id,
+      date: entry.date,
+      amount: entry.amount,
+      remarks: entry.remarks,
+      debitAccount: entry.debitAccount ? {
+        id: entry.debitAccount.id,
+        name: entry.debitAccount.name,
+        code: entry.debitAccount.code,
+      } : null,
+      creditAccount: entry.creditAccount ? {
+        id: entry.creditAccount.id,
+        name: entry.creditAccount.name,
+        code: entry.creditAccount.code,
+      } : null,
+      payment: entry.payment ? {
+        id: entry.payment.id,
+        paymentId: entry.payment.paymentId,
+        amount: entry.payment.amount,
+        paymentType: entry.payment.paymentType,
+        paymentMode: entry.payment.paymentMode,
+        referenceNumber: entry.payment.referenceNumber,
+        date: entry.payment.date,
+        remarks: entry.payment.remarks,
+      } : null,
+      deal: {
+        id: entry.deal.id,
+        dealCode: entry.deal.dealCode,
+        title: entry.deal.title,
+        client: entry.deal.client,
+        property: entry.deal.property,
+      },
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        deal,
+        entries: formattedEntries,
+        summary: {
+          totalEntries: formattedEntries.length,
+          totalDebit: formattedEntries
+            .filter((e) => e.debitAccount)
+            .reduce((sum, e) => sum + e.amount, 0),
+          totalCredit: formattedEntries
+            .filter((e) => e.creditAccount)
+            .reduce((sum, e) => sum + e.amount, 0),
+        },
+      },
+    });
+  } catch (error: any) {
+    logger.error('Get deal ledger error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get deal ledger',
+    });
+  }
+});
+
 router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const deal = await prisma.deal.findUnique({
@@ -723,15 +853,80 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
     const dealAmount = deal.dealAmount || 0;
     
     // Calculate summary from installments (not from Payment table)
+    // Downpayment is NOT auto-paid - only count if finance entry exists
     let paidAmount = 0;
     let remainingAmount = dealAmount;
     let progress = 0;
+    let downPayment = 0;
+    let downPaymentPaid = 0;
     
     if (plan && plan.installments && plan.installments.length > 0) {
-      // Calculate paid amount from installments.paidAmount
-      paidAmount = plan.installments.reduce((sum: number, inst: any) => {
-        return sum + (inst.paidAmount || 0);
-      }, 0);
+      // Get down payment amount from payment plan
+      const paymentPlan = await prisma.paymentPlan.findUnique({
+        where: { id: plan.id },
+        select: { downPayment: true },
+      });
+      downPayment = paymentPlan?.downPayment || 0;
+      
+      // Calculate paid amount from installments only (exclude down payment installment)
+      const installmentPaidAmount = plan.installments
+        .filter((inst: any) => inst.type !== 'down_payment')
+        .reduce((sum: number, inst: any) => sum + (inst.paidAmount || 0), 0);
+      
+      // Check if down payment has been paid via finance entry (receipt or payment record)
+      if (downPayment > 0) {
+        // Check for receipts linked to this deal with allocations to down payment installment
+        const downPaymentInstallment = plan.installments.find((inst: any) => inst.type === 'down_payment');
+        if (downPaymentInstallment) {
+          const receipts = await prisma.dealReceipt.findMany({
+            where: {
+              dealId: dealId,
+            },
+            include: {
+              allocations: {
+                where: {
+                  installmentId: downPaymentInstallment.id,
+                },
+              },
+            },
+          });
+          
+          // Calculate down payment paid from receipt allocations
+          const receiptDownPaymentPaid = receipts.reduce((sum: number, receipt) => {
+            const allocatedToDownPayment = receipt.allocations.reduce(
+              (allocSum: number, alloc) => allocSum + (alloc.amountAllocated || 0),
+              0
+            );
+            return sum + allocatedToDownPayment;
+          }, 0);
+          
+          // Also check payment records for down payment
+          const payments = await prisma.payment.findMany({
+            where: {
+              dealId: dealId,
+              deletedAt: null,
+            },
+          });
+          
+          const paymentDownPaymentPaid = payments.reduce((sum: number, payment) => {
+            // Check if payment is allocated to down payment installment
+            if (payment.installmentId === downPaymentInstallment.id) {
+              return sum + (payment.amount || 0);
+            }
+            // Also check remarks for down payment
+            const remarks = (payment.remarks || '').toLowerCase();
+            if (remarks.includes('down payment') || remarks.includes('downpayment')) {
+              return sum + (payment.amount || 0);
+            }
+            return sum;
+          }, 0);
+          
+          downPaymentPaid = receiptDownPaymentPaid + paymentDownPaymentPaid;
+        }
+      }
+      
+      // Total paid = installments paid + down payment paid (only if finance entry exists)
+      paidAmount = installmentPaidAmount + downPaymentPaid;
       
       remainingAmount = Math.max(0, dealAmount - paidAmount);
       progress = dealAmount > 0 ? (paidAmount / dealAmount) * 100 : 0;
@@ -779,6 +974,8 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
         remainingAmount: Math.round(remainingAmount * 100) / 100,
         progress: Math.round(progress * 100) / 100,
         status: remainingAmount <= 0.01 ? 'Fully Paid' : paidAmount > 0 ? 'Partially Paid' : 'Pending',
+        downPayment: downPayment,
+        downPaymentPaid: downPaymentPaid,
       },
       installments: plan?.installments || [],
       installmentSummary: installmentSummary,
@@ -819,10 +1016,11 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     const plan = await PaymentPlanService.getPaymentPlanByDealId(dealId);
 
-    // Calculate paid amount from installments + down payment (not from Payment table)
+    // Calculate paid amount from installments only (down payment is NOT auto-paid)
     const dealAmount = deal.dealAmount || 0;
     let totalPaid = 0;
     let downPayment = 0;
+    let downPaymentPaid = 0;
     
     if (plan) {
       // Get down payment from payment plan
@@ -832,14 +1030,64 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       });
       downPayment = paymentPlan?.downPayment || 0;
       
-      // Calculate paid amount from installments
-      const installmentPaidAmount = (plan.installments || []).reduce(
-        (sum: number, inst: any) => sum + (inst.paidAmount || 0),
-        0
-      );
+      // Calculate paid amount from installments only (exclude down payment installment)
+      const installmentPaidAmount = (plan.installments || [])
+        .filter((inst: any) => inst.type !== 'down_payment') // Exclude down payment installment
+        .reduce((sum: number, inst: any) => sum + (inst.paidAmount || 0), 0);
       
-      // Total paid = installments paid + down payment
-      totalPaid = installmentPaidAmount + downPayment;
+      // Check if down payment has been paid via finance entry (receipt or payment record)
+      // Down payment is only considered paid if there's an actual finance entry
+      if (downPayment > 0) {
+        // Check for receipts linked to this deal
+        const receipts = await prisma.dealReceipt.findMany({
+          where: {
+            dealId: dealId,
+          },
+          include: {
+            allocations: {
+              where: {
+                installmentId: {
+                  in: (plan.installments || [])
+                    .filter((inst: any) => inst.type === 'down_payment')
+                    .map((inst: any) => inst.id),
+                },
+              },
+            },
+          },
+        });
+        
+        // Check for payment records linked to this deal
+        const payments = await prisma.payment.findMany({
+          where: {
+            dealId: dealId,
+            deletedAt: null,
+          },
+        });
+        
+        // Calculate down payment paid amount from actual finance entries
+        const receiptDownPaymentPaid = receipts.reduce((sum: number, receipt) => {
+          const allocatedToDownPayment = receipt.allocations.reduce(
+            (allocSum: number, alloc) => allocSum + (alloc.amountAllocated || 0),
+            0
+          );
+          return sum + allocatedToDownPayment;
+        }, 0);
+        
+        // Also check if any payment record is specifically for down payment
+        const paymentDownPaymentPaid = payments.reduce((sum: number, payment) => {
+          // If payment remarks or description mentions down payment, include it
+          const remarks = (payment.remarks || '').toLowerCase();
+          if (remarks.includes('down payment') || remarks.includes('downpayment')) {
+            return sum + (payment.amount || 0);
+          }
+          return sum;
+        }, 0);
+        
+        downPaymentPaid = receiptDownPaymentPaid + paymentDownPaymentPaid;
+      }
+      
+      // Total paid = installments paid + down payment paid (only if finance entry exists)
+      totalPaid = installmentPaidAmount + downPaymentPaid;
     } else {
       // If no payment plan, calculate from Payment table as fallback
       const payments = await prisma.payment.findMany({
@@ -882,7 +1130,8 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
         remainingAmount: remainingAmount,
         progress: Math.round(progress * 100) / 100,
         status: remainingAmount <= 0.01 ? 'Fully Paid' : totalPaid > 0 ? 'Partially Paid' : 'Pending',
-        downPayment: downPayment, // Include down payment in summary
+        downPayment: downPayment, // Down payment amount (planned)
+        downPaymentPaid: downPaymentPaid, // Down payment actually paid via finance entries
       },
       installments: (plan?.installments || []).map((inst: any) => ({
         installmentNumber: inst.installmentNumber,

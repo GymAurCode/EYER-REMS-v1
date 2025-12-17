@@ -1,7 +1,7 @@
 /**
  * Recycle Bin Routes
  * System-wide recycle bin for soft-deleted records
- * Records are kept for 30 days before permanent deletion
+ * Records are kept indefinitely until manually removed
  */
 
 import express, { Response } from 'express';
@@ -45,16 +45,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       prisma.deletedRecord.count({ where }),
     ]);
 
-    // Calculate remaining days for each record
-    const now = new Date();
+    // Records are kept indefinitely - no expiry calculation needed
     const recordsWithDays = records.map((record) => {
-      const expiresAt = new Date(record.expiresAt);
-      const remainingMs = expiresAt.getTime() - now.getTime();
-      const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
-      
       return {
         ...record,
-        remainingDays,
+        remainingDays: null, // No expiry - records kept indefinitely
         entityData: undefined, // Don't send full data in list view
       };
     });
@@ -101,10 +96,7 @@ router.post('/:id/restore', authenticate, async (req: AuthRequest, res: Response
       return res.status(404).json({ error: 'Deleted record not found' });
     }
 
-    // Check if record has expired
-    if (new Date(deletedRecord.expiresAt) < new Date()) {
-      return res.status(400).json({ error: 'Record has expired and cannot be restored' });
-    }
+    // Records are kept indefinitely - no expiry check needed
 
     const entityData = deletedRecord.entityData as any;
 
@@ -216,16 +208,12 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ error: 'Deleted record not found' });
     }
 
-    const now = new Date();
-    const expiresAt = new Date(record.expiresAt);
-    const remainingMs = expiresAt.getTime() - now.getTime();
-    const remainingDays = Math.max(0, Math.ceil(remainingMs / (1000 * 60 * 60 * 24)));
-
+    // Records are kept indefinitely - no expiry calculation needed
     res.json({
       success: true,
       data: {
         ...record,
-        remainingDays,
+        remainingDays: null, // No expiry - records kept indefinitely
       },
     });
   } catch (error: any) {

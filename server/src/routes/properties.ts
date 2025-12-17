@@ -20,6 +20,7 @@ const createPropertySchema = z.object({
   address: z.string().min(1, 'Address is required'),
   location: z.string().optional(),
   locationId: z.string().uuid().nullable().optional(),
+  propertySubsidiary: z.string().optional(),
   status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
   imageUrl: z.string().optional().refine(
     (val) => {
@@ -1267,6 +1268,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         type: data.type,
         address: data.address,
         location: data.location,
+        propertySubsidiary: data.propertySubsidiary,
         status: data.status,
         imageUrl: data.imageUrl || undefined,
         description: data.description,
