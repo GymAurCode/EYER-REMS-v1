@@ -148,7 +148,7 @@ export async function softDeleteRecord(options: SoftDeleteOptions): Promise<void
     });
 
     logger.info(`Soft deleted ${entityType}: ${entityId} (${entityName}) by user ${deletedBy}`);
-  });
+  }, { timeout: 30000 }); // Increase timeout to 30 seconds
 }
 
 /**
@@ -213,7 +213,7 @@ export async function cleanupExpiredRecords(): Promise<number> {
         // Delete from recycle bin
         await tx.deletedRecord.delete({ where: { id: record.id } });
         deletedCount++;
-      });
+      }, { timeout: 30000 });
     } catch (error) {
       logger.error(`Failed to permanently delete ${record.entityType} ${record.entityId}:`, error);
     }
@@ -227,4 +227,3 @@ export const SoftDeleteService = {
   softDeleteRecord,
   cleanupExpiredRecords,
 };
-

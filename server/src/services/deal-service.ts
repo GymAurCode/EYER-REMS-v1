@@ -260,6 +260,7 @@ export class DealService {
           notes: payload.notes,
           createdBy: payload.createdBy,
           manualUniqueId: payload.manualUniqueId?.trim() || null,
+          isDeleted: false,
         },
       });
 
