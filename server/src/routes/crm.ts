@@ -263,15 +263,17 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
     const where: any = { isDeleted: false };
     
     if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } },
-        { clientCode: { contains: search as string, mode: 'insensitive' } },
-        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-        { clientNo: { contains: search as string, mode: 'insensitive' } },
-        { cnic: { contains: search as string, mode: 'insensitive' } },
-      ];
+      where.AND = {
+        OR: [
+          { name: { contains: search as string, mode: 'insensitive' } },
+          { email: { contains: search as string, mode: 'insensitive' } },
+          { phone: { contains: search as string, mode: 'insensitive' } },
+          { clientCode: { contains: search as string, mode: 'insensitive' } },
+          { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+          { clientNo: { contains: search as string, mode: 'insensitive' } },
+          { cnic: { contains: search as string, mode: 'insensitive' } },
+        ],
+      };
     }
     
     const [clients, total] = await Promise.all([
@@ -346,6 +348,8 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
           manualUniqueId: manualUniqueId?.trim() || null,
           srNo: nextSrNo,
           clientNo: nextClientNo,
+          status: clientData.status || 'active',
+          isDeleted: false,
         }
       });
     });

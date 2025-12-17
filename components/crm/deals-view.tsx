@@ -56,7 +56,7 @@ export function DealsView() {
     try {
       setLoading(true)
       setError(null)
-      const response = await apiService.deals.getAll()
+      const response = await apiService.deals.getAll() as any
       // API returns { success: true, data: [...] }
       const rawData = response.data?.data || response.data || []
       const data: any[] = Array.isArray(rawData) ? rawData : []

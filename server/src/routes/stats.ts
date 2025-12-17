@@ -491,10 +491,15 @@ router.get('/crm', authenticate, async (req: AuthRequest, res: Response) => {
       _count: { id: true }
     });
 
-    // Get clients count
-    const totalClients = await prisma.client.count();
+    // Get clients count (exclude deleted)
+    const totalClients = await prisma.client.count({
+      where: { isDeleted: false }
+    });
     const activeClients = await prisma.client.count({
-      where: { status: 'active' }
+      where: { 
+        status: 'active',
+        isDeleted: false
+      }
     });
 
     // Get deals count
