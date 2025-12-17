@@ -311,6 +311,19 @@ export function RolesView() {
       if (createRoleData.phoneNumber && createRoleData.phoneNumber.trim()) {
         payload.phoneNumber = createRoleData.phoneNumber.trim()
       }
+
+      // Set permissions based on role
+      if (createRoleData.roleName === "Admin") {
+        payload.permissions = ["*"] // Full access
+      } else if (createRoleData.roleName === "Dealer") {
+        payload.permissions = ["crm.view", "crm.create", "crm.update", "properties.view"]
+      } else if (createRoleData.roleName === "Tenant") {
+        payload.permissions = ["tenant.view", "tenant.update"]
+      } else if (createRoleData.roleName === "HR Manager") {
+        payload.permissions = ["hr.view", "hr.create", "hr.update", "hr.delete"]
+      } else if (createRoleData.roleName === "Accountant") {
+        payload.permissions = ["finance.view", "finance.create", "finance.update", "finance.delete"]
+      }
       
       const response = await apiService.auth.createRole(payload)
 
@@ -588,6 +601,8 @@ export function RolesView() {
   // Check if role has access to a module (check pending permissions if available)
   const hasModuleAccess = (permissions: string[], module: string): boolean => {
     const permsToCheck = pendingPermissions || permissions
+    // Admin has all permissions with '*' wildcard
+    if (permsToCheck.includes('*')) return true
     return permsToCheck.some((p) => p.startsWith(`${module}.`))
   }
 
@@ -1153,6 +1168,22 @@ export function RolesView() {
             <div className="space-y-2">
               <Label>Select Default Role</Label>
               <div className="grid grid-cols-2 gap-3">
+                {/* Admin - Full Access */}
+                <Card
+                  className={`p-4 cursor-pointer transition-all border-2 col-span-2 ${
+                    selectedDefaultRole === "Admin"
+                      ? "border-primary bg-primary/5"
+                      : "border-border hover:bg-muted"
+                  }`}
+                  onClick={() => handleSelectDefaultRole("Admin")}
+                >
+                  <div className="flex flex-col items-center text-center space-y-2">
+                    <Shield className="h-6 w-6 text-red-500" />
+                    <h3 className="font-semibold text-sm text-foreground">Admin</h3>
+                    <p className="text-xs text-muted-foreground">Full access to all modules</p>
+                  </div>
+                </Card>
+
                 <Card
                   className={`p-4 cursor-pointer transition-all border-2 ${
                     selectedDefaultRole === "Dealer"
