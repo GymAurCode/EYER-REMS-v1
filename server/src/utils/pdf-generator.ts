@@ -45,10 +45,10 @@ export interface PaymentPlanPDFData {
 }
 
 /**
- * Generate Payment Plan PDF
+ * Generate Payment Plan PDF - Beautiful formatted report
  */
 export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response): void {
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
   
   // Set response headers
   res.setHeader('Content-Type', 'application/pdf');
@@ -60,11 +60,23 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
   // Pipe PDF to response
   doc.pipe(res);
 
+  const pageWidth = doc.page.width;
+  const pageMargin = 40;
+  const contentWidth = pageWidth - (pageMargin * 2);
+
+  // Colors
+  const primaryColor = '#1a365d';
+  const accentColor = '#2563eb';
+  const lightGray = '#f3f4f6';
+  const darkGray = '#374151';
+  const successColor = '#059669';
+  const warningColor = '#d97706';
+
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
     return `Rs ${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     })}`;
   };
 
@@ -73,138 +85,272 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
     const d = typeof date === 'string' ? new Date(date) : date;
     return d.toLocaleDateString('en-IN', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric',
     });
   };
 
-  // Header
-  doc.fontSize(20).font('Helvetica-Bold').text('Payment Plan Report', { align: 'center' });
-  doc.moveDown(0.5);
-  doc.fontSize(10).font('Helvetica').text(`Generated on: ${new Date().toLocaleString('en-IN')}`, { align: 'center' });
-  doc.moveDown(1);
+  // Draw colored rectangle
+  const drawRect = (x: number, y: number, w: number, h: number, color: string, fill = true) => {
+    doc.save();
+    if (fill) {
+      doc.rect(x, y, w, h).fill(color);
+    } else {
+      doc.rect(x, y, w, h).stroke(color);
+    }
+    doc.restore();
+  };
 
-  // Deal Information Section
-  doc.fontSize(14).font('Helvetica-Bold').text('Deal Information', { underline: true });
-  doc.moveDown(0.5);
+  // ============ HEADER SECTION ============
+  // Header background
+  drawRect(0, 0, pageWidth, 100, primaryColor);
+  
+  doc.fillColor('#ffffff');
+  doc.fontSize(24).font('Helvetica-Bold').text('PAYMENT PLAN', pageMargin, 25, { align: 'center' });
+  doc.fontSize(12).font('Helvetica').text('Payment Schedule Report', pageMargin, 55, { align: 'center' });
+  doc.fontSize(9).text(`Generated: ${new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`, pageMargin, 75, { align: 'center' });
+
+  doc.fillColor('#000000');
+  let currentY = 120;
+
+  // ============ DEAL INFO BOX ============
+  drawRect(pageMargin, currentY, contentWidth, 80, lightGray);
+  drawRect(pageMargin, currentY, 4, 80, accentColor);
+  
+  doc.fillColor(primaryColor);
+  doc.fontSize(14).font('Helvetica-Bold').text('Deal Information', pageMargin + 15, currentY + 10);
+  
+  doc.fillColor(darkGray);
   doc.fontSize(10).font('Helvetica');
   
-  doc.text(`Deal Code: ${data.deal.dealCode || 'N/A'}`);
-  doc.text(`Title: ${data.deal.title}`);
-  doc.text(`Total Amount: ${formatCurrency(data.deal.dealAmount)}`);
+  // Two column layout
+  const leftCol = pageMargin + 15;
+  const rightCol = pageMargin + contentWidth / 2 + 10;
   
-  if (data.deal.client) {
-    doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').text('Client Details:');
-    doc.font('Helvetica');
-    doc.text(`  Name: ${data.deal.client.name || 'N/A'}`);
-    if (data.deal.client.email) doc.text(`  Email: ${data.deal.client.email}`);
-    if (data.deal.client.phone) doc.text(`  Phone: ${data.deal.client.phone}`);
-  }
+  doc.text(`Deal Code: ${data.deal.dealCode || 'N/A'}`, leftCol, currentY + 30);
+  doc.text(`Title: ${data.deal.title}`, leftCol, currentY + 45);
+  doc.font('Helvetica-Bold').text(`Deal Amount: ${formatCurrency(data.deal.dealAmount)}`, leftCol, currentY + 60);
   
-  if (data.deal.dealer) {
-    doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').text('Dealer:');
-    doc.font('Helvetica');
-    doc.text(`  ${data.deal.dealer.name || 'N/A'}`);
-  }
-  
+  doc.font('Helvetica');
   if (data.deal.property) {
-    doc.moveDown(0.3);
-    doc.font('Helvetica-Bold').text('Property:');
-    doc.font('Helvetica');
-    doc.text(`  ${data.deal.property.name || 'N/A'} (${data.deal.property.propertyCode || 'N/A'})`);
+    doc.text(`Property: ${data.deal.property.name || 'N/A'}`, rightCol, currentY + 30);
+  }
+  if (data.deal.dealer) {
+    doc.text(`Dealer: ${data.deal.dealer.name || 'N/A'}`, rightCol, currentY + 45);
   }
 
-  doc.moveDown(1);
+  currentY += 95;
 
-  // Payment Summary Section
-  doc.fontSize(14).font('Helvetica-Bold').text('Payment Summary', { underline: true });
-  doc.moveDown(0.5);
-  doc.fontSize(10).font('Helvetica');
-  
-  const summaryY = doc.y;
-  doc.text(`Total Amount: ${formatCurrency(data.summary.totalAmount)}`, { continued: false });
-  
-  // Show down payment if available
-  if (data.summary.downPayment && data.summary.downPayment > 0) {
-    doc.text(`Down Payment: ${formatCurrency(data.summary.downPayment)}`, { continued: false });
+  // ============ CLIENT INFO BOX ============
+  if (data.deal.client) {
+    drawRect(pageMargin, currentY, contentWidth, 60, lightGray);
+    drawRect(pageMargin, currentY, 4, 60, successColor);
+    
+    doc.fillColor(primaryColor);
+    doc.fontSize(14).font('Helvetica-Bold').text('Client Details', pageMargin + 15, currentY + 10);
+    
+    doc.fillColor(darkGray);
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Name: ${data.deal.client.name || 'N/A'}`, leftCol, currentY + 30);
+    if (data.deal.client.email) doc.text(`Email: ${data.deal.client.email}`, rightCol, currentY + 30);
+    if (data.deal.client.phone) doc.text(`Phone: ${data.deal.client.phone}`, leftCol, currentY + 45);
+    
+    currentY += 75;
   }
+
+  // ============ PAYMENT SUMMARY CARDS ============
+  doc.fillColor(primaryColor);
+  doc.fontSize(14).font('Helvetica-Bold').text('Payment Summary', pageMargin, currentY);
+  currentY += 25;
+
+  const cardWidth = (contentWidth - 30) / 4;
+  const cardHeight = 60;
   
-  doc.text(`Paid Amount: ${formatCurrency(data.summary.paidAmount)}`, { continued: false });
-  doc.text(`Remaining Amount: ${formatCurrency(data.summary.remainingAmount)}`, { continued: false });
-  doc.text(`Progress: ${data.summary.progress.toFixed(2)}%`, { continued: false });
-  doc.text(`Status: ${data.summary.status}`, { continued: false });
+  // Card 1: Total Amount
+  drawRect(pageMargin, currentY, cardWidth, cardHeight, '#dbeafe');
+  doc.fillColor('#1e40af');
+  doc.fontSize(9).font('Helvetica').text('Total Amount', pageMargin + 8, currentY + 8);
+  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.totalAmount), pageMargin + 8, currentY + 28);
 
-  doc.moveDown(1);
+  // Card 2: Down Payment (if available)
+  const downPayment = data.summary.downPayment || 0;
+  drawRect(pageMargin + cardWidth + 10, currentY, cardWidth, cardHeight, '#fef3c7');
+  doc.fillColor('#92400e');
+  doc.fontSize(9).font('Helvetica').text('Down Payment', pageMargin + cardWidth + 18, currentY + 8);
+  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(downPayment), pageMargin + cardWidth + 18, currentY + 28);
 
-  // Installments Table
+  // Card 3: Paid Amount
+  drawRect(pageMargin + (cardWidth + 10) * 2, currentY, cardWidth, cardHeight, '#d1fae5');
+  doc.fillColor('#065f46');
+  doc.fontSize(9).font('Helvetica').text('Paid Amount', pageMargin + (cardWidth + 10) * 2 + 8, currentY + 8);
+  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.paidAmount), pageMargin + (cardWidth + 10) * 2 + 8, currentY + 28);
+
+  // Card 4: Remaining
+  drawRect(pageMargin + (cardWidth + 10) * 3, currentY, cardWidth, cardHeight, '#fee2e2');
+  doc.fillColor('#991b1b');
+  doc.fontSize(9).font('Helvetica').text('Remaining', pageMargin + (cardWidth + 10) * 3 + 8, currentY + 8);
+  doc.fontSize(14).font('Helvetica-Bold').text(formatCurrency(data.summary.remainingAmount), pageMargin + (cardWidth + 10) * 3 + 8, currentY + 28);
+
+  currentY += cardHeight + 15;
+
+  // Progress Bar
+  const progressBarWidth = contentWidth;
+  const progressBarHeight = 20;
+  const progress = Math.min(data.summary.progress, 100);
+  
+  drawRect(pageMargin, currentY, progressBarWidth, progressBarHeight, '#e5e7eb');
+  drawRect(pageMargin, currentY, (progressBarWidth * progress) / 100, progressBarHeight, progress >= 100 ? successColor : accentColor);
+  
+  doc.fillColor('#ffffff');
+  doc.fontSize(10).font('Helvetica-Bold').text(`${progress.toFixed(1)}% Complete`, pageMargin + progressBarWidth / 2 - 30, currentY + 4);
+  
+  currentY += progressBarHeight + 25;
+
+  // ============ INSTALLMENTS TABLE ============
   if (data.installments && data.installments.length > 0) {
-    doc.fontSize(14).font('Helvetica-Bold').text('Installment Schedule', { underline: true });
-    doc.moveDown(0.5);
+    // Check if we need a new page
+    if (currentY > 500) {
+      doc.addPage();
+      currentY = 50;
+    }
 
-    // Table headers
-    const tableTop = doc.y;
-    const itemHeight = 20;
-    const tableLeft = 50;
-    const col1 = tableLeft; // #
-    const col2 = col1 + 40; // Amount
-    const col3 = col2 + 100; // Due Date
-    const col4 = col3 + 100; // Paid
-    const col5 = col4 + 80; // Remaining
-    const col6 = col5 + 80; // Status
+    doc.fillColor(primaryColor);
+    doc.fontSize(14).font('Helvetica-Bold').text('Installment Schedule', pageMargin, currentY);
+    currentY += 25;
 
+    // Table configuration
+    const tableLeft = pageMargin;
+    const colWidths = [35, 90, 85, 90, 90, 70, 55];
+    const cols = [
+      tableLeft,
+      tableLeft + colWidths[0],
+      tableLeft + colWidths[0] + colWidths[1],
+      tableLeft + colWidths[0] + colWidths[1] + colWidths[2],
+      tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3],
+      tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4],
+      tableLeft + colWidths[0] + colWidths[1] + colWidths[2] + colWidths[3] + colWidths[4] + colWidths[5],
+    ];
+    const rowHeight = 22;
+
+    // Table Header
+    drawRect(tableLeft, currentY, contentWidth, rowHeight + 4, primaryColor);
+    doc.fillColor('#ffffff');
     doc.fontSize(9).font('Helvetica-Bold');
-    doc.text('#', col1, tableTop);
-    doc.text('Amount', col2, tableTop);
-    doc.text('Due Date', col3, tableTop);
-    doc.text('Paid', col4, tableTop);
-    doc.text('Remaining', col5, tableTop);
-    doc.text('Status', col6, tableTop);
+    doc.text('#', cols[0] + 5, currentY + 7);
+    doc.text('Type', cols[1] + 5, currentY + 7);
+    doc.text('Due Date', cols[2] + 5, currentY + 7);
+    doc.text('Amount', cols[3] + 5, currentY + 7);
+    doc.text('Paid', cols[4] + 5, currentY + 7);
+    doc.text('Balance', cols[5] + 5, currentY + 7);
+    doc.text('Status', cols[6] + 5, currentY + 7);
 
-    // Draw header line
-    doc.moveTo(tableLeft, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+    currentY += rowHeight + 4;
 
-    // Table rows
+    // Add Down Payment row if exists
+    if (downPayment > 0) {
+      const dpStatus = data.summary.paidAmount >= downPayment ? 'PAID' : 'PENDING';
+      const dpPaid = Math.min(data.summary.paidAmount, downPayment);
+      const dpRemaining = Math.max(0, downPayment - dpPaid);
+      
+      drawRect(tableLeft, currentY, contentWidth, rowHeight, '#fef3c7');
+      doc.fillColor(darkGray);
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('DP', cols[0] + 5, currentY + 6);
+      doc.text('Down Payment', cols[1] + 5, currentY + 6);
+      doc.font('Helvetica');
+      doc.text('-', cols[2] + 5, currentY + 6);
+      doc.text(formatCurrency(downPayment), cols[3] + 5, currentY + 6);
+      doc.text(formatCurrency(dpPaid), cols[4] + 5, currentY + 6);
+      doc.text(formatCurrency(dpRemaining), cols[5] + 5, currentY + 6);
+      
+      // Status badge
+      const statusColor = dpStatus === 'PAID' ? successColor : warningColor;
+      doc.fillColor(statusColor);
+      doc.fontSize(8).font('Helvetica-Bold').text(dpStatus, cols[6] + 5, currentY + 6);
+      
+      currentY += rowHeight;
+    }
+
+    // Table Rows - Installments
     doc.fontSize(9).font('Helvetica');
-    let currentY = tableTop + 25;
-
-    data.installments.forEach((inst) => {
-      if (currentY > 700) {
-        // New page if needed
+    data.installments.forEach((inst, index) => {
+      if (currentY > 750) {
         doc.addPage();
         currentY = 50;
+        
+        // Redraw header on new page
+        drawRect(tableLeft, currentY, contentWidth, rowHeight + 4, primaryColor);
+        doc.fillColor('#ffffff');
+        doc.fontSize(9).font('Helvetica-Bold');
+        doc.text('#', cols[0] + 5, currentY + 7);
+        doc.text('Type', cols[1] + 5, currentY + 7);
+        doc.text('Due Date', cols[2] + 5, currentY + 7);
+        doc.text('Amount', cols[3] + 5, currentY + 7);
+        doc.text('Paid', cols[4] + 5, currentY + 7);
+        doc.text('Balance', cols[5] + 5, currentY + 7);
+        doc.text('Status', cols[6] + 5, currentY + 7);
+        currentY += rowHeight + 4;
+        doc.fontSize(9).font('Helvetica');
       }
 
       const remaining = (inst.amount || 0) - (inst.paidAmount || 0);
-      const status = inst.status || 'unpaid';
+      const status = (inst.status || 'pending').toUpperCase();
+      const bgColor = index % 2 === 0 ? '#ffffff' : lightGray;
+      
+      drawRect(tableLeft, currentY, contentWidth, rowHeight, bgColor);
+      
+      doc.fillColor(darkGray);
+      doc.text(inst.installmentNumber.toString(), cols[0] + 5, currentY + 6);
+      doc.text('Installment', cols[1] + 5, currentY + 6);
+      doc.text(formatDate(inst.dueDate), cols[2] + 5, currentY + 6);
+      doc.text(formatCurrency(inst.amount || 0), cols[3] + 5, currentY + 6);
+      doc.text(formatCurrency(inst.paidAmount || 0), cols[4] + 5, currentY + 6);
+      doc.text(formatCurrency(remaining), cols[5] + 5, currentY + 6);
+      
+      // Status with color
+      let statusColor = darkGray;
+      if (status === 'PAID' || status === 'COMPLETED') statusColor = successColor;
+      else if (status === 'OVERDUE') statusColor = '#dc2626';
+      else if (status === 'PARTIAL') statusColor = warningColor;
+      
+      doc.fillColor(statusColor);
+      doc.fontSize(8).font('Helvetica-Bold').text(status, cols[6] + 5, currentY + 6);
+      doc.fontSize(9).font('Helvetica');
 
-      doc.text(inst.installmentNumber.toString(), col1, currentY);
-      doc.text(formatCurrency(inst.amount || 0), col2, currentY);
-      doc.text(formatDate(inst.dueDate), col3, currentY);
-      doc.text(formatCurrency(inst.paidAmount || 0), col4, currentY);
-      doc.text(formatCurrency(remaining), col5, currentY);
-      doc.text(status.toUpperCase(), col6, currentY);
+      // Draw bottom border
+      doc.strokeColor('#d1d5db').lineWidth(0.5);
+      doc.moveTo(tableLeft, currentY + rowHeight).lineTo(tableLeft + contentWidth, currentY + rowHeight).stroke();
 
-      // Draw row line
-      doc.moveTo(tableLeft, currentY + 12).lineTo(550, currentY + 12).stroke();
-
-      currentY += itemHeight;
+      currentY += rowHeight;
     });
 
-    doc.y = currentY + 10;
+    // Table footer with totals
+    currentY += 5;
+    drawRect(tableLeft, currentY, contentWidth, rowHeight + 2, '#e5e7eb');
+    doc.fillColor(primaryColor);
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('TOTAL', cols[1] + 5, currentY + 6);
+    
+    const totalInstallments = data.installments.reduce((sum, i) => sum + (i.amount || 0), 0) + downPayment;
+    const totalPaidInst = data.installments.reduce((sum, i) => sum + (i.paidAmount || 0), 0);
+    const totalRemaining = data.installments.reduce((sum, i) => sum + ((i.amount || 0) - (i.paidAmount || 0)), 0);
+    
+    doc.text(formatCurrency(totalInstallments), cols[3] + 5, currentY + 6);
+    doc.text(formatCurrency(data.summary.paidAmount), cols[4] + 5, currentY + 6);
+    doc.text(formatCurrency(data.summary.remainingAmount), cols[5] + 5, currentY + 6);
   }
 
-  // Footer
+  // ============ FOOTER ============
   const pageHeight = doc.page.height;
-  const pageWidth = doc.page.width;
+  
+  // Footer line
+  doc.strokeColor('#d1d5db').lineWidth(1);
+  doc.moveTo(pageMargin, pageHeight - 60).lineTo(pageWidth - pageMargin, pageHeight - 60).stroke();
+  
+  doc.fillColor('#6b7280');
   doc.fontSize(8).font('Helvetica');
-  doc.text(
-    'This is a computer-generated document.',
-    pageWidth / 2,
-    pageHeight - 50,
-    { align: 'center' }
-  );
+  doc.text('This is a computer-generated document. No signature required.', pageMargin, pageHeight - 45, { align: 'center' });
+  doc.text('Real Estate Management System', pageMargin, pageHeight - 32, { align: 'center' });
 
   // Finalize PDF
   doc.end();

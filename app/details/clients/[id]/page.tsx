@@ -2,13 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone, FileText, Paperclip, Download, File, ExternalLink } from "lucide-react"
+import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone, FileText, Paperclip, Download, File, ExternalLink, Plus, Upload, Trash2 } from "lucide-react"
 
 import { apiService } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { useToast } from "@/hooks/use-toast"
 
 const closedDealStages = new Set(["closed-won", "closed-lost", "won", "lost"])
 
@@ -76,10 +77,12 @@ export default function ClientDetailPage() {
   const router = useRouter()
   const params = useParams()
   const clientId = params.id as string | undefined
+  const { toast } = useToast()
 
   const [client, setClient] = useState<ClientResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   const fetchClient = useCallback(async () => {
     if (!clientId) return
@@ -109,6 +112,69 @@ export default function ClientDetailPage() {
     if (bytes < 1024) return bytes + " B"
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
     return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !clientId) return
+
+    setUploading(true)
+    try {
+      const newAttachments: Attachment[] = []
+      
+      for (const file of Array.from(files)) {
+        const reader = new FileReader()
+        const base64: string = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        
+        newAttachments.push({
+          name: file.name,
+          url: base64,
+          type: file.type,
+          size: file.size,
+        })
+      }
+
+      // Update client with new attachments
+      const existingFiles = client?.attachments?.files || []
+      const updatedAttachments = {
+        notes: client?.attachments?.notes || "",
+        files: [...existingFiles, ...newAttachments]
+      }
+
+      await apiService.clients.update(clientId, { attachments: updatedAttachments })
+      toast({ title: `${newAttachments.length} file(s) uploaded successfully` })
+      fetchClient()
+    } catch (err) {
+      console.error("Failed to upload file:", err)
+      toast({ title: "Failed to upload file", variant: "destructive" })
+    } finally {
+      setUploading(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleRemoveAttachment = async (index: number) => {
+    if (!clientId || !client) return
+    
+    try {
+      const existingFiles = client?.attachments?.files || []
+      const updatedFiles = existingFiles.filter((_, i) => i !== index)
+      const updatedAttachments = {
+        notes: client?.attachments?.notes || "",
+        files: updatedFiles
+      }
+
+      await apiService.clients.update(clientId, { attachments: updatedAttachments })
+      toast({ title: "Attachment removed" })
+      fetchClient()
+    } catch (err) {
+      console.error("Failed to remove attachment:", err)
+      toast({ title: "Failed to remove attachment", variant: "destructive" })
+    }
   }
 
   const downloadAttachment = (attachment: Attachment) => {
@@ -408,12 +474,48 @@ export default function ClientDetailPage() {
 
         {/* Attachments Section */}
         <Card className="p-6">
-          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-            <Paperclip className="h-5 w-5" />
-            Attachments
-          </h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Paperclip className="h-5 w-5" />
+              Attachments
+            </h3>
+            <div>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                id="client-attachment-upload"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+              />
+              <label htmlFor="client-attachment-upload">
+                <Button asChild disabled={uploading}>
+                  <span className="cursor-pointer">
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Attachment
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+            </div>
+          </div>
+          
           {attachments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No attachments uploaded for this client.</p>
+            <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
+              <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground mb-2">No attachments uploaded for this client.</p>
+              <label htmlFor="client-attachment-upload" className="cursor-pointer">
+                <span className="text-sm text-primary hover:underline">Click to upload files</span>
+              </label>
+            </div>
           ) : (
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {attachments.map((attachment, index) => (
@@ -428,14 +530,24 @@ export default function ClientDetailPage() {
                       <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => downloadAttachment(attachment)}
-                    title="Download"
-                  >
-                    <Download className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => downloadAttachment(attachment)}
+                      title="Download"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAttachment(index)}
+                      title="Remove"
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
