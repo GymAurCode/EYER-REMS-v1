@@ -320,25 +320,27 @@ export function DealsView() {
                     </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  {/* Payment Progress Bar */}
                   <div className="mt-4">
-                    <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                      <span>Deal Progress</span>
-                      <span>{formatProbability(deal.probability)}</span>
-                    </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all"
-                        style={{
-                          width:
-                            typeof deal.probability === "number" && deal.probability >= 0
-                              ? `${Math.min(deal.probability, 100)}%`
-                              : typeof deal.probability === "string"
-                              ? `${Number.parseFloat(deal.probability) || 0}%`
-                              : "0%",
-                        }}
-                      />
-                    </div>
+                    {(() => {
+                      const dealAmount = typeof deal.dealAmount === "number" ? deal.dealAmount : (typeof deal.value === "number" ? deal.value : 0)
+                      const totalPaid = typeof deal.totalPaid === "number" ? deal.totalPaid : 0
+                      const progress = dealAmount > 0 ? Math.min((totalPaid / dealAmount) * 100, 100) : 0
+                      return (
+                        <>
+                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
+                            <span>Payment Progress</span>
+                            <span>{progress.toFixed(0)}% ({formatCurrency(totalPaid)} / {formatCurrency(dealAmount)})</span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className={`h-full transition-all ${progress >= 100 ? 'bg-green-500' : 'bg-primary'}`}
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
