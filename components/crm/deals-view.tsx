@@ -57,7 +57,9 @@ export function DealsView() {
       setLoading(true)
       setError(null)
       const response = await apiService.deals.getAll()
-      const data: any[] = Array.isArray(response.data) ? response.data : []
+      // API returns { success: true, data: [...] }
+      const rawData = response.data?.data || response.data || []
+      const data: any[] = Array.isArray(rawData) ? rawData : []
       const mapped = data.map((deal: any) => ({
         ...deal,
         clientName:
