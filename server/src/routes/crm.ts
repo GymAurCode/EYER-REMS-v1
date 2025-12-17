@@ -15,7 +15,8 @@ router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // Filter out soft-deleted records
+    const where: any = { isDeleted: false };
     const [leads, total] = await Promise.all([
       prisma.lead.findMany({
         where,
@@ -214,14 +215,27 @@ router.get('/leads/:id', authenticate, async (req: AuthRequest, res: Response) =
 
 router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const lead = await prisma.lead.delete({ where: { id: req.params.id } });
+    // Soft delete - move to recycle bin instead of permanent deletion
+    const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
+    if (!lead) {
+      return res.status(404).json({ error: 'Lead not found' });
+    }
+
+    const { softDeleteRecord } = await import('../services/soft-delete-service');
+    await softDeleteRecord({
+      entityType: 'lead',
+      entityId: lead.id,
+      entityName: lead.name,
+      deletedBy: req.user?.id,
+      deletedByName: req.user?.username,
+    });
 
     await createActivity({
       type: 'lead',
       action: 'deleted',
       entityId: lead.id,
       entityName: lead.name,
-      message: `Lead "${lead.name}" was deleted`,
+      message: `Lead "${lead.name}" was moved to recycle bin`,
       userId: req.user?.id,
       metadata: {
         status: lead.status,
@@ -232,7 +246,8 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response
     });
 
     res.status(204).end();
-  } catch {
+  } catch (error: any) {
+    logger.error('Failed to delete lead:', error);
     res.status(400).json({ error: 'Failed to delete lead' });
   }
 });
@@ -244,7 +259,8 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // Filter out soft-deleted records
+    const where: any = { isDeleted: false };
     
     if (search) {
       where.OR = [
@@ -385,14 +401,27 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
 
 router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const client = await prisma.client.delete({ where: { id: req.params.id } });
+    // Soft delete - move to recycle bin instead of permanent deletion
+    const client = await prisma.client.findUnique({ where: { id: req.params.id } });
+    if (!client) {
+      return res.status(404).json({ error: 'Client not found' });
+    }
+
+    const { softDeleteRecord } = await import('../services/soft-delete-service');
+    await softDeleteRecord({
+      entityType: 'client',
+      entityId: client.id,
+      entityName: client.name,
+      deletedBy: req.user?.id,
+      deletedByName: req.user?.username,
+    });
 
     await createActivity({
       type: 'client',
       action: 'deleted',
       entityId: client.id,
       entityName: client.name,
-      message: `Client "${client.name}" was deleted`,
+      message: `Client "${client.name}" was moved to recycle bin`,
       userId: req.user?.id,
       metadata: {
         status: client.status,
@@ -403,7 +432,8 @@ router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Respon
     });
 
     res.status(204).end();
-  } catch {
+  } catch (error: any) {
+    logger.error('Failed to delete client:', error);
     res.status(400).json({ error: 'Failed to delete client' });
   }
 });
@@ -415,7 +445,8 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    // Filter out soft-deleted records
+    const where: any = { isDeleted: false };
     
     if (search) {
       where.OR = [
@@ -528,14 +559,27 @@ router.put('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
 
 router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const dealer = await prisma.dealer.delete({ where: { id: req.params.id } });
+    // Soft delete - move to recycle bin instead of permanent deletion
+    const dealer = await prisma.dealer.findUnique({ where: { id: req.params.id } });
+    if (!dealer) {
+      return res.status(404).json({ error: 'Dealer not found' });
+    }
+
+    const { softDeleteRecord } = await import('../services/soft-delete-service');
+    await softDeleteRecord({
+      entityType: 'dealer',
+      entityId: dealer.id,
+      entityName: dealer.name,
+      deletedBy: req.user?.id,
+      deletedByName: req.user?.username,
+    });
 
     await createActivity({
       type: 'dealer',
       action: 'deleted',
       entityId: dealer.id,
       entityName: dealer.name,
-      message: `Dealer "${dealer.name}" was deleted`,
+      message: `Dealer "${dealer.name}" was moved to recycle bin`,
       userId: req.user?.id,
       metadata: {
         email: dealer.email,
@@ -546,7 +590,8 @@ router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res: Respon
     });
 
     res.status(204).end();
-  } catch {
+  } catch (error: any) {
+    logger.error('Failed to delete dealer:', error);
     res.status(400).json({ error: 'Failed to delete dealer' });
   }
 });
@@ -556,8 +601,10 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
+    const { includeDeleted } = req.query;
 
-    const where: any = { isDeleted: false };
+    // Show all deals by default, filter deleted only if explicitly requested
+    const where: any = includeDeleted === 'true' ? {} : { isDeleted: false };
     const [deals, total] = await Promise.all([
       prisma.deal.findMany({
         where,
@@ -1122,9 +1169,23 @@ router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
 
 router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const deal = await prisma.deal.delete({
+    // Soft delete - move to recycle bin instead of permanent deletion
+    const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
       include: { client: true, dealer: true },
+    });
+    
+    if (!deal) {
+      return res.status(404).json({ error: 'Deal not found' });
+    }
+
+    const { softDeleteRecord } = await import('../services/soft-delete-service');
+    await softDeleteRecord({
+      entityType: 'deal',
+      entityId: deal.id,
+      entityName: deal.title,
+      deletedBy: req.user?.id,
+      deletedByName: req.user?.username,
     });
 
     await createActivity({
@@ -1132,7 +1193,7 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
       action: 'deleted',
       entityId: deal.id,
       entityName: deal.title,
-      message: `Deal "${deal.title}" was deleted`,
+      message: `Deal "${deal.title}" was moved to recycle bin`,
       userId: req.user?.id,
       metadata: {
         value: deal.dealAmount,
@@ -1143,7 +1204,8 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
     });
 
     res.status(204).end();
-  } catch {
+  } catch (error: any) {
+    logger.error('Failed to delete deal:', error);
     res.status(400).json({ error: 'Failed to delete deal' });
   }
 });

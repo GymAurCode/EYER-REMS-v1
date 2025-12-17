@@ -37,6 +37,7 @@ import financeReportsRoutes from './routes/finance-reports';
 import locationRoutes from './routes/locations';
 import advancedOptionsRoutes from './routes/advanced-options';
 import secureFilesRoutes from './routes/secure-files';
+import recycleBinRoutes from './routes/recycle-bin';
 import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
@@ -216,6 +217,7 @@ app.use('/api/backup', backupRoutes);
 app.use('/api/tenant-portal', tenantPortalRoutes);
 app.use('/api/bulk', bulkRoutes);
 app.use('/api/bulk/excel', excelBulkRoutes);
+app.use('/api/recycle-bin', recycleBinRoutes);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

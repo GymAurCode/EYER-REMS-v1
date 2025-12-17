@@ -20,7 +20,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
-import { Loader2, X, Plus } from "lucide-react"
+import { Loader2, X, Plus, Paperclip, Upload, File, Trash2 } from "lucide-react"
 
 interface ClientFormData {
   id?: string
@@ -97,6 +97,7 @@ const defaultFormState = {
   assignedDealerId: "",
   systemId: "",
   manualUniqueId: "",
+  attachments: [] as { name: string; url: string; type: string; size: number }[],
 }
 
 export function AddClientDialog({
@@ -112,6 +113,7 @@ export function AddClientDialog({
   const [agents, setAgents] = useState<any[]>([])
   const [dealers, setDealers] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("basic")
+  const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
   const isEdit = mode === "edit" && initialData?.id
 
@@ -141,6 +143,7 @@ export function AddClientDialog({
           assignedDealerId: initialData.assignedDealerId || "",
           systemId: initialData.clientCode || "",
           manualUniqueId: initialData.manualUniqueId || "",
+          attachments: Array.isArray((initialData as any).attachments?.files) ? (initialData as any).attachments.files : [],
         })
       } else {
         setFormData(defaultFormState)
@@ -190,6 +193,61 @@ export function AddClientDialog({
     setSubmitting(false)
     setTagInput("")
     setActiveTab("basic")
+    setUploading(false)
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const newAttachments: { name: string; url: string; type: string; size: number }[] = []
+      
+      for (const file of Array.from(files)) {
+        // Convert file to base64 for storage (for small files)
+        // For production, you'd upload to cloud storage and store URL
+        const reader = new FileReader()
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+        
+        newAttachments.push({
+          name: file.name,
+          url: base64,
+          type: file.type,
+          size: file.size,
+        })
+      }
+
+      setFormData(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...newAttachments]
+      }))
+
+      toast({ title: `${newAttachments.length} file(s) added` })
+    } catch (err) {
+      console.error("Failed to upload file:", err)
+      toast({ title: "Failed to upload file", variant: "destructive" })
+    } finally {
+      setUploading(false)
+      e.target.value = "" // Reset input
+    }
+  }
+
+  const removeAttachment = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
   const handleSubmit = async (event?: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {
@@ -242,9 +300,16 @@ export function AddClientDialog({
       if (formData.clientCategory) payload.clientCategory = formData.clientCategory
       if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
       if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
-      // Note: 'notes' field doesn't exist in Client model - store in attachments JSON if needed
+      // Store notes and file attachments in attachments JSON field
+      const attachmentsData: any = {}
       if (formData.notes?.trim()) {
-        payload.attachments = { notes: formData.notes.trim() }
+        attachmentsData.notes = formData.notes.trim()
+      }
+      if (formData.attachments.length > 0) {
+        attachmentsData.files = formData.attachments
+      }
+      if (Object.keys(attachmentsData).length > 0) {
+        payload.attachments = attachmentsData
       }
       if (formData.tags.length > 0) payload.tags = formData.tags
       if (normalizedAssignedAgent) payload.assignedAgentId = normalizedAssignedAgent
@@ -595,8 +660,62 @@ export function AddClientDialog({
             </TabsContent>
 
             <TabsContent value="additional" className="space-y-4">
-              <div className="rounded-md border border-dashed border-muted px-4 py-3 text-sm text-muted-foreground">
+              <div className="rounded-md border border-dashed border-muted px-4 py-3 text-sm text-muted-foreground mb-4">
                 Properties are now linked through Deals. Create or update a deal whenever you want to attach this client to a property.
+              </div>
+              
+              {/* Attachments Section */}
+              <div className="space-y-4">
+                <Label className="flex items-center gap-2">
+                  <Paperclip className="h-4 w-4" />
+                  Attachments
+                </Label>
+                <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+                  <input
+                    type="file"
+                    multiple
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="client-attachments"
+                    accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                  />
+                  <label
+                    htmlFor="client-attachments"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      {uploading ? "Uploading..." : "Click to upload files (PDF, DOC, Images, Excel)"}
+                    </span>
+                  </label>
+                </div>
+
+                {formData.attachments.length > 0 && (
+                  <div className="space-y-2">
+                    {formData.attachments.map((file, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
+                      >
+                        <div className="flex items-center gap-3">
+                          <File className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
+                            <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeAttachment(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </TabsContent>
           </div>

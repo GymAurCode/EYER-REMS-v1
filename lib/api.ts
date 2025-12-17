@@ -961,6 +961,15 @@ export const apiService = {
     clearAll: () => api.post('/backup/clear-all'),
   },
 
+  // Recycle Bin
+  recycleBin: {
+    getAll: (params?: { entityType?: string; search?: string; limit?: number; page?: number }) =>
+      api.get('/recycle-bin', { params }),
+    getEntityTypes: () => api.get('/recycle-bin/entity-types'),
+    getById: (id: string) => api.get(`/recycle-bin/${id}`),
+    restore: (id: string) => api.post(`/recycle-bin/${id}/restore`),
+  },
+
   // Bulk Export/Import (CSV)
   bulk: {
     export: () =>

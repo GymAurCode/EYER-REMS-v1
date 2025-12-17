@@ -126,7 +126,9 @@ export function AddDealDialog({
       try {
         setLoadingClients(true)
         const response = await apiService.clients.getAll()
-        const data = Array.isArray(response.data) ? response.data : []
+        const responseData = response.data as any
+        // Handle nested data structure: response.data.data or response.data
+        const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
         setClients(
           data.map((client: any) => ({
             id: client.id,

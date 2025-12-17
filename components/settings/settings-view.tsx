@@ -9,7 +9,9 @@ import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Settings, Bell, Shield, Palette, Plug, Sliders, Save, Building2, Mail, Phone, MapPin, Download, Upload, AlertTriangle, Loader2 } from "lucide-react"
+import { Settings, Bell, Shield, Palette, Plug, Sliders, Save, Building2, Mail, Phone, MapPin, Download, Upload, AlertTriangle, Loader2, Trash2, RotateCcw } from "lucide-react"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Badge } from "@/components/ui/badge"
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
 import { useTheme } from "@/lib/theme-provider"
 import { useToast } from "@/hooks/use-toast"
@@ -56,6 +58,13 @@ export function SettingsView() {
   const [showBackupWarning, setShowBackupWarning] = useState(false)
   const [showClearDataDialog, setShowClearDataDialog] = useState(false)
   const [clearingData, setClearingData] = useState(false)
+  
+  // Recycle Bin state
+  const [recycleBinItems, setRecycleBinItems] = useState<any[]>([])
+  const [recycleBinLoading, setRecycleBinLoading] = useState(false)
+  const [recycleBinFilter, setRecycleBinFilter] = useState("all")
+  const [entityTypes, setEntityTypes] = useState<any[]>([])
+  const [restoringId, setRestoringId] = useState<string | null>(null)
 
   const [settings, setSettings] = useState({
     // General
@@ -247,6 +256,66 @@ export function SettingsView() {
     }
   }, [])
 
+  // Recycle bin functions
+  const loadRecycleBin = useCallback(async () => {
+    try {
+      setRecycleBinLoading(true)
+      const params: any = { limit: 100 }
+      if (recycleBinFilter !== "all") {
+        params.entityType = recycleBinFilter
+      }
+      const response: any = await apiService.recycleBin?.getAll(params)
+      const data = response?.data?.data || response?.data || []
+      setRecycleBinItems(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error("Failed to load recycle bin:", error)
+      setRecycleBinItems([])
+    } finally {
+      setRecycleBinLoading(false)
+    }
+  }, [recycleBinFilter])
+
+  const loadEntityTypes = useCallback(async () => {
+    try {
+      const response: any = await apiService.recycleBin?.getEntityTypes()
+      const data = response?.data?.data || response?.data || []
+      setEntityTypes(Array.isArray(data) ? data : [])
+    } catch (error) {
+      console.error("Failed to load entity types:", error)
+    }
+  }, [])
+
+  const handleRestore = async (id: string, entityName: string) => {
+    try {
+      setRestoringId(id)
+      await apiService.recycleBin?.restore(id)
+      toast({
+        title: "Restored Successfully",
+        description: `"${entityName}" has been restored.`,
+      })
+      loadRecycleBin()
+      loadEntityTypes()
+    } catch (error: any) {
+      toast({
+        title: "Restore Failed",
+        description: error?.response?.data?.error || "Failed to restore item.",
+        variant: "destructive",
+      })
+    } finally {
+      setRestoringId(null)
+    }
+  }
+
+  // Load recycle bin when filter changes
+  useEffect(() => {
+    loadRecycleBin()
+  }, [loadRecycleBin])
+
+  // Load entity types on mount
+  useEffect(() => {
+    loadEntityTypes()
+  }, [loadEntityTypes])
+
   const handleExportData = async () => {
     try {
       setExportLoading(true)
@@ -412,7 +481,7 @@ export function SettingsView() {
 
       {/* Settings Tabs */}
       <Tabs defaultValue="general" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3 lg:grid-cols-6">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7">
           <TabsTrigger value="general">
             <Settings className="h-4 w-4 mr-2" />
             General
@@ -432,6 +501,10 @@ export function SettingsView() {
           <TabsTrigger value="integrations">
             <Plug className="h-4 w-4 mr-2" />
             Integrations
+          </TabsTrigger>
+          <TabsTrigger value="recycle-bin">
+            <Trash2 className="h-4 w-4 mr-2" />
+            Recycle Bin
           </TabsTrigger>
           <TabsTrigger value="advanced">
             <Sliders className="h-4 w-4 mr-2" />
@@ -803,6 +876,114 @@ export function SettingsView() {
                 </div>
               </div>
             </div>
+          </Card>
+        </TabsContent>
+
+        {/* Recycle Bin */}
+        <TabsContent value="recycle-bin">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Recycle Bin</h2>
+                <p className="text-sm text-muted-foreground">
+                  Recently deleted items are kept for 30 days before permanent deletion
+                </p>
+              </div>
+              <Button variant="outline" onClick={loadRecycleBin} disabled={recycleBinLoading}>
+                {recycleBinLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4" />
+                )}
+                <span className="ml-2">Refresh</span>
+              </Button>
+            </div>
+
+            {/* Filter */}
+            <div className="mb-4">
+              <Label htmlFor="recycleBinFilter">Filter by Type</Label>
+              <Select value={recycleBinFilter} onValueChange={setRecycleBinFilter}>
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="All Types" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {entityTypes.map((type) => (
+                    <SelectItem key={type.type} value={type.type}>
+                      {type.label} ({type.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Table */}
+            {recycleBinLoading ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : recycleBinItems.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">
+                <Trash2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>Recycle bin is empty</p>
+                <p className="text-sm">Deleted items will appear here for 30 days</p>
+              </div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Item Name</TableHead>
+                      <TableHead>Module</TableHead>
+                      <TableHead>Deleted By</TableHead>
+                      <TableHead>Deleted Date</TableHead>
+                      <TableHead className="text-right">Remaining Days</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recycleBinItems.map((item) => (
+                      <TableRow key={item.id}>
+                        <TableCell className="font-medium">{item.entityName}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">
+                            {item.entityType.charAt(0).toUpperCase() + item.entityType.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>{item.deletedByName || "System"}</TableCell>
+                        <TableCell>
+                          {new Date(item.deletedAt).toLocaleDateString("en-US", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Badge variant={item.remainingDays <= 7 ? "destructive" : "secondary"}>
+                            {item.remainingDays} days
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestore(item.id, item.entityName)}
+                            disabled={restoringId === item.id}
+                          >
+                            {restoringId === item.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <RotateCcw className="h-4 w-4" />
+                            )}
+                            <span className="ml-2">Restore</span>
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
           </Card>
         </TabsContent>
 

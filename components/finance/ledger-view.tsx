@@ -6,7 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, ArrowLeft, Download, FileText } from "lucide-react"
+import { Loader2, ArrowLeft, Download, FileText, X, Eye } from "lucide-react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
@@ -19,6 +22,14 @@ interface LedgerEntry {
   debit: number
   credit: number
   runningBalance: number
+  // Additional fields for detail view
+  accountHead?: string
+  narration?: string
+  linkedEntityType?: string // deal, payment, expense, etc.
+  linkedEntityId?: string
+  linkedEntityName?: string
+  voucherNo?: string
+  createdAt?: Date | string
 }
 
 interface LedgerData {
@@ -45,6 +56,8 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
   const [loading, setLoading] = useState(true)
   const [ledgerData, setLedgerData] = useState<LedgerData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null)
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false)
 
   useEffect(() => {
     fetchLedger()
@@ -295,8 +308,121 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
     )
   }
 
+  // Handle viewing entry details
+  const handleViewEntry = (entry: LedgerEntry) => {
+    setSelectedEntry(entry)
+    setDetailDialogOpen(true)
+  }
+
   return (
     <div className="space-y-6">
+      {/* Ledger Entry Detail Dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Ledger Entry Details
+            </DialogTitle>
+            <DialogDescription>
+              Complete information for this ledger entry
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEntry && (
+            <div className="space-y-6">
+              {/* Entry Header Info */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Voucher / Reference No</Label>
+                  <p className="font-medium">
+                    {selectedEntry.voucherNo || selectedEntry.referenceNo || "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Date</Label>
+                  <p className="font-medium">{formatDate(selectedEntry.date)}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Account & Description */}
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Account Head</Label>
+                  <p className="font-medium">{selectedEntry.accountHead || getTypeLabel()}</p>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Narration / Description</Label>
+                  <p className="font-medium">{selectedEntry.narration || selectedEntry.description}</p>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Linked Entity */}
+              {(selectedEntry.linkedEntityType || selectedEntry.linkedEntityName) && (
+                <>
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Linked Entity</Label>
+                    <div className="flex items-center gap-2">
+                      {selectedEntry.linkedEntityType && (
+                        <Badge variant="outline">
+                          {selectedEntry.linkedEntityType.charAt(0).toUpperCase() + selectedEntry.linkedEntityType.slice(1)}
+                        </Badge>
+                      )}
+                      <span className="font-medium">{selectedEntry.linkedEntityName || selectedEntry.linkedEntityId || "—"}</span>
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
+              {/* Debit & Credit Breakdown */}
+              <div className="grid grid-cols-2 gap-4">
+                <Card className="bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-800">
+                  <CardContent className="pt-4">
+                    <Label className="text-xs text-muted-foreground">Debit</Label>
+                    <p className="text-2xl font-bold text-red-600">
+                      {selectedEntry.debit > 0 ? formatCurrency(selectedEntry.debit) : "—"}
+                    </p>
+                  </CardContent>
+                </Card>
+                <Card className="bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
+                  <CardContent className="pt-4">
+                    <Label className="text-xs text-muted-foreground">Credit</Label>
+                    <p className="text-2xl font-bold text-green-600">
+                      {selectedEntry.credit > 0 ? formatCurrency(selectedEntry.credit) : "—"}
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Running Balance */}
+              <Card>
+                <CardContent className="pt-4">
+                  <Label className="text-xs text-muted-foreground">Running Balance (After this entry)</Label>
+                  <p className={`text-2xl font-bold ${selectedEntry.runningBalance >= 0 ? "text-primary" : "text-destructive"}`}>
+                    {formatCurrency(selectedEntry.runningBalance)}
+                  </p>
+                </CardContent>
+              </Card>
+
+              {/* Double-Entry Note */}
+              <div className="text-xs text-muted-foreground bg-muted p-3 rounded-lg">
+                <p className="font-medium mb-1">Double-Entry Accounting</p>
+                <p>
+                  This entry follows double-entry bookkeeping principles. 
+                  {selectedEntry.debit > 0 && ` Debit increases asset/expense accounts.`}
+                  {selectedEntry.credit > 0 && ` Credit increases liability/equity/revenue accounts.`}
+                </p>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -365,18 +491,26 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
                   <TableHead className="text-right w-[120px]">Debit</TableHead>
                   <TableHead className="text-right w-[120px]">Credit</TableHead>
                   <TableHead className="text-right w-[140px]">Running Balance</TableHead>
+                  <TableHead className="text-right w-[60px]">View</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {ledgerData.entries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
                       No ledger entries found
                     </TableCell>
                   </TableRow>
                 ) : (
                   ledgerData.entries.map((entry) => (
-                    <TableRow key={entry.id}>
+                    <TableRow 
+                      key={entry.id}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      onClick={() => {
+                        setSelectedEntry(entry)
+                        setDetailDialogOpen(true)
+                      }}
+                    >
                       <TableCell className="font-medium">{formatDate(entry.date)}</TableCell>
                       <TableCell>
                         {entry.referenceNo ? (
@@ -396,6 +530,11 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
                       </TableCell>
                       <TableCell className={`text-right font-semibold ${entry.runningBalance >= 0 ? "text-primary" : "text-destructive"}`}>
                         {formatCurrency(entry.runningBalance)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm">
+                          <Eye className="h-4 w-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))

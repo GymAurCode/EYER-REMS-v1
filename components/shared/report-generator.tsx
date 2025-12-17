@@ -472,18 +472,43 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
     document.body.removeChild(link)
   }
 
+  // Helper to check if a field should be right-aligned (numeric/currency)
+  const isNumericField = (fieldLabel: string): boolean => {
+    const numericFields = [
+      'Amount', 'Value', 'Salary', 'Base Salary', 'Bonus', 'Deductions', 'Net Pay',
+      'Revenue', 'Expenses', 'Total', 'Balance', 'Price', 'Cost', 'Rate', 'Paid',
+      'Outstanding', 'Dues', 'Commission', 'Commission Rate', 'Units', 'Total Deals',
+      'Total Deal Value', 'Occupancy Rate', 'Attendance', 'Leave Balance', 'Count',
+      'Quantity', 'Tax', 'Discount', 'Subtotal', 'Grand Total', 'Debit', 'Credit',
+      'Running Balance', 'Remaining', 'Paid Amount', 'Due Amount'
+    ]
+    return numericFields.some(nf => fieldLabel.toLowerCase().includes(nf.toLowerCase()))
+  }
+
+  // Helper to check if a field is a date field
+  const isDateField = (fieldLabel: string): boolean => {
+    const dateFields = ['Date', 'Created', 'Updated', 'Join', 'Added', 'Last Contact', 'Due Date', 'Start', 'End']
+    return dateFields.some(df => fieldLabel.toLowerCase().includes(df.toLowerCase()))
+  }
+
   // Generate Excel report (using HTML table that Excel can open)
   const generateExcel = (data: any[], fieldLabels: string[], moduleName: string) => {
-    // Create HTML table
+    // Create HTML table with proper formatting
     let html = `
       <html>
         <head>
           <meta charset="utf-8">
           <style>
             table { border-collapse: collapse; width: 100%; }
-            th { background-color: #2563eb; color: white; padding: 12px; text-align: left; font-weight: bold; }
+            th { background-color: #2563eb; color: white; padding: 12px; font-weight: bold; }
+            th.numeric { text-align: right; }
+            th.date { text-align: center; }
             td { border: 1px solid #ddd; padding: 8px; }
+            td.numeric { text-align: right; font-family: 'Courier New', monospace; }
+            td.date { text-align: center; }
             tr:nth-child(even) { background-color: #f2f2f2; }
+            .totals-row { font-weight: bold; background-color: #e5e7eb !important; }
+            .totals-row td { border-top: 2px solid #2563eb; }
           </style>
         </head>
         <body>
@@ -492,13 +517,19 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
           <table>
             <thead>
               <tr>
-                ${fieldLabels.map((field) => `<th>${field}</th>`).join("")}
+                ${fieldLabels.map((field) => {
+                  const alignClass = isNumericField(field) ? 'numeric' : isDateField(field) ? 'date' : ''
+                  return `<th class="${alignClass}">${field}</th>`
+                }).join("")}
               </tr>
             </thead>
             <tbody>
               ${data.map((item) => `
                 <tr>
-                  ${fieldLabels.map((field) => `<td>${getFieldValue(item, field)}</td>`).join("")}
+                  ${fieldLabels.map((field) => {
+                    const alignClass = isNumericField(field) ? 'numeric' : isDateField(field) ? 'date' : ''
+                    return `<td class="${alignClass}">${getFieldValue(item, field)}</td>`
+                  }).join("")}
                 </tr>
               `).join("")}
             </tbody>
@@ -521,7 +552,7 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
 
   // Generate PDF report (using HTML that can be printed as PDF)
   const generatePDF = (data: any[], fieldLabels: string[], moduleName: string) => {
-    // Create HTML for PDF
+    // Create HTML for PDF with proper formatting
     const html = `
       <!DOCTYPE html>
       <html>
@@ -529,16 +560,26 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
           <meta charset="utf-8">
           <title>${moduleName} Report</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
+            body { font-family: Arial, sans-serif; padding: 20px; font-size: 12px; }
             h1 { color: #2563eb; text-align: center; margin-bottom: 10px; }
             .report-info { text-align: center; color: #666; margin-bottom: 30px; }
             table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-            th { background-color: #2563eb; color: white; padding: 12px; text-align: left; font-weight: bold; }
-            td { border: 1px solid #ddd; padding: 10px; }
+            th { background-color: #2563eb; color: white; padding: 10px 8px; font-weight: bold; font-size: 11px; }
+            th.numeric { text-align: right; }
+            th.date { text-align: center; }
+            td { border: 1px solid #ddd; padding: 8px; font-size: 11px; }
+            td.numeric { text-align: right; font-family: 'Courier New', Courier, monospace; }
+            td.date { text-align: center; }
             tr:nth-child(even) { background-color: #f9f9f9; }
+            .totals-row { font-weight: bold; background-color: #e5e7eb !important; }
+            .totals-row td { border-top: 2px solid #2563eb; }
+            .currency { white-space: nowrap; }
             @media print {
-              body { padding: 0; }
+              body { padding: 10px; }
               .no-print { display: none; }
+              table { page-break-inside: auto; }
+              tr { page-break-inside: avoid; page-break-after: auto; }
+              thead { display: table-header-group; }
             }
           </style>
         </head>
@@ -551,13 +592,19 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
           <table>
             <thead>
               <tr>
-                ${fieldLabels.map((field) => `<th>${field}</th>`).join("")}
+                ${fieldLabels.map((field) => {
+                  const alignClass = isNumericField(field) ? 'numeric' : isDateField(field) ? 'date' : ''
+                  return `<th class="${alignClass}">${field}</th>`
+                }).join("")}
               </tr>
             </thead>
             <tbody>
               ${data.map((item) => `
                 <tr>
-                  ${fieldLabels.map((field) => `<td>${getFieldValue(item, field)}</td>`).join("")}
+                  ${fieldLabels.map((field) => {
+                    const alignClass = isNumericField(field) ? 'numeric currency' : isDateField(field) ? 'date' : ''
+                    return `<td class="${alignClass}">${getFieldValue(item, field)}</td>`
+                  }).join("")}
                 </tr>
               `).join("")}
             </tbody>

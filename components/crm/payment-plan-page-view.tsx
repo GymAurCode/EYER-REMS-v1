@@ -776,34 +776,86 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         </div>
       </div>
 
-      {/* Summary Card */}
+      {/* Summary Card with Dues & Outstanding */}
       <Card>
         <CardHeader>
           <CardTitle>Payment Summary</CardTitle>
-          <CardDescription>Total amount, paid amount, and remaining balance</CardDescription>
+          <CardDescription>Total amount, paid amount, outstanding and dues breakdown</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div>
-              <Label className="text-muted-foreground">Total Amount</Label>
+          {/* Main Summary Row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="p-4 bg-muted/50 rounded-lg">
+              <Label className="text-muted-foreground text-xs">Total Deal Amount</Label>
               <p className="text-2xl font-bold">{formatCurrency(finalSummary.totalAmount)}</p>
             </div>
-            <div>
-              <Label className="text-muted-foreground">Paid Amount</Label>
+            <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+              <Label className="text-muted-foreground text-xs">Total Paid</Label>
               <p className="text-2xl font-bold text-green-600">{formatCurrency(finalSummary.paidAmount)}</p>
             </div>
-            <div>
-              <Label className="text-muted-foreground">Remaining</Label>
+            <div className="p-4 bg-orange-50 dark:bg-orange-950 rounded-lg">
+              <Label className="text-muted-foreground text-xs">Outstanding</Label>
               <p className="text-2xl font-bold text-orange-600">{formatCurrency(finalSummary.remainingAmount)}</p>
+              <p className="text-xs text-muted-foreground mt-1">Total − Paid</p>
+            </div>
+            <div className="p-4 bg-red-50 dark:bg-red-950 rounded-lg">
+              <Label className="text-muted-foreground text-xs">Dues (Overdue)</Label>
+              <p className="text-2xl font-bold text-red-600">
+                {formatCurrency(
+                  viewInstallments
+                    .filter(inst => {
+                      // Dues = unpaid installments with past due dates
+                      const isPastDue = inst.dueDate && new Date(inst.dueDate) < new Date();
+                      const isUnpaid = (inst.paidAmount || 0) < (inst.amount || 0);
+                      return isPastDue && isUnpaid;
+                    })
+                    .reduce((sum, inst) => sum + ((inst.amount || 0) - (inst.paidAmount || 0)), 0)
+                )}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">Past due installments</p>
             </div>
           </div>
+          
+          {/* Progress Bar */}
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Progress</span>
+              <span>Payment Progress</span>
               <span>{finalSummary.progress.toFixed(1)}%</span>
             </div>
             <Progress value={finalSummary.progress} className="h-2" />
           </div>
+
+          {/* Installment Summary Stats */}
+          {viewInstallments.length > 0 && (
+            <div className="mt-4 pt-4 border-t grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Total Installments:</span>
+                <span className="ml-2 font-medium">{viewInstallments.length}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Paid:</span>
+                <span className="ml-2 font-medium text-green-600">
+                  {viewInstallments.filter(inst => inst.status === 'paid').length}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Pending:</span>
+                <span className="ml-2 font-medium text-yellow-600">
+                  {viewInstallments.filter(inst => inst.status !== 'paid' && (!inst.dueDate || new Date(inst.dueDate) >= new Date())).length}
+                </span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Overdue:</span>
+                <span className="ml-2 font-medium text-red-600">
+                  {viewInstallments.filter(inst => {
+                    const isPastDue = inst.dueDate && new Date(inst.dueDate) < new Date();
+                    const isUnpaid = inst.status !== 'paid';
+                    return isPastDue && isUnpaid;
+                  }).length}
+                </span>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

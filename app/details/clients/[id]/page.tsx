@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone, FileText } from "lucide-react"
+import { ArrowLeft, Building2, Loader2, Mail, MapPin, MessageSquare, Phone, FileText, Paperclip, Download, File, ExternalLink } from "lucide-react"
 
 import { apiService } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +51,13 @@ interface Communication {
   lead?: { name?: string | null } | null
 }
 
+interface Attachment {
+  name: string
+  url: string
+  type: string
+  size: number
+}
+
 interface ClientResponse {
   id: string
   name: string
@@ -62,6 +69,7 @@ interface ClientResponse {
   updatedAt?: string | null
   deals?: Deal[]
   communications?: Communication[]
+  attachments?: { notes?: string; files?: Attachment[] } | null
 }
 
 export default function ClientDetailPage() {
@@ -95,6 +103,22 @@ export default function ClientDetailPage() {
 
   const deals = useMemo(() => client?.deals ?? [], [client])
   const communications = useMemo(() => client?.communications ?? [], [client])
+  const attachments = useMemo(() => client?.attachments?.files ?? [], [client])
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+  }
+
+  const downloadAttachment = (attachment: Attachment) => {
+    const link = document.createElement("a")
+    link.href = attachment.url
+    link.download = attachment.name
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+  }
 
   const totalDealValue = useMemo(() => {
     return deals.reduce((sum, deal) => {
@@ -381,6 +405,42 @@ export default function ClientDetailPage() {
             )}
           </Card>
         </div>
+
+        {/* Attachments Section */}
+        <Card className="p-6">
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+            <Paperclip className="h-5 w-5" />
+            Attachments
+          </h3>
+          {attachments.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No attachments uploaded for this client.</p>
+          ) : (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {attachments.map((attachment, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <File className="h-8 w-8 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">{formatFileSize(attachment.size)}</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => downloadAttachment(attachment)}
+                    title="Download"
+                  >
+                    <Download className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   )

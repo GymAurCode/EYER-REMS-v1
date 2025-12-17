@@ -1994,3 +1994,22 @@ model CsrfToken {
   @@index([deviceId])
   @@index([expiresAt])
 }
+
+// Recycle Bin - Stores soft-deleted records for 30-day recovery
+model DeletedRecord {
+  id           String   @id @default(uuid())
+  entityType   String   // lead, client, dealer, deal, employee, etc.
+  entityId     String   // Original record ID
+  entityName   String   // Display name for UI
+  entityData   Json     // Full record data for restoration
+  deletedBy    String?  // User ID who deleted
+  deletedByName String? // User name for display
+  deletedAt    DateTime @default(now())
+  expiresAt    DateTime // Auto-calculated: deletedAt + 30 days
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([deletedAt])
+  @@index([expiresAt])
+  @@index([deletedBy])
+}
