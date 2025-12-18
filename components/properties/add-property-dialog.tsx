@@ -13,7 +13,7 @@ import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon } from "
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
-import { LocationSelector } from "@/components/locations/location-selector"
+import { useLocationTree } from "@/hooks/use-location-tree"
 import { LocationTreeNode } from "@/lib/location"
 
 type PropertyForm = {
@@ -357,10 +357,36 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [uploadingImage, setUploadingImage] = useState(false)
   const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string }>>([])
   const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
-  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
+  const { tree: locationTree, isLoading: loadingLocations } = useLocationTree()
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const isEdit = Boolean(propertyId)
+
+  // Flatten location tree into a list with full paths
+  const flattenedLocations = useMemo(() => {
+    const flatten = (nodes: LocationTreeNode[], path: string[] = []): Array<{ id: string; path: string; name: string }> => {
+      const result: Array<{ id: string; path: string; name: string }> = []
+      
+      for (const node of nodes) {
+        const currentPath = [...path, node.name]
+        const fullPath = currentPath.join(" > ")
+        
+        result.push({
+          id: node.id,
+          path: fullPath,
+          name: node.name,
+        })
+        
+        if (node.children && node.children.length > 0) {
+          result.push(...flatten(node.children, currentPath))
+        }
+      }
+      
+      return result
+    }
+    
+    return flatten(locationTree || [])
+  }, [locationTree])
 
   useEffect(() => {
     if (!open) {
@@ -956,20 +982,37 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                   </div>
 
                     <div className="lg:col-span-5 space-y-4">
-                      <LocationSelector
-                        value={selectedLocationNode?.id || form.locationId || null}
-                        onChange={(node) => {
-                          setSelectedLocationNode(node)
-                          setForm((p) => ({
-                            ...p,
-                            location: node?.name || "",
-                            locationId: node?.id || null,
-                            subsidiaryOptionId: null, // Reset subsidiary when location changes
-                          }))
-                        }}
-                        label="Location"
-                        helperText="Select the location for this property"
-                      />
+                      <div className="space-y-2">
+                        <Label>Location</Label>
+                        <Select
+                          value={form.locationId || "none"}
+                          onValueChange={(val) => {
+                            const selectedLocation = flattenedLocations.find((loc) => loc.id === val)
+                            setForm((p) => ({
+                              ...p,
+                              location: selectedLocation?.name || "",
+                              locationId: val === "none" ? null : val,
+                              subsidiaryOptionId: null, // Reset subsidiary when location changes
+                            }))
+                          }}
+                          disabled={loadingLocations}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder={loadingLocations ? "Loading locations..." : "Select location"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">None</SelectItem>
+                            {flattenedLocations.map((loc) => (
+                              <SelectItem key={loc.id} value={loc.id}>
+                                {loc.path}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          Select the location for this property. Add locations in Advanced Options &gt; Locations.
+                        </p>
+                      </div>
 
                       {form.locationId && (
                         <div className="space-y-2">

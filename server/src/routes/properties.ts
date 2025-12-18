@@ -1452,16 +1452,19 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       updateData.documents = documentsData;
     }
 
+    // Handle locationId separately since it's a direct field
+    const finalUpdateData: Prisma.PropertyUpdateInput = {
+      ...updateData,
+      imageUrl: data.imageUrl !== undefined ? (data.imageUrl || null) : undefined,
+    };
+
     if ('locationId' in data) {
-      updateData.locationId = data.locationId ?? null;
+      (finalUpdateData as any).locationId = data.locationId ?? null;
     }
 
     const property = await prisma.property.update({
       where: { id },
-      data: {
-        ...updateData,
-        imageUrl: data.imageUrl !== undefined ? (data.imageUrl || null) : undefined,
-      },
+      data: finalUpdateData,
       include: {
         units: {
           where: { isDeleted: false },
