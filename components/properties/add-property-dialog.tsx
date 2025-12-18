@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon } from "lucide-react"
+import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon, RefreshCw } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
@@ -357,10 +357,17 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [uploadingImage, setUploadingImage] = useState(false)
   const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string }>>([])
   const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
-  const { tree: locationTree, isLoading: loadingLocations } = useLocationTree()
+  const { tree: locationTree, isLoading: loadingLocations, refresh: refreshLocations } = useLocationTree()
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const isEdit = Boolean(propertyId)
+
+  // Refresh locations when dialog opens
+  useEffect(() => {
+    if (open) {
+      refreshLocations()
+    }
+  }, [open, refreshLocations])
 
   // Flatten location tree into a list with full paths
   const flattenedLocations = useMemo(() => {
@@ -983,7 +990,24 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
                     <div className="lg:col-span-5 space-y-4">
                       <div className="space-y-2">
-                        <Label>Location</Label>
+                        <div className="flex items-center justify-between">
+                          <Label>Location</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => refreshLocations()}
+                            disabled={loadingLocations}
+                            className="h-7 text-xs"
+                          >
+                            {loadingLocations ? (
+                              <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                            ) : (
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                            )}
+                            Refresh
+                          </Button>
+                        </div>
                         <Select
                           value={form.locationId || "none"}
                           onValueChange={(val) => {
@@ -1002,11 +1026,17 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
-                            {flattenedLocations.map((loc) => (
-                              <SelectItem key={loc.id} value={loc.id}>
-                                {loc.path}
-                              </SelectItem>
-                            ))}
+                            {flattenedLocations.length === 0 && !loadingLocations ? (
+                              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                No locations available. Add locations in Advanced Options &gt; Locations.
+                              </div>
+                            ) : (
+                              flattenedLocations.map((loc) => (
+                                <SelectItem key={loc.id} value={loc.id}>
+                                  {loc.path}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                         <p className="text-xs text-muted-foreground">

@@ -173,6 +173,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const propertyIds = properties.map(p => p.id);
 
     // OPTIMIZED: Batch fetch all data instead of N+1 queries
+    // Skip batch queries if no properties to avoid database errors with empty arrays
     const [
       unitCounts,
       revenueData,
@@ -182,7 +183,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       allPayments,
       completedSales,
       outstandingInvoices,
-    ] = await Promise.all([
+    ] = propertyIds.length > 0 ? await Promise.all([
       // Count occupied units per property
       prisma.unit.groupBy({
         by: ['propertyId'],
@@ -259,7 +260,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           totalAmount: true,
         },
       }),
-    ]);
+    ]) : [[], [], [], [], [], [], [], []];
 
     // Create lookup maps for efficient access
     const unitCountMap = new Map(unitCounts.map(u => [u.propertyId, u._count]));
@@ -1369,15 +1370,16 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         name: data.name,
         type: data.type,
         address: data.address,
-        location: data.location,
-        status: data.status,
+        location: data.location || undefined,
+        status: data.status || 'Active',
         imageUrl: data.imageUrl || undefined,
-        description: data.description,
-        yearBuilt: data.yearBuilt,
-        totalArea: data.totalArea,
-        totalUnits: data.totalUnits,
-        dealerId: data.dealerId,
+        description: data.description || undefined,
+        yearBuilt: data.yearBuilt || undefined,
+        totalArea: data.totalArea || undefined,
+        totalUnits: data.totalUnits || 0,
+        dealerId: data.dealerId || undefined,
         locationId: data.locationId ?? null,
+        subsidiaryOptionId: data.subsidiaryOptionId ?? null,
         ...(propertyCode && { propertyCode }),
         ...(documentsData && { documents: documentsData }),
       },
