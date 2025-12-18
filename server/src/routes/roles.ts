@@ -346,7 +346,51 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
     }
 
     // Generate full invite URL - redirect to /roles/login instead of /invite-login
-    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+    // Dynamically determine frontend URL from request origin
+    let frontendUrl = process.env.FRONTEND_URL;
+    
+    if (!frontendUrl) {
+      // Try to get from Referer header (the page that made the request)
+      const referer = (req.headers.referer as string) || (req.headers.origin as string);
+      if (referer) {
+        try {
+          const refererUrl = new URL(referer);
+          frontendUrl = `${refererUrl.protocol}//${refererUrl.host}`;
+        } catch (e) {
+          // If URL parsing fails, try to extract from referer string
+          const match = referer.match(/^(https?:\/\/[^\/]+)/);
+          if (match) {
+            frontendUrl = match[1];
+          }
+        }
+      }
+      
+      // If still not found, try to construct from request
+      // Handle reverse proxy scenarios (X-Forwarded-Proto, X-Forwarded-Host)
+      if (!frontendUrl) {
+        // Check for forwarded protocol (for reverse proxies)
+        const forwardedProto = req.headers['x-forwarded-proto'] as string;
+        const forwardedHost = req.headers['x-forwarded-host'] as string;
+        
+        if (forwardedProto && forwardedHost) {
+          frontendUrl = `${forwardedProto}://${forwardedHost}`;
+        } else {
+          // Use standard request protocol and host
+          // Access protocol and secure through headers or connection
+          const protocol = forwardedProto || ((req as any).protocol || ((req as any).secure ? 'https' : 'http'));
+          const host = forwardedHost || (req.headers.host as string);
+          if (host) {
+            frontendUrl = `${protocol}://${host}`;
+          }
+        }
+      }
+      
+      // Final fallback to localhost (for development)
+      if (!frontendUrl) {
+        frontendUrl = 'http://localhost:3000';
+      }
+    }
+    
     const inviteUrl = `${frontendUrl}/roles/login?token=${token}`;
     
     res.status(201).json({

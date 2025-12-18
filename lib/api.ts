@@ -512,6 +512,19 @@ export const apiService = {
     delete: (id: string) => api.delete(`/locations/${id}`),
   },
 
+  subsidiaries: {
+    getAll: () => api.get('/subsidiaries'),
+    getById: (id: string) => api.get(`/subsidiaries/${id}`),
+    getByLocation: (locationId: string) => api.get(`/subsidiaries/location/${locationId}`),
+    getLocationOptions: (locationId: string) => api.get(`/subsidiaries/location/${locationId}/options`),
+    create: (data: { locationId: string; name: string; options?: Array<{ name: string; sortOrder?: number }> }) => api.post('/subsidiaries', data),
+    update: (id: string, data: { name?: string }) => api.put(`/subsidiaries/${id}`, data),
+    delete: (id: string) => api.delete(`/subsidiaries/${id}`),
+    addOption: (subsidiaryId: string, data: { name: string; sortOrder?: number }) => api.post(`/subsidiaries/${subsidiaryId}/options`, data),
+    updateOption: (optionId: string, data: { name?: string; sortOrder?: number }) => api.put(`/subsidiaries/options/${optionId}`, data),
+    deleteOption: (optionId: string) => api.delete(`/subsidiaries/options/${optionId}`),
+  },
+
   // Units
   units: {
     getAll: () => api.get('/units'),
@@ -934,9 +947,9 @@ export const apiService = {
     getDropdownCategories: () => api.get('/advanced-options/dropdowns'),
     createCategory: (data: { key: string; name: string; description?: string }) =>
       api.post('/advanced-options/dropdowns', data),
-    getDropdownByKey: (key: string) => api.get(`/advanced-options/dropdowns/${key}`),
+    getDropdownByKey: (key: string) => api.get(`/advanced-options/dropdowns/${encodeURIComponent(key)}`),
     createOption: (key: string, data: { label: string; value: string; sortOrder?: number }) =>
-      api.post(`/advanced-options/dropdowns/${key}`, data),
+      api.post(`/advanced-options/dropdowns/${encodeURIComponent(key)}`, data),
     updateOption: (id: string, data: { label?: string; value?: string; sortOrder?: number }) =>
       api.put(`/advanced-options/dropdowns/options/${id}`, data),
     deleteOption: (id: string) => api.delete(`/advanced-options/dropdowns/options/${id}`),

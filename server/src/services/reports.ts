@@ -25,12 +25,26 @@ export async function generateIncomeStatement(startDate: Date, endDate: Date, pr
 
   const [incomeEntries, expenseEntries] = await Promise.all([
     prisma.financeLedger.findMany({
-      where: { ...where, category: 'income' },
-      include: { property: true, tenant: true, deal: true },
+      where: { ...where, transactionType: 'credit' },
+      include: { 
+        deal: {
+          include: {
+            property: { select: { id: true, name: true, propertyCode: true } }
+          }
+        },
+        client: true,
+      },
     }),
     prisma.financeLedger.findMany({
-      where: { ...where, category: 'expense' },
-      include: { property: true, tenant: true },
+      where: { ...where, transactionType: 'debit' },
+      include: { 
+        deal: {
+          include: {
+            property: { select: { id: true, name: true, propertyCode: true } }
+          }
+        },
+        client: true,
+      },
     }),
   ]);
 
@@ -109,10 +123,16 @@ export async function generateCashFlowStatement(startDate: Date, endDate: Date, 
   const expenses = await prisma.financeLedger.findMany({
     where: {
       ...where,
-      category: 'expense',
+      transactionType: 'debit',
       referenceType: { in: ['property_expense', 'maintenance', 'salary'] },
     },
-    include: { property: true },
+    include: { 
+      deal: {
+        include: {
+          property: { select: { id: true, name: true, propertyCode: true } }
+        }
+      },
+    },
   });
 
   const cashInflows = payments.reduce((sum, payment) => sum + payment.amount, 0);

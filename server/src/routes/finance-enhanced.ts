@@ -19,16 +19,16 @@ const router = (express as any).Router();
 
 // Validation schemas
 const createFinanceLedgerSchema = z.object({
-  referenceType: z.enum(['invoice', 'salary', 'expense', 'deal', 'payment', 'maintenance', 'property_expense']),
+  referenceType: z.enum(['invoice', 'salary', 'expense', 'deal', 'payment', 'maintenance', 'property_expense']).optional(),
   referenceId: z.string().uuid().optional(),
-  category: z.enum(['income', 'expense']),
+  transactionType: z.enum(['credit', 'debit']),
+  purpose: z.string(), // Purpose: booking, installment, refund, discount, etc.
   amount: z.number().positive(),
   date: z.string().datetime().optional(),
   notes: z.string().optional(),
   description: z.string().optional(),
-  propertyId: z.string().uuid().optional(),
-  tenantId: z.string().uuid().optional(),
-  dealId: z.string().uuid().optional(),
+  dealId: z.string().uuid(), // Required - Finance must always link to Deal
+  clientId: z.string().uuid().optional(),
   payrollId: z.string().uuid().optional(),
   invoiceId: z.string().uuid().optional(),
   paymentId: z.string().uuid().optional(),
@@ -42,10 +42,10 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const {
-        category,
+        transactionType,
+        purpose,
         referenceType,
-        propertyId,
-        tenantId,
+        dealId,
         startDate,
         endDate,
         page = '1',
@@ -54,10 +54,10 @@ router.get(
 
       const where: any = { isDeleted: false };
 
-      if (category) where.category = category;
+      if (transactionType) where.transactionType = transactionType;
+      if (purpose) where.purpose = purpose;
       if (referenceType) where.referenceType = referenceType;
-      if (propertyId) where.propertyId = propertyId;
-      if (tenantId) where.tenantId = tenantId;
+      if (dealId) where.dealId = dealId;
       if (startDate && endDate) {
         where.date = {
           gte: new Date(startDate as string),
@@ -73,9 +73,15 @@ router.get(
         prisma.financeLedger.findMany({
           where,
           include: {
-            property: { select: { id: true, name: true, propertyCode: true } },
-            tenant: { select: { id: true, name: true, tenantCode: true } },
-            deal: { select: { id: true, title: true, dealCode: true } },
+            deal: { 
+              select: { 
+                id: true, 
+                title: true, 
+                dealCode: true,
+                property: { select: { id: true, name: true, propertyCode: true } }
+              } 
+            },
+            client: { select: { id: true, name: true, clientCode: true } },
           },
           orderBy: { date: 'desc' },
           skip,
@@ -106,11 +112,11 @@ router.get(
   requirePermission('finance.view'),
   async (req: AuthenticatedRequest, res: Response) => {
     try {
-      const { startDate, endDate, propertyId } = req.query;
+      const { startDate, endDate, dealId } = req.query;
 
       const where: any = { isDeleted: false };
 
-      if (propertyId) where.propertyId = propertyId;
+      if (dealId) where.dealId = dealId;
       if (startDate && endDate) {
         where.date = {
           gte: new Date(startDate as string),
@@ -120,19 +126,19 @@ router.get(
 
       const [income, expenses] = await Promise.all([
         prisma.financeLedger.aggregate({
-          where: { ...where, category: 'income' },
+          where: { ...where, transactionType: 'credit' },
           _sum: { amount: true },
           _count: true,
         }),
         prisma.financeLedger.aggregate({
-          where: { ...where, category: 'expense' },
+          where: { ...where, transactionType: 'debit' },
           _sum: { amount: true },
           _count: true,
         }),
       ]);
 
-      const totalIncome = income._sum.amount || 0;
-      const totalExpenses = expenses._sum.amount || 0;
+      const totalIncome = income._sum?.amount || 0;
+      const totalExpenses = expenses._sum?.amount || 0;
 
       res.json({
         income: {
@@ -162,8 +168,19 @@ router.post(
 
       const ledger = await prisma.financeLedger.create({
         data: {
-          ...data,
+          dealId: data.dealId,
+          clientId: data.clientId,
+          transactionType: data.transactionType,
+          purpose: data.purpose,
+          amount: data.amount,
           date: data.date ? new Date(data.date) : new Date(),
+          notes: data.notes,
+          description: data.description,
+          referenceType: data.referenceType,
+          referenceId: data.referenceId,
+          payrollId: data.payrollId,
+          invoiceId: data.invoiceId,
+          paymentId: data.paymentId,
           createdBy: req.user?.id,
         },
       });
@@ -177,7 +194,7 @@ router.post(
         userName: req.user?.username,
         userRole: req.user?.role?.name,
         newValues: ledger,
-        description: `Finance ledger entry created: ${ledger.category} - ${ledger.amount}`,
+        description: `Finance ledger entry created: ${ledger.transactionType} - ${ledger.purpose} - ${ledger.amount}`,
         req,
       });
 
@@ -287,9 +304,12 @@ router.get(
           isDeleted: false,
         },
         include: {
-          property: true,
-          tenant: true,
-          deal: true,
+          deal: {
+            include: {
+              property: { select: { id: true, name: true, propertyCode: true } }
+            }
+          },
+          client: true,
         },
       });
 

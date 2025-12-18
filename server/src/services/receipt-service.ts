@@ -293,10 +293,8 @@ export class ReceiptService {
         const downPaymentPaid = isDownPaymentPaid ? downPayment : 0;
         const totalPaid = installmentPaidAmount + downPaymentPaid;
         
-        await tx.deal.update({
-          where: { id: payload.dealId },
-          data: { totalPaid },
-        });
+        // Note: Deal model no longer has totalPaid field
+        // Total paid is calculated from payments when needed
 
         // Update payment plan status
         if (deal.paymentPlan) {

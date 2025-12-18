@@ -5,7 +5,7 @@ import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
 import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
-import { successResponse } from '../utils/error-handler';
+import { successResponse, errorResponse } from '../utils/error-handler';
 
 const router = (express as any).Router();
 
@@ -288,8 +288,9 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
 
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, clients, 200, pagination);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch clients' });
+  } catch (error: any) {
+    logger.error('Failed to fetch clients:', error);
+    return errorResponse(res, error);
   }
 });
 

@@ -89,40 +89,19 @@ export async function generateMonthlyInvoices() {
 
 /**
  * Sync invoice to Finance Ledger (Income)
+ * Note: FinanceLedger now requires a dealId. Invoices don't have Deals, so this is disabled.
+ * Finance entries for invoices should be created through Deal relationships if needed.
  */
 export async function syncInvoiceToFinanceLedger(invoiceId: string) {
-  const invoice = await prisma.invoice.findUnique({
-    where: { id: invoiceId },
-    include: { tenant: true, property: true },
-  });
-
-  if (!invoice) return null;
-
-  const ledger = await prisma.financeLedger.create({
-    data: {
-      referenceType: 'invoice',
-      referenceId: invoiceId,
-      category: 'income',
-      amount: invoice.totalAmount,
-      date: invoice.billingDate,
-      description: `Rent invoice ${invoice.invoiceNumber}`,
-      notes: `Auto-generated from invoice ${invoice.invoiceNumber}`,
-      propertyId: invoice.propertyId || undefined,
-      tenantId: invoice.tenantId || undefined,
-      invoiceId: invoiceId,
-    },
-  });
-
-  // Auto-sync: Update dashboard KPIs if property exists
-  if (invoice.propertyId) {
-    await updateDashboardKPIs(invoice.propertyId);
-  }
-
-  return ledger;
+  // FinanceLedger requires a dealId, but invoices don't have Deals
+  // Skipping FinanceLedger creation for invoices
+  return null;
 }
 
 /**
  * Sync payment to Finance Ledger (Income - Received)
+ * Note: FinanceLedger now requires a dealId. TenantPayments don't have Deals, so this is disabled.
+ * Finance entries for payments should be created through Deal relationships if needed.
  */
 export async function syncPaymentToFinanceLedger(paymentId: string) {
   const payment = await prisma.tenantPayment.findUnique({
@@ -130,36 +109,13 @@ export async function syncPaymentToFinanceLedger(paymentId: string) {
     include: { 
       tenant: true, 
       invoice: { include: { property: true } },
-      // Include all invoices if allocations exist
     },
-    // Ensure we get allocatedAmount and overpaymentAmount
   });
 
   if (!payment) return null;
 
-  // Use allocatedAmount for revenue (cash-basis accounting)
-  // Only the amount applied to invoices counts as revenue, not the advance portion
-  const revenueAmount = payment.allocatedAmount || payment.amount || 0;
-  
-  const ledger = await prisma.financeLedger.create({
-    data: {
-      referenceType: 'payment',
-      referenceId: paymentId,
-      category: 'income',
-      amount: revenueAmount, // Use allocated amount for revenue
-      date: payment.date,
-      description: `Payment received ${payment.paymentId}${payment.allocatedAmount ? ` (Applied: ${payment.allocatedAmount})` : ''}`,
-      notes: `Payment method: ${payment.method}${payment.overpaymentAmount ? ` | Advance: ${payment.overpaymentAmount}` : ''}`,
-      propertyId: payment.invoice?.propertyId || undefined,
-      tenantId: payment.tenantId || undefined,
-      paymentId: paymentId,
-    },
-  });
-
-  // Note: Invoice status and remainingAmount are already updated in the payment creation transaction
-  // We don't need to update them again here to avoid double updates
-
   // Update tenant ledger with allocated amount (credit entry)
+  const revenueAmount = payment.allocatedAmount || payment.amount || 0;
   if (payment.tenantId && revenueAmount > 0) {
     await updateTenantLedger(payment.tenantId, {
       entryType: 'credit',
@@ -170,16 +126,15 @@ export async function syncPaymentToFinanceLedger(paymentId: string) {
     });
   }
 
-  // Auto-sync: Update dashboard KPIs if property exists
-  if (payment.invoice?.propertyId) {
-    await updateDashboardKPIs(payment.invoice.propertyId);
-  }
-
-  return ledger;
+  // FinanceLedger requires a dealId, but tenant payments don't have Deals
+  // Skipping FinanceLedger creation for tenant payments
+  return null;
 }
 
 /**
  * Sync property expense to Finance Ledger (Expense)
+ * Note: FinanceLedger now requires a dealId. PropertyExpenses don't have Deals, so this is disabled.
+ * Finance entries for property expenses should be created through Deal relationships if needed.
  */
 export async function syncPropertyExpenseToFinanceLedger(expenseId: string) {
   const expense = await prisma.propertyExpense.findUnique({
@@ -189,33 +144,20 @@ export async function syncPropertyExpenseToFinanceLedger(expenseId: string) {
 
   if (!expense) return null;
 
-  const ledger = await prisma.financeLedger.create({
-    data: {
-      referenceType: 'property_expense',
-      referenceId: expenseId,
-      category: 'expense',
-      amount: expense.amount,
-      date: expense.date,
-      description: `Property expense: ${expense.category}`,
-      notes: expense.description || undefined,
-      propertyId: expense.propertyId,
-    },
-  });
-
-  // Link expense to ledger
-  await prisma.propertyExpense.update({
-    where: { id: expenseId },
-    data: { financeLedgerId: ledger.id },
-  });
-
+  // FinanceLedger requires a dealId, but property expenses don't have Deals
+  // Skipping FinanceLedger creation for property expenses
+  // The PropertyExpense model has a financeLedgerId field that can be set when a Deal is linked
+  
   // Auto-sync: Update dashboard KPIs
   await updateDashboardKPIs(expense.propertyId);
 
-  return ledger;
+  return null;
 }
 
 /**
  * Sync maintenance request to Finance Ledger (Expense)
+ * Note: FinanceLedger now requires a dealId. MaintenanceRequests don't have Deals, so this is disabled.
+ * Finance entries for maintenance should be created through Deal relationships if needed.
  */
 export async function syncMaintenanceToFinanceLedger(maintenanceId: string) {
   const maintenance = await prisma.maintenanceRequest.findUnique({
@@ -227,27 +169,11 @@ export async function syncMaintenanceToFinanceLedger(maintenanceId: string) {
     return null;
   }
 
-  const ledger = await prisma.financeLedger.create({
-    data: {
-      referenceType: 'maintenance',
-      referenceId: maintenanceId,
-      category: 'expense',
-      amount: maintenance.actualCost,
-      date: maintenance.completedAt || new Date(),
-      description: `Maintenance: ${maintenance.issueTitle}`,
-      notes: maintenance.issueDescription,
-      propertyId: maintenance.propertyId,
-      tenantId: maintenance.tenantId || undefined,
-    },
-  });
+  // FinanceLedger requires a dealId, but maintenance requests don't have Deals
+  // Skipping FinanceLedger creation for maintenance requests
+  // The MaintenanceRequest model has a financeLedgerId field that can be set when a Deal is linked
 
-  // Link maintenance to ledger
-  await prisma.maintenanceRequest.update({
-    where: { id: maintenanceId },
-    data: { financeLedgerId: ledger.id },
-  });
-
-  return ledger;
+  return null;
 }
 
 /**
@@ -273,7 +199,7 @@ export async function syncCommissionToFinanceLedger(commissionId: string) {
     where: {
       referenceType: 'commission',
       referenceId: commissionId,
-      category: 'expense',
+      transactionType: 'debit',
     },
   });
 
@@ -281,16 +207,36 @@ export async function syncCommissionToFinanceLedger(commissionId: string) {
     return existingLedger;
   }
 
+  // Find a Deal for this commission (through sale or dealer)
+  // For now, skipping if no Deal is found
+  if (!commission.saleId) {
+    return null; // Commission without a sale/deal cannot create FinanceLedger
+  }
+
+  // Find Deal associated with the sale
+  const deal = await prisma.deal.findFirst({
+    where: {
+      propertyId: commission.sale?.propertyId,
+      isDeleted: false,
+    },
+  });
+
+  if (!deal) {
+    return null; // No Deal found for this commission
+  }
+
   const ledger = await prisma.financeLedger.create({
     data: {
-      referenceType: 'commission',
-      referenceId: commissionId,
-      category: 'expense',
+      dealId: deal.id,
+      clientId: deal.clientId || undefined,
+      transactionType: 'debit',
+      purpose: 'commission',
       amount: commission.amount,
       date: new Date(),
       description: `Commission payment: ${commission.dealer?.name || 'Dealer'}`,
       notes: `Commission rate: ${commission.rate}%`,
-      dealId: commission.saleId || undefined,
+      referenceType: 'commission',
+      referenceId: commissionId,
     },
   });
 
@@ -312,15 +258,16 @@ export async function syncDealToFinanceLedger(dealId: string) {
 
   const ledger = await prisma.financeLedger.create({
     data: {
-      referenceType: 'deal',
-      referenceId: dealId,
-      category: 'income',
+      dealId: dealId,
+      clientId: deal.clientId || undefined,
+      transactionType: 'credit',
+      purpose: 'deal_closed',
       amount: deal.dealAmount,
       date: deal.actualClosingDate || new Date(),
       description: `Deal closed: ${deal.title}`,
       notes: `Deal code: ${deal.dealCode || 'N/A'}`,
-      propertyId: deal.propertyId || undefined,
-      dealId: dealId,
+      referenceType: 'deal',
+      referenceId: dealId,
     },
   });
 
@@ -368,6 +315,8 @@ export async function syncDealToFinanceLedger(dealId: string) {
 
 /**
  * Sync payroll salary to Finance Ledger (Expense)
+ * Note: FinanceLedger now requires a dealId. Payroll doesn't have Deals, so this is disabled.
+ * Finance entries for payroll should be created through Deal relationships if needed.
  */
 export async function syncPayrollToFinanceLedger(payrollId: string) {
   const payroll = await prisma.payroll.findUnique({
@@ -379,32 +328,10 @@ export async function syncPayrollToFinanceLedger(payrollId: string) {
     return null;
   }
 
-  const ledger = await prisma.financeLedger.create({
-    data: {
-      referenceType: 'salary',
-      referenceId: payrollId,
-      category: 'expense',
-      amount: payroll.netPay,
-      date: payroll.paymentDate || new Date(),
-      description: `Salary payment: ${payroll.employee.name} - ${payroll.month}`,
-      notes: `Employee ID: ${payroll.employee.employeeId}`,
-      payrollId: payrollId,
-    },
-  });
-
-  // Link payroll to ledger
-  await prisma.payroll.update({
-    where: { id: payrollId },
-    data: {
-      financeLinked: true,
-      financeLedgerId: ledger.id,
-    },
-  });
-
-  // Auto-sync: Dashboard will reflect expense in finance summary
-  // No property-specific update needed for payroll
-
-  return ledger;
+  // FinanceLedger requires a dealId, but payroll doesn't have a Deal
+  // Skipping FinanceLedger creation for payroll
+  // Payroll can be tracked separately or linked to a Deal if needed
+  return null;
 }
 
 /**

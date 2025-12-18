@@ -21,6 +21,7 @@ const createPropertySchema = z.object({
   location: z.string().optional(),
   locationId: z.string().uuid().nullable().optional(),
   propertySubsidiary: z.string().optional(),
+  subsidiaryOptionId: z.string().uuid().nullable().optional(),
   status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
   imageUrl: z.string().optional().refine(
     (val) => {
@@ -565,10 +566,12 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
             },
           },
         },
-        financeLedgers: {
+        tenancies: {
           where: { isDeleted: false },
-          orderBy: { date: 'desc' },
-          take: 10,
+          include: {
+            tenant: true,
+            lease: true,
+          },
         },
       },
     });
@@ -609,31 +612,46 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       };
     });
 
-    const totalDealReceived = dealSummaries.reduce((sum, d) => sum + d.received, 0);
-    const totalDealPending = dealSummaries.reduce((sum, d) => sum + d.pending, 0);
+    const totalDealReceived = dealSummaries.reduce((sum: number, d: { received: number }) => sum + d.received, 0);
+    const totalDealPending = dealSummaries.reduce((sum: number, d: { pending: number }) => sum + d.pending, 0);
 
-    // Finance summary (aggregated) and latest finance entries
+    // Get deal IDs for this property
+    const dealIds = property.deals?.map((d: any) => d.id) || [];
+
+    // Finance summary (aggregated) and latest finance entries - query through Deal relationship
     const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
       prisma.financeLedger.aggregate({
-        where: { propertyId: property.id, isDeleted: false, category: 'income' },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false, 
+          transactionType: 'credit' 
+        },
         _sum: { amount: true },
       }),
       prisma.financeLedger.aggregate({
-        where: { propertyId: property.id, isDeleted: false, category: 'expense' },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false, 
+          transactionType: 'debit' 
+        },
         _sum: { amount: true },
       }),
       prisma.financeLedger.findMany({
-        where: { propertyId: property.id, isDeleted: false },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false 
+        },
         orderBy: { date: 'desc' },
         take: 10,
       }),
     ]);
-    const ledgerIncome = incomeAgg._sum.amount || 0;
-    const ledgerExpenses = expenseAgg._sum.amount || 0;
+    const ledgerIncome = incomeAgg._sum?.amount || 0;
+    const ledgerExpenses = expenseAgg._sum?.amount || 0;
     const financeRecords = financeEntries.map((entry: any) => ({
       id: entry.id,
       amount: entry.amount,
-      category: entry.category,
+      transactionType: entry.transactionType,
+      purpose: entry.purpose,
       referenceType: entry.referenceType,
       description: entry.description,
       date: entry.date,
@@ -970,28 +988,47 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         })
       : null;
 
-    // Finance data (aggregated + recent entries)
+    // Get deal IDs for this property
+    const propertyDeals = await prisma.deal.findMany({
+      where: { propertyId: id, isDeleted: false },
+      select: { id: true },
+    });
+    const dealIds = propertyDeals.map((d) => d.id);
+
+    // Finance data (aggregated + recent entries) - query through Deal relationship
     const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
       prisma.financeLedger.aggregate({
-        where: { propertyId: id, isDeleted: false, category: 'income' },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false, 
+          transactionType: 'credit' 
+        },
         _sum: { amount: true },
       }),
       prisma.financeLedger.aggregate({
-        where: { propertyId: id, isDeleted: false, category: 'expense' },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false, 
+          transactionType: 'debit' 
+        },
         _sum: { amount: true },
       }),
       prisma.financeLedger.findMany({
-        where: { propertyId: id, isDeleted: false },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false 
+        },
         orderBy: { date: 'desc' },
         take: 20,
       }),
     ]);
-    const ledgerIncome = incomeAgg._sum.amount || 0;
-    const ledgerExpenses = expenseAgg._sum.amount || 0;
+    const ledgerIncome = incomeAgg._sum?.amount || 0;
+    const ledgerExpenses = expenseAgg._sum?.amount || 0;
     const financeRecords = financeEntries.map((entry) => ({
       id: entry.id,
       amount: entry.amount,
-      category: entry.category,
+      transactionType: entry.transactionType,
+      purpose: entry.purpose,
       referenceType: entry.referenceType,
       description: entry.description,
       date: entry.date,
@@ -1133,9 +1170,19 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
       return errorResponse(res, 'Property not found', 404);
     }
 
+    // Get deal IDs for this property
+    const propertyDeals = await prisma.deal.findMany({
+      where: { propertyId: id, isDeleted: false },
+      select: { id: true },
+    });
+    const dealIds = propertyDeals.map((d) => d.id);
+
     const [financeEntries, dealPayments] = await Promise.all([
       prisma.financeLedger.findMany({
-        where: { propertyId: id, isDeleted: false },
+        where: { 
+          dealId: { in: dealIds },
+          isDeleted: false 
+        },
         orderBy: { date: 'desc' },
       }),
       prisma.payment.findMany({
@@ -1154,11 +1201,12 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
     const normalizedFinance = financeEntries.map((entry) => ({
       id: entry.id,
       date: entry.date,
-      category: entry.category,
+      transactionType: entry.transactionType,
+      purpose: entry.purpose,
       amount: entry.amount,
       referenceType: entry.referenceType,
       description: entry.description,
-      type: entry.category === 'expense' ? 'expense' : 'income',
+      type: entry.transactionType === 'debit' ? 'expense' : 'income',
     }));
 
     const normalizedPayments = dealPayments.map((payment) => ({
@@ -1269,6 +1317,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         address: data.address,
         location: data.location,
         propertySubsidiary: data.propertySubsidiary,
+        subsidiaryOptionId: data.subsidiaryOptionId ?? null,
         status: data.status,
         imageUrl: data.imageUrl || undefined,
         description: data.description,

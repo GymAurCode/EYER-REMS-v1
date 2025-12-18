@@ -1040,7 +1040,7 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
       // Get revenue (income) for this month
       const revenueResult = await prisma.financeLedger.aggregate({
         where: {
-          category: 'income',
+          transactionType: 'credit',
           date: {
             gte: monthStart,
             lte: monthEnd,
@@ -1055,7 +1055,7 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
       // Get expenses for this month
       const expenseResult = await prisma.financeLedger.aggregate({
         where: {
-          category: 'expense',
+          transactionType: 'debit',
           date: {
             gte: monthStart,
             lte: monthEnd,
@@ -1067,8 +1067,8 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
         },
       });
 
-      const revenue = revenueResult._sum.amount || 0;
-      const expenses = expenseResult._sum.amount || 0;
+      const revenue = revenueResult._sum?.amount || 0;
+      const expenses = expenseResult._sum?.amount || 0;
       const profit = revenue - expenses;
 
       data.push({

@@ -103,7 +103,8 @@ model Property {
   type                     String
   address                  String
   location                 String?
-  propertySubsidiary      String?
+  propertySubsidiary       String? // Legacy field - keep for backward compatibility
+  subsidiaryOptionId       String?
   status                   String               @default("Vacant")
   imageUrl                 String?
   description              String?
@@ -126,6 +127,7 @@ model Property {
   size                     Float?
   title                    String?
   locationId               String?
+  propertySubsidiaryId     String? // For direct relation to PropertySubsidiary
   manualUniqueId           String?              @unique
   tid                      String?              @unique // Transaction ID - unique across Property, Deal, Client
   attachments              Attachment[]         @relation("PropertyAttachments")
@@ -134,7 +136,6 @@ model Property {
   deals                    Deal[]               @relation("DealProperty")
   dealProperties           DealProperty[]
   expenseSummaries         ExpenseSummary[]
-  financeLedgers           FinanceLedger[]      @relation("FinanceLedgerProperty")
   floors                   Floor[]
   invoices                 Invoice[]
   maintenanceRequests      MaintenanceRequest[]
@@ -142,6 +143,8 @@ model Property {
   propertyExpenses         PropertyExpense[]
   revenueSummaries         RevenueSummary[]
   sales                    Sale[]
+  subsidiaryOption         SubsidiaryOption?    @relation(fields: [subsidiaryOptionId], references: [id], onDelete: SetNull)
+  propertySubsidiaryRef    PropertySubsidiary?  @relation("PropertySubsidiaryProperties", fields: [propertySubsidiaryId], references: [id], onDelete: SetNull)
   tenancies                Tenancy[]
   transactions             Transaction[]
   units                    Unit[]
@@ -155,23 +158,58 @@ model Property {
   @@index([city])
   @@index([location])
   @@index([locationId])
-  @@index([propertySubsidiary])
+  @@index([propertySubsidiaryId])
+  @@index([subsidiaryOptionId])
 }
 
 model Location {
-  id         String     @id @default(uuid())
-  name       String
-  type       String
-  parentId   String?
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  parent     Location?  @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children   Location[] @relation("LocationHierarchy")
-  properties Property[] @relation("PropertyLocationMapping")
+  id           String               @id @default(uuid())
+  name         String
+  type         String
+  parentId     String?
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+  parent       Location?            @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children     Location[]           @relation("LocationHierarchy")
+  properties   Property[]           @relation("PropertyLocationMapping")
+  subsidiaries PropertySubsidiary[]
+  deals        Deal[]               @relation("DealLocation")
 
   @@unique([type, name, parentId])
   @@index([parentId])
   @@index([type])
+}
+
+model PropertySubsidiary {
+  id         String             @id @default(uuid())
+  locationId String
+  name       String
+  createdAt  DateTime           @default(now())
+  updatedAt  DateTime           @updatedAt
+  location   Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  options    SubsidiaryOption[]
+  properties Property[]         @relation("PropertySubsidiaryProperties")
+  clients    Client[]           @relation("PropertySubsidiaryClients")
+
+  @@unique([locationId, name])
+  @@index([locationId])
+}
+
+model SubsidiaryOption {
+  id                   String             @id @default(uuid())
+  propertySubsidiaryId String
+  name                 String
+  sortOrder            Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  propertySubsidiary   PropertySubsidiary @relation(fields: [propertySubsidiaryId], references: [id], onDelete: Cascade)
+  properties           Property[]
+  clients              Client[]
+  deals                Deal[]             @relation("DealSubsidiary")
+
+  @@unique([propertySubsidiaryId, name])
+  @@index([propertySubsidiaryId])
+  @@index([sortOrder])
 }
 
 model Block {
@@ -252,7 +290,6 @@ model Tenant {
   password            String?
   profilePhotoUrl     String?
   attachments         Attachment[]         @relation("TenantAttachments")
-  financeLedgers      FinanceLedger[]      @relation("FinanceLedgerTenant")
   invoices            Invoice[]
   leases              Lease[]
   maintenanceRequests MaintenanceRequest[]
@@ -769,49 +806,54 @@ model Lead {
 }
 
 model Client {
-  id                  String            @id @default(uuid())
-  name                String
-  email               String?
-  phone               String?
-  company             String?
-  status              String            @default("active")
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  address             String?
-  clientCode          String?           @unique
-  clientNo            String?
-  cnic                String?
-  srNo                Int?
-  assignedAgentId     String?
-  assignedDealerId    String?
-  attachments         Json?
-  billingAddress      String?
-  city                String?
-  clientCategory      String?
-  clientType          String?
-  cnicDocumentUrl     String?
-  convertedFromLeadId String?
-  country             String?
-  createdBy           String?
-  isDeleted           Boolean           @default(false)
-  postalCode          String?
-  propertyInterest    String?
-  propertySubsidiary  String?
-  tags                Json?
-  updatedBy           String?
-  manualUniqueId      String?           @unique
-  tid                 String?           @unique // Transaction ID - unique across Property, Deal, Client
-  activities          CRMActivity[]
-  assignedAgent       User?             @relation("ClientAssignedToUser", fields: [assignedAgentId], references: [id])
-  assignedDealer      Dealer?           @relation("ClientAssignedDealer", fields: [assignedDealerId], references: [id])
-  communications      Communication[]
-  contactPersons      ContactPerson[]
-  deals               Deal[]
-  installments        DealInstallment[]
-  dealReceipts        DealReceipt[]
-  dealerLedgers       DealerLedger[]
-  convertedFromLead   Lead?             @relation("LeadConvertedToClient")
-  paymentPlans        PaymentPlan[]
+  id                    String              @id @default(uuid())
+  name                  String
+  email                 String?
+  phone                 String?
+  company               String?
+  status                String              @default("active")
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+  address               String?
+  clientCode            String?             @unique
+  clientNo              String?
+  cnic                  String?
+  srNo                  Int?
+  assignedAgentId       String?
+  assignedDealerId      String?
+  attachments           Json?
+  billingAddress        String?
+  city                  String?
+  clientCategory        String?
+  clientType            String?
+  cnicDocumentUrl       String?
+  convertedFromLeadId   String?
+  country               String?
+  createdBy             String?
+  isDeleted             Boolean             @default(false)
+  postalCode            String?
+  propertyInterest      String?
+  propertySubsidiary    String? // Legacy field - keep for backward compatibility
+  propertySubsidiaryId  String? // For direct relation to PropertySubsidiary
+  subsidiaryOptionId    String?
+  tags                  Json?
+  updatedBy             String?
+  manualUniqueId        String?             @unique
+  tid                   String?             @unique // Transaction ID - unique across Property, Deal, Client
+  activities            CRMActivity[]
+  assignedAgent         User?               @relation("ClientAssignedToUser", fields: [assignedAgentId], references: [id])
+  assignedDealer        Dealer?             @relation("ClientAssignedDealer", fields: [assignedDealerId], references: [id])
+  communications        Communication[]
+  contactPersons        ContactPerson[]
+  deals                 Deal[]
+  installments          DealInstallment[]
+  dealReceipts          DealReceipt[]
+  dealerLedgers         DealerLedger[]
+  convertedFromLead     Lead?               @relation("LeadConvertedToClient")
+  paymentPlans          PaymentPlan[]
+  subsidiaryOption      SubsidiaryOption?   @relation(fields: [subsidiaryOptionId], references: [id], onDelete: SetNull)
+  propertySubsidiaryRef PropertySubsidiary? @relation("PropertySubsidiaryClients", fields: [propertySubsidiaryId], references: [id], onDelete: SetNull)
+  financeLedgers        FinanceLedger[]     @relation("FinanceLedgerClient")
 
   @@index([clientCode])
   @@index([manualUniqueId])
@@ -821,7 +863,8 @@ model Client {
   @@index([status])
   @@index([clientCategory])
   @@index([isDeleted])
-  @@index([propertySubsidiary])
+  @@index([propertySubsidiaryId])
+  @@index([subsidiaryOptionId])
 }
 
 model ContactPerson {
@@ -908,9 +951,12 @@ model DealerReview {
 model Deal {
   id                  String            @id @default(uuid())
   title               String
-  dealAmount          Float             @default(0) @map("deal_amount")
+  dealAmount          Float             @default(0) @map("deal_amount") // Total deal amount - represents business agreement value
   stage               String            @default("prospecting")
-  clientId            String?
+  clientId            String? // Client reference
+  propertyId          String? // Property reference
+  locationId          String? // Location reference (for reporting)
+  subsidiaryOptionId  String? // Subsidiary reference (for reporting)
   dealerId            String?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -928,15 +974,13 @@ model Deal {
   isDeleted           Boolean           @default(false)
   notes               String?
   probability         Int               @default(50)
-  propertyId          String?
   requiresApproval    Boolean           @default(false)
   tags                Json?
   updatedBy           String?
   valueBreakdown      Json?
   role                String?
   dealDate            DateTime          @default(now()) @map("deal_date")
-  status              String            @default("open")
-  totalPaid           Float             @default(0)
+  status              String            @default("open") // Deal status - represents agreement state
   unitId              String?
   deletedAt           DateTime?
   deletedBy           String?
@@ -947,18 +991,20 @@ model Deal {
   client              Client?           @relation(fields: [clientId], references: [id])
   dealer              Dealer?           @relation(fields: [dealerId], references: [id])
   property            Property?         @relation("DealProperty", fields: [propertyId], references: [id])
+  location            Location?         @relation("DealLocation", fields: [locationId], references: [id], onDelete: SetNull)
+  subsidiaryOption    SubsidiaryOption? @relation("DealSubsidiary", fields: [subsidiaryOptionId], references: [id], onDelete: SetNull)
   unit                Unit?             @relation("DealUnit", fields: [unitId], references: [id])
   dealAgents          DealAgent[]
   installments        DealInstallment[]
   dealProperties      DealProperty[]
   dealReceipts        DealReceipt[]
   dealerLedgers       DealerLedger[]
-  financeLedgers      FinanceLedger[]   @relation("FinanceLedgerDeal")
+  financeLedgers      FinanceLedger[]   @relation("FinanceLedgerDeal") // One Deal can have many Finance records
   ledgerEntries       LedgerEntry[]
   payments            Payment[]
   paymentPlan         PaymentPlan?
   stageHistory        StageHistory[]
-  vouchers            Voucher[]                @relation("VoucherDeal")
+  vouchers            Voucher[]         @relation("VoucherDeal")
 
   @@index([dealCode])
   @@index([manualUniqueId])
@@ -966,6 +1012,8 @@ model Deal {
   @@index([clientId])
   @@index([dealerId])
   @@index([propertyId])
+  @@index([locationId])
+  @@index([subsidiaryOptionId])
   @@index([unitId])
   @@index([stage])
   @@index([status])
@@ -1462,7 +1510,7 @@ model Voucher {
   paymentMethod     String
   accountId         String
   expenseCategoryId String?
-  dealId            String?              // Link to deal for bank receipt vouchers
+  dealId            String? // Link to deal for bank receipt vouchers
   description       String?
   referenceNumber   String?
   amount            Float
@@ -1478,6 +1526,7 @@ model Voucher {
   journalEntry      JournalEntry?        @relation("JournalEntryVouchers", fields: [journalEntryId], references: [id])
   preparedBy        User?                @relation("VoucherPreparedBy", fields: [preparedByUserId], references: [id])
   deal              Deal?                @relation("VoucherDeal", fields: [dealId], references: [id], onDelete: SetNull)
+
   @@index([dealId])
 }
 
@@ -1682,16 +1731,16 @@ model MaintenanceRequest {
 
 model FinanceLedger {
   id                 String              @id @default(uuid())
-  referenceType      String
-  referenceId        String?
-  category           String
-  amount             Float
-  date               DateTime            @default(now())
+  dealId             String // Required - Finance must always link to Deal
+  clientId           String? // Client reference (for reporting)
+  transactionType    String // 'credit' or 'debit'
+  purpose            String // Purpose: booking, installment, refund, discount, etc.
+  amount             Float // Transaction amount
+  date               DateTime            @default(now()) // Transaction date
   notes              String?
   description        String?
-  propertyId         String?
-  tenantId           String?
-  dealId             String?
+  referenceType      String? // Optional reference type for other entities
+  referenceId        String? // Optional reference ID for other entities
   payrollId          String?
   invoiceId          String?
   paymentId          String?
@@ -1699,19 +1748,18 @@ model FinanceLedger {
   createdBy          String?
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
-  deal               Deal?               @relation("FinanceLedgerDeal", fields: [dealId], references: [id])
-  property           Property?           @relation("FinanceLedgerProperty", fields: [propertyId], references: [id])
-  tenant             Tenant?             @relation("FinanceLedgerTenant", fields: [tenantId], references: [id])
+  deal               Deal                @relation("FinanceLedgerDeal", fields: [dealId], references: [id], onDelete: Cascade)
+  client             Client?             @relation("FinanceLedgerClient", fields: [clientId], references: [id], onDelete: SetNull)
   maintenanceRequest MaintenanceRequest? @relation("MaintenanceLedger")
   propertyExpense    PropertyExpense?    @relation("PropertyExpenseLedger")
 
+  @@index([dealId])
+  @@index([clientId])
+  @@index([transactionType])
+  @@index([purpose])
+  @@index([date])
   @@index([referenceType])
   @@index([referenceId])
-  @@index([category])
-  @@index([date])
-  @@index([propertyId])
-  @@index([tenantId])
-  @@index([dealId])
   @@index([payrollId])
   @@index([invoiceId])
   @@index([paymentId])
@@ -2011,15 +2059,15 @@ model CsrfToken {
 
 // Recycle Bin - Stores soft-deleted records indefinitely until manually removed
 model DeletedRecord {
-  id           String   @id @default(uuid())
-  entityType   String   // lead, client, dealer, deal, employee, etc.
-  entityId     String   // Original record ID
-  entityName   String   // Display name for UI
-  entityData   Json     // Full record data for restoration
-  deletedBy    String?  // User ID who deleted
+  id            String   @id @default(uuid())
+  entityType    String // lead, client, dealer, deal, employee, etc.
+  entityId      String // Original record ID
+  entityName    String // Display name for UI
+  entityData    Json // Full record data for restoration
+  deletedBy     String? // User ID who deleted
   deletedByName String? // User name for display
-  deletedAt    DateTime @default(now())
-  expiresAt    DateTime // Set to far future date (2099) - records kept indefinitely
+  deletedAt     DateTime @default(now())
+  expiresAt     DateTime // Set to far future date (2099) - records kept indefinitely
 
   @@index([entityType])
   @@index([entityId])

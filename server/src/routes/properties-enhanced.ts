@@ -24,7 +24,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas
 const createPropertySchema = z.object({
-  tid: z.string().min(1, 'TID is required'), // Transaction ID - required and unique
+  tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
   name: z.string().min(1),
   title: z.string().optional(),
   type: z.string().min(1),
@@ -92,7 +92,8 @@ router.get(
           { address: { contains: search as string, mode: 'insensitive' } },
           { propertyCode: { contains: search as string, mode: 'insensitive' } },
           { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-          { tid: { contains: search as string, mode: 'insensitive' } },
+          // Note: tid search will be enabled after migration is applied
+          // { tid: { contains: search as string, mode: 'insensitive' } },
         ];
       }
 
@@ -127,7 +128,12 @@ router.get(
           propertyExpenses: { where: { isDeleted: false }, orderBy: { date: 'desc' } },
           maintenanceRequests: { where: { isDeleted: false }, orderBy: { createdAt: 'desc' } },
           attachments: { where: { isDeleted: false } },
-          financeLedgers: { where: { isDeleted: false }, orderBy: { date: 'desc' }, take: 20 },
+          deals: {
+            where: { isDeleted: false },
+            include: {
+              financeLedgers: { where: { isDeleted: false }, orderBy: { date: 'desc' }, take: 20 },
+            },
+          },
         },
       });
 

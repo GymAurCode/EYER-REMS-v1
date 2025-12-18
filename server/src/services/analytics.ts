@@ -28,9 +28,14 @@ export async function getPropertyDashboard(propertyId: string) {
         orderBy: { createdAt: 'desc' },
         take: 10,
       },
-      financeLedgers: {
+      deals: {
         where: { isDeleted: false },
-        orderBy: { date: 'desc' },
+        include: {
+          financeLedgers: {
+            where: { isDeleted: false },
+            orderBy: { date: 'desc' },
+          },
+        },
       },
     },
   });
@@ -39,15 +44,18 @@ export async function getPropertyDashboard(propertyId: string) {
     throw new Error('Property not found');
   }
 
+  // Get all finance ledgers from deals
+  const allFinanceLedgers = property.deals.flatMap((deal) => deal.financeLedgers);
+
   // Calculate income (from invoices and payments)
-  const income = property.financeLedgers
-    .filter((ledger) => ledger.category === 'income')
-    .reduce((sum, ledger) => sum + ledger.amount, 0);
+  const income = allFinanceLedgers
+    .filter((ledger) => ledger.transactionType === 'credit')
+    .reduce((sum: number, ledger) => sum + ledger.amount, 0);
 
   // Calculate expenses
-  const expenses = property.financeLedgers
-    .filter((ledger) => ledger.category === 'expense')
-    .reduce((sum, ledger) => sum + ledger.amount, 0);
+  const expenses = allFinanceLedgers
+    .filter((ledger) => ledger.transactionType === 'debit')
+    .reduce((sum: number, ledger) => sum + ledger.amount, 0);
 
   // Calculate net profit
   const netProfit = income - expenses;
@@ -104,22 +112,27 @@ export async function getOverallDashboard(filters?: {
     where.propertyId = filters.propertyId;
   }
 
-  // Get all properties
+  // Get all properties with deals
   const properties = await prisma.property.findMany({
     where: { isDeleted: false },
     include: {
       tenancies: { where: { status: 'active' } },
-      financeLedgers: {
-        where: {
-          ...where,
-          ...(filters?.startDate && filters?.endDate
-            ? {
-                date: {
-                  gte: filters.startDate,
-                  lte: filters.endDate,
-                },
-              }
-            : {}),
+      deals: {
+        where: { isDeleted: false },
+        include: {
+          financeLedgers: {
+            where: {
+              isDeleted: false,
+              ...(filters?.startDate && filters?.endDate
+                ? {
+                    date: {
+                      gte: filters.startDate,
+                      lte: filters.endDate,
+                    },
+                  }
+                : {}),
+            },
+          },
         },
       },
     },
@@ -128,30 +141,32 @@ export async function getOverallDashboard(filters?: {
   // Calculate totals
   const totalProperties = properties.length;
   const totalOccupied = properties.reduce(
-    (sum, p) => sum + p.tenancies.length,
+    (sum: number, p) => sum + p.tenancies.length,
     0
   );
   const totalVacant = properties.reduce(
-    (sum, p) => sum + (p.totalUnits - p.tenancies.length),
+    (sum: number, p) => sum + (p.totalUnits - p.tenancies.length),
     0
   );
 
-  // Financial totals
-  const totalIncome = properties.reduce((sum, p) => {
+  // Financial totals - get all finance ledgers from deals
+  const totalIncome = properties.reduce((sum: number, p) => {
+    const allLedgers = p.deals.flatMap((deal) => deal.financeLedgers);
     return (
       sum +
-      p.financeLedgers
-        .filter((l) => l.category === 'income')
-        .reduce((s, l) => s + l.amount, 0)
+      allLedgers
+        .filter((l) => l.transactionType === 'credit')
+        .reduce((s: number, l) => s + l.amount, 0)
     );
   }, 0);
 
-  const totalExpenses = properties.reduce((sum, p) => {
+  const totalExpenses = properties.reduce((sum: number, p) => {
+    const allLedgers = p.deals.flatMap((deal) => deal.financeLedgers);
     return (
       sum +
-      p.financeLedgers
-        .filter((l) => l.category === 'expense')
-        .reduce((s, l) => s + l.amount, 0)
+      allLedgers
+        .filter((l) => l.transactionType === 'debit')
+        .reduce((s: number, l) => s + l.amount, 0)
     );
   }, 0);
 
@@ -211,7 +226,7 @@ export async function getRevenueTrends(months: number = 12) {
   const ledgers = await prisma.financeLedger.findMany({
     where: {
       isDeleted: false,
-      category: 'income',
+      transactionType: 'credit',
       date: {
         gte: startDate,
         lte: endDate,
@@ -244,7 +259,7 @@ export async function getExpenseTrends(months: number = 12) {
   const ledgers = await prisma.financeLedger.findMany({
     where: {
       isDeleted: false,
-      category: 'expense',
+      transactionType: 'debit',
       date: {
         gte: startDate,
         lte: endDate,
@@ -273,8 +288,13 @@ export async function getTopProperties(limit: number = 10) {
   const properties = await prisma.property.findMany({
     where: { isDeleted: false },
     include: {
-      financeLedgers: {
+      deals: {
         where: { isDeleted: false },
+        include: {
+          financeLedgers: {
+            where: { isDeleted: false },
+          },
+        },
       },
       tenancies: {
         where: { status: 'active' },
@@ -283,13 +303,14 @@ export async function getTopProperties(limit: number = 10) {
   });
 
   const propertyPerformance = properties.map((property) => {
-    const income = property.financeLedgers
-      .filter((l) => l.category === 'income')
-      .reduce((sum, l) => sum + l.amount, 0);
+    const allLedgers = property.deals.flatMap((deal) => deal.financeLedgers);
+    const income = allLedgers
+      .filter((l) => l.transactionType === 'credit')
+      .reduce((sum: number, l) => sum + l.amount, 0);
 
-    const expenses = property.financeLedgers
-      .filter((l) => l.category === 'expense')
-      .reduce((sum, l) => sum + l.amount, 0);
+    const expenses = allLedgers
+      .filter((l) => l.transactionType === 'debit')
+      .reduce((sum: number, l) => sum + l.amount, 0);
 
     return {
       propertyId: property.id,

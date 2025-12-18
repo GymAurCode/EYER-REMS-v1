@@ -51,6 +51,8 @@ const createClientSchema = z.object({
   address: z.string().optional(),
   propertyInterest: z.string().optional(),
   propertySubsidiary: z.string().optional(),
+  locationId: z.string().uuid().nullable().optional(),
+  subsidiaryOptionId: z.string().uuid().nullable().optional(),
   assignedDealerId: z.string().uuid().optional(),
   assignedAgentId: z.string().uuid().optional(),
 });
@@ -351,16 +353,18 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
         { phone: { contains: search as string, mode: 'insensitive' } },
         { clientCode: { contains: search as string, mode: 'insensitive' } },
         { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-        { tid: { contains: search as string, mode: 'insensitive' } },
+        // Note: tid search will be enabled after migration is applied
+        // { tid: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
     }
     
     // Search by TID (Transaction ID) - searches across Property, Deal, Client
-    const { tid } = req.query;
-    if (tid) {
-      where.tid = tid as string;
-    }
+    // Note: This will be enabled after migration is applied
+    // const { tid } = req.query;
+    // if (tid) {
+    //   where.tid = tid as string;
+    // }
 
     const clients = await prisma.client.findMany({
       where,
@@ -485,6 +489,14 @@ router.get('/search/tid/:tid', requireAuth, requirePermission('crm.deals.view'),
     }
 
     // Search for deal by TID (primary search - returns deal)
+    // Note: This endpoint will work after migration is applied
+    // For now, return error until migration is complete
+    return res.status(503).json({ 
+      error: 'TID search is temporarily unavailable. Please apply the database migration first.',
+      message: 'The tid column migration needs to be applied to the database.'
+    });
+    
+    /* Uncomment after migration is applied:
     const deal = await prisma.deal.findFirst({
       where: {
         tid: tid.trim(),
@@ -542,6 +554,7 @@ router.get('/search/tid/:tid', requireAuth, requirePermission('crm.deals.view'),
       data: deal,
       message: `Deal found with TID: ${tid}`,
     });
+    */
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
@@ -562,9 +575,10 @@ router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (re
     if (status) where.status = status;
     
     // Search by TID (Transaction ID) - searches across Property, Deal, Client
-    if (tid) {
-      where.tid = tid as string;
-    }
+    // Note: This will be enabled after migration is applied
+    // if (tid) {
+    //   where.tid = tid as string;
+    // }
     
     // General search
     if (search) {
@@ -572,7 +586,8 @@ router.get('/deals', requireAuth, requirePermission('crm.deals.view'), async (re
         { title: { contains: search as string, mode: 'insensitive' } },
         { dealCode: { contains: search as string, mode: 'insensitive' } },
         { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-        { tid: { contains: search as string, mode: 'insensitive' } },
+        // Note: tid search will be enabled after migration is applied
+        // { tid: { contains: search as string, mode: 'insensitive' } },
       ];
     }
 

@@ -733,13 +733,8 @@ export class PaymentPlanService {
       const remainingAmount = Math.max(0, totalAmount - paidAmount);
       const progress = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0;
 
-      // Update deal totalPaid
-      await actualClient.deal.update({
-        where: { id: dealId },
-        data: {
-          totalPaid: paidAmount,
-        },
-      });
+      // Note: Deal model no longer has totalPaid field
+      // Total paid is calculated from payments when needed
 
       // Auto-close deal if fully paid
       let dealClosed = false;

@@ -253,7 +253,6 @@ export class DealService {
           role: payload.role || 'buyer',
           dealType: payload.dealType,
           dealAmount: payload.dealAmount,
-          totalPaid: 0,
           valueBreakdown: valueBreakdown as any,
           stage: payload.stage || 'prospecting',
           status: payload.status || 'open',
@@ -456,7 +455,6 @@ export class DealService {
     // Update deal
     const updateData: any = {
       status,
-      totalPaid,
     };
 
     // Auto-close deal when payment is complete

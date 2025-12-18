@@ -421,10 +421,13 @@ export class UnifiedLedgerService {
       orderBy: { date: 'asc' },
     });
 
-    // Get finance ledger entries
+    // Get deal IDs for this property
+    const propertyDealIds = deals.map((d) => d.id);
+
+    // Get finance ledger entries - query through Deal relationship
     const financeEntries = await prisma.financeLedger.findMany({
       where: {
-        propertyId,
+        dealId: { in: propertyDealIds },
         isDeleted: false,
         ...(filters?.startDate || filters?.endDate
           ? {
@@ -513,26 +516,26 @@ export class UnifiedLedgerService {
 
     // Process finance ledger entries
     for (const financeEntry of financeEntries) {
-      if (financeEntry.category === 'expense') {
-        // Expense: Credit
+      if (financeEntry.transactionType === 'debit') {
+        // Debit: Credit (expense reduces property value)
         runningBalance -= financeEntry.amount;
         entries.push({
           id: `FINANCE-${financeEntry.id}`,
           date: financeEntry.date,
           referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.category || 'N/A'}`,
+          description: `Finance Entry: ${financeEntry.description || financeEntry.purpose || 'N/A'}`,
           debit: 0,
           credit: Number(financeEntry.amount.toFixed(2)),
           runningBalance: Number(runningBalance.toFixed(2)),
         });
-      } else if (financeEntry.category === 'income') {
-        // Income: Debit
+      } else if (financeEntry.transactionType === 'credit') {
+        // Credit: Debit (income increases property value)
         runningBalance += financeEntry.amount;
         entries.push({
           id: `FINANCE-${financeEntry.id}`,
           date: financeEntry.date,
           referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.category || 'N/A'}`,
+          description: `Finance Entry: ${financeEntry.description || financeEntry.purpose || 'N/A'}`,
           debit: Number(financeEntry.amount.toFixed(2)),
           credit: 0,
           runningBalance: Number(runningBalance.toFixed(2)),

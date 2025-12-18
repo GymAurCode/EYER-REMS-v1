@@ -21,6 +21,8 @@ import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, X, Plus, Paperclip, Upload, File, Trash2 } from "lucide-react"
+import { LocationSelector } from "@/components/locations/location-selector"
+import { LocationTreeNode } from "@/lib/location"
 
 interface ClientFormData {
   id?: string
@@ -37,7 +39,9 @@ interface ClientFormData {
   clientType?: string
   clientCategory?: string
   propertyInterest?: string
-  propertySubsidiary?: string
+  propertySubsidiary?: string // Legacy field
+  locationId?: string | null
+  subsidiaryOptionId?: string | null
   billingAddress?: string
   notes?: string
   tags?: string[]
@@ -77,7 +81,10 @@ const CLIENT_CATEGORIES = [
 
 const PROPERTY_INTEREST_OPTIONS = ["buy", "rent", "invest"] as const
 
-const defaultFormState = {
+const defaultFormState: ClientFormData & { 
+  systemId: string
+  attachments: { name: string; url: string; type: string; size: number }[]
+} = {
   name: "",
   email: "",
   phone: "",
@@ -92,6 +99,8 @@ const defaultFormState = {
   clientCategory: "",
   propertyInterest: "",
   propertySubsidiary: "",
+  locationId: null as string | null,
+  subsidiaryOptionId: null as string | null,
   billingAddress: "",
   notes: "",
   tags: [] as string[],
@@ -109,13 +118,19 @@ export function AddClientDialog({
   initialData = null,
   mode = "create",
 }: AddClientDialogProps) {
-  const [formData, setFormData] = useState(defaultFormState)
+  const [formData, setFormData] = useState<ClientFormData & { 
+    systemId: string
+    attachments: { name: string; url: string; type: string; size: number }[]
+  }>(defaultFormState)
   const [submitting, setSubmitting] = useState(false)
   const [tagInput, setTagInput] = useState("")
   const [agents, setAgents] = useState<any[]>([])
   const [dealers, setDealers] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("basic")
   const [uploading, setUploading] = useState(false)
+  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
+  const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string; subsidiaryName: string }>>([])
+  const [loadingSubsidiaryOptions, setLoadingSubsidiaryOptions] = useState(false)
   const { toast } = useToast()
   const isEdit = mode === "edit" && initialData?.id
 
@@ -139,6 +154,8 @@ export function AddClientDialog({
           clientCategory: initialData.clientCategory || "",
           propertyInterest: initialData.propertyInterest || "",
           propertySubsidiary: initialData.propertySubsidiary || "",
+          locationId: (initialData as any).locationId || null,
+          subsidiaryOptionId: (initialData as any).subsidiaryOptionId || null,
           billingAddress: initialData.billingAddress || "",
           notes: "",
           tags: Array.isArray(initialData.tags) ? initialData.tags : [],
@@ -153,6 +170,31 @@ export function AddClientDialog({
       }
     }
   }, [open, isEdit, initialData])
+
+  // Fetch subsidiary options when location changes
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!selectedLocationNode?.id) {
+        setSubsidiaryOptions([])
+        setFormData((p) => ({ ...p, subsidiaryOptionId: null }))
+        return
+      }
+
+      setLoadingSubsidiaryOptions(true)
+      try {
+        const response: any = await apiService.subsidiaries.getLocationOptions(selectedLocationNode.id)
+        const data = response.data?.data || response.data || []
+        setSubsidiaryOptions(data)
+      } catch (error: any) {
+        console.error("Failed to fetch subsidiary options:", error)
+        setSubsidiaryOptions([])
+      } finally {
+        setLoadingSubsidiaryOptions(false)
+      }
+    }
+
+    fetchOptions()
+  }, [selectedLocationNode])
 
   const fetchAgents = async () => {
     try {
@@ -175,10 +217,10 @@ export function AddClientDialog({
   }
 
   const addTag = () => {
-    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+    if (tagInput.trim() && !(formData.tags || []).includes(tagInput.trim())) {
       setFormData(prev => ({
         ...prev,
-        tags: [...prev.tags, tagInput.trim()]
+        tags: [...(prev.tags || []), tagInput.trim()]
       }))
       setTagInput("")
     }
@@ -187,7 +229,7 @@ export function AddClientDialog({
   const removeTag = (tag: string) => {
     setFormData(prev => ({
       ...prev,
-      tags: prev.tags.filter(t => t !== tag)
+      tags: (prev.tags || []).filter(t => t !== tag)
     }))
   }
 
@@ -303,6 +345,8 @@ export function AddClientDialog({
       if (formData.clientCategory) payload.clientCategory = formData.clientCategory
       if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
       if (formData.propertySubsidiary?.trim()) payload.propertySubsidiary = formData.propertySubsidiary.trim()
+      if (formData.locationId) payload.locationId = formData.locationId
+      if (formData.subsidiaryOptionId) payload.subsidiaryOptionId = formData.subsidiaryOptionId
       if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
       // Store notes and file attachments in attachments JSON field
       const attachmentsData: any = {}
@@ -315,7 +359,7 @@ export function AddClientDialog({
       if (Object.keys(attachmentsData).length > 0) {
         payload.attachments = attachmentsData
       }
-      if (formData.tags.length > 0) payload.tags = formData.tags
+      if (formData.tags && formData.tags.length > 0) payload.tags = formData.tags
       if (normalizedAssignedAgent) payload.assignedAgentId = normalizedAssignedAgent
       if (normalizedAssignedDealer) payload.assignedDealerId = normalizedAssignedDealer
       if (formData.manualUniqueId?.trim()) payload.manualUniqueId = formData.manualUniqueId.trim()
@@ -528,15 +572,51 @@ export function AddClientDialog({
                   </Select>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="property-subsidiary">Property Subsidiary</Label>
-                  <Input
-                    id="property-subsidiary"
-                    placeholder="Enter property subsidiary"
-                    value={formData.propertySubsidiary}
-                    onChange={(event) => setFormData({ ...formData, propertySubsidiary: event.target.value })}
+                  <LocationSelector
+                    value={selectedLocationNode?.id || formData.locationId || null}
+                    onChange={(node) => {
+                      setSelectedLocationNode(node)
+                      setFormData((p) => ({
+                        ...p,
+                        locationId: node?.id || null,
+                        subsidiaryOptionId: null, // Reset subsidiary when location changes
+                      }))
+                    }}
+                    label="Location"
+                    helperText="Select the location first"
                   />
-                  <p className="text-xs text-muted-foreground">Enter the property subsidiary name</p>
                 </div>
+                {selectedLocationNode && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="property-subsidiary">Property Subsidiary</Label>
+                    {loadingSubsidiaryOptions ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Loading options...
+                      </div>
+                    ) : subsidiaryOptions.length === 0 ? (
+                      <p className="text-xs text-muted-foreground">
+                        No subsidiary options available for {selectedLocationNode.name}. Create one in Advanced Options.
+                      </p>
+                    ) : (
+                      <Select
+                        value={formData.subsidiaryOptionId || ""}
+                        onValueChange={(val) => setFormData((p) => ({ ...p, subsidiaryOptionId: val || null }))}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select subsidiary option" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subsidiaryOptions.map((option) => (
+                            <SelectItem key={option.id} value={option.id}>
+                              {option.name} ({option.subsidiaryName})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                )}
                 <div className="grid gap-2 md:col-span-2">
                   <Label htmlFor="client-address">Address</Label>
                   <Input
@@ -653,7 +733,7 @@ export function AddClientDialog({
                       <Plus className="h-4 w-4" />
                     </Button>
                   </div>
-                  {formData.tags.length > 0 && (
+                  {formData.tags && formData.tags.length > 0 && (
                     <div className="flex flex-wrap gap-2 mt-2">
                       {formData.tags.map((tag) => (
                         <Badge key={tag} variant="secondary" className="flex items-center gap-1">

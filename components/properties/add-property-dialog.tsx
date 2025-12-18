@@ -13,6 +13,8 @@ import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon } from "
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
+import { LocationSelector } from "@/components/locations/location-selector"
+import { LocationTreeNode } from "@/lib/location"
 
 type PropertyForm = {
   tid: string // Transaction ID - unique across Property, Deal, Client
@@ -24,7 +26,8 @@ type PropertyForm = {
   address: string
   location: string
   locationId: string | null
-  propertySubsidiary: string
+  propertySubsidiary: string // Legacy field
+  subsidiaryOptionId: string | null
   salePrice: string
   totalArea: string
   totalUnits: string
@@ -46,6 +49,7 @@ const DEFAULT_FORM: PropertyForm = {
   location: "",
   locationId: null,
   propertySubsidiary: "",
+  subsidiaryOptionId: null,
   salePrice: "",
   totalArea: "",
   totalUnits: "",
@@ -365,6 +369,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [uploadingImage, setUploadingImage] = useState(false)
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
+  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
+  const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string; subsidiaryName: string }>>([])
+  const [loadingSubsidiaryOptions, setLoadingSubsidiaryOptions] = useState(false)
   const isEdit = Boolean(propertyId)
 
   useEffect(() => {
@@ -427,8 +434,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             size: payload.size || "",
             address: payload.address || "",
             location: payload.location || "",
-            locationId: null,
+            locationId: payload.locationId || null,
             propertySubsidiary: payload.propertySubsidiary || "",
+            subsidiaryOptionId: payload.subsidiaryOptionId || null,
             salePrice: payload.salePrice?.toString() || documents.salePrice?.toString() || "",
             imageUrl: imageUrl,
             totalArea: payload.totalArea?.toString() || "",
@@ -480,6 +488,31 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
     return () => clearTimeout(timeoutId)
   }, [open, propertyId, toast])
+
+  // Fetch subsidiary options when location changes
+  useEffect(() => {
+    const fetchOptions = async () => {
+      if (!selectedLocationNode?.id) {
+        setSubsidiaryOptions([])
+        setForm((p) => ({ ...p, subsidiaryOptionId: null }))
+        return
+      }
+
+      setLoadingSubsidiaryOptions(true)
+      try {
+        const response: any = await apiService.subsidiaries.getLocationOptions(selectedLocationNode.id)
+        const data = response.data?.data || response.data || []
+        setSubsidiaryOptions(data)
+      } catch (error: any) {
+        console.error("Failed to fetch subsidiary options:", error)
+        setSubsidiaryOptions([])
+      } finally {
+        setLoadingSubsidiaryOptions(false)
+      }
+    }
+
+    fetchOptions()
+  }, [selectedLocationNode])
 
   const handleSave = async () => {
     const errors: string[] = []
@@ -918,17 +951,52 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                   </div>
 
                     <div className="lg:col-span-5 space-y-4">
-                      <ManagedDropdown
-                        dropdownKey="property.location"
-                        value={form.location}
-                        onChange={(val) => setForm((p) => ({ ...p, location: val, locationId: null }))}
+                      <LocationSelector
+                        value={selectedLocationNode?.id || form.locationId || null}
+                        onChange={(node) => {
+                          setSelectedLocationNode(node)
+                          setForm((p) => ({
+                            ...p,
+                            location: node?.name || "",
+                            locationId: node?.id || null,
+                            subsidiaryOptionId: null, // Reset subsidiary when location changes
+                          }))
+                        }}
+                        label="Location"
+                        helperText="Select the location for this property"
                       />
 
-                      <ManagedDropdown
-                        dropdownKey="property.subsidiary"
-                        value={form.propertySubsidiary}
-                        onChange={(val) => setForm((p) => ({ ...p, propertySubsidiary: val }))}
-                      />
+                      {selectedLocationNode && (
+                        <div className="space-y-2">
+                          <Label>Property Subsidiary</Label>
+                          {loadingSubsidiaryOptions ? (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Loading options...
+                            </div>
+                          ) : subsidiaryOptions.length === 0 ? (
+                            <p className="text-xs text-muted-foreground">
+                              No subsidiary options available for {selectedLocationNode.name}. Create one in Advanced Options.
+                            </p>
+                          ) : (
+                            <Select
+                              value={form.subsidiaryOptionId || ""}
+                              onValueChange={(val) => setForm((p) => ({ ...p, subsidiaryOptionId: val || null }))}
+                            >
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select subsidiary option" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {subsidiaryOptions.map((option) => (
+                                  <SelectItem key={option.id} value={option.id}>
+                                    {option.name} ({option.subsidiaryName})
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                      )}
 
                       <div className="space-y-2">
                         <Label>Amenities</Label>

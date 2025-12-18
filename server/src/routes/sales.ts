@@ -388,41 +388,17 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       data: { status: 'Sold' },
     });
 
-    // Update revenue and profit in finance ledger if sale is completed
-    if (sale.status === 'Completed' || sale.status === 'completed') {
-      try {
-        // Create revenue entry (total sale price)
-        await prisma.financeLedger.create({
-          data: {
-            propertyId: data.propertyId,
-            category: 'income',
-            amount: sale.saleValue,
-            description: `Sale revenue for property "${property.name}"`,
-            date: saleDate,
-            referenceType: 'sale',
-            referenceId: sale.id,
-          },
-        });
-
-        // Create profit entry (saleValue - actualPropertyValue)
-        if (profit > 0) {
-          await prisma.financeLedger.create({
-            data: {
-              propertyId: data.propertyId,
-              category: 'income',
-              amount: profit,
-              description: `Sale profit for property "${property.name}" (Sale: Rs ${sale.saleValue.toLocaleString()}, Cost: Rs ${actualPropertyValue.toLocaleString()})`,
-              date: saleDate,
-              referenceType: 'sale',
-              referenceId: sale.id,
-            },
-          });
-        }
-      } catch (ledgerErr) {
-        logger.error('Failed to update finance ledger for sale:', ledgerErr);
-        // Don't fail sale creation if ledger update fails
-      }
-    }
+    // Note: FinanceLedger now requires a dealId, but Sales don't have a direct Deal relation
+    // Finance ledger entries for Sales should be created through Deal relationships if needed
+    // Commenting out FinanceLedger creation for Sales until Sales are linked to Deals
+    // if (sale.status === 'Completed' || sale.status === 'completed') {
+    //   try {
+    //     // Find or create a Deal for this Sale to link FinanceLedger
+    //     // For now, skipping FinanceLedger creation for Sales
+    //   } catch (ledgerErr) {
+    //     logger.error('Failed to update finance ledger for sale:', ledgerErr);
+    //   }
+    // }
 
     // Log activity
     await createActivity({

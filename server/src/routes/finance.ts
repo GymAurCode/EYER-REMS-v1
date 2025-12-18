@@ -1662,7 +1662,7 @@ router.get('/commissions', authenticate, async (req: AuthRequest, res: Response)
           where: {
             referenceType: 'commission',
             referenceId: commission.id,
-            category: 'expense',
+            transactionType: 'debit',
           },
         });
 
@@ -1739,7 +1739,7 @@ router.post('/commissions/:id/pay', authenticate, async (req: AuthRequest, res: 
       where: {
         referenceType: 'commission',
         referenceId: id,
-        category: 'expense',
+        transactionType: 'debit',
       },
     });
 

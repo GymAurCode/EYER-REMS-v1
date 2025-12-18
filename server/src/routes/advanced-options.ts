@@ -126,9 +126,12 @@ router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, r
   }
 });
 
-router.get('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+// GET dropdown by key - allow authenticated users (not just admin) since used in forms
+// Use regex to allow dots in the key parameter (e.g., "property.category")
+router.get('/dropdowns/:key([^/]+)', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { key } = req.params;
+    // Decode the key in case it was URL encoded
+    const key = decodeURIComponent(req.params.key);
     const category = await prisma.dropdownCategory.findUnique({
       where: { key },
       include: {
@@ -146,9 +149,10 @@ router.get('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthReques
   }
 });
 
-router.post('/dropdowns/:key', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+router.post('/dropdowns/:key([^/]+)', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const { key } = req.params;
+    // Decode the key in case it was URL encoded
+    const key = decodeURIComponent(req.params.key);
     const { label, value, sortOrder, metadata, isActive } = req.body;
     if (!label || !value) {
       return res.status(400).json({ error: 'Label and value are required' });
