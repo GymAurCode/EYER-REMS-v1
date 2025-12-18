@@ -228,6 +228,12 @@ app.get('/api/health', (req: Request, res: Response) => {
 
 // 404 handler
 app.use((req: Request, res: Response) => {
+  logger.warn('404 - Route not found', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: (req as any).originalUrl || req.url,
+  });
   res.status(404).json({ error: 'Route not found' });
 });
 

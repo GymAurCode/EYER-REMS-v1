@@ -32,6 +32,10 @@ export const authenticate = async (
     const requestDeviceId = req.headers['x-device-id'] as string;
 
     if (!token) {
+      logger.warn('Authentication failed: No token provided', {
+        path: req.path,
+        method: req.method,
+      });
       res.status(401).json({ error: 'No token provided' });
       return;
     }
@@ -40,18 +44,39 @@ export const authenticate = async (
     const jwtSecret = process.env.JWT_SECRET;
     if (!jwtSecret) {
       if (process.env.NODE_ENV === 'production') {
+        logger.error('JWT_SECRET not set in production');
         res.status(500).json({ error: 'Server configuration error' });
         return;
       }
       logger.warn('⚠️  WARNING: JWT_SECRET not set. Using default for development only.');
     }
-    const decoded = jwt.verify(token, jwtSecret || 'CHANGE-THIS-IN-PRODUCTION-DEVELOPMENT-ONLY') as {
+    
+    let decoded: {
       userId: string;
       username: string;
       email: string;
       roleId: string;
       deviceId?: string;
     };
+    
+    try {
+      decoded = jwt.verify(token, jwtSecret || 'CHANGE-THIS-IN-PRODUCTION-DEVELOPMENT-ONLY') as {
+        userId: string;
+        username: string;
+        email: string;
+        roleId: string;
+        deviceId?: string;
+      };
+    } catch (jwtError: any) {
+      logger.warn('JWT verification failed', {
+        path: req.path,
+        method: req.method,
+        error: jwtError?.message || 'Unknown JWT error',
+        name: jwtError?.name,
+      });
+      res.status(401).json({ error: 'Invalid token' });
+      return;
+    }
 
     // Verify user still exists
     const user = await prisma.user.findUnique({
@@ -60,6 +85,11 @@ export const authenticate = async (
     });
 
     if (!user) {
+      logger.warn('Authentication failed: User not found', {
+        path: req.path,
+        method: req.method,
+        userId: decoded.userId,
+      });
       res.status(401).json({ error: 'User not found' });
       return;
     }
@@ -67,6 +97,12 @@ export const authenticate = async (
     // Validate deviceId if present in token
     if (decoded.deviceId && requestDeviceId) {
       if (decoded.deviceId !== requestDeviceId) {
+        logger.warn('Device ID mismatch', {
+          path: req.path,
+          method: req.method,
+          tokenDeviceId: decoded.deviceId,
+          requestDeviceId,
+        });
         res.status(403).json({
           error: 'Device ID mismatch',
           message: 'Session device ID does not match request device ID',
@@ -83,8 +119,14 @@ export const authenticate = async (
     };
 
     next();
-  } catch (error) {
-    logger.error('Authentication error:', error);
+  } catch (error: any) {
+    logger.error('Authentication error:', {
+      error: error?.message || 'Unknown error',
+      stack: error?.stack,
+      name: error?.name,
+      path: req.path,
+      method: req.method,
+    });
     res.status(401).json({ error: 'Invalid token' });
   }
 };

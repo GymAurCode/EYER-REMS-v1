@@ -1,11 +1,23 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
+import { Prisma } from '@prisma/client';
 import logger from '../utils/logger';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import prisma from '../prisma/client';
 
 const router = (express as any).Router();
+
+// Request logging middleware for debugging
+router.use((req: any, res: Response, next: any) => {
+  logger.info('Subsidiaries route hit', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+    originalUrl: req.originalUrl,
+  });
+  next();
+});
 
 const createOptionSchema = z.object({
   name: z.string().min(1, 'Option name is required'),
@@ -28,8 +40,15 @@ const updateOptionSchema = z.object({
 });
 
 // Get all subsidiaries grouped by location
-router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    logger.info('GET /subsidiaries - Request received', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      userId: req.user?.id,
+    });
+
     const subsidiaries = await prisma.propertySubsidiary.findMany({
       include: {
         location: {
@@ -50,16 +69,45 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
       },
     });
 
+    logger.info('GET /subsidiaries - Success', {
+      count: subsidiaries.length,
+      userId: req.user?.id,
+    });
+
     return successResponse(res, subsidiaries);
-  } catch (error) {
-    logger.error('Get subsidiaries error:', error);
-    return errorResponse(res, error);
+  } catch (error: any) {
+    logger.error('GET /subsidiaries - Error occurred', {
+      error: error?.message || 'Unknown error',
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+      userId: req.user?.id,
+      path: req.path,
+      method: req.method,
+    });
+
+    // Determine appropriate status code based on error type
+    let statusCode = 500;
+    if (error?.code === 'P2002' || error?.code === 'P2003') {
+      statusCode = 400; // Bad request for constraint violations
+    } else if (error instanceof z.ZodError) {
+      statusCode = 400; // Bad request for validation errors
+    }
+
+    return errorResponse(res, error, statusCode);
   }
 });
 
 // Create a new subsidiary - MUST come before /:id routes to avoid route conflicts
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    logger.info('POST /subsidiaries - Request received', {
+      method: req.method,
+      path: req.path,
+      body: req.body,
+      userId: req.user?.id,
+    });
+
     const payload = createSubsidiarySchema.parse(req.body);
 
     // Verify location exists
@@ -114,12 +162,40 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
+    logger.info('POST /subsidiaries - Success', {
+      subsidiaryId: subsidiary.id,
+      userId: req.user?.id,
+    });
+
     return successResponse(res, subsidiary, 201);
   } catch (error: any) {
+    logger.error('POST /subsidiaries - Error occurred', {
+      error: error?.message || 'Unknown error',
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+      userId: req.user?.id,
+      path: req.path,
+      method: req.method,
+      body: req.body,
+    });
+
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      return errorResponse(res, error, 400);
+    }
+
+    // Handle Prisma unique constraint violations
     if (error.code === 'P2002') {
       return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
     }
-    logger.error('Create subsidiary error:', error);
+
+    // Handle Prisma validation errors
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      return errorResponse(res, error, 400);
+    }
+
+    // Default error response
     return errorResponse(res, error);
   }
 });
