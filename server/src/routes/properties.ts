@@ -20,7 +20,6 @@ const createPropertySchema = z.object({
   address: z.string().min(1, 'Address is required'),
   location: z.string().optional(),
   locationId: z.string().uuid().nullable().optional(),
-  propertySubsidiary: z.string().optional(),
   subsidiaryOptionId: z.string().uuid().nullable().optional(),
   status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
   imageUrl: z.string().optional().refine(
@@ -49,7 +48,27 @@ const updatePropertySchema = createPropertySchema.partial();
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, location: locationQuery, locationId, search } = req.query;
-    const { page, limit } = parsePaginationQuery(req.query);
+    
+    // Validate pagination parameters with better error handling
+    let page: number;
+    let limit: number;
+    try {
+      const pagination = parsePaginationQuery(req.query);
+      page = pagination.page;
+      limit = pagination.limit;
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        logger.warn('Invalid pagination parameters:', { query: req.query, errors: error.errors });
+        return errorResponse(
+          res,
+          'Invalid pagination parameters. Page and limit must be positive integers. Limit cannot exceed 100.',
+          400,
+          error.errors.map((e) => ({ path: e.path.join('.'), message: e.message }))
+        );
+      }
+      throw error;
+    }
+    
     const skip = (page - 1) * limit;
 
     const where: Prisma.PropertyWhereInput = {
@@ -74,8 +93,29 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (locationId) {
       const locationFilterId = Array.isArray(locationId) ? locationId[0] : locationId;
       if (locationFilterId && typeof locationFilterId === 'string') {
-        const subtreeIds = await getSubtreeIds(locationFilterId);
-        where.locationId = { in: subtreeIds };
+        // Validate UUID format before calling getSubtreeIds
+        try {
+          z.string().uuid().parse(locationFilterId);
+        } catch (error) {
+          logger.warn('Invalid locationId format:', { locationId: locationFilterId });
+          return errorResponse(
+            res,
+            `Invalid locationId format. Expected a valid UUID, but received: ${locationFilterId}`,
+            400
+          );
+        }
+        
+        try {
+          const subtreeIds = await getSubtreeIds(locationFilterId);
+          where.locationId = { in: subtreeIds };
+        } catch (error) {
+          logger.error('Error fetching subtree IDs:', error);
+          return errorResponse(
+            res,
+            'Failed to fetch location subtree. The location may not exist.',
+            400
+          );
+        }
       }
     }
 
@@ -1316,8 +1356,6 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         type: data.type,
         address: data.address,
         location: data.location,
-        propertySubsidiary: data.propertySubsidiary,
-        subsidiaryOptionId: data.subsidiaryOptionId ?? null,
         status: data.status,
         imageUrl: data.imageUrl || undefined,
         description: data.description,

@@ -1,365 +1,88 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
-import logger from '../utils/logger';
-import { authenticate, AuthRequest } from '../middleware/auth';
-import { successResponse, errorResponse } from '../utils/error-handler';
 import prisma from '../prisma/client';
+import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import { createAuditLog } from '../services/audit-log';
+import { errorResponse, successResponse } from '../utils/error-handler';
+import { getLocationTree } from '../services/location';
+import { LocationTreeNode } from '../services/location';
 
 const router = (express as any).Router();
 
-// Request logging middleware for debugging
-router.use((req: any, res: Response, next: any) => {
-  logger.info('Subsidiaries route hit', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-    originalUrl: req.originalUrl,
-  });
-  next();
-});
-
-const createOptionSchema = z.object({
-  name: z.string().min(1, 'Option name is required').max(255, 'Option name is too long').trim(),
-  sortOrder: z.number().int().min(0).default(0),
-});
-
-const createSubsidiarySchema = z.object({
-  locationId: z.string().uuid('Invalid location ID').min(1, 'Location ID is required'),
-  name: z.string().min(1, 'Subsidiary name is required').max(255, 'Subsidiary name is too long').trim(),
-  options: z.array(createOptionSchema).optional(),
-});
-
-const updateSubsidiarySchema = z.object({
-  name: z.string().min(1).optional(),
-});
-
-const updateOptionSchema = z.object({
-  name: z.string().min(1).optional(),
-  sortOrder: z.number().int().optional(),
-});
-
-// Health check route for subsidiaries (for debugging)
-router.get('/health', (req: any, res: Response) => {
-  res.json({ status: 'ok', message: 'Subsidiaries router is working' });
-});
-
-// Get all subsidiaries grouped by location
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    logger.info('GET /subsidiaries - Request received', {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      userId: req.user?.id,
-    });
-
-    let subsidiaries;
-    try {
-      subsidiaries = await prisma.propertySubsidiary.findMany({
-        include: {
-          location: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
-          options: {
-            orderBy: {
-              sortOrder: 'asc',
-            },
-          },
-        },
-        orderBy: {
-          createdAt: 'desc',
-        },
-      });
-    } catch (dbError: any) {
-      logger.error('Database error while fetching subsidiaries', {
-        error: dbError?.message,
-        code: dbError?.code,
-        stack: dbError?.stack,
-      });
-      
-      // If it's a connection error, return a more helpful message
-      if (dbError.code === 'P1001' || dbError.message?.includes('connection')) {
-        return errorResponse(
-          res,
-          'Database connection error. Please try again later.',
-          503
-        );
-      }
-      
-      // Re-throw to be handled by outer catch
-      throw dbError;
+// Helper function to build full path for a location
+const buildLocationPath = (nodes: LocationTreeNode[], targetId: string): string[] => {
+  for (const node of nodes) {
+    if (node.id === targetId) {
+      return [node.name];
     }
-
-    logger.info('GET /subsidiaries - Success', {
-      count: subsidiaries.length,
-      userId: req.user?.id,
-    });
-
-    return successResponse(res, subsidiaries);
-  } catch (error: any) {
-    logger.error('GET /subsidiaries - Error occurred', {
-      error: error?.message || 'Unknown error',
-      stack: error?.stack,
-      name: error?.name,
-      code: error?.code,
-      userId: req.user?.id,
-      path: req.path,
-      method: req.method,
-    });
-
-    // Determine appropriate status code based on error type
-    let statusCode = 500;
-    if (error?.code === 'P2002' || error?.code === 'P2003') {
-      statusCode = 400; // Bad request for constraint violations
-    } else if (error instanceof z.ZodError) {
-      statusCode = 400; // Bad request for validation errors
+    const childPath = buildLocationPath(node.children, targetId);
+    if (childPath.length > 0) {
+      return [node.name, ...childPath];
     }
-
-    return errorResponse(res, error, statusCode);
   }
-});
+  return [];
+};
 
-// Create a new subsidiary - MUST come before /:id routes to avoid route conflicts
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+// GET all subsidiaries with their locations
+router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
-    logger.info('POST /subsidiaries - Request received', {
-      method: req.method,
-      path: req.path,
-      body: req.body,
-      userId: req.user?.id,
-    });
-
-    const payload = createSubsidiarySchema.parse(req.body);
-
-    // Verify location exists
-    const location = await prisma.location.findUnique({
-      where: { id: payload.locationId },
-    });
-
-    if (!location) {
-      return errorResponse(res, 'Location not found', 404);
-    }
-
-    // Check if subsidiary with same name already exists for this location
-    const existing = await prisma.propertySubsidiary.findUnique({
-      where: {
-        locationId_name: {
-          locationId: payload.locationId,
-          name: payload.name,
+    const tree = await getLocationTree();
+    const subsidiaries = await prisma.propertySubsidiary.findMany({
+      include: {
+        location: true,
+        options: {
+          orderBy: { sortOrder: 'asc' },
         },
       },
+      orderBy: { createdAt: 'desc' },
     });
 
-    if (existing) {
-      return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
-    }
-
-    let subsidiary;
-    try {
-      subsidiary = await prisma.propertySubsidiary.create({
-        data: {
-          locationId: payload.locationId,
-          name: payload.name.trim(),
-          options: payload.options
-            ? {
-                create: payload.options.map((opt) => ({
-                  name: opt.name.trim(),
-                  sortOrder: opt.sortOrder || 0,
-                })),
-              }
-            : undefined,
-        },
-        include: {
-          location: {
-            select: {
-              id: true,
-              name: true,
-              type: true,
-            },
-          },
-          options: {
-            orderBy: {
-              sortOrder: 'asc',
-            },
-          },
-        },
-      });
-    } catch (dbError: any) {
-      // Handle specific database errors with better messages
-      if (dbError.code === 'P2002') {
-        // Unique constraint violation
-        const target = dbError.meta?.target as string[];
-        if (target?.includes('locationId') && target?.includes('name')) {
-          logger.error('Database error: Duplicate subsidiary name', {
-            locationId: payload.locationId,
-            name: payload.name,
-            error: dbError,
-          });
-          return errorResponse(
-            res,
-            `A subsidiary with the name "${payload.name}" already exists for this location. Please use a different name.`,
-            409
-          );
-        }
-      } else if (dbError.code === 'P2003') {
-        // Foreign key constraint violation
-        logger.error('Database error: Invalid location reference', {
-          locationId: payload.locationId,
-          error: dbError,
-        });
-        return errorResponse(
-          res,
-          'The specified location does not exist or has been deleted.',
-          400
-        );
-      }
-      // Re-throw if not handled
-      throw dbError;
-    }
-
-    logger.info('POST /subsidiaries - Success', {
-      subsidiaryId: subsidiary.id,
-      userId: req.user?.id,
+    // Add full path to each subsidiary
+    const subsidiariesWithPaths = subsidiaries.map((sub) => {
+      const path = buildLocationPath(tree, sub.locationId);
+      return {
+        ...sub,
+        locationPath: path.join(' > '),
+      };
     });
 
-    return successResponse(res, subsidiary, 201);
-  } catch (error: any) {
-    logger.error('POST /subsidiaries - Error occurred', {
-      error: error?.message || 'Unknown error',
-      stack: error?.stack,
-      name: error?.name,
-      code: error?.code,
-      userId: req.user?.id,
-      path: req.path,
-      method: req.method,
-      body: req.body,
-      prismaCode: error?.code,
-      prismaMeta: error?.meta,
-    });
-
-    // Handle Zod validation errors
-    if (error instanceof z.ZodError) {
-      const validationErrors = error.errors.map((e) => ({
-        field: e.path.join('.'),
-        message: e.message,
-      }));
-      logger.error('Validation error details:', validationErrors);
-      return errorResponse(res, error, 400);
-    }
-
-    // Handle Prisma errors (already handled in try-catch, but keep as fallback)
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      // Error already handled in try-catch block above
-      return errorResponse(res, error, 400);
-    }
-
-    if (error instanceof Prisma.PrismaClientValidationError) {
-      logger.error('Prisma validation error:', {
-        message: error.message,
-      });
-      return errorResponse(res, 'Invalid data provided. Please check all required fields.', 400);
-    }
-
-    // Default error response
+    return successResponse(res, subsidiariesWithPaths);
+  } catch (error) {
     return errorResponse(res, error);
   }
 });
 
-// Get subsidiaries for a specific location - MUST come before /:id routes
+// GET subsidiaries by location ID
 router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { locationId } = req.params;
-
     const subsidiaries = await prisma.propertySubsidiary.findMany({
-      where: {
-        locationId,
-      },
+      where: { locationId },
       include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
+        location: true,
         options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
+          orderBy: { sortOrder: 'asc' },
         },
       },
-      orderBy: {
-        createdAt: 'desc',
-      },
+      orderBy: { createdAt: 'desc' },
     });
 
     return successResponse(res, subsidiaries);
   } catch (error) {
-    logger.error('Get subsidiaries by location error:', error);
     return errorResponse(res, error);
   }
 });
 
-// Get all options for a location's subsidiaries (for dropdowns) - MUST come before /:id routes
-router.get('/location/:locationId/options', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { locationId } = req.params;
-
-    const subsidiaries = await prisma.propertySubsidiary.findMany({
-      where: {
-        locationId,
-      },
-      include: {
-        options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-      },
-    });
-
-    // Flatten all options from all subsidiaries for this location
-    const options = subsidiaries.flatMap((sub) =>
-      sub.options.map((opt) => ({
-        id: opt.id,
-        name: opt.name,
-        subsidiaryId: sub.id,
-        subsidiaryName: sub.name,
-        sortOrder: opt.sortOrder,
-      }))
-    );
-
-    return successResponse(res, options);
-  } catch (error) {
-    logger.error('Get location options error:', error);
-    return errorResponse(res, error);
-  }
-});
-
-// Get a single subsidiary with its options - MUST come after specific routes
+// GET single subsidiary by ID
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-
     const subsidiary = await prisma.propertySubsidiary.findUnique({
       where: { id },
       include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
+        location: true,
         options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
+          orderBy: { sortOrder: 'asc' },
         },
       },
     });
@@ -370,107 +93,168 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     return successResponse(res, subsidiary);
   } catch (error) {
-    logger.error('Get subsidiary error:', error);
     return errorResponse(res, error);
   }
 });
 
-// Update a subsidiary
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+const createSubsidiarySchema = z.object({
+  locationId: z.string().uuid('Location ID must be a valid UUID'),
+  options: z.array(z.string().min(1, 'Option name cannot be empty')).min(1, 'At least one option is required'),
+});
+
+// POST create subsidiary
+router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const payload = createSubsidiarySchema.parse(req.body);
+
+    // Check if location exists
+    const location = await prisma.location.findUnique({
+      where: { id: payload.locationId },
+    });
+
+    if (!location) {
+      return errorResponse(res, 'Location not found', 404);
+    }
+
+    // Check if subsidiary already exists for this location
+    const existing = await prisma.propertySubsidiary.findFirst({
+      where: { locationId: payload.locationId },
+    });
+
+    if (existing) {
+      return errorResponse(res, 'Subsidiary already exists for this location. Please update the existing one instead.', 400);
+    }
+
+    // Create subsidiary with options in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      const subsidiary = await tx.propertySubsidiary.create({
+        data: {
+          locationId: payload.locationId,
+          name: location.name, // Store location name for quick reference
+        },
+      });
+
+      // Create all options
+      const options = await Promise.all(
+        payload.options.map((optionName, index) =>
+          tx.subsidiaryOption.create({
+            data: {
+              propertySubsidiaryId: subsidiary.id,
+              name: optionName.trim(),
+              sortOrder: index,
+            },
+          })
+        )
+      );
+
+      return { subsidiary, options };
+    });
+
+    await createAuditLog({
+      entityType: 'property_subsidiary',
+      entityId: result.subsidiary.id,
+      action: 'create',
+      description: `Subsidiary created for location ${location.name} with ${payload.options.length} options`,
+      newValues: result,
+      userId: req.user?.id,
+      userName: req.user?.username,
+      req,
+    });
+
+    return successResponse(res, result, 201);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return errorResponse(res, error.errors[0].message, 400);
+    }
+    return errorResponse(res, error);
+  }
+});
+
+const updateSubsidiarySchema = z.object({
+  options: z.array(z.string().min(1, 'Option name cannot be empty')).min(1, 'At least one option is required'),
+});
+
+// PUT update subsidiary (only options can be updated)
+router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payload = updateSubsidiarySchema.parse(req.body);
 
-    const subsidiary = await prisma.propertySubsidiary.findUnique({
+    const existing = await prisma.propertySubsidiary.findUnique({
       where: { id },
+      include: { options: true },
     });
 
-    if (!subsidiary) {
+    if (!existing) {
       return errorResponse(res, 'Subsidiary not found', 404);
     }
 
-    // If name is being updated, check for duplicates
-    if (payload.name && payload.name !== subsidiary.name) {
-      const existing = await prisma.propertySubsidiary.findUnique({
-        where: {
-          locationId_name: {
-            locationId: subsidiary.locationId,
-            name: payload.name,
-          },
-        },
+    // Update in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Delete existing options
+      await tx.subsidiaryOption.deleteMany({
+        where: { propertySubsidiaryId: id },
       });
 
-      if (existing) {
-        return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
-      }
-    }
+      // Create new options
+      const options = await Promise.all(
+        payload.options.map((optionName, index) =>
+          tx.subsidiaryOption.create({
+            data: {
+              propertySubsidiaryId: id,
+              name: optionName.trim(),
+              sortOrder: index,
+            },
+          })
+        )
+      );
 
-    const updated = await prisma.propertySubsidiary.update({
-      where: { id },
-      data: payload,
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-          },
-        },
-        options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-      },
+      return { subsidiary: existing, options };
     });
 
-    return successResponse(res, updated);
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
+    await createAuditLog({
+      entityType: 'property_subsidiary',
+      entityId: id,
+      action: 'update',
+      description: `Subsidiary updated with ${payload.options.length} options`,
+      oldValues: existing,
+      newValues: result,
+      userId: req.user?.id,
+      userName: req.user?.username,
+      req,
+    });
+
+    return successResponse(res, result);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return errorResponse(res, error.errors[0].message, 400);
     }
-    logger.error('Update subsidiary error:', error);
     return errorResponse(res, error);
   }
 });
 
-// Delete a subsidiary
-router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+// DELETE subsidiary
+router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-
-    const subsidiary = await prisma.propertySubsidiary.findUnique({
+    const existing = await prisma.propertySubsidiary.findUnique({
       where: { id },
-      include: {
-        options: true,
-      },
+      include: { location: true, options: true },
     });
 
-    if (!subsidiary) {
+    if (!existing) {
       return errorResponse(res, 'Subsidiary not found', 404);
     }
 
-    // Check if any properties or clients are using options from this subsidiary
+    // Check if any properties use this subsidiary
     const propertiesCount = await prisma.property.count({
-      where: {
-        subsidiaryOptionId: {
-          in: subsidiary.options.map((opt) => opt.id),
-        },
-      },
+      where: { propertySubsidiaryId: id },
     });
 
-    const clientsCount = await prisma.client.count({
-      where: {
-        subsidiaryOptionId: {
-          in: subsidiary.options.map((opt) => opt.id),
-        },
-      },
-    });
-
-    if (propertiesCount > 0 || clientsCount > 0) {
+    if (propertiesCount > 0) {
       return errorResponse(
         res,
-        `Cannot delete subsidiary. It is being used by ${propertiesCount} properties and ${clientsCount} clients.`,
+        `Cannot delete subsidiary. ${propertiesCount} propert${propertiesCount === 1 ? 'y' : 'ies'} use this subsidiary.`,
         400
       );
     }
@@ -479,145 +263,66 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       where: { id },
     });
 
+    await createAuditLog({
+      entityType: 'property_subsidiary',
+      entityId: id,
+      action: 'delete',
+      description: `Subsidiary deleted for location ${existing.location.name}`,
+      oldValues: existing,
+      userId: req.user?.id,
+      userName: req.user?.username,
+      req,
+    });
+
     return successResponse(res, { message: 'Subsidiary deleted successfully' });
   } catch (error) {
-    logger.error('Delete subsidiary error:', error);
     return errorResponse(res, error);
   }
 });
 
-// Add an option to a subsidiary
-router.post('/:id/options', authenticate, async (req: AuthRequest, res: Response) => {
+// GET all locations with full paths for dropdown
+router.get('/locations/with-paths', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const payload = createOptionSchema.parse(req.body);
+    const tree = await getLocationTree();
 
-    const subsidiary = await prisma.propertySubsidiary.findUnique({
-      where: { id },
+    const buildPathsRecursive = (nodes: LocationTreeNode[]): Array<{ id: string; path: string }> => {
+      const result: Array<{ id: string; path: string }> = [];
+      for (const node of nodes) {
+        const path = buildLocationPath(tree, node.id);
+        result.push({ id: node.id, path: path.join(' > ') });
+        if (node.children.length > 0) {
+          result.push(...buildPathsRecursive(node.children));
+        }
+      }
+      return result;
+    };
+
+    const locationsWithPaths = buildPathsRecursive(tree);
+    return successResponse(res, locationsWithPaths);
+  } catch (error) {
+    return errorResponse(res, error);
+  }
+});
+
+// GET subsidiary options for a location
+router.get('/location/:locationId/options', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { locationId } = req.params;
+    const subsidiary = await prisma.propertySubsidiary.findFirst({
+      where: { locationId },
+      include: {
+        options: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
     });
 
     if (!subsidiary) {
-      return errorResponse(res, 'Subsidiary not found', 404);
+      return successResponse(res, []);
     }
 
-    // Check if option with same name already exists
-    const existing = await prisma.subsidiaryOption.findUnique({
-      where: {
-        propertySubsidiaryId_name: {
-          propertySubsidiaryId: id,
-          name: payload.name,
-        },
-      },
-    });
-
-    if (existing) {
-      return errorResponse(res, 'Option with this name already exists in this subsidiary', 409);
-    }
-
-    const option = await prisma.subsidiaryOption.create({
-      data: {
-        propertySubsidiaryId: id,
-        name: payload.name,
-        sortOrder: payload.sortOrder,
-      },
-    });
-
-    return successResponse(res, option, 201);
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return errorResponse(res, 'Option with this name already exists in this subsidiary', 409);
-    }
-    logger.error('Create option error:', error);
-    return errorResponse(res, error);
-  }
-});
-
-// Update an option
-router.put('/options/:optionId', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { optionId } = req.params;
-    const payload = updateOptionSchema.parse(req.body);
-
-    const option = await prisma.subsidiaryOption.findUnique({
-      where: { id: optionId },
-    });
-
-    if (!option) {
-      return errorResponse(res, 'Option not found', 404);
-    }
-
-    // If name is being updated, check for duplicates
-    if (payload.name && payload.name !== option.name) {
-      const existing = await prisma.subsidiaryOption.findUnique({
-        where: {
-          propertySubsidiaryId_name: {
-            propertySubsidiaryId: option.propertySubsidiaryId,
-            name: payload.name,
-          },
-        },
-      });
-
-      if (existing) {
-        return errorResponse(res, 'Option with this name already exists in this subsidiary', 409);
-      }
-    }
-
-    const updated = await prisma.subsidiaryOption.update({
-      where: { id: optionId },
-      data: payload,
-    });
-
-    return successResponse(res, updated);
-  } catch (error: any) {
-    if (error.code === 'P2002') {
-      return errorResponse(res, 'Option with this name already exists in this subsidiary', 409);
-    }
-    logger.error('Update option error:', error);
-    return errorResponse(res, error);
-  }
-});
-
-// Delete an option
-router.delete('/options/:optionId', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { optionId } = req.params;
-
-    const option = await prisma.subsidiaryOption.findUnique({
-      where: { id: optionId },
-    });
-
-    if (!option) {
-      return errorResponse(res, 'Option not found', 404);
-    }
-
-    // Check if any properties or clients are using this option
-    const propertiesCount = await prisma.property.count({
-      where: {
-        subsidiaryOptionId: optionId,
-      },
-    });
-
-    const clientsCount = await prisma.client.count({
-      where: {
-        subsidiaryOptionId: optionId,
-      },
-    });
-
-    if (propertiesCount > 0 || clientsCount > 0) {
-      return errorResponse(
-        res,
-        `Cannot delete option. It is being used by ${propertiesCount} properties and ${clientsCount} clients.`,
-        400
-      );
-    }
-
-    await prisma.subsidiaryOption.delete({
-      where: { id: optionId },
-    });
-
-    return successResponse(res, { message: 'Option deleted successfully' });
+    return successResponse(res, subsidiary.options);
   } catch (error) {
-    logger.error('Delete option error:', error);
     return errorResponse(res, error);
   }
 });

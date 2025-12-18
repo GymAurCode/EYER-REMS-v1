@@ -50,9 +50,7 @@ const createClientSchema = z.object({
   cnic: z.string().optional(),
   address: z.string().optional(),
   propertyInterest: z.string().optional(),
-  propertySubsidiary: z.string().optional(),
   locationId: z.string().uuid().nullable().optional(),
-  subsidiaryOptionId: z.string().uuid().nullable().optional(),
   assignedDealerId: z.string().uuid().optional(),
   assignedAgentId: z.string().uuid().optional(),
 });

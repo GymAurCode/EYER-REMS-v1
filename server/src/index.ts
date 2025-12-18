@@ -38,7 +38,7 @@ import locationRoutes from './routes/locations';
 import advancedOptionsRoutes from './routes/advanced-options';
 import secureFilesRoutes from './routes/secure-files';
 import recycleBinRoutes from './routes/recycle-bin';
-import subsidiaryRoutes from './routes/subsidiaries';
+import subsidiariesRoutes from './routes/subsidiaries';
 import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
@@ -201,6 +201,7 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/properties', propertiesRoutes);
 app.use('/api/locations', locationRoutes);
+app.use('/api/subsidiaries', subsidiariesRoutes);
 app.use('/api/units', unitsRoutes);
 app.use('/api/tenants', tenantsRoutes);
 app.use('/api/leases', leasesRoutes);
@@ -222,15 +223,6 @@ app.use('/api/finance-reports', financeReportsRoutes);
 app.use('/api/properties-enhanced', propertiesEnhancedRoutes);
 app.use('/api/crm-enhanced', crmEnhancedRoutes);
 app.use('/api/advanced-options', advancedOptionsRoutes);
-// Register subsidiaries routes with logging
-app.use('/api/subsidiaries', (req: Request, res: Response, next: NextFunction) => {
-  logger.info('Subsidiaries route registered - request incoming', {
-    method: req.method,
-    path: req.path,
-    url: req.url,
-  });
-  next();
-}, subsidiaryRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/tenant-portal', tenantPortalRoutes);
 app.use('/api/bulk', bulkRoutes);

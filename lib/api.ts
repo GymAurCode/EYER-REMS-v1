@@ -519,14 +519,13 @@ export const apiService = {
     getAll: () => api.get('/subsidiaries'),
     getById: (id: string) => api.get(`/subsidiaries/${id}`),
     getByLocation: (locationId: string) => api.get(`/subsidiaries/location/${locationId}`),
-    getLocationOptions: (locationId: string) => api.get(`/subsidiaries/location/${locationId}/options`),
-    create: (data: { locationId: string; name: string; options?: Array<{ name: string; sortOrder?: number }> }) => api.post('/subsidiaries', data),
-    update: (id: string, data: { name?: string }) => api.put(`/subsidiaries/${id}`, data),
+    getOptionsByLocation: (locationId: string) => api.get(`/subsidiaries/location/${locationId}/options`),
+    getLocationsWithPaths: () => api.get('/subsidiaries/locations/with-paths'),
+    create: (data: { locationId: string; options: string[] }) => api.post('/subsidiaries', data),
+    update: (id: string, data: { options: string[] }) => api.put(`/subsidiaries/${id}`, data),
     delete: (id: string) => api.delete(`/subsidiaries/${id}`),
-    addOption: (subsidiaryId: string, data: { name: string; sortOrder?: number }) => api.post(`/subsidiaries/${subsidiaryId}/options`, data),
-    updateOption: (optionId: string, data: { name?: string; sortOrder?: number }) => api.put(`/subsidiaries/options/${optionId}`, data),
-    deleteOption: (optionId: string) => api.delete(`/subsidiaries/options/${optionId}`),
   },
+
 
   // Units
   units: {

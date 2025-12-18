@@ -4,7 +4,6 @@ import { useState } from "react"
 import { DropdownManager } from "@/components/admin/dropdown-manager"
 import { AmenitiesManager } from "@/components/admin/amenities-manager"
 import { LocationManager } from "@/components/admin/location-manager"
-import { SubsidiaryManager } from "@/components/admin/subsidiary-manager"
 import { InstallmentTypeManager } from "@/components/admin/installment-type-manager"
 import { BulkExport } from "@/components/admin/bulk-export"
 import { BulkImport } from "@/components/admin/bulk-import"
@@ -16,7 +15,8 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { FolderTree, MapPin, Building2, CreditCard, Star, Download, Settings } from "lucide-react"
+import { FolderTree, MapPin, CreditCard, Star, Download, Settings, Building2 } from "lucide-react"
+import { SubsidiaryManager } from "@/components/admin/subsidiary-manager"
 
 export function AdvancedOptionsPage() {
   const [defaultRows, setDefaultRows] = useState(25)
@@ -47,7 +47,7 @@ export function AdvancedOptionsPage() {
             </TabsTrigger>
             <TabsTrigger value="subsidiaries" className="flex items-center gap-2">
               <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Subsidiaries</span>
+              <span className="hidden sm:inline">Subsidiary</span>
             </TabsTrigger>
             <TabsTrigger value="installments" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />

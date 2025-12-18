@@ -26,7 +26,6 @@ type PropertyForm = {
   address: string
   location: string
   locationId: string | null
-  propertySubsidiary: string // Legacy field
   subsidiaryOptionId: string | null
   salePrice: string
   totalArea: string
@@ -48,7 +47,6 @@ const DEFAULT_FORM: PropertyForm = {
   address: "",
   location: "",
   locationId: null,
-  propertySubsidiary: "",
   subsidiaryOptionId: null,
   salePrice: "",
   totalArea: "",
@@ -67,7 +65,7 @@ type AddPropertyDialogProps = {
   onSuccess?: () => void
 }
 
-type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size" | "property.location" | "property.subsidiary"
+type DropdownKey = "property.type" | "property.category" | "property.status" | "property.size" | "property.location"
 
 const DROPDOWN_LABELS: Record<DropdownKey, string> = {
   "property.type": "Type",
@@ -75,7 +73,6 @@ const DROPDOWN_LABELS: Record<DropdownKey, string> = {
   "property.status": "Status",
   "property.size": "Size",
   "property.location": "Location",
-  "property.subsidiary": "Subsidiary",
 }
 
 function ManagedDropdown({
@@ -128,8 +125,6 @@ function ManagedDropdown({
         ]
       case "property.location":
         return [] // No default options - locations must be added via Advanced Options
-      case "property.subsidiary":
-        return [] // No default options - subsidiaries must be added via Advanced Options
       default:
         return []
     }
@@ -283,8 +278,6 @@ function ManagedDropdown({
             <div className="px-2 py-6 text-center text-sm text-muted-foreground">
               {dropdownKey === "property.location" 
                 ? "No locations available. Add locations in Advanced Options."
-                : dropdownKey === "property.subsidiary"
-                ? "No subsidiaries available. Add subsidiaries in Advanced Options."
                 : "No options available"}
             </div>
           ) : (
@@ -336,12 +329,7 @@ function ManagedDropdown({
           No locations available. Add locations in Advanced Options (e.g., "Country &gt; State &gt; City").
         </p>
       )}
-      {dropdownKey === "property.subsidiary" && (!options || options.length === 0) && localOptions.length === 0 && (
-        <p className="text-xs text-muted-foreground">
-          No subsidiaries available. Add subsidiaries in Advanced Options.
-        </p>
-      )}
-      {dropdownKey !== "property.location" && dropdownKey !== "property.subsidiary" && (!options || options.length === 0) && (
+      {dropdownKey !== "property.location" && (!options || options.length === 0) && (
         <p className="text-xs text-muted-foreground">
           Using default options. Admin can customize in Advanced Settings.
         </p>
@@ -367,11 +355,11 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   })
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
+  const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string }>>([])
+  const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
+  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
-  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
-  const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string; subsidiaryName: string }>>([])
-  const [loadingSubsidiaryOptions, setLoadingSubsidiaryOptions] = useState(false)
   const isEdit = Boolean(propertyId)
 
   useEffect(() => {
@@ -435,7 +423,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             address: payload.address || "",
             location: payload.location || "",
             locationId: payload.locationId || null,
-            propertySubsidiary: payload.propertySubsidiary || "",
             subsidiaryOptionId: payload.subsidiaryOptionId || null,
             salePrice: payload.salePrice?.toString() || documents.salePrice?.toString() || "",
             imageUrl: imageUrl,
@@ -489,30 +476,41 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     return () => clearTimeout(timeoutId)
   }, [open, propertyId, toast])
 
-  // Fetch subsidiary options when location changes
+  // Load subsidiary options when location changes
   useEffect(() => {
-    const fetchOptions = async () => {
-      if (!selectedLocationNode?.id) {
+    const loadSubsidiaries = async () => {
+      if (!form.locationId) {
         setSubsidiaryOptions([])
         setForm((p) => ({ ...p, subsidiaryOptionId: null }))
         return
       }
 
-      setLoadingSubsidiaryOptions(true)
+      setLoadingSubsidiaries(true)
       try {
-        const response: any = await apiService.subsidiaries.getLocationOptions(selectedLocationNode.id)
-        const data = response.data?.data || response.data || []
-        setSubsidiaryOptions(data)
+        const response = await apiService.subsidiaries.getOptionsByLocation(form.locationId)
+        const data = (response.data as any)?.data || response.data || []
+        // Transform options
+        const options = data.map((opt: any) => ({
+          id: opt.id,
+          name: opt.name,
+        }))
+        setSubsidiaryOptions(options)
+
+        // If current subsidiaryOptionId is not in the options, clear it
+        if (form.subsidiaryOptionId && !options.find((o: any) => o.id === form.subsidiaryOptionId)) {
+          setForm((p) => ({ ...p, subsidiaryOptionId: null }))
+        }
       } catch (error: any) {
-        console.error("Failed to fetch subsidiary options:", error)
+        // Silently fail - subsidiaries might not exist for this location
         setSubsidiaryOptions([])
       } finally {
-        setLoadingSubsidiaryOptions(false)
+        setLoadingSubsidiaries(false)
       }
     }
 
-    fetchOptions()
-  }, [selectedLocationNode])
+    loadSubsidiaries()
+  }, [form.locationId])
+
 
   const handleSave = async () => {
     const errors: string[] = []
@@ -539,7 +537,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       status: formWithoutCategorySize.status || "Active",
       address: formWithoutCategorySize.address,
       location: formWithoutCategorySize.location || undefined,
-      propertySubsidiary: formWithoutCategorySize.propertySubsidiary || undefined,
+      locationId: formWithoutCategorySize.locationId || undefined,
+      subsidiaryOptionId: formWithoutCategorySize.subsidiaryOptionId || undefined,
       description: formWithoutCategorySize.description || undefined,
       totalArea: formWithoutCategorySize.totalArea ? Number(formWithoutCategorySize.totalArea) : undefined,
       totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
@@ -966,37 +965,39 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                         helperText="Select the location for this property"
                       />
 
-                      {selectedLocationNode && (
+                      {form.locationId && (
                         <div className="space-y-2">
                           <Label>Property Subsidiary</Label>
-                          {loadingSubsidiaryOptions ? (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Loading options...
-                            </div>
-                          ) : subsidiaryOptions.length === 0 ? (
+                          <Select
+                            value={form.subsidiaryOptionId || "none"}
+                            onValueChange={(val) =>
+                              setForm((p) => ({
+                                ...p,
+                                subsidiaryOptionId: val === "none" ? null : val,
+                              }))
+                            }
+                            disabled={loadingSubsidiaries}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder={loadingSubsidiaries ? "Loading..." : "Select subsidiary (optional)"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {subsidiaryOptions.map((opt) => (
+                                <SelectItem key={opt.id} value={opt.id}>
+                                  {opt.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {subsidiaryOptions.length === 0 && !loadingSubsidiaries && (
                             <p className="text-xs text-muted-foreground">
-                              No subsidiary options available for {selectedLocationNode.name}. Create one in Advanced Options.
+                              No subsidiaries available for this location. Add them in Advanced Options &gt; Subsidiary.
                             </p>
-                          ) : (
-                            <Select
-                              value={form.subsidiaryOptionId || ""}
-                              onValueChange={(val) => setForm((p) => ({ ...p, subsidiaryOptionId: val || null }))}
-                            >
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select subsidiary option" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {subsidiaryOptions.map((option) => (
-                                  <SelectItem key={option.id} value={option.id}>
-                                    {option.name} ({option.subsidiaryName})
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
                           )}
                         </div>
                       )}
+
 
                       <div className="space-y-2">
                         <Label>Amenities</Label>
