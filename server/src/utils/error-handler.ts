@@ -109,17 +109,42 @@ export function errorResponse(
 
     switch (error.code) {
       case 'P2002':
-        errorMessage = 'Unique constraint violation';
-        errorDetails = { field: error.meta?.target };
+        // Unique constraint violation
+        const target = error.meta?.target as string[] | string;
+        if (Array.isArray(target)) {
+          errorMessage = `A record with this ${target.join(' and ')} already exists`;
+        } else if (target) {
+          errorMessage = `A record with this ${target} already exists`;
+        } else {
+          errorMessage = 'This record already exists (duplicate entry)';
+        }
+        errorDetails = { field: target, code: error.code };
         break;
       case 'P2025':
         statusCode = 404;
         errorMessage = 'Record not found';
         break;
       case 'P2003':
-        errorMessage = 'Foreign key constraint violation';
+        errorMessage = 'Referenced record does not exist. Please check the related data.';
+        errorDetails = { 
+          field: error.meta?.field_name,
+          code: error.code,
+        };
+        break;
+      case 'P2011':
+        errorMessage = 'Required field is missing or null';
+        errorDetails = { field: error.meta?.constraint, code: error.code };
+        break;
+      case 'P2012':
+        errorMessage = 'Missing required value in the database operation';
+        errorDetails = { code: error.code };
+        break;
+      case 'P2014':
+        errorMessage = 'The required relation is missing';
+        errorDetails = { code: error.code };
         break;
       default:
+        errorMessage = `Database error: ${error.code || 'Unknown error'}`;
         errorDetails = { code: error.code, meta: error.meta };
     }
   }

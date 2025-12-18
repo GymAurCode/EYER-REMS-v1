@@ -20,13 +20,13 @@ router.use((req: any, res: Response, next: any) => {
 });
 
 const createOptionSchema = z.object({
-  name: z.string().min(1, 'Option name is required'),
-  sortOrder: z.number().int().default(0),
+  name: z.string().min(1, 'Option name is required').max(255, 'Option name is too long').trim(),
+  sortOrder: z.number().int().min(0).default(0),
 });
 
 const createSubsidiarySchema = z.object({
-  locationId: z.string().uuid('Invalid location ID'),
-  name: z.string().min(1, 'Subsidiary name is required'),
+  locationId: z.string().uuid('Invalid location ID').min(1, 'Location ID is required'),
+  name: z.string().min(1, 'Subsidiary name is required').max(255, 'Subsidiary name is too long').trim(),
   options: z.array(createOptionSchema).optional(),
 });
 
@@ -54,25 +54,46 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       userId: req.user?.id,
     });
 
-    const subsidiaries = await prisma.propertySubsidiary.findMany({
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
+    let subsidiaries;
+    try {
+      subsidiaries = await prisma.propertySubsidiary.findMany({
+        include: {
+          location: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+            },
+          },
+          options: {
+            orderBy: {
+              sortOrder: 'asc',
+            },
           },
         },
-        options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
+        orderBy: {
+          createdAt: 'desc',
         },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
+      });
+    } catch (dbError: any) {
+      logger.error('Database error while fetching subsidiaries', {
+        error: dbError?.message,
+        code: dbError?.code,
+        stack: dbError?.stack,
+      });
+      
+      // If it's a connection error, return a more helpful message
+      if (dbError.code === 'P1001' || dbError.message?.includes('connection')) {
+        return errorResponse(
+          res,
+          'Database connection error. Please try again later.',
+          503
+        );
+      }
+      
+      // Re-throw to be handled by outer catch
+      throw dbError;
+    }
 
     logger.info('GET /subsidiaries - Success', {
       count: subsidiaries.length,
@@ -138,34 +159,68 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
     }
 
-    const subsidiary = await prisma.propertySubsidiary.create({
-      data: {
-        locationId: payload.locationId,
-        name: payload.name,
-        options: payload.options
-          ? {
-              create: payload.options.map((opt) => ({
-                name: opt.name,
-                sortOrder: opt.sortOrder || 0,
-              })),
-            }
-          : undefined,
-      },
-      include: {
-        location: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
+    let subsidiary;
+    try {
+      subsidiary = await prisma.propertySubsidiary.create({
+        data: {
+          locationId: payload.locationId,
+          name: payload.name.trim(),
+          options: payload.options
+            ? {
+                create: payload.options.map((opt) => ({
+                  name: opt.name.trim(),
+                  sortOrder: opt.sortOrder || 0,
+                })),
+              }
+            : undefined,
+        },
+        include: {
+          location: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+            },
+          },
+          options: {
+            orderBy: {
+              sortOrder: 'asc',
+            },
           },
         },
-        options: {
-          orderBy: {
-            sortOrder: 'asc',
-          },
-        },
-      },
-    });
+      });
+    } catch (dbError: any) {
+      // Handle specific database errors with better messages
+      if (dbError.code === 'P2002') {
+        // Unique constraint violation
+        const target = dbError.meta?.target as string[];
+        if (target?.includes('locationId') && target?.includes('name')) {
+          logger.error('Database error: Duplicate subsidiary name', {
+            locationId: payload.locationId,
+            name: payload.name,
+            error: dbError,
+          });
+          return errorResponse(
+            res,
+            `A subsidiary with the name "${payload.name}" already exists for this location. Please use a different name.`,
+            409
+          );
+        }
+      } else if (dbError.code === 'P2003') {
+        // Foreign key constraint violation
+        logger.error('Database error: Invalid location reference', {
+          locationId: payload.locationId,
+          error: dbError,
+        });
+        return errorResponse(
+          res,
+          'The specified location does not exist or has been deleted.',
+          400
+        );
+      }
+      // Re-throw if not handled
+      throw dbError;
+    }
 
     logger.info('POST /subsidiaries - Success', {
       subsidiaryId: subsidiary.id,
@@ -183,21 +238,31 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       path: req.path,
       method: req.method,
       body: req.body,
+      prismaCode: error?.code,
+      prismaMeta: error?.meta,
     });
 
     // Handle Zod validation errors
     if (error instanceof z.ZodError) {
+      const validationErrors = error.errors.map((e) => ({
+        field: e.path.join('.'),
+        message: e.message,
+      }));
+      logger.error('Validation error details:', validationErrors);
       return errorResponse(res, error, 400);
     }
 
-    // Handle Prisma unique constraint violations
-    if (error.code === 'P2002') {
-      return errorResponse(res, 'Subsidiary with this name already exists for this location', 409);
+    // Handle Prisma errors (already handled in try-catch, but keep as fallback)
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      // Error already handled in try-catch block above
+      return errorResponse(res, error, 400);
     }
 
-    // Handle Prisma validation errors
     if (error instanceof Prisma.PrismaClientValidationError) {
-      return errorResponse(res, error, 400);
+      logger.error('Prisma validation error:', {
+        message: error.message,
+      });
+      return errorResponse(res, 'Invalid data provided. Please check all required fields.', 400);
     }
 
     // Default error response
