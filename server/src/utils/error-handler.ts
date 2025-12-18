@@ -143,6 +143,15 @@ export function errorResponse(
         errorMessage = 'The required relation is missing';
         errorDetails = { code: error.code };
         break;
+      case 'P2022':
+        // Column not found - usually means migration hasn't been run
+        errorMessage = 'Database column not found. Please run database migrations.';
+        errorDetails = { 
+          code: error.code, 
+          meta: error.meta,
+          hint: 'This usually means the database schema is out of sync with the code. Run: npx prisma migrate deploy'
+        };
+        break;
       default:
         errorMessage = `Database error: ${error.code || 'Unknown error'}`;
         errorDetails = { code: error.code, meta: error.meta };

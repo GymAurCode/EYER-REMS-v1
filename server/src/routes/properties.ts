@@ -10,11 +10,13 @@ import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF } from '../utils/pdf-generator';
+import { validateTID } from '../services/id-generation-service';
 
 const router = (express as any).Router();
 
 // Validation schemas
 const createPropertySchema = z.object({
+  tid: z.string().min(1, 'TID is required').optional(),
   name: z.string().min(1, 'Property name is required'),
   type: z.string().min(1, 'Property type is required'),
   address: z.string().min(1, 'Address is required'),
@@ -138,36 +140,64 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       ];
     }
 
-    const [properties, total] = await Promise.all([
-      prisma.property.findMany({
-        where,
-        include: {
-          units: {
-            where: { isDeleted: false },
-            select: {
-              id: true,
-              unitName: true,
-              status: true,
-              monthlyRent: true,
-            },
-          },
-          blocks: {
-            where: { isDeleted: false },
-          },
-          locationNode: true,
-          _count: {
-            select: {
-              units: { where: { isDeleted: false } },
-              blocks: { where: { isDeleted: false } },
-            },
-          },
+    // Build include object - try with locationNode first, fallback if P2022 error
+    const baseInclude = {
+      units: {
+        where: { isDeleted: false },
+        select: {
+          id: true,
+          unitName: true,
+          status: true,
+          monthlyRent: true,
         },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.property.count({ where }),
-    ]);
+      },
+      blocks: {
+        where: { isDeleted: false },
+      },
+      _count: {
+        select: {
+          units: { where: { isDeleted: false } },
+          blocks: { where: { isDeleted: false } },
+        },
+      },
+    };
+
+    let properties: any[];
+    let total: number;
+    
+    try {
+      // Try with locationNode included
+      [properties, total] = await Promise.all([
+        prisma.property.findMany({
+          where,
+          include: {
+            ...baseInclude,
+            locationNode: true,
+          },
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.property.count({ where }),
+      ]);
+    } catch (error: any) {
+      // If P2022 error (column not found), retry without locationNode
+      if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist') || error?.message?.includes('Location')) {
+        logger.warn('LocationNode relation not available, fetching without it:', error.message);
+        [properties, total] = await Promise.all([
+          prisma.property.findMany({
+            where,
+            include: baseInclude,
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.property.count({ where }),
+        ]);
+      } else {
+        throw error;
+      }
+    }
 
     // Extract property IDs for batch queries
     const propertyIds = properties.map(p => p.id);
@@ -1353,6 +1383,20 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
     const data = createPropertySchema.parse(req.body);
 
+    // Validate TID if provided - must be unique across Property, Deal, and Client
+    if (data.tid) {
+      try {
+        await validateTID(data.tid.trim());
+      } catch (tidError: any) {
+        logger.error('TID validation failed:', tidError);
+        return errorResponse(
+          res,
+          tidError.message || 'TID validation failed. This TID may already exist in Property, Deal, or Client.',
+          400
+        );
+      }
+    }
+
     // Generate unique property code (only if column exists)
     const propertyCode = await generatePropertyCode();
 
@@ -1380,6 +1424,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         dealerId: data.dealerId || undefined,
         locationId: data.locationId ?? null,
         subsidiaryOptionId: data.subsidiaryOptionId ?? null,
+        tid: data.tid?.trim() || null,
         ...(propertyCode && { propertyCode }),
         ...(documentsData && { documents: documentsData }),
       },
@@ -1464,19 +1509,42 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       (finalUpdateData as any).locationId = data.locationId ?? null;
     }
 
-    const property = await prisma.property.update({
-      where: { id },
-      data: finalUpdateData,
-      include: {
-        units: {
-          where: { isDeleted: false },
+    // Try to update with locationNode, fallback if P2022 error
+    let property: any;
+    try {
+      property = await prisma.property.update({
+        where: { id },
+        data: finalUpdateData,
+        include: {
+          units: {
+            where: { isDeleted: false },
+          },
+          blocks: {
+            where: { isDeleted: false },
+          },
+          locationNode: true,
         },
-        blocks: {
-          where: { isDeleted: false },
-        },
-        locationNode: true,
-      },
-    });
+      });
+    } catch (error: any) {
+      // If P2022 error (column not found), retry without locationNode
+      if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist') || error?.message?.includes('Location')) {
+        logger.warn('LocationNode relation not available in update, fetching without it:', error.message);
+        property = await prisma.property.update({
+          where: { id },
+          data: finalUpdateData,
+          include: {
+            units: {
+              where: { isDeleted: false },
+            },
+            blocks: {
+              where: { isDeleted: false },
+            },
+          },
+        });
+      } else {
+        throw error;
+      }
+    }
 
     // Extract amenities from documents field if stored there
     let amenities: string[] = [];
