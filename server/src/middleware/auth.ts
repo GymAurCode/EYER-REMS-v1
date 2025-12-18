@@ -28,15 +28,22 @@ export const authenticate = async (
   next: NextFunction
 ): Promise<void> => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '') || authHeader?.replace('bearer ', '');
     const requestDeviceId = req.headers['x-device-id'] as string;
 
     if (!token) {
       logger.warn('Authentication failed: No token provided', {
         path: req.path,
         method: req.method,
+        hasAuthHeader: !!authHeader,
+        authHeaderValue: authHeader ? 'present' : 'missing',
+        allHeaders: Object.keys(req.headers),
       });
-      res.status(401).json({ error: 'No token provided' });
+      res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'No authorization token provided. Please log in again.',
+      });
       return;
     }
 

@@ -102,6 +102,9 @@ api.interceptors.request.use(
     const token = localStorage.getItem('token')
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
+    } else if (typeof window !== 'undefined' && !config.url?.includes('/auth/')) {
+      // Log warning if token is missing for non-auth endpoints (only on client-side)
+      console.warn('API request made without authentication token:', config.url)
     }
 
     // Add deviceId header for session isolation
