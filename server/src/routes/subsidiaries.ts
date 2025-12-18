@@ -39,6 +39,11 @@ const updateOptionSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
+// Health check route for subsidiaries (for debugging)
+router.get('/health', (req: any, res: Response) => {
+  res.json({ status: 'ok', message: 'Subsidiaries router is working' });
+});
+
 // Get all subsidiaries grouped by location
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {

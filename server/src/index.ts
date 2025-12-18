@@ -177,6 +177,14 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     path.includes('/health')) {
     return next();
   }
+  
+  // Log CSRF check for debugging
+  logger.info('CSRF check for POST/PUT/DELETE', {
+    method: req.method,
+    path: path,
+    url: req.url,
+  });
+  
   return csrfProtection(req as any, res, next);
 });
 
@@ -214,7 +222,15 @@ app.use('/api/finance-reports', financeReportsRoutes);
 app.use('/api/properties-enhanced', propertiesEnhancedRoutes);
 app.use('/api/crm-enhanced', crmEnhancedRoutes);
 app.use('/api/advanced-options', advancedOptionsRoutes);
-app.use('/api/subsidiaries', subsidiaryRoutes);
+// Register subsidiaries routes with logging
+app.use('/api/subsidiaries', (req: Request, res: Response, next: NextFunction) => {
+  logger.info('Subsidiaries route registered - request incoming', {
+    method: req.method,
+    path: req.path,
+    url: req.url,
+  });
+  next();
+}, subsidiaryRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/tenant-portal', tenantPortalRoutes);
 app.use('/api/bulk', bulkRoutes);

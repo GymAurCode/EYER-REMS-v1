@@ -142,7 +142,19 @@ export const csrfProtection = async (
     const deviceId = req.headers['x-device-id'] as string;
     const csrfToken = req.headers['x-csrf-token'] as string;
 
+    logger.info('CSRF protection check', {
+      method: req.method,
+      path: req.path,
+      hasSessionId: !!sessionId,
+      hasCsrfToken: !!csrfToken,
+      hasDeviceId: !!deviceId,
+    });
+
     if (!sessionId) {
+      logger.warn('CSRF protection failed: No session ID', {
+        method: req.method,
+        path: req.path,
+      });
       res.status(403).json({
         error: 'CSRF protection: Session ID required',
         message: 'Session ID must be provided in X-Session-Id header',
@@ -151,6 +163,10 @@ export const csrfProtection = async (
     }
 
     if (!csrfToken) {
+      logger.warn('CSRF protection failed: No CSRF token', {
+        method: req.method,
+        path: req.path,
+      });
       res.status(403).json({
         error: 'CSRF protection: Token required',
         message: 'CSRF token must be provided in X-CSRF-Token header',
@@ -162,12 +178,22 @@ export const csrfProtection = async (
     const isValid = await verifyCsrfToken(csrfToken, sessionId, deviceId);
 
     if (!isValid) {
+      logger.warn('CSRF protection failed: Invalid token', {
+        method: req.method,
+        path: req.path,
+        sessionId: sessionId?.substring(0, 8) + '...',
+      });
       res.status(403).json({
         error: 'CSRF protection: Invalid token',
         message: 'CSRF token is invalid or expired',
       });
       return;
     }
+
+    logger.info('CSRF protection passed', {
+      method: req.method,
+      path: req.path,
+    });
 
     // Attach token to request for potential reuse
     req.csrfToken = csrfToken;
