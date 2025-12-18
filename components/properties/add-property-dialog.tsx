@@ -487,13 +487,18 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
       setLoadingSubsidiaries(true)
       try {
-        const response = await apiService.subsidiaries.getOptionsByLocation(form.locationId)
+        const response = await apiService.subsidiaries.getOptionsByLocation(form.locationId).catch((err) => {
+          console.warn('Failed to load subsidiary options:', err)
+          return { data: { data: [] } }
+        })
         const data = (response.data as any)?.data || response.data || []
-        // Transform options
-        const options = data.map((opt: any) => ({
-          id: opt.id,
-          name: opt.name,
-        }))
+        // Transform options - ensure it's an array
+        const options = Array.isArray(data)
+          ? data.map((opt: any) => ({
+              id: opt.id,
+              name: opt.name,
+            }))
+          : []
         setSubsidiaryOptions(options)
 
         // If current subsidiaryOptionId is not in the options, clear it
@@ -502,6 +507,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         }
       } catch (error: any) {
         // Silently fail - subsidiaries might not exist for this location
+        console.warn('Error loading subsidiary options:', error)
         setSubsidiaryOptions([])
       } finally {
         setLoadingSubsidiaries(false)

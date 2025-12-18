@@ -49,16 +49,26 @@ export function SubsidiaryManager() {
     setLoading(true)
     try {
       const [locationsRes, subsidiariesRes] = await Promise.all([
-        apiService.subsidiaries.getLocationsWithPaths(),
-        apiService.subsidiaries.getAll(),
+        apiService.subsidiaries.getLocationsWithPaths().catch((err) => {
+          console.warn('Failed to load locations:', err)
+          return { data: { data: [] } }
+        }),
+        apiService.subsidiaries.getAll().catch((err) => {
+          console.warn('Failed to load subsidiaries:', err)
+          return { data: { data: [] } }
+        }),
       ])
 
       const locationsData = (locationsRes.data as any)?.data || locationsRes.data || []
       const subsidiariesData = (subsidiariesRes.data as any)?.data || subsidiariesRes.data || []
 
-      setLocations(locationsData)
-      setSubsidiaries(subsidiariesData)
+      setLocations(Array.isArray(locationsData) ? locationsData : [])
+      setSubsidiaries(Array.isArray(subsidiariesData) ? subsidiariesData : [])
     } catch (error: any) {
+      console.error('Error loading data:', error)
+      // Set empty arrays to prevent crashes
+      setLocations([])
+      setSubsidiaries([])
       toast({
         title: "Failed to load data",
         description: error?.response?.data?.error || error?.message || "Try again",

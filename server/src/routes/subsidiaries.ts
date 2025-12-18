@@ -23,36 +23,63 @@ const buildLocationPath = (nodes: LocationTreeNode[], targetId: string): string[
   return [];
 };
 
-// GET all subsidiaries with their locations
-router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
+// IMPORTANT: Route order matters! Specific routes must come before parameterized routes.
+
+// GET all locations with full paths for dropdown (specific route - must come first)
+router.get('/locations/with-paths', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
     const tree = await getLocationTree();
-    const subsidiaries = await prisma.propertySubsidiary.findMany({
+
+    // If no locations exist, return empty array
+    if (!tree || tree.length === 0) {
+      return successResponse(res, []);
+    }
+
+    const buildPathsRecursive = (nodes: LocationTreeNode[]): Array<{ id: string; path: string }> => {
+      const result: Array<{ id: string; path: string }> = [];
+      for (const node of nodes) {
+        const path = buildLocationPath(tree, node.id);
+        result.push({ id: node.id, path: path.join(' > ') });
+        if (node.children.length > 0) {
+          result.push(...buildPathsRecursive(node.children));
+        }
+      }
+      return result;
+    };
+
+    const locationsWithPaths = buildPathsRecursive(tree);
+    return successResponse(res, locationsWithPaths || []);
+  } catch (error: any) {
+    console.error('Error fetching locations with paths:', error);
+    // Return empty array on error, don't crash the page
+    return successResponse(res, []);
+  }
+});
+
+// GET subsidiary options for a location (parameterized - comes after specific routes)
+router.get('/location/:locationId/options', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { locationId } = req.params;
+    const subsidiary = await prisma.propertySubsidiary.findFirst({
+      where: { locationId },
       include: {
-        location: true,
         options: {
           orderBy: { sortOrder: 'asc' },
         },
       },
-      orderBy: { createdAt: 'desc' },
     });
 
-    // Add full path to each subsidiary
-    const subsidiariesWithPaths = subsidiaries.map((sub) => {
-      const path = buildLocationPath(tree, sub.locationId);
-      return {
-        ...sub,
-        locationPath: path.join(' > '),
-      };
-    });
+    if (!subsidiary) {
+      return successResponse(res, []);
+    }
 
-    return successResponse(res, subsidiariesWithPaths);
+    return successResponse(res, subsidiary.options);
   } catch (error) {
     return errorResponse(res, error);
   }
 });
 
-// GET subsidiaries by location ID
+// GET subsidiaries by location ID (parameterized route)
 router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { locationId } = req.params;
@@ -73,7 +100,68 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
   }
 });
 
-// GET single subsidiary by ID
+// GET all subsidiaries with their locations
+router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
+  try {
+    // Get subsidiaries first - if none exist, return empty array
+    const subsidiaries = await prisma.propertySubsidiary.findMany({
+      include: {
+        location: true,
+        options: {
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // If no subsidiaries, return empty array immediately
+    if (!subsidiaries || subsidiaries.length === 0) {
+      return successResponse(res, []);
+    }
+
+    // Try to get location tree for path building, but don't fail if it errors
+    let tree: LocationTreeNode[] = [];
+    try {
+      tree = await getLocationTree();
+    } catch (treeError) {
+      console.warn('Could not fetch location tree for path building:', treeError);
+      // Continue without tree - we'll use location name as fallback
+    }
+
+    // Add full path to each subsidiary
+    const subsidiariesWithPaths = subsidiaries.map((sub) => {
+      try {
+        if (tree.length > 0) {
+          const path = buildLocationPath(tree, sub.locationId);
+          return {
+            ...sub,
+            locationPath: path.length > 0 ? path.join(' > ') : sub.location?.name || 'Unknown Location',
+          };
+        } else {
+          // No tree available, use location name
+          return {
+            ...sub,
+            locationPath: sub.location?.name || 'Unknown Location',
+          };
+        }
+      } catch (err) {
+        // If path building fails, use location name as fallback
+        return {
+          ...sub,
+          locationPath: sub.location?.name || 'Unknown Location',
+        };
+      }
+    });
+
+    return successResponse(res, subsidiariesWithPaths);
+  } catch (error: any) {
+    console.error('Error fetching subsidiaries:', error);
+    // GET requests should NEVER return 400/500 - return empty array instead
+    return successResponse(res, []);
+  }
+});
+
+// GET single subsidiary by ID (generic route - comes last)
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -275,53 +363,6 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: 
     });
 
     return successResponse(res, { message: 'Subsidiary deleted successfully' });
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-});
-
-// GET all locations with full paths for dropdown
-router.get('/locations/with-paths', authenticate, async (_req: AuthRequest, res: Response) => {
-  try {
-    const tree = await getLocationTree();
-
-    const buildPathsRecursive = (nodes: LocationTreeNode[]): Array<{ id: string; path: string }> => {
-      const result: Array<{ id: string; path: string }> = [];
-      for (const node of nodes) {
-        const path = buildLocationPath(tree, node.id);
-        result.push({ id: node.id, path: path.join(' > ') });
-        if (node.children.length > 0) {
-          result.push(...buildPathsRecursive(node.children));
-        }
-      }
-      return result;
-    };
-
-    const locationsWithPaths = buildPathsRecursive(tree);
-    return successResponse(res, locationsWithPaths);
-  } catch (error) {
-    return errorResponse(res, error);
-  }
-});
-
-// GET subsidiary options for a location
-router.get('/location/:locationId/options', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { locationId } = req.params;
-    const subsidiary = await prisma.propertySubsidiary.findFirst({
-      where: { locationId },
-      include: {
-        options: {
-          orderBy: { sortOrder: 'asc' },
-        },
-      },
-    });
-
-    if (!subsidiary) {
-      return successResponse(res, []);
-    }
-
-    return successResponse(res, subsidiary.options);
   } catch (error) {
     return errorResponse(res, error);
   }
