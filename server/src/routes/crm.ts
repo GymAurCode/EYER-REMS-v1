@@ -289,7 +289,13 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, clients, 200, pagination);
   } catch (error: any) {
-    logger.error('Failed to fetch clients:', error);
+    logger.error('Failed to fetch clients:', {
+      error: error?.message || error,
+      code: error?.code,
+      meta: error?.meta,
+      stack: error?.stack,
+      query: req.query,
+    });
     return errorResponse(res, error);
   }
 });

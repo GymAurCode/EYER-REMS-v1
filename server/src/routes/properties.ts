@@ -107,13 +107,21 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         
         try {
           const subtreeIds = await getSubtreeIds(locationFilterId);
-          where.locationId = { in: subtreeIds };
-        } catch (error) {
-          logger.error('Error fetching subtree IDs:', error);
+          if (subtreeIds.length === 0) {
+            // Location doesn't exist or has no subtree
+            logger.warn('Location not found or empty subtree:', { locationId: locationFilterId });
+            where.locationId = { in: [] }; // Return empty results
+          } else {
+            where.locationId = { in: subtreeIds };
+          }
+        } catch (error: any) {
+          logger.error('Error fetching subtree IDs:', { error, locationId: locationFilterId });
+          // If it's a database error, return 400; otherwise return 500
+          const statusCode = error?.code?.startsWith('P') ? 400 : 500;
           return errorResponse(
             res,
-            'Failed to fetch location subtree. The location may not exist.',
-            400
+            `Failed to fetch location subtree: ${error?.message || 'Unknown error'}`,
+            statusCode
           );
         }
       }
@@ -404,7 +412,13 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     return successResponse(res, propertiesWithStats, 200, pagination);
   } catch (error) {
-    logger.error('Get properties error:', error);
+    logger.error('Get properties error:', {
+      error: error instanceof Error ? error.message : error,
+      code: (error as any)?.code,
+      meta: (error as any)?.meta,
+      stack: error instanceof Error ? error.stack : undefined,
+      query: req.query,
+    });
     return errorResponse(res, error);
   }
 });
@@ -1439,7 +1453,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     if ('locationId' in data) {
-      updateData.location = data.locationId ?? null;
+      updateData.locationId = data.locationId ?? null;
     }
 
     const property = await prisma.property.update({
