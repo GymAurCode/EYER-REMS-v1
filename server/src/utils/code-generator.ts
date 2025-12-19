@@ -17,8 +17,20 @@ export async function generatePropertyCode(): Promise<string> {
     const dd = String(now.getDate()).padStart(2, '0');
     const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
     code = `PROP-${yyyy}${mm}${dd}-${rand}`;
-    const existing = await prisma.property.findUnique({ where: { propertyCode: code } });
-    exists = !!existing;
+    try {
+      const existing = await prisma.property.findUnique({ 
+        where: { propertyCode: code },
+        select: { id: true, propertyCode: true },
+      });
+      exists = !!existing;
+    } catch (err: any) {
+      // If propertyCode column doesn't exist, break the loop and return the code
+      if (err?.code === 'P2022' || err?.message?.includes('column') || err?.message?.includes('does not exist')) {
+        exists = false;
+      } else {
+        throw err;
+      }
+    }
   }
   return code;
 }

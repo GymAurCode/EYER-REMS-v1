@@ -16,6 +16,24 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 
+// Helper function to check if a column exists in a table
+const columnExists = async (tableName: string, columnName: string): Promise<boolean> => {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND LOWER(table_name) = LOWER(${tableName})
+          AND LOWER(column_name) = LOWER(${columnName})
+      ) AS "exists";
+    `;
+    return Boolean(rows[0]?.exists);
+  } catch (error) {
+    return false;
+  }
+};
+
 export type ModulePrefix = 
   | 'prop'  // Properties
   | 'pay'   // Payments
@@ -373,30 +391,72 @@ export async function validateTID(
   const client = tx || prisma;
   const trimmedTid = tid.trim();
 
-  // Check for conflicts across Property, Deal, and Client
-  const [existingProperty, existingDeal, existingClient] = await Promise.all([
-    client.property.findFirst({
-      where: {
-        tid: trimmedTid,
-        ...(excludePropertyId ? { id: { not: excludePropertyId } } : {}),
-      },
-    }),
-    client.deal.findFirst({
-      where: {
-        tid: trimmedTid,
-        isDeleted: false,
-        deletedAt: null,
-        ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
-      },
-    }),
-    client.client.findFirst({
-      where: {
-        tid: trimmedTid,
-        isDeleted: false,
-        ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
-      },
-    }),
+  // Check if tid column exists in each table before querying
+  const [propertyTidExists, dealTidExists, clientTidExists] = await Promise.all([
+    columnExists('Property', 'tid'),
+    columnExists('Deal', 'tid'),
+    columnExists('Client', 'tid'),
   ]);
+
+  // Check for conflicts across Property, Deal, and Client
+  // Only query tables where tid column exists
+  const queries: Promise<any>[] = [];
+  
+  if (propertyTidExists) {
+    queries.push(
+      client.property.findFirst({
+        where: {
+          tid: trimmedTid,
+          ...(excludePropertyId ? { id: { not: excludePropertyId } } : {}),
+        },
+        select: {
+          id: true,
+          tid: true,
+        },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  if (dealTidExists) {
+    queries.push(
+      client.deal.findFirst({
+        where: {
+          tid: trimmedTid,
+          isDeleted: false,
+          deletedAt: null,
+          ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
+        },
+        select: {
+          id: true,
+          tid: true,
+        },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  if (clientTidExists) {
+    queries.push(
+      client.client.findFirst({
+        where: {
+          tid: trimmedTid,
+          isDeleted: false,
+          ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
+        },
+        select: {
+          id: true,
+          tid: true,
+        },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  const [existingProperty, existingDeal, existingClient] = await Promise.all(queries);
 
   if (existingProperty) {
     throw new Error(`TID "${trimmedTid}" already exists for a property`);
