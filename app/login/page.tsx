@@ -53,7 +53,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex bg-gradient-to-br from-purple-950 via-purple-900 to-indigo-950">
+    <div className="min-h-screen flex bg-gradient-to-br from-purple-950 via-black to-indigo-950">
       {/* Left Panel - EYERCALL Details */}
       <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
         {/* Background with grid pattern */}
@@ -68,7 +68,7 @@ export default function LoginPage() {
           }}
         />
         {/* Blurred background image effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-purple-800/30 to-indigo-900/40 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-black/60 to-indigo-900/40 backdrop-blur-sm" />
         
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           {/* Logo and Header */}
@@ -160,7 +160,7 @@ export default function LoginPage() {
           }}
         />
         {/* Blurred background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-950 via-indigo-950/50 to-purple-900 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-br from-purple-950/80 via-black/60 to-indigo-950/80 backdrop-blur-sm" />
 
         <div className="relative z-10 w-full max-w-md">
           {/* Secure Access Portal Badge */}

@@ -36,7 +36,7 @@ const router = (express as any).Router();
 
 // Validation schemas
 const createPropertySchema = z.object({
-  tid: z.string().min(1, 'TID is required').optional(),
+  tid: z.string().optional(),
   name: z.string().min(1, 'Property name is required'),
   type: z.string().min(1, 'Property type is required'),
   address: z.string().min(1, 'Address is required'),
@@ -1478,19 +1478,62 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
-    const data = createPropertySchema.parse(req.body);
+    
+    // Parse and validate request body
+    let data;
+    try {
+      data = createPropertySchema.parse(req.body);
+    } catch (validationError: any) {
+      logger.error('Property validation error:', {
+        error: validationError,
+        errors: validationError.errors,
+        body: req.body,
+      });
+      
+      if (validationError instanceof ZodError) {
+        return errorResponse(
+          res,
+          'Validation error',
+          400,
+          validationError.errors.map((e) => ({ 
+            path: e.path.join('.'), 
+            message: e.message,
+            code: e.code,
+          }))
+        );
+      }
+      throw validationError;
+    }
 
     // Validate TID if provided - must be unique across Property, Deal, and Client
     if (data.tid) {
-      try {
-        await validateTID(data.tid.trim());
-      } catch (tidError: any) {
-        logger.error('TID validation failed:', tidError);
-        return errorResponse(
-          res,
-          tidError.message || 'TID validation failed. This TID may already exist in Property, Deal, or Client.',
-          400
-        );
+      // Only validate TID if the tid column exists
+      const tidColumnExists = await columnExists('Property', 'tid');
+      if (tidColumnExists) {
+        try {
+          await validateTID(data.tid.trim());
+        } catch (tidError: any) {
+          logger.error('TID validation failed:', {
+            tid: data.tid,
+            error: tidError?.message || tidError,
+            stack: tidError?.stack,
+            code: tidError?.code,
+          });
+          
+          // Check if it's a database column error
+          if (tidError?.code?.startsWith('P') || tidError?.message?.includes('column') || tidError?.message?.includes('does not exist')) {
+            logger.warn('TID column may not exist in all tables, skipping TID validation');
+            // Continue without TID validation if column doesn't exist
+          } else {
+            return errorResponse(
+              res,
+              tidError?.message || 'TID validation failed. This TID may already exist in Property, Deal, or Client.',
+              400
+            );
+          }
+        }
+      } else {
+        logger.debug('TID column does not exist, skipping TID validation');
       }
     }
 
