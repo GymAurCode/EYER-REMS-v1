@@ -25,32 +25,14 @@ const buildLocationPath = (nodes: LocationTreeNode[], targetId: string): string[
 
 // IMPORTANT: Route order matters! Specific routes must come before parameterized routes.
 
-// GET all locations with full paths for dropdown (specific route - must come first)
+// GET all leaf locations with full paths for dropdown (specific route - must come first)
 router.get('/locations/with-paths', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
-    const tree = await getLocationTree();
-
-    // If no locations exist, return empty array
-    if (!tree || tree.length === 0) {
-      return successResponse(res, []);
-    }
-
-    const buildPathsRecursive = (nodes: LocationTreeNode[]): Array<{ id: string; path: string }> => {
-      const result: Array<{ id: string; path: string }> = [];
-      for (const node of nodes) {
-        const path = buildLocationPath(tree, node.id);
-        result.push({ id: node.id, path: path.join(' > ') });
-        if (node.children.length > 0) {
-          result.push(...buildPathsRecursive(node.children));
-        }
-      }
-      return result;
-    };
-
-    const locationsWithPaths = buildPathsRecursive(tree);
-    return successResponse(res, locationsWithPaths || []);
+    const { getLeafLocationsWithPaths } = await import('../services/location');
+    const leaves = await getLeafLocationsWithPaths();
+    return successResponse(res, leaves || []);
   } catch (error: any) {
-    console.error('Error fetching locations with paths:', error);
+    console.error('Error fetching leaf locations with paths:', error);
     // Return empty array on error, don't crash the page
     return successResponse(res, []);
   }
@@ -61,8 +43,17 @@ router.get('/location/:locationId/options', authenticate, async (req: AuthReques
   try {
     const { locationId } = req.params;
     const subsidiary = await prisma.propertySubsidiary.findFirst({
-      where: { locationId },
+      where: { 
+        locationId,
+        isActive: true,
+      },
       include: {
+        location: {
+          select: {
+            isLeaf: true,
+            isActive: true,
+          },
+        },
         options: {
           orderBy: { sortOrder: 'asc' },
         },
@@ -70,6 +61,11 @@ router.get('/location/:locationId/options', authenticate, async (req: AuthReques
     });
 
     if (!subsidiary) {
+      return successResponse(res, []);
+    }
+
+    // Only return options if location is active and leaf
+    if (!subsidiary.location.isActive || !subsidiary.location.isLeaf) {
       return successResponse(res, []);
     }
 
@@ -84,9 +80,19 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
   try {
     const { locationId } = req.params;
     const subsidiaries = await prisma.propertySubsidiary.findMany({
-      where: { locationId },
+      where: { 
+        locationId,
+        isActive: true,
+      },
       include: {
-        location: true,
+        location: {
+          select: {
+            id: true,
+            name: true,
+            isLeaf: true,
+            isActive: true,
+          },
+        },
         options: {
           orderBy: { sortOrder: 'asc' },
         },
@@ -94,7 +100,12 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
       orderBy: { createdAt: 'desc' },
     });
 
-    return successResponse(res, subsidiaries);
+    // Filter to only return subsidiaries for active leaf locations
+    const validSubsidiaries = subsidiaries.filter(
+      (sub) => sub.location.isActive && sub.location.isLeaf
+    );
+
+    return successResponse(res, validSubsidiaries);
   } catch (error) {
     return errorResponse(res, error);
   }
@@ -103,10 +114,24 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
 // GET all subsidiaries with their locations
 router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
-    // Get subsidiaries first - if none exist, return empty array
+    // Get only active subsidiaries for active leaf locations
     const subsidiaries = await prisma.propertySubsidiary.findMany({
+      where: {
+        isActive: true,
+        location: {
+          isActive: true,
+          isLeaf: true,
+        },
+      },
       include: {
-        location: true,
+        location: {
+          select: {
+            id: true,
+            name: true,
+            isLeaf: true,
+            isActive: true,
+          },
+        },
         options: {
           orderBy: { sortOrder: 'asc' },
         },
@@ -128,30 +153,32 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
       // Continue without tree - we'll use location name as fallback
     }
 
-    // Add full path to each subsidiary
-    const subsidiariesWithPaths = subsidiaries.map((sub) => {
-      try {
-        if (tree.length > 0) {
-          const path = buildLocationPath(tree, sub.locationId);
-          return {
-            ...sub,
-            locationPath: path.length > 0 ? path.join(' > ') : sub.location?.name || 'Unknown Location',
-          };
-        } else {
-          // No tree available, use location name
+    // Add full path to each subsidiary, but only if location is still active
+    const subsidiariesWithPaths = subsidiaries
+      .filter((sub) => sub.location.isActive && sub.location.isLeaf) // Double-check: only active leaf locations
+      .map((sub) => {
+        try {
+          if (tree.length > 0) {
+            const path = buildLocationPath(tree, sub.locationId);
+            // Only return if path was successfully built (all parents are active)
+            if (path.length > 0) {
+              return {
+                ...sub,
+                locationPath: path.join(' > '),
+              };
+            }
+          }
+          // Fallback: use location name if path building fails
           return {
             ...sub,
             locationPath: sub.location?.name || 'Unknown Location',
           };
+        } catch (err) {
+          // If path building fails, skip this subsidiary
+          return null;
         }
-      } catch (err) {
-        // If path building fails, use location name as fallback
-        return {
-          ...sub,
-          locationPath: sub.location?.name || 'Unknown Location',
-        };
-      }
-    });
+      })
+      .filter((sub): sub is NonNullable<typeof sub> => sub !== null); // Remove null entries
 
     return successResponse(res, subsidiariesWithPaths);
   } catch (error: any) {
@@ -195,13 +222,21 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
   try {
     const payload = createSubsidiarySchema.parse(req.body);
 
-    // Check if location exists
+    // Check if location exists and is a leaf
     const location = await prisma.location.findUnique({
       where: { id: payload.locationId },
     });
 
     if (!location) {
       return errorResponse(res, 'Location not found', 404);
+    }
+
+    if (!location.isActive) {
+      return errorResponse(res, 'Cannot create subsidiary for inactive location', 400);
+    }
+
+    if (!location.isLeaf) {
+      return errorResponse(res, 'Subsidiaries can only be created for leaf locations (locations without children)', 400);
     }
 
     // Check if subsidiary already exists for this location
@@ -219,6 +254,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
         data: {
           locationId: payload.locationId,
           name: location.name, // Store location name for quick reference
+          isActive: true,
         },
       });
 
@@ -321,7 +357,7 @@ router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Res
   }
 });
 
-// DELETE subsidiary
+// DELETE subsidiary (soft delete)
 router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
@@ -347,22 +383,24 @@ router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: 
       );
     }
 
-    await prisma.propertySubsidiary.delete({
+    // Soft delete: set isActive = false
+    await prisma.propertySubsidiary.update({
       where: { id },
+      data: { isActive: false },
     });
 
     await createAuditLog({
       entityType: 'property_subsidiary',
       entityId: id,
       action: 'delete',
-      description: `Subsidiary deleted for location ${existing.location.name}`,
+      description: `Subsidiary deactivated for location ${existing.location.name}`,
       oldValues: existing,
       userId: req.user?.id,
       userName: req.user?.username,
       req,
     });
 
-    return successResponse(res, { message: 'Subsidiary deleted successfully' });
+    return successResponse(res, { message: 'Subsidiary deactivated successfully' });
   } catch (error) {
     return errorResponse(res, error);
   }

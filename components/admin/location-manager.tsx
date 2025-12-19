@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Loader2, PlusCircle, Edit3, Trash2, RefreshCw, MapPin } from "lucide-react"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
+import { useLocationTree } from "@/hooks/use-location-tree"
+import { LOCATION_LEVELS } from "@/lib/location"
 
 type LocationForm = {
   label: string
@@ -20,12 +22,88 @@ type LocationForm = {
 export function LocationManager() {
   const { toast } = useToast()
   const { options, isLoading: loadingOptions, mutate: refreshOptions } = useDropdownOptions("property.location")
+  const { tree: locationTree, refresh: refreshLocationTree } = useLocationTree()
   const [newLocation, setNewLocation] = useState<LocationForm>({ label: "", value: "", sortOrder: 0 })
   const [editingLocationId, setEditingLocationId] = useState<string | null>(null)
   const [editingPayload, setEditingPayload] = useState<LocationForm>({ label: "", value: "", sortOrder: 0 })
   const [busy, setBusy] = useState(false)
 
   const sortedLocations = options.slice().sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+
+  // Helper function to find or create location in tree
+  const findOrCreateLocation = async (name: string, type: string, parentId: string | null = null): Promise<string> => {
+    // First, try to find existing location by searching the tree
+    const findInTree = (nodes: any[], targetName: string, targetType: string, targetParentId: string | null): string | null => {
+      for (const node of nodes) {
+        const nodeParentId = node.parentId || null
+        if (node.name.toLowerCase() === targetName.toLowerCase() && 
+            node.type.toLowerCase() === targetType.toLowerCase() && 
+            nodeParentId === targetParentId) {
+          return node.id
+        }
+        if (node.children && node.children.length > 0) {
+          const found = findInTree(node.children, targetName, targetType, targetParentId)
+          if (found) return found
+        }
+      }
+      return null
+    }
+
+    // Check in current tree first
+    const existingId = findInTree(locationTree || [], name, type, parentId)
+    if (existingId) {
+      return existingId
+    }
+
+    // Try to create new location (API will handle uniqueness constraints)
+    try {
+      const response = await apiService.locations.create({
+        name: name.trim(),
+        type: type,
+        parentId: parentId,
+      })
+      const responseData = response.data as any
+      const created = responseData?.data ?? responseData
+      // Refresh tree after creation
+      await refreshLocationTree()
+      return created.id
+    } catch (error: any) {
+      // If location already exists (unique constraint), refresh tree and find it
+      if (error?.response?.status === 409 || error?.response?.status === 400 || 
+          error?.response?.data?.message?.toLowerCase().includes('unique') ||
+          error?.response?.data?.message?.toLowerCase().includes('already exists')) {
+        await refreshLocationTree()
+        // Wait a moment for SWR to update
+        await new Promise(resolve => setTimeout(resolve, 200))
+        // Get the tree again - we need to trigger a re-render, so we'll search via API
+        // For now, just try searching by getting children of parent or searching
+        try {
+          if (parentId) {
+            const childrenRes = await apiService.locations.getChildren(parentId)
+            const childrenData = (childrenRes.data as any)?.data ?? childrenRes.data ?? []
+            const found = Array.isArray(childrenData) 
+              ? childrenData.find((loc: any) => 
+                  loc.name.toLowerCase() === name.toLowerCase() && 
+                  loc.type.toLowerCase() === type.toLowerCase()
+                )
+              : null
+            if (found) return found.id
+          } else {
+            // Search root level - get tree and find in roots
+            const treeRes = await apiService.locations.getTree()
+            const treeData = (treeRes.data as any)?.data ?? treeRes.data ?? []
+            const foundId = findInTree(Array.isArray(treeData) ? treeData : [], name, type, parentId)
+            if (foundId) return foundId
+          }
+        } catch (searchError) {
+          console.warn("Failed to search for existing location:", searchError)
+        }
+        // If we still can't find it, the create might have succeeded, so throw original error
+        throw error
+      }
+      throw error
+    }
+  }
 
   const handleAddLocation = async () => {
     if (!newLocation.label.trim()) {
@@ -45,18 +123,54 @@ export function LocationManager() {
 
     setBusy(true)
     try {
-      await apiService.advanced.createOption("property.location", {
-        label: newLocation.label.trim(),
-        value: newLocation.label.trim(),
-        sortOrder: newLocation.sortOrder,
+      // Parse the hierarchy
+      const parts = newLocation.label.split(">").map(p => p.trim()).filter(p => p.length > 0)
+      
+      if (parts.length === 0) {
+        toast({ title: "Invalid format", description: "Please provide at least one location name", variant: "destructive" })
+        return
+      }
+
+      // Create locations in tree hierarchy
+      let parentId: string | null = null
+      const createdIds: string[] = []
+
+      for (let i = 0; i < parts.length; i++) {
+        const locationName = parts[i]
+        const levelType = LOCATION_LEVELS[Math.min(i, LOCATION_LEVELS.length - 1)]
+        
+        const locationId = await findOrCreateLocation(locationName, levelType, parentId)
+        createdIds.push(locationId)
+        parentId = locationId
+      }
+
+      // Also add to dropdown options for backward compatibility
+      try {
+        await apiService.advanced.createOption("property.location", {
+          label: newLocation.label.trim(),
+          value: newLocation.label.trim(),
+          sortOrder: newLocation.sortOrder,
+        })
+      } catch (dropdownError) {
+        // Ignore if dropdown option creation fails - tree creation is more important
+        console.warn("Failed to create dropdown option:", dropdownError)
+      }
+
+      toast({ 
+        title: "Location added successfully", 
+        description: `Created ${parts.length} location level(s) in the hierarchy` 
       })
-      toast({ title: "Location added successfully" })
       setNewLocation({ label: "", value: "", sortOrder: 0 })
-      await refreshOptions()
+      
+      // Refresh both systems - force revalidation for location tree
+      await Promise.all([
+        refreshOptions(), 
+        refreshLocationTree({ revalidate: true })
+      ])
     } catch (error: any) {
       toast({
         title: "Failed to add location",
-        description: error?.response?.data?.error || error?.message || "Try again",
+        description: error?.response?.data?.error || error?.response?.data?.message || error?.message || "Try again",
         variant: "destructive",
       })
     } finally {
@@ -129,6 +243,78 @@ export function LocationManager() {
     }
   }
 
+  // Migrate existing dropdown locations to tree system
+  const migrateDropdownToTree = async () => {
+    if (sortedLocations.length === 0) {
+      toast({ title: "No locations to migrate", description: "All locations are already in the tree system" })
+      return
+    }
+
+    setBusy(true)
+    try {
+      let migrated = 0
+      let skipped = 0
+
+      for (const location of sortedLocations) {
+        const parts = location.label.split(">").map((p: string) => p.trim()).filter((p: string) => p.length > 0)
+        if (parts.length === 0) continue
+
+        try {
+          // Check if this location path already exists in tree
+          const findPathInTree = (nodes: any[], pathParts: string[], index: number, currentParentId: string | null): boolean => {
+            if (index >= pathParts.length) return true
+            
+            const targetName = pathParts[index]
+            const targetType = LOCATION_LEVELS[Math.min(index, LOCATION_LEVELS.length - 1)]
+            
+            for (const node of nodes) {
+              if (node.name.toLowerCase() === targetName.toLowerCase() && 
+                  node.type.toLowerCase() === targetType.toLowerCase() && 
+                  node.parentId === currentParentId) {
+                if (index === pathParts.length - 1) return true
+                if (node.children) {
+                  return findPathInTree(node.children, pathParts, index + 1, node.id)
+                }
+              }
+            }
+            return false
+          }
+
+          const exists = findPathInTree(locationTree || [], parts, 0, null)
+          if (exists) {
+            skipped++
+            continue
+          }
+
+          // Create in tree
+          let parentId: string | null = null
+          for (let i = 0; i < parts.length; i++) {
+            const locationName = parts[i]
+            const levelType = LOCATION_LEVELS[Math.min(i, LOCATION_LEVELS.length - 1)]
+            parentId = await findOrCreateLocation(locationName, levelType, parentId)
+          }
+          migrated++
+        } catch (error) {
+          console.warn(`Failed to migrate location: ${location.label}`, error)
+        }
+      }
+
+      await refreshLocationTree({ revalidate: true })
+      toast({ 
+        title: "Migration complete", 
+        description: `Migrated ${migrated} location(s), skipped ${skipped} existing location(s)` 
+      })
+    } catch (error: any) {
+      toast({
+        title: "Migration failed",
+        description: error?.response?.data?.error || error?.message || "Try again",
+        variant: "destructive",
+      })
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Ensure property.location category exists
   useEffect(() => {
     const ensureCategory = async () => {
@@ -165,10 +351,18 @@ export function LocationManager() {
             Create and manage hierarchical locations for properties. Use format: Country &gt; State &gt; City
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => refreshOptions()}>
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => Promise.all([refreshOptions(), refreshLocationTree()])}>
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+          {sortedLocations.length > 0 && (
+            <Button variant="outline" size="sm" onClick={migrateDropdownToTree} disabled={busy}>
+              <Loader2 className={`h-4 w-4 ${busy ? "animate-spin" : ""}`} />
+              Migrate to Tree
+            </Button>
+          )}
+        </div>
       </div>
 
       <Separator />

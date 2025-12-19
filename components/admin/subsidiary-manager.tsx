@@ -62,7 +62,20 @@ export function SubsidiaryManager() {
       const locationsData = (locationsRes.data as any)?.data || locationsRes.data || []
       const subsidiariesData = (subsidiariesRes.data as any)?.data || subsidiariesRes.data || []
 
-      setLocations(Array.isArray(locationsData) ? locationsData : [])
+      // Sort locations by path depth (shallow to deep) and then alphabetically
+      // This ensures parent locations appear before their children
+      const sortedLocations = Array.isArray(locationsData) 
+        ? locationsData.slice().sort((a: LocationOption, b: LocationOption) => {
+            const depthA = a.path.split(' > ').length
+            const depthB = b.path.split(' > ').length
+            if (depthA !== depthB) {
+              return depthA - depthB
+            }
+            return a.path.localeCompare(b.path)
+          })
+        : []
+
+      setLocations(sortedLocations)
       setSubsidiaries(Array.isArray(subsidiariesData) ? subsidiariesData : [])
     } catch (error: any) {
       console.error('Error loading data:', error)
@@ -353,21 +366,36 @@ export function SubsidiaryManager() {
               <Select
                 value={selectedLocationId}
                 onValueChange={setSelectedLocationId}
-                disabled={busy}
+                disabled={busy || loading}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select location" />
+                  <SelectValue placeholder={loading ? "Loading locations..." : "Select location"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {locations.map((loc) => (
-                    <SelectItem key={loc.id} value={loc.id}>
-                      {loc.path}
-                    </SelectItem>
-                  ))}
+                  {loading ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      Loading locations...
+                    </div>
+                  ) : locations.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                      No locations available. Add locations in Advanced Options &gt; Location & Subsidiary.
+                    </div>
+                  ) : (
+                    locations.map((loc) => (
+                      <SelectItem key={loc.id} value={loc.id}>
+                        {loc.path}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               {selectedLocationId && (
                 <p className="text-xs text-muted-foreground">Selected: {selectedLocationPath}</p>
+              )}
+              {!loading && locations.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Add locations in Advanced Options &gt; Location & Subsidiary to create subsidiaries.
+                </p>
               )}
             </div>
 

@@ -167,6 +167,8 @@ model Location {
   name         String
   type         String
   parentId     String?
+  isLeaf       Boolean              @default(true)
+  isActive     Boolean              @default(true)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
   parent       Location?            @relation("LocationHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
@@ -178,12 +180,15 @@ model Location {
   @@unique([type, name, parentId])
   @@index([parentId])
   @@index([type])
+  @@index([isLeaf])
+  @@index([isActive])
 }
 
 model PropertySubsidiary {
   id         String             @id @default(uuid())
   locationId String
   name       String
+  isActive   Boolean            @default(true)
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @updatedAt
   location   Location           @relation(fields: [locationId], references: [id], onDelete: Cascade)
@@ -193,6 +198,7 @@ model PropertySubsidiary {
 
   @@unique([locationId, name])
   @@index([locationId])
+  @@index([isActive])
 }
 
 model SubsidiaryOption {

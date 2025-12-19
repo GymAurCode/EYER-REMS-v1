@@ -13,8 +13,6 @@ import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon, Refresh
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
-import { useLocationTree } from "@/hooks/use-location-tree"
-import { LocationTreeNode } from "@/lib/location"
 
 type PropertyForm = {
   tid: string // Transaction ID - unique across Property, Deal, Client
@@ -357,43 +355,52 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [uploadingImage, setUploadingImage] = useState(false)
   const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string }>>([])
   const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
-  const { tree: locationTree, isLoading: loadingLocations, refresh: refreshLocations } = useLocationTree()
+  const [leafLocations, setLeafLocations] = useState<Array<{ id: string; path: string }>>([])
+  const [loadingLocations, setLoadingLocations] = useState(false)
+  const [locationError, setLocationError] = useState<string | null>(null)
+  const [locationLoadTimeout, setLocationLoadTimeout] = useState(false)
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const isEdit = Boolean(propertyId)
 
-  // Refresh locations when dialog opens
+  // Load leaf locations when dialog opens
   useEffect(() => {
     if (open) {
-      refreshLocations()
-    }
-  }, [open, refreshLocations])
-
-  // Flatten location tree into a list with full paths
-  const flattenedLocations = useMemo(() => {
-    const flatten = (nodes: LocationTreeNode[], path: string[] = []): Array<{ id: string; path: string; name: string }> => {
-      const result: Array<{ id: string; path: string; name: string }> = []
-      
-      for (const node of nodes) {
-        const currentPath = [...path, node.name]
-        const fullPath = currentPath.join(" > ")
+      const loadLeafLocations = async () => {
+        setLoadingLocations(true)
+        setLocationError(null)
+        setLocationLoadTimeout(false)
         
-        result.push({
-          id: node.id,
-          path: fullPath,
-          name: node.name,
-        })
-        
-        if (node.children && node.children.length > 0) {
-          result.push(...flatten(node.children, currentPath))
+        try {
+          const response = await apiService.locations.getLeaves()
+          const data = (response.data as any)?.data || response.data || []
+          setLeafLocations(Array.isArray(data) ? data : [])
+        } catch (error: any) {
+          console.error('Failed to load leaf locations:', error)
+          setLocationError('Failed to load locations')
+          setLeafLocations([])
+        } finally {
+          setLoadingLocations(false)
         }
       }
       
-      return result
+      loadLeafLocations()
+      
+      // Set a timeout to prevent infinite loading
+      const timeout = setTimeout(() => {
+        if (loadingLocations) {
+          setLocationLoadTimeout(true)
+        }
+      }, 10000) // 10 second timeout
+      
+      return () => {
+        clearTimeout(timeout)
+        setLocationLoadTimeout(false)
+      }
+    } else {
+      setLeafLocations([])
     }
-    
-    return flatten(locationTree || [])
-  }, [locationTree])
+  }, [open])
 
   useEffect(() => {
     if (!open) {
@@ -996,11 +1003,24 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             type="button"
                             variant="ghost"
                             size="sm"
-                            onClick={() => refreshLocations()}
-                            disabled={loadingLocations}
+                            onClick={async () => {
+                              setLocationLoadTimeout(false)
+                              setLoadingLocations(true)
+                              try {
+                                const response = await apiService.locations.getLeaves()
+                                const data = (response.data as any)?.data || response.data || []
+                                setLeafLocations(Array.isArray(data) ? data : [])
+                                setLocationError(null)
+                              } catch (err: any) {
+                                setLocationError('Failed to load locations')
+                              } finally {
+                                setLoadingLocations(false)
+                              }
+                            }}
+                            disabled={loadingLocations && !locationLoadTimeout}
                             className="h-7 text-xs"
                           >
-                            {loadingLocations ? (
+                            {loadingLocations && !locationLoadTimeout ? (
                               <Loader2 className="h-3 w-3 animate-spin mr-1" />
                             ) : (
                               <RefreshCw className="h-3 w-3 mr-1" />
@@ -1011,27 +1031,66 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                         <Select
                           value={form.locationId || "none"}
                           onValueChange={(val) => {
-                            const selectedLocation = flattenedLocations.find((loc) => loc.id === val)
+                            const selectedLocation = leafLocations.find((loc) => loc.id === val)
                             setForm((p) => ({
                               ...p,
-                              location: selectedLocation?.name || "",
+                              location: selectedLocation?.path || "",
                               locationId: val === "none" ? null : val,
                               subsidiaryOptionId: null, // Reset subsidiary when location changes
                             }))
                           }}
-                          disabled={loadingLocations}
+                          disabled={loadingLocations && !locationLoadTimeout && !locationError}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder={loadingLocations ? "Loading locations..." : "Select location"} />
+                            <SelectValue placeholder={
+                              loadingLocations && !locationLoadTimeout && !locationError 
+                                ? "Loading locations..." 
+                                : locationError || locationLoadTimeout
+                                ? "Error loading locations - Click Refresh"
+                                : "Select location"
+                            } />
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="none">None</SelectItem>
-                            {flattenedLocations.length === 0 && !loadingLocations ? (
+                            {locationError || locationLoadTimeout ? (
                               <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-                                No locations available. Add locations in Advanced Options &gt; Locations.
+                                <p className="mb-2">Failed to load locations.</p>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async (e) => {
+                                    e.preventDefault()
+                                    e.stopPropagation()
+                                    setLocationLoadTimeout(false)
+                                    setLoadingLocations(true)
+                                    try {
+                                      const response = await apiService.locations.getLeaves()
+                                      const data = (response.data as any)?.data || response.data || []
+                                      setLeafLocations(Array.isArray(data) ? data : [])
+                                      setLocationError(null)
+                                    } catch (err: any) {
+                                      setLocationError('Failed to load locations')
+                                    } finally {
+                                      setLoadingLocations(false)
+                                    }
+                                  }}
+                                >
+                                  <RefreshCw className="h-3 w-3 mr-1" />
+                                  Retry
+                                </Button>
+                              </div>
+                            ) : leafLocations.length === 0 && !loadingLocations ? (
+                              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                No locations available. Add locations in Advanced Options &gt; Location & Subsidiary.
+                              </div>
+                            ) : loadingLocations && !locationLoadTimeout ? (
+                              <div className="px-2 py-6 text-center text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin mx-auto mb-2" />
+                                Loading locations...
                               </div>
                             ) : (
-                              flattenedLocations.map((loc) => (
+                              leafLocations.map((loc) => (
                                 <SelectItem key={loc.id} value={loc.id}>
                                   {loc.path}
                                 </SelectItem>
@@ -1039,14 +1098,24 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             )}
                           </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                          Select the location for this property. Add locations in Advanced Options &gt; Locations.
-                        </p>
+                        {(locationError || locationLoadTimeout) && (
+                          <p className="text-xs text-destructive">
+                            Error loading locations. Click Refresh to retry.
+                          </p>
+                        )}
+                        {!locationError && !locationLoadTimeout && (
+                          <p className="text-xs text-muted-foreground">
+                            Select a leaf location (only locations without children can be selected). Add locations in Advanced Options &gt; Location & Subsidiary.
+                          </p>
+                        )}
                       </div>
 
                       {form.locationId && (
                         <div className="space-y-2">
                           <Label>Property Subsidiary</Label>
+                          <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded">
+                            Location: {leafLocations.find((loc) => loc.id === form.locationId)?.path || "N/A"}
+                          </div>
                           <Select
                             value={form.subsidiaryOptionId || "none"}
                             onValueChange={(val) =>
@@ -1071,7 +1140,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                           </Select>
                           {subsidiaryOptions.length === 0 && !loadingSubsidiaries && (
                             <p className="text-xs text-muted-foreground">
-                              No subsidiaries available for this location. Add them in Advanced Options &gt; Subsidiary.
+                              No subsidiaries available for this location. Add them in Advanced Options &gt; Location & Subsidiary.
                             </p>
                           )}
                         </div>

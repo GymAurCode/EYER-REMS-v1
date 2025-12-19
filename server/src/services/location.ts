@@ -108,6 +108,9 @@ const fetchSubtreeRows = async (locationId: string): Promise<LocationRow[]> => {
 
 export const getLocationTree = async (): Promise<LocationTreeNode[]> => {
   const rows = await prisma.location.findMany({
+    where: {
+      isActive: true,
+    },
     orderBy: {
       name: 'asc',
     },
@@ -150,7 +153,10 @@ export const getLocationById = (locationId: string) => {
 
 export const getLocationChildren = async (parentId: string) => {
   return prisma.location.findMany({
-    where: { parentId },
+    where: { 
+      parentId,
+      isActive: true,
+    },
     orderBy: { name: 'asc' },
   });
 };
@@ -163,6 +169,7 @@ export const searchLocations = async (query: string) => {
         contains: query,
         mode: 'insensitive',
       },
+      isActive: true,
     },
     orderBy: {
       name: 'asc',
@@ -186,6 +193,8 @@ export const createLocation = async (input: {
     name: normalizeName(input.name),
     type: normalizeType(input.type),
     parentId: input.parentId || null,
+    isLeaf: true, // New locations are leaf by default
+    isActive: true,
   };
 
   if (payload.parentId) {
@@ -193,12 +202,30 @@ export const createLocation = async (input: {
     if (!parent) {
       throw new Error('Parent location not found');
     }
+    if (!parent.isActive) {
+      throw new Error('Cannot add child to inactive location');
+    }
   }
 
   try {
-    return prisma.location.create({
-      data: payload,
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the new location
+      const newLocation = await tx.location.create({
+        data: payload,
+      });
+
+      // If it has a parent, mark parent as non-leaf
+      if (payload.parentId) {
+        await tx.location.update({
+          where: { id: payload.parentId },
+          data: { isLeaf: false },
+        });
+      }
+
+      return newLocation;
     });
+
+    return result;
   } catch (error) {
     handleUniqueError(error);
   }
@@ -214,6 +241,11 @@ export const updateLocation = async (
     parentId: updates.parentId === undefined ? undefined : updates.parentId,
   };
 
+  const current = await getLocationById(id);
+  if (!current) {
+    throw new Error('Location not found');
+  }
+
   if (normalized.parentId) {
     const parent = await getLocationById(normalized.parentId);
     if (!parent) {
@@ -221,6 +253,9 @@ export const updateLocation = async (
     }
     if (parent.id === id) {
       throw new Error('Location cannot be its own parent');
+    }
+    if (!parent.isActive) {
+      throw new Error('Cannot move to inactive location');
     }
 
     const subtree = await getSubtreeIds(id);
@@ -230,22 +265,90 @@ export const updateLocation = async (
   }
 
   try {
-    return prisma.location.update({
-      where: { id },
-      data: {
-        ...(normalized.name ? { name: normalized.name } : {}),
-        ...(normalized.type ? { type: normalized.type } : {}),
-        ...(normalized.parentId !== undefined ? { parentId: normalized.parentId } : {}),
-      },
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.location.update({
+        where: { id },
+        data: {
+          ...(normalized.name ? { name: normalized.name } : {}),
+          ...(normalized.type ? { type: normalized.type } : {}),
+          ...(normalized.parentId !== undefined ? { parentId: normalized.parentId } : {}),
+        },
+      });
+
+      // Handle parent changes for isLeaf logic
+      if (normalized.parentId !== undefined) {
+        const oldParentId = current.parentId;
+        const newParentId = normalized.parentId;
+
+        // If moving to a new parent, mark new parent as non-leaf
+        if (newParentId && newParentId !== oldParentId) {
+          await tx.location.update({
+            where: { id: newParentId },
+            data: { isLeaf: false },
+          });
+        }
+
+        // If old parent has no more children, mark it as leaf
+        if (oldParentId && oldParentId !== newParentId) {
+          const oldParentChildren = await tx.location.count({
+            where: {
+              parentId: oldParentId,
+              isActive: true,
+            },
+          });
+          if (oldParentChildren === 0) {
+            await tx.location.update({
+              where: { id: oldParentId },
+              data: { isLeaf: true },
+            });
+          }
+        }
+      }
+
+      return updated;
     });
   } catch (error) {
     handleUniqueError(error);
   }
 };
 
-export const deleteLocation = (id: string) => {
-  return prisma.location.delete({
-    where: { id },
+export const deleteLocation = async (id: string) => {
+  const location = await getLocationById(id);
+  if (!location) {
+    throw new Error('Location not found');
+  }
+
+  // Soft delete: set isActive = false
+  return prisma.$transaction(async (tx) => {
+    // Deactivate the location
+    await tx.location.update({
+      where: { id },
+      data: { isActive: false },
+    });
+
+    // Deactivate all related subsidiaries
+    await tx.propertySubsidiary.updateMany({
+      where: { locationId: id },
+      data: { isActive: false },
+    });
+
+    // If this location had a parent, check if parent should become leaf
+    if (location.parentId) {
+      const parentChildren = await tx.location.count({
+        where: {
+          parentId: location.parentId,
+          isActive: true,
+        },
+      });
+      if (parentChildren === 0) {
+        await tx.location.update({
+          where: { id: location.parentId },
+          data: { isLeaf: true },
+        });
+      }
+    }
+
+    return { message: 'Location deactivated successfully' };
   });
 };
 
@@ -303,5 +406,74 @@ export const countPropertiesInSubtree = async (locationId: string) => {
   `;
   const result = await prisma.$queryRaw<Array<{ count: bigint }>>(query);
   return Number(result[0]?.count ?? 0);
+};
+
+/**
+ * Get all leaf locations (only selectable locations)
+ * Returns locations with isLeaf = true AND isActive = true
+ */
+export const getLeafLocations = async () => {
+  return prisma.location.findMany({
+    where: {
+      isLeaf: true,
+      isActive: true,
+    },
+    orderBy: {
+      name: 'asc',
+    },
+  });
+};
+
+/**
+ * Build full path for a location (e.g., "Pakistan > Punjab > Lahore > DHA")
+ * Only includes active locations in the path
+ */
+const buildLocationPathRecursive = async (locationId: string): Promise<string[]> => {
+  const location = await getLocationById(locationId);
+  if (!location || !location.isActive) {
+    return [];
+  }
+
+  if (!location.parentId) {
+    return [location.name];
+  }
+
+  const parentPath = await buildLocationPathRecursive(location.parentId);
+  // Only add to path if parent path was successfully built (all parents are active)
+  if (parentPath.length === 0) {
+    return [];
+  }
+  return [...parentPath, location.name];
+};
+
+/**
+ * Get all leaf locations with their full paths
+ * Format: "Country > State > City > Area"
+ * Only includes locations where all parents in the path are active
+ */
+export const getLeafLocationsWithPaths = async (): Promise<Array<{ id: string; path: string }>> => {
+  const leafLocations = await getLeafLocations();
+  
+  const locationsWithPaths = await Promise.all(
+    leafLocations.map(async (location) => {
+      const path = await buildLocationPathRecursive(location.id);
+      // Only include if path was successfully built (all parents are active)
+      if (path.length === 0) {
+        return null;
+      }
+      return {
+        id: location.id,
+        path: path.join(' > '),
+      };
+    })
+  );
+
+  // Filter out null entries (locations with inactive parents)
+  const validPaths = locationsWithPaths.filter((item): item is { id: string; path: string } => item !== null);
+
+  // Sort by path alphabetically
+  validPaths.sort((a, b) => a.path.localeCompare(b.path));
+
+  return validPaths;
 };
 

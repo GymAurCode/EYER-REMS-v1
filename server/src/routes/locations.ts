@@ -11,6 +11,7 @@ import {
   getLocationTree,
   searchLocations,
   updateLocation,
+  getLeafLocationsWithPaths,
 } from '../services/location';
 
 const router = (express as any).Router();
@@ -48,6 +49,17 @@ router.get('/tree', authenticate, async (_req: AuthRequest, res: Response) => {
     return successResponse(res, tree);
   } catch (error) {
     logger.error('Fetch location tree error:', error);
+    return errorResponse(res, error);
+  }
+});
+
+// GET leaf locations with full paths (for dropdowns)
+router.get('/leaves', authenticate, async (_req: AuthRequest, res: Response) => {
+  try {
+    const leaves = await getLeafLocationsWithPaths();
+    return successResponse(res, leaves);
+  } catch (error) {
+    logger.error('Fetch leaf locations error:', error);
     return errorResponse(res, error);
   }
 });

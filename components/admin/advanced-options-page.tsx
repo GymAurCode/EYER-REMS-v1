@@ -36,18 +36,14 @@ export function AdvancedOptionsPage() {
 
       <Card className="p-6">
         <Tabs defaultValue="categories" className="w-full">
-          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 mb-6">
+          <TabsList className="grid w-full grid-cols-4 lg:grid-cols-6 mb-6">
             <TabsTrigger value="categories" className="flex items-center gap-2">
               <FolderTree className="h-4 w-4" />
               <span className="hidden sm:inline">Categories</span>
             </TabsTrigger>
-            <TabsTrigger value="locations" className="flex items-center gap-2">
+            <TabsTrigger value="location-subsidiary" className="flex items-center gap-2">
               <MapPin className="h-4 w-4" />
-              <span className="hidden sm:inline">Locations</span>
-            </TabsTrigger>
-            <TabsTrigger value="subsidiaries" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Subsidiary</span>
+              <span className="hidden sm:inline">Location & Subsidiary</span>
             </TabsTrigger>
             <TabsTrigger value="installments" className="flex items-center gap-2">
               <CreditCard className="h-4 w-4" />
@@ -71,11 +67,8 @@ export function AdvancedOptionsPage() {
             <DropdownManager />
           </TabsContent>
 
-          <TabsContent value="locations" className="mt-0">
+          <TabsContent value="location-subsidiary" className="mt-0 space-y-6">
             <LocationManager />
-          </TabsContent>
-
-          <TabsContent value="subsidiaries" className="mt-0">
             <SubsidiaryManager />
           </TabsContent>
 

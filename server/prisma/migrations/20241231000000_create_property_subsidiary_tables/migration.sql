@@ -31,9 +31,14 @@ CREATE INDEX IF NOT EXISTS "SubsidiaryOption_propertySubsidiaryId_idx" ON "Subsi
 CREATE INDEX IF NOT EXISTS "SubsidiaryOption_sortOrder_idx" ON "SubsidiaryOption"("sortOrder");
 
 -- AddForeignKey: PropertySubsidiary.locationId -> Location.id
+-- Only add foreign key if Location table exists
 DO $$
 BEGIN
-    IF NOT EXISTS (
+    IF EXISTS (
+        SELECT 1 FROM information_schema.tables 
+        WHERE table_schema = current_schema() 
+        AND table_name = 'Location'
+    ) AND NOT EXISTS (
         SELECT 1 FROM pg_constraint 
         WHERE conname = 'PropertySubsidiary_locationId_fkey'
     ) THEN

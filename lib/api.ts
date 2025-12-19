@@ -507,6 +507,7 @@ export const apiService = {
 
   locations: {
     getTree: () => api.get('/locations/tree'),
+    getLeaves: () => api.get('/locations/leaves'),
     getChildren: (id: string) => api.get(`/locations/${id}/children`),
     getSubtree: (id: string) => api.get(`/locations/${id}/subtree`),
     search: (query: string) => api.get(`/locations/search?q=${encodeURIComponent(query)}`),
