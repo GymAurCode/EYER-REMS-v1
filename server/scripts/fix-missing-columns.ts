@@ -64,6 +64,66 @@ async function fixMissingColumns() {
     if (added) changesMade = true;
   }
 
+  // Check and add subsidiaryOptionId to Property table
+  console.log('\n📋 Checking Property.subsidiaryOptionId...\n');
+  const addedSubsidiary = await addColumnIfMissing('Property', 'subsidiaryOptionId', 'TEXT', null);
+  if (addedSubsidiary) {
+    changesMade = true;
+    // Create index if column was added
+    try {
+      const indexResult = await prisma.$queryRaw<Array<{ indexname: string }>>`
+        SELECT indexname 
+        FROM pg_indexes 
+        WHERE schemaname = current_schema()
+          AND tablename = 'Property'
+          AND indexname = 'Property_subsidiaryOptionId_idx'
+      `;
+      
+      if (indexResult.length === 0) {
+        console.log('📊 Creating index on Property.subsidiaryOptionId...');
+        await prisma.$executeRawUnsafe(
+          `CREATE INDEX "Property_subsidiaryOptionId_idx" ON "Property"("subsidiaryOptionId")`
+        );
+        console.log('✅ Created index on Property.subsidiaryOptionId');
+        changesMade = true;
+      }
+    } catch (error: any) {
+      console.warn('⚠️  Could not create index on Property.subsidiaryOptionId:', error.message);
+    }
+
+    // Add foreign key constraint if SubsidiaryOption table exists
+    try {
+      const tableExists = await prisma.$queryRaw<Array<{ table_name: string }>>`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = current_schema()
+          AND LOWER(table_name) = 'subsidiaryoption'
+      `;
+
+      if (tableExists.length > 0) {
+        const fkExists = await prisma.$queryRaw<Array<{ constraint_name: string }>>`
+          SELECT constraint_name 
+          FROM information_schema.table_constraints 
+          WHERE table_schema = current_schema()
+            AND table_name = 'Property'
+            AND constraint_name = 'Property_subsidiaryOptionId_fkey'
+        `;
+
+        if (fkExists.length === 0) {
+          console.log('📊 Creating foreign key constraint Property.subsidiaryOptionId -> SubsidiaryOption.id...');
+          await prisma.$executeRawUnsafe(
+            `ALTER TABLE "Property" ADD CONSTRAINT "Property_subsidiaryOptionId_fkey" 
+             FOREIGN KEY ("subsidiaryOptionId") REFERENCES "SubsidiaryOption"("id") ON DELETE SET NULL ON UPDATE CASCADE`
+          );
+          console.log('✅ Created foreign key constraint');
+          changesMade = true;
+        }
+      }
+    } catch (error: any) {
+      console.warn('⚠️  Could not create foreign key constraint:', error.message);
+    }
+  }
+
   // Add unique index on tid if column was added
   for (const table of tidTables) {
     const exists = await checkColumnExists(table, 'tid');

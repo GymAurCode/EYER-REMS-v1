@@ -21,9 +21,10 @@ npm run fix-missing-columns
 
 This script will:
 1. ✅ Add `tid` column to Property, Client, and Deal tables (if missing)
-2. ✅ Add `transactionType` and `purpose` columns to FinanceLedger (if missing)
-3. ✅ Create necessary indexes
-4. ✅ Set default values for existing data
+2. ✅ Add `subsidiaryOptionId` column to Property table (if missing)
+3. ✅ Add `transactionType` and `purpose` columns to FinanceLedger (if missing)
+4. ✅ Create necessary indexes and foreign key constraints
+5. ✅ Set default values for existing data
 
 ## After Running the Fix
 
@@ -74,8 +75,9 @@ npx prisma generate
    - Will now show better error messages
 
 ### New Scripts:
-- `fix-missing-columns.ts` - Comprehensive script to fix all missing columns
+- `fix-missing-columns.ts` - Comprehensive script to fix all missing columns (includes tid, subsidiaryOptionId, transactionType, purpose)
 - `check-and-fix-migration.ts` - Diagnostic script to check column status
+- `fix-subsidiary-option-id.sql` - Quick SQL fix for subsidiaryOptionId column
 
 ## Verification
 

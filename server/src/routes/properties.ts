@@ -186,30 +186,95 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     
     // Check if tid column exists - if not, we'll use select to exclude it
     const tidColumnExists = await columnExists('Property', 'tid');
+    // Check if propertySubsidiaryId column exists - if not, we'll exclude it from select
+    const propertySubsidiaryIdExists = await columnExists('Property', 'propertySubsidiaryId');
+    
+    // If either column is missing, use select from the start to avoid errors
+    const needsSelect = !tidColumnExists || !propertySubsidiaryIdExists;
+    
+    // Helper function to build select fields
+    const buildSelectFields = () => {
+      const selectFields: any = {
+        id: true,
+        name: true,
+        type: true,
+        address: true,
+        location: true,
+        subsidiaryOptionId: true,
+        status: true,
+        imageUrl: true,
+        description: true,
+        yearBuilt: true,
+        totalArea: true,
+        totalUnits: true,
+        dealerId: true,
+        isDeleted: true,
+        createdAt: true,
+        updatedAt: true,
+        propertyCode: true,
+        city: true,
+        documents: true,
+        ownerName: true,
+        ownerPhone: true,
+        previousTenants: true,
+        rentAmount: true,
+        rentEscalationPercentage: true,
+        securityDeposit: true,
+        size: true,
+        title: true,
+        locationId: true,
+        manualUniqueId: true,
+        units: baseInclude.units,
+        blocks: baseInclude.blocks,
+        _count: baseInclude._count,
+      };
+      // Only include columns if they exist
+      if (tidColumnExists) {
+        selectFields.tid = true;
+      }
+      if (propertySubsidiaryIdExists) {
+        selectFields.propertySubsidiaryId = true;
+      }
+      return selectFields;
+    };
     
     try {
-      // Try with locationNode included
-      [properties, total] = await Promise.all([
-        prisma.property.findMany({
-          where,
-          include: {
-            ...baseInclude,
-            locationNode: true,
-          },
-          orderBy: { createdAt: 'desc' },
-          skip,
-          take: limit,
-        }),
-        prisma.property.count({ where }),
-      ]);
+      if (needsSelect) {
+        // Use select if any columns are missing (silently handled - no need to log on every request)
+        [properties, total] = await Promise.all([
+          prisma.property.findMany({
+            where,
+            select: buildSelectFields(),
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.property.count({ where }),
+        ]);
+      } else {
+        // Try with locationNode included (only if all columns exist)
+        [properties, total] = await Promise.all([
+          prisma.property.findMany({
+            where,
+            include: {
+              ...baseInclude,
+              locationNode: true,
+            },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+          }),
+          prisma.property.count({ where }),
+        ]);
+      }
     } catch (error: any) {
       // If P2022 error (column not found), handle gracefully
       if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
         const errorMessage = error?.message || '';
         const isLocationError = errorMessage.includes('Location') || errorMessage.includes('locationNode');
         
-        if (isLocationError) {
-          // Try without locationNode
+        if (isLocationError && !needsSelect) {
+          // Try without locationNode (only if we haven't already used select)
           logger.warn('LocationNode relation not available, fetching without it:', error.message);
           try {
             [properties, total] = await Promise.all([
@@ -223,118 +288,32 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
               prisma.property.count({ where }),
             ]);
           } catch (retryError: any) {
-            // If still failing and tid doesn't exist, use select to exclude it
-            if (!tidColumnExists && (retryError?.code === 'P2022' || retryError?.message?.includes('tid'))) {
-              logger.warn('TID column missing, using select to exclude it:', retryError.message);
-              [properties, total] = await Promise.all([
-                prisma.property.findMany({
-                  where,
-                  select: {
-                    id: true,
-                    name: true,
-                    type: true,
-                    address: true,
-                    location: true,
-                    propertySubsidiary: true,
-                    subsidiaryOptionId: true,
-                    status: true,
-                    imageUrl: true,
-                    description: true,
-                    yearBuilt: true,
-                    totalArea: true,
-                    totalUnits: true,
-                    dealerId: true,
-                    isDeleted: true,
-                    createdAt: true,
-                    updatedAt: true,
-                    propertyCode: true,
-                    city: true,
-                    documents: true,
-                    ownerName: true,
-                    ownerPhone: true,
-                    previousTenants: true,
-                    rentAmount: true,
-                    rentEscalationPercentage: true,
-                    securityDeposit: true,
-                    size: true,
-                    title: true,
-                    locationId: true,
-                    propertySubsidiaryId: true,
-                    manualUniqueId: true,
-                    // tid: excluded - column doesn't exist
-                    units: baseInclude.units,
-                    blocks: baseInclude.blocks,
-                    _count: baseInclude._count,
-                  },
-                  orderBy: { createdAt: 'desc' },
-                  skip,
-                  take: limit,
-                }),
-                prisma.property.count({ where }),
-              ]);
-            } else {
-              logger.error('Database column missing after retry. Migration required. Error:', retryError.message);
-              throw retryError;
-            }
+            // If still failing, fall back to select
+            logger.warn('Fallback to select after include failed:', retryError.message);
+            [properties, total] = await Promise.all([
+              prisma.property.findMany({
+                where,
+                select: buildSelectFields(),
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+              }),
+              prisma.property.count({ where }),
+            ]);
           }
-        } else if (!tidColumnExists && errorMessage.includes('tid')) {
-          // Missing tid column - use select to exclude it
-          logger.warn('TID column missing, using select to exclude it:', error.message);
+        } else {
+          // Use select as fallback for any column error
+          logger.warn('Column error detected, using select to exclude missing columns:', error.message);
           [properties, total] = await Promise.all([
             prisma.property.findMany({
               where,
-              select: {
-                id: true,
-                name: true,
-                type: true,
-                address: true,
-                location: true,
-                propertySubsidiary: true,
-                subsidiaryOptionId: true,
-                status: true,
-                imageUrl: true,
-                description: true,
-                yearBuilt: true,
-                totalArea: true,
-                totalUnits: true,
-                dealerId: true,
-                isDeleted: true,
-                createdAt: true,
-                updatedAt: true,
-                propertyCode: true,
-                city: true,
-                documents: true,
-                ownerName: true,
-                ownerPhone: true,
-                previousTenants: true,
-                rentAmount: true,
-                rentEscalationPercentage: true,
-                securityDeposit: true,
-                size: true,
-                title: true,
-                locationId: true,
-                propertySubsidiaryId: true,
-                manualUniqueId: true,
-                // tid: excluded - column doesn't exist
-                units: baseInclude.units,
-                blocks: baseInclude.blocks,
-                _count: baseInclude._count,
-              },
+              select: buildSelectFields(),
               orderBy: { createdAt: 'desc' },
               skip,
               take: limit,
             }),
             prisma.property.count({ where }),
           ]);
-        } else {
-          // Missing column error (other than tid)
-          logger.error('Database column not found. This usually means migrations need to be run.', {
-            error: error.message,
-            code: error.code,
-            meta: error.meta,
-            hint: 'Run: npx prisma migrate deploy (in server directory)'
-          });
-          throw error;
         }
       } else {
         throw error;

@@ -145,15 +145,59 @@ export function errorResponse(
         break;
       case 'P2022':
         // Column not found - usually means migration hasn't been run
-        const columnName = error.meta?.column_name || error.meta?.target || 'unknown';
-        const tableName = error.meta?.table_name || error.meta?.target || 'unknown';
+        // Try to extract column and table names from error message
+        let columnName = 'unknown';
+        let tableName = 'unknown';
+        
+        // Check error.meta first
+        if (error.meta) {
+          columnName = (error.meta as any).column_name || (error.meta as any).column || columnName;
+          tableName = (error.meta as any).table_name || (error.meta as any).table || tableName;
+        }
+        
+        // Parse error message if meta doesn't have the info
+        const errorMsg = error.message || '';
+        if (columnName === 'unknown' || tableName === 'unknown') {
+          // Try to extract from error message patterns like:
+          // "The column `ColumnName` does not exist in the current database."
+          // "Column `ColumnName` does not exist in table `TableName`."
+          const columnMatch = errorMsg.match(/column\s+[`"]?(\w+)[`"]?/i);
+          if (columnMatch) {
+            columnName = columnMatch[1];
+          }
+          
+          const tableMatch = errorMsg.match(/table\s+[`"]?(\w+)[`"]?/i) || 
+                            errorMsg.match(/from\s+[`"]?(\w+)[`"]?/i);
+          if (tableMatch) {
+            tableName = tableMatch[1];
+          }
+          
+          // Try to extract from Prisma's error format
+          if (errorMsg.includes('Property') && errorMsg.includes('.')) {
+            const propertyMatch = errorMsg.match(/Property\.(\w+)/);
+            if (propertyMatch) {
+              tableName = 'Property';
+              columnName = propertyMatch[1];
+            }
+          }
+          
+          if (errorMsg.includes('FinanceLedger') && errorMsg.includes('.')) {
+            const ledgerMatch = errorMsg.match(/FinanceLedger\.(\w+)/);
+            if (ledgerMatch) {
+              tableName = 'FinanceLedger';
+              columnName = ledgerMatch[1];
+            }
+          }
+        }
+        
         errorMessage = `Database column "${columnName}" not found in table "${tableName}". Please run database migrations.`;
         errorDetails = { 
           code: error.code, 
           meta: error.meta,
           missingColumn: columnName,
           table: tableName,
-          hint: 'This usually means the database schema is out of sync with the code. Run: npx prisma migrate deploy (in server directory)'
+          originalMessage: errorMsg,
+          hint: 'This usually means the database schema is out of sync with the code. Run: npm run fix-missing-columns (in server directory)'
         };
         break;
       default:
@@ -175,6 +219,15 @@ export function errorResponse(
     stack: error instanceof Error ? error.stack : undefined,
     path: (res.req as any)?.path,
     method: (res.req as any)?.method,
+    // Log full Prisma error for P2022 to help debug
+    ...(error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022' ? {
+      prismaError: {
+        code: error.code,
+        meta: error.meta,
+        message: error.message,
+        clientVersion: error.clientVersion,
+      }
+    } : {}),
   });
 
   // Sanitize error response for production
