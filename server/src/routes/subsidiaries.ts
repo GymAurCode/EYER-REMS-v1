@@ -50,6 +50,10 @@ router.get('/location/:locationId/options', authenticate, async (req: AuthReques
       include: {
         location: {
           select: {
+            id: true,
+            name: true,
+            type: true,
+            parentId: true,
             isLeaf: true,
             isActive: true,
           },
@@ -64,13 +68,43 @@ router.get('/location/:locationId/options', authenticate, async (req: AuthReques
       return successResponse(res, []);
     }
 
-    // Only return options if location is active and leaf
-    if (!subsidiary.location.isActive || !subsidiary.location.isLeaf) {
-      return successResponse(res, []);
+    // Only return options if location is active and leaf (if columns exist)
+    const location = subsidiary.location as any;
+    if (location.isActive !== undefined && location.isLeaf !== undefined) {
+      if (!location.isActive || !location.isLeaf) {
+        return successResponse(res, []);
+      }
     }
 
     return successResponse(res, subsidiary.options);
-  } catch (error) {
+  } catch (error: any) {
+    // If columns don't exist, try without isActive filter
+    if (error?.message?.includes('isActive') || error?.message?.includes('isLeaf') || error?.message?.includes('does not exist')) {
+      try {
+        const { locationId } = req.params;
+        const subsidiary = await prisma.propertySubsidiary.findFirst({
+          where: { 
+            locationId,
+          },
+          include: {
+            location: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                parentId: true,
+              },
+            },
+            options: {
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        });
+        return successResponse(res, subsidiary?.options || []);
+      } catch (fallbackError) {
+        return successResponse(res, []);
+      }
+    }
     return errorResponse(res, error);
   }
 });
@@ -89,6 +123,8 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
           select: {
             id: true,
             name: true,
+            type: true,
+            parentId: true,
             isLeaf: true,
             isActive: true,
           },
@@ -100,13 +136,45 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
       orderBy: { createdAt: 'desc' },
     });
 
-    // Filter to only return subsidiaries for active leaf locations
-    const validSubsidiaries = subsidiaries.filter(
-      (sub) => sub.location.isActive && sub.location.isLeaf
-    );
+    // Filter to only return subsidiaries for active leaf locations (if columns exist)
+    const validSubsidiaries = subsidiaries.filter((sub) => {
+      const location = sub.location as any;
+      if (location.isActive !== undefined && location.isLeaf !== undefined) {
+        return location.isActive && location.isLeaf;
+      }
+      return true; // If columns don't exist, include all
+    });
 
     return successResponse(res, validSubsidiaries);
-  } catch (error) {
+  } catch (error: any) {
+    // If columns don't exist, try without isActive filter
+    if (error?.message?.includes('isActive') || error?.message?.includes('isLeaf') || error?.message?.includes('does not exist')) {
+      try {
+        const { locationId } = req.params;
+        const subsidiaries = await prisma.propertySubsidiary.findMany({
+          where: { 
+            locationId,
+          },
+          include: {
+            location: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                parentId: true,
+              },
+            },
+            options: {
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+        return successResponse(res, subsidiaries);
+      } catch (fallbackError) {
+        return successResponse(res, []);
+      }
+    }
     return errorResponse(res, error);
   }
 });
@@ -128,6 +196,8 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true,
+            type: true,
+            parentId: true,
             isLeaf: true,
             isActive: true,
           },
@@ -155,7 +225,13 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
 
     // Add full path to each subsidiary, but only if location is still active
     const subsidiariesWithPaths = subsidiaries
-      .filter((sub) => sub.location.isActive && sub.location.isLeaf) // Double-check: only active leaf locations
+      .filter((sub) => {
+        const location = sub.location as any;
+        if (location.isActive !== undefined && location.isLeaf !== undefined) {
+          return location.isActive && location.isLeaf;
+        }
+        return true; // If columns don't exist, include all
+      })
       .map((sub) => {
         try {
           if (tree.length > 0) {
@@ -183,6 +259,63 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
     return successResponse(res, subsidiariesWithPaths);
   } catch (error: any) {
     console.error('Error fetching subsidiaries:', error);
+    // If columns don't exist, try without isActive/isLeaf filters
+    if (error?.message?.includes('isActive') || error?.message?.includes('isLeaf') || error?.message?.includes('does not exist')) {
+      try {
+        const subsidiaries = await prisma.propertySubsidiary.findMany({
+          include: {
+            location: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                parentId: true,
+              },
+            },
+            options: {
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+        });
+
+        // Try to get location tree for path building, but don't fail if it errors
+        let tree: LocationTreeNode[] = [];
+        try {
+          tree = await getLocationTree();
+        } catch (treeError) {
+          console.warn('Could not fetch location tree for path building:', treeError);
+        }
+
+        const subsidiariesWithPaths = subsidiaries.map((sub) => {
+          try {
+            if (tree.length > 0) {
+              const path = buildLocationPath(tree, sub.locationId);
+              if (path.length > 0) {
+                return {
+                  ...sub,
+                  locationPath: path.join(' > '),
+                };
+              }
+            }
+            return {
+              ...sub,
+              locationPath: sub.location?.name || 'Unknown Location',
+            };
+          } catch (err) {
+            return {
+              ...sub,
+              locationPath: sub.location?.name || 'Unknown Location',
+            };
+          }
+        });
+
+        return successResponse(res, subsidiariesWithPaths);
+      } catch (fallbackError) {
+        // GET requests should NEVER return 400/500 - return empty array instead
+        return successResponse(res, []);
+      }
+    }
     // GET requests should NEVER return 400/500 - return empty array instead
     return successResponse(res, []);
   }
@@ -231,11 +364,12 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
       return errorResponse(res, 'Location not found', 404);
     }
 
-    if (!location.isActive) {
+    const locationData = location as any;
+    if (locationData.isActive !== undefined && locationData.isActive === false) {
       return errorResponse(res, 'Cannot create subsidiary for inactive location', 400);
     }
 
-    if (!location.isLeaf) {
+    if (locationData.isLeaf !== undefined && locationData.isLeaf === false) {
       return errorResponse(res, 'Subsidiaries can only be created for leaf locations (locations without children)', 400);
     }
 

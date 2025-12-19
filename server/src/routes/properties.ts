@@ -40,8 +40,14 @@ const createPropertySchema = z.object({
   type: z.string().min(1, 'Property type is required'),
   address: z.string().min(1, 'Address is required'),
   location: z.string().optional(),
-  locationId: z.string().uuid().nullable().optional(),
-  subsidiaryOptionId: z.string().uuid().nullable().optional(),
+  locationId: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : val),
+    z.string().uuid().nullable().optional()
+  ),
+  subsidiaryOptionId: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? null : val),
+    z.string().uuid().nullable().optional()
+  ),
   status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
   imageUrl: z.string().optional().refine(
     (val) => {
@@ -54,7 +60,10 @@ const createPropertySchema = z.object({
   yearBuilt: z.number().int().positive().optional(),
   totalArea: z.number().positive().optional(),
   totalUnits: z.number().int().nonnegative().default(0),
-  dealerId: z.string().uuid().optional(),
+  dealerId: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : val),
+    z.string().uuid().optional()
+  ),
   salePrice: z.number().nonnegative().optional(),
   amenities: z.array(z.string()).optional(), // Array of amenity strings
 });
@@ -188,9 +197,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const tidColumnExists = await columnExists('Property', 'tid');
     // Check if propertySubsidiaryId column exists - if not, we'll exclude it from select
     const propertySubsidiaryIdExists = await columnExists('Property', 'propertySubsidiaryId');
+    // Check if subsidiaryOptionId column exists - if not, we'll exclude it from select
+    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
     
-    // If either column is missing, use select from the start to avoid errors
-    const needsSelect = !tidColumnExists || !propertySubsidiaryIdExists;
+    // If any column is missing, use select from the start to avoid errors
+    const needsSelect = !tidColumnExists || !propertySubsidiaryIdExists || !subsidiaryOptionIdExists;
     
     // Helper function to build select fields
     const buildSelectFields = () => {
@@ -200,7 +211,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         type: true,
         address: true,
         location: true,
-        subsidiaryOptionId: true,
         status: true,
         imageUrl: true,
         description: true,
@@ -234,6 +244,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       }
       if (propertySubsidiaryIdExists) {
         selectFields.propertySubsidiaryId = true;
+      }
+      if (subsidiaryOptionIdExists) {
+        selectFields.subsidiaryOptionId = true;
       }
       return selectFields;
     };
@@ -1530,30 +1543,34 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     documentsData = { ...(documentsData || {}), salePrice: data.salePrice };
   }
 
-    const property = await prisma.property.create({
-      data: {
-        name: data.name,
-        type: data.type,
-        address: data.address,
-        location: data.location || undefined,
-        status: data.status || 'Active',
-        imageUrl: data.imageUrl || undefined,
-        description: data.description || undefined,
-        yearBuilt: data.yearBuilt || undefined,
-        totalArea: data.totalArea || undefined,
-        totalUnits: data.totalUnits || 0,
-        dealerId: data.dealerId || undefined,
-        locationId: data.locationId ?? null,
-        subsidiaryOptionId: data.subsidiaryOptionId ?? null,
-        tid: data.tid?.trim() || null,
-        ...(propertyCode && { propertyCode }),
-        ...(documentsData && { documents: documentsData }),
-      },
-      include: {
-        units: true,
-        blocks: true,
-      },
-    });
+  // Check if columns exist before including them
+  const tidColumnExists = await columnExists('Property', 'tid');
+  const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+
+  const property = await prisma.property.create({
+    data: {
+      name: data.name,
+      type: data.type,
+      address: data.address,
+      location: data.location || undefined,
+      status: data.status || 'Active',
+      imageUrl: data.imageUrl || undefined,
+      description: data.description || undefined,
+      yearBuilt: data.yearBuilt || undefined,
+      totalArea: data.totalArea || undefined,
+      totalUnits: data.totalUnits || 0,
+      dealerId: data.dealerId || undefined,
+      locationId: data.locationId ?? null,
+      ...(subsidiaryOptionIdExists && { subsidiaryOptionId: data.subsidiaryOptionId ?? null }),
+      ...(tidColumnExists && { tid: data.tid?.trim() || null }),
+      ...(propertyCode && { propertyCode }),
+      ...(documentsData && { documents: documentsData }),
+    },
+    include: {
+      units: true,
+      blocks: true,
+    },
+  });
 
     // Log activity
     await createActivity({
@@ -1620,11 +1637,23 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       updateData.documents = documentsData;
     }
 
+    // Check if columns exist before including them in update
+    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+    const tidColumnExists = await columnExists('Property', 'tid');
+
     // Handle locationId separately since it's a direct field
     const finalUpdateData: Prisma.PropertyUpdateInput = {
       ...updateData,
       imageUrl: data.imageUrl !== undefined ? (data.imageUrl || null) : undefined,
     };
+
+    // Remove subsidiaryOptionId and tid from update if columns don't exist
+    if (!subsidiaryOptionIdExists && 'subsidiaryOptionId' in finalUpdateData) {
+      delete (finalUpdateData as any).subsidiaryOptionId;
+    }
+    if (!tidColumnExists && 'tid' in finalUpdateData) {
+      delete (finalUpdateData as any).tid;
+    }
 
     if ('locationId' in data) {
       (finalUpdateData as any).locationId = data.locationId ?? null;
