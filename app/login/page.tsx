@@ -16,7 +16,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 export default function LoginPage() {
   const router = useRouter()
   const { user, loading: authLoading, login } = useAuth()
-  const [email, setEmail] = useState("user@eyercall.com")
+  const [email, setEmail] = useState("admin@realestate.com")
   const [password, setPassword] = useState("")
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
