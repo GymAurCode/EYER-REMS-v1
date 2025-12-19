@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
@@ -11,6 +11,7 @@ import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
+import { generatePropertyCode } from '../utils/code-generator';
 
 // Helper function to check if a column exists in a table
 const columnExists = async (tableName: string, columnName: string): Promise<boolean> => {
@@ -1591,8 +1592,24 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     // Attach salePrice on response for client convenience
     const salePrice = typeof documentsData?.salePrice === 'number' ? documentsData.salePrice : undefined;
     return successResponse(res, salePrice !== undefined ? { ...property, salePrice } : property, 201);
-  } catch (error) {
-    logger.error('Create property error:', error);
+  } catch (error: any) {
+    logger.error('Create property error:', {
+      error: error?.message || error,
+      stack: error?.stack,
+      body: req.body,
+      code: error?.code,
+    });
+    
+    // Handle Zod validation errors specifically
+    if (error instanceof ZodError) {
+      return errorResponse(
+        res,
+        'Validation error',
+        400,
+        error.errors.map((e) => ({ path: e.path.join('.'), message: e.message }))
+      );
+    }
+    
     return errorResponse(res, error);
   }
 });
