@@ -12,6 +12,25 @@ import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
 
+// Helper function to check if a column exists in a table
+const columnExists = async (tableName: string, columnName: string): Promise<boolean> => {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ exists: boolean }>>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.columns
+        WHERE table_schema = current_schema()
+          AND LOWER(table_name) = LOWER(${tableName})
+          AND LOWER(column_name) = LOWER(${columnName})
+      ) AS "exists";
+    `;
+    return Boolean(rows[0]?.exists);
+  } catch (error) {
+    logger.warn(`Error checking if column ${columnName} exists in ${tableName}:`, error);
+    return false;
+  }
+};
+
 const router = (express as any).Router();
 
 // Validation schemas
@@ -165,6 +184,9 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     let properties: any[];
     let total: number;
     
+    // Check if tid column exists - if not, we'll use select to exclude it
+    const tidColumnExists = await columnExists('Property', 'tid');
+    
     try {
       // Try with locationNode included
       [properties, total] = await Promise.all([
@@ -181,19 +203,139 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
         prisma.property.count({ where }),
       ]);
     } catch (error: any) {
-      // If P2022 error (column not found), retry without locationNode
-      if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist') || error?.message?.includes('Location')) {
-        logger.warn('LocationNode relation not available, fetching without it:', error.message);
-        [properties, total] = await Promise.all([
-          prisma.property.findMany({
-            where,
-            include: baseInclude,
-            orderBy: { createdAt: 'desc' },
-            skip,
-            take: limit,
-          }),
-          prisma.property.count({ where }),
-        ]);
+      // If P2022 error (column not found), handle gracefully
+      if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+        const errorMessage = error?.message || '';
+        const isLocationError = errorMessage.includes('Location') || errorMessage.includes('locationNode');
+        
+        if (isLocationError) {
+          // Try without locationNode
+          logger.warn('LocationNode relation not available, fetching without it:', error.message);
+          try {
+            [properties, total] = await Promise.all([
+              prisma.property.findMany({
+                where,
+                include: baseInclude,
+                orderBy: { createdAt: 'desc' },
+                skip,
+                take: limit,
+              }),
+              prisma.property.count({ where }),
+            ]);
+          } catch (retryError: any) {
+            // If still failing and tid doesn't exist, use select to exclude it
+            if (!tidColumnExists && (retryError?.code === 'P2022' || retryError?.message?.includes('tid'))) {
+              logger.warn('TID column missing, using select to exclude it:', retryError.message);
+              [properties, total] = await Promise.all([
+                prisma.property.findMany({
+                  where,
+                  select: {
+                    id: true,
+                    name: true,
+                    type: true,
+                    address: true,
+                    location: true,
+                    propertySubsidiary: true,
+                    subsidiaryOptionId: true,
+                    status: true,
+                    imageUrl: true,
+                    description: true,
+                    yearBuilt: true,
+                    totalArea: true,
+                    totalUnits: true,
+                    dealerId: true,
+                    isDeleted: true,
+                    createdAt: true,
+                    updatedAt: true,
+                    propertyCode: true,
+                    city: true,
+                    documents: true,
+                    ownerName: true,
+                    ownerPhone: true,
+                    previousTenants: true,
+                    rentAmount: true,
+                    rentEscalationPercentage: true,
+                    securityDeposit: true,
+                    size: true,
+                    title: true,
+                    locationId: true,
+                    propertySubsidiaryId: true,
+                    manualUniqueId: true,
+                    // tid: excluded - column doesn't exist
+                    units: baseInclude.units,
+                    blocks: baseInclude.blocks,
+                    _count: baseInclude._count,
+                  },
+                  orderBy: { createdAt: 'desc' },
+                  skip,
+                  take: limit,
+                }),
+                prisma.property.count({ where }),
+              ]);
+            } else {
+              logger.error('Database column missing after retry. Migration required. Error:', retryError.message);
+              throw retryError;
+            }
+          }
+        } else if (!tidColumnExists && errorMessage.includes('tid')) {
+          // Missing tid column - use select to exclude it
+          logger.warn('TID column missing, using select to exclude it:', error.message);
+          [properties, total] = await Promise.all([
+            prisma.property.findMany({
+              where,
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                address: true,
+                location: true,
+                propertySubsidiary: true,
+                subsidiaryOptionId: true,
+                status: true,
+                imageUrl: true,
+                description: true,
+                yearBuilt: true,
+                totalArea: true,
+                totalUnits: true,
+                dealerId: true,
+                isDeleted: true,
+                createdAt: true,
+                updatedAt: true,
+                propertyCode: true,
+                city: true,
+                documents: true,
+                ownerName: true,
+                ownerPhone: true,
+                previousTenants: true,
+                rentAmount: true,
+                rentEscalationPercentage: true,
+                securityDeposit: true,
+                size: true,
+                title: true,
+                locationId: true,
+                propertySubsidiaryId: true,
+                manualUniqueId: true,
+                // tid: excluded - column doesn't exist
+                units: baseInclude.units,
+                blocks: baseInclude.blocks,
+                _count: baseInclude._count,
+              },
+              orderBy: { createdAt: 'desc' },
+              skip,
+              take: limit,
+            }),
+            prisma.property.count({ where }),
+          ]);
+        } else {
+          // Missing column error (other than tid)
+          logger.error('Database column not found. This usually means migrations need to be run.', {
+            error: error.message,
+            code: error.code,
+            meta: error.meta,
+            hint: 'Run: npx prisma migrate deploy (in server directory)'
+          });
+          throw error;
+        }
       } else {
         throw error;
       }

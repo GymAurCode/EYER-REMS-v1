@@ -145,11 +145,15 @@ export function errorResponse(
         break;
       case 'P2022':
         // Column not found - usually means migration hasn't been run
-        errorMessage = 'Database column not found. Please run database migrations.';
+        const columnName = error.meta?.column_name || error.meta?.target || 'unknown';
+        const tableName = error.meta?.table_name || error.meta?.target || 'unknown';
+        errorMessage = `Database column "${columnName}" not found in table "${tableName}". Please run database migrations.`;
         errorDetails = { 
           code: error.code, 
           meta: error.meta,
-          hint: 'This usually means the database schema is out of sync with the code. Run: npx prisma migrate deploy'
+          missingColumn: columnName,
+          table: tableName,
+          hint: 'This usually means the database schema is out of sync with the code. Run: npx prisma migrate deploy (in server directory)'
         };
         break;
       default:

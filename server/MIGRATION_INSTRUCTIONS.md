@@ -13,19 +13,26 @@ This migration:
 
 ## Apply Migration to Production
 
-### Option 1: Using Railway CLI (if deployed on Railway)
+### Option 1: Using the Migration Script (Recommended)
+This script checks if columns exist and applies the migration safely:
+```bash
+cd server
+npm run apply-tid-migration
+```
+
+### Option 2: Using Railway CLI (if deployed on Railway)
 ```bash
 cd server
 railway run npx prisma migrate deploy
 ```
 
-### Option 2: Using Prisma Migrate Deploy
+### Option 3: Using Prisma Migrate Deploy
 ```bash
 cd server
 npx prisma migrate deploy
 ```
 
-### Option 3: Manual SQL Execution
+### Option 4: Manual SQL Execution
 If you have direct database access, you can execute the SQL file:
 ```bash
 psql $DATABASE_URL -f prisma/migrations/20251230000000_add_tid_columns/migration.sql

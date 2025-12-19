@@ -1028,6 +1028,18 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
     const { months = 6 } = req.query;
     const monthsCount = parseInt(months as string) || 6;
 
+    // Check if transactionType column exists
+    const transactionTypeExists = await columnExists('FinanceLedger', 'transactionType');
+
+    if (!transactionTypeExists) {
+      console.warn('FinanceLedger.transactionType column does not exist. Returning empty data. Please run: npm run fix-missing-columns');
+      return res.json({
+        success: true,
+        data: [],
+        message: 'Database migration required. Please run: npm run fix-missing-columns',
+      });
+    }
+
     const now = new Date();
     const data: any[] = [];
 
@@ -1083,8 +1095,19 @@ router.get('/finance/revenue-vs-expense', authenticate, async (req: AuthRequest,
       success: true,
       data,
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Get revenue vs expense data error:', error);
+    
+    // Check if it's a column not found error
+    if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
+      return res.status(500).json({
+        success: false,
+        error: 'Database column not found. Please run database migrations.',
+        message: 'The transactionType column is missing from FinanceLedger table. Run: npm run fix-missing-columns',
+        hint: 'This usually means the database schema is out of sync with the code.',
+      });
+    }
+
     res.status(500).json({
       success: false,
       error: 'Failed to fetch revenue vs expense data',
