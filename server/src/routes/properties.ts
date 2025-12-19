@@ -1470,44 +1470,6 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
   }
 });
 
-// Helper function to generate unique property code
-async function generatePropertyCode(): Promise<string | undefined> {
-  try {
-    let code: string = '';
-    let exists = true;
-    
-    while (exists) {
-      // Generate code: PROP-YYYYMMDD-XXXX (4 random digits)
-      const date = new Date();
-      const dateStr = date.toISOString().slice(0, 10).replace(/-/g, '');
-      const random = Math.floor(1000 + Math.random() * 9000); // 4 digit random
-      code = `PROP-${dateStr}-${random}`;
-      
-      // Check if code already exists (only if propertyCode column exists)
-      try {
-        const existing = await prisma.property.findUnique({
-          where: { propertyCode: code },
-        });
-        exists = !!existing;
-      } catch (err) {
-        // If column doesn't exist yet, just return the generated code
-        const error = err as { message?: string };
-        if (error.message?.includes('propertyCode') || error.message?.includes('Unknown column')) {
-          exists = false;
-        } else {
-          throw err;
-        }
-      }
-    }
-    
-    return code;
-  } catch (err) {
-    // If propertyCode column doesn't exist, return undefined
-    logger.warn('propertyCode column not available yet, skipping code generation');
-    return undefined;
-  }
-}
-
 /**
  * Create property
  * @route POST /api/properties
