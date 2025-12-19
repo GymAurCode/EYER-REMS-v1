@@ -1495,7 +1495,16 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // Generate unique property code (only if column exists)
-    const propertyCode = await generatePropertyCode();
+    let propertyCode: string | undefined;
+    try {
+      const propertyCodeColumnExists = await columnExists('Property', 'propertyCode');
+      if (propertyCodeColumnExists) {
+        propertyCode = await generatePropertyCode();
+      }
+    } catch (err) {
+      logger.warn('Failed to generate property code:', err);
+      // Continue without property code if generation fails
+    }
 
   // Store extra attributes in documents field (keeps schema unchanged)
   let documentsData: { amenities?: string[]; salePrice?: number } | null = null;
