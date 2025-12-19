@@ -1561,31 +1561,93 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   // Check if columns exist before including them
   const tidColumnExists = await columnExists('Property', 'tid');
   const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+  const propertySubsidiaryIdExists = await columnExists('Property', 'propertySubsidiaryId');
 
-  const property = await prisma.property.create({
-    data: {
-      name: data.name,
-      type: data.type,
-      address: data.address,
-      location: data.location || undefined,
-      status: data.status || 'Active',
-      imageUrl: data.imageUrl || undefined,
-      description: data.description || undefined,
-      yearBuilt: data.yearBuilt || undefined,
-      totalArea: data.totalArea || undefined,
-      totalUnits: data.totalUnits || 0,
-      dealerId: data.dealerId || undefined,
-      locationId: data.locationId ?? null,
-      ...(subsidiaryOptionIdExists && { subsidiaryOptionId: data.subsidiaryOptionId ?? null }),
-      ...(tidColumnExists && { tid: data.tid?.trim() || null }),
-      ...(propertyCode && { propertyCode }),
-      ...(documentsData && { documents: documentsData }),
-    },
-    include: {
-      units: true,
-      blocks: true,
-    },
-  });
+  // Build create data object, only including fields that exist in database
+  const createData: any = {
+    name: data.name,
+    type: data.type,
+    address: data.address,
+    location: data.location || undefined,
+    status: data.status || 'Active',
+    imageUrl: data.imageUrl || undefined,
+    description: data.description || undefined,
+    yearBuilt: data.yearBuilt || undefined,
+    totalArea: data.totalArea || undefined,
+    totalUnits: data.totalUnits || 0,
+    dealerId: data.dealerId || undefined,
+    locationId: data.locationId ?? null,
+  };
+
+  // Only include columns that exist in the database
+  if (subsidiaryOptionIdExists) {
+    createData.subsidiaryOptionId = data.subsidiaryOptionId ?? null;
+  }
+  if (tidColumnExists) {
+    createData.tid = data.tid?.trim() || null;
+  }
+  if (propertyCode) {
+    createData.propertyCode = propertyCode;
+  }
+  if (documentsData) {
+    createData.documents = documentsData;
+  }
+  // Explicitly exclude propertySubsidiaryId if column doesn't exist
+  if (!propertySubsidiaryIdExists) {
+    // Don't include it at all
+  }
+
+  // Try to create property, handle column errors gracefully
+  let property: any;
+  try {
+    property = await prisma.property.create({
+      data: createData,
+      include: {
+        units: true,
+        blocks: true,
+      },
+    });
+  } catch (createError: any) {
+    // If error is about missing column, try again with minimal fields
+    if (createError?.code === 'P2022' || 
+        createError?.message?.includes('column') || 
+        createError?.message?.includes('does not exist') ||
+        createError?.message?.includes('propertySubsidiaryId')) {
+      logger.warn('Column error during property create, retrying with minimal fields:', createError.message);
+      
+      // Create with only essential fields that definitely exist
+      const minimalData: any = {
+        name: data.name,
+        type: data.type,
+        address: data.address,
+        status: data.status || 'Active',
+        totalUnits: data.totalUnits || 0,
+      };
+      
+      // Add optional fields that are safe
+      if (data.location) minimalData.location = data.location;
+      if (data.imageUrl) minimalData.imageUrl = data.imageUrl;
+      if (data.description) minimalData.description = data.description;
+      if (data.yearBuilt) minimalData.yearBuilt = data.yearBuilt;
+      if (data.totalArea) minimalData.totalArea = data.totalArea;
+      if (data.dealerId) minimalData.dealerId = data.dealerId;
+      if (data.locationId) minimalData.locationId = data.locationId;
+      if (tidColumnExists && data.tid) minimalData.tid = data.tid.trim();
+      if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
+      if (propertyCode) minimalData.propertyCode = propertyCode;
+      if (documentsData) minimalData.documents = documentsData;
+      
+      property = await prisma.property.create({
+        data: minimalData,
+        include: {
+          units: true,
+          blocks: true,
+        },
+      });
+    } else {
+      throw createError;
+    }
+  }
 
     // Log activity
     await createActivity({
