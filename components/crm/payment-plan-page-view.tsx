@@ -707,27 +707,86 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       // Generate PDF report from backend
       const response = await apiService.deals.getPaymentPlanPDF(dealId)
 
-      // Create blob from response (axios returns blob directly when responseType is 'blob')
-      const blob = response.data instanceof Blob
-        ? response.data
-        : new Blob([response.data as any], { type: 'application/pdf' })
+      // Handle blob response properly
+      let blob: Blob
+      if (response.data instanceof Blob) {
+        // Check if it's an error JSON response (small size or JSON type)
+        if (response.data.type === 'application/json' || (response.data.size < 1000 && response.data.size > 0)) {
+          // Clone blob before reading to avoid consuming it
+          const clonedBlob = response.data.slice()
+          const text = await clonedBlob.text()
+          try {
+            const errorData = JSON.parse(text)
+            if (errorData.error) {
+              throw new Error(errorData.error)
+            }
+          } catch (parseError) {
+            // Not JSON, might be valid small PDF - use original blob
+            blob = response.data
+          }
+          // If we got here and blob is not set, it means it was JSON error
+          if (!blob) {
+            throw new Error('Received error response instead of PDF')
+          }
+        } else {
+          blob = response.data
+        }
+      } else if (response.data instanceof ArrayBuffer) {
+        blob = new Blob([response.data], { type: 'application/pdf' })
+      } else if (typeof response.data === 'string') {
+        // Check if it's JSON error
+        if (response.data.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(response.data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+          } catch {
+            throw new Error('Invalid response from server')
+          }
+        }
+        // Not JSON, treat as base64 string
+        try {
+          const binaryString = atob(response.data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          blob = new Blob([bytes], { type: 'application/pdf' })
+        } catch {
+          throw new Error('Failed to decode PDF data')
+        }
+      } else {
+        blob = new Blob([response.data as any], { type: 'application/pdf' })
+      }
+
+      // Verify blob is valid PDF
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty PDF file')
+      }
+
       const url = URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
       a.download = `payment-plan-${deal.dealCode || deal.id}-${format(new Date(), "yyyy-MM-dd")}.pdf`
       document.body.appendChild(a)
       a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
+      
+      // Clean up after a short delay
+      setTimeout(() => {
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      }, 100)
 
       toast({
         title: "Success",
-        description: "PDF report generated and downloaded successfully",
+        description: "PDF report downloaded successfully",
       })
     } catch (error: any) {
+      console.error('PDF download error:', error)
       toast({
         title: "Error",
-        description: error.message || "Failed to generate PDF report",
+        description: error?.response?.data?.error || error?.message || "Failed to download PDF report",
         variant: "destructive",
       })
     } finally {
@@ -744,28 +803,132 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       // Generate PDF report from backend
       const response = await apiService.deals.getPaymentPlanPDF(dealId)
 
-      // Create blob from response
-      const blob = response.data instanceof Blob
-        ? response.data
-        : new Blob([response.data as any], { type: 'application/pdf' })
+      // Handle blob response properly
+      let blob: Blob
+      if (response.data instanceof Blob) {
+        // Check if it's an error JSON response (small size or JSON type)
+        if (response.data.type === 'application/json' || (response.data.size < 1000 && response.data.size > 0)) {
+          // Clone blob before reading to avoid consuming it
+          const clonedBlob = response.data.slice()
+          const text = await clonedBlob.text()
+          try {
+            const errorData = JSON.parse(text)
+            if (errorData.error) {
+              throw new Error(errorData.error)
+            }
+          } catch (parseError) {
+            // Not JSON, might be valid small PDF - use original blob
+            blob = response.data
+          }
+          // If we got here and blob is not set, it means it was JSON error
+          if (!blob) {
+            throw new Error('Received error response instead of PDF')
+          }
+        } else {
+          blob = response.data
+        }
+      } else if (response.data instanceof ArrayBuffer) {
+        blob = new Blob([response.data], { type: 'application/pdf' })
+      } else if (typeof response.data === 'string') {
+        // Check if it's JSON error
+        if (response.data.trim().startsWith('{')) {
+          try {
+            const parsed = JSON.parse(response.data)
+            if (parsed.error) {
+              throw new Error(parsed.error)
+            }
+          } catch {
+            throw new Error('Invalid response from server')
+          }
+        }
+        // Not JSON, treat as base64 string
+        try {
+          const binaryString = atob(response.data)
+          const bytes = new Uint8Array(binaryString.length)
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i)
+          }
+          blob = new Blob([bytes], { type: 'application/pdf' })
+        } catch {
+          throw new Error('Failed to decode PDF data')
+        }
+      } else {
+        blob = new Blob([response.data as any], { type: 'application/pdf' })
+      }
+
+      // Verify blob is valid PDF
+      if (!blob || blob.size === 0) {
+        throw new Error('Received empty PDF file')
+      }
+
       const url = URL.createObjectURL(blob)
       
-      // Open in new window for printing
-      const printWindow = window.open(url, '_blank')
-      if (printWindow) {
-        printWindow.onload = () => {
-          printWindow.print()
+      // Use iframe for more reliable printing
+      const iframe = document.createElement('iframe')
+      iframe.style.position = 'fixed'
+      iframe.style.right = '0'
+      iframe.style.bottom = '0'
+      iframe.style.width = '0'
+      iframe.style.height = '0'
+      iframe.style.border = '0'
+      iframe.src = url
+      
+      document.body.appendChild(iframe)
+      
+      // Wait for iframe to load, then print
+      iframe.onload = () => {
+        try {
+          // Small delay to ensure PDF is fully loaded
+          setTimeout(() => {
+            if (iframe.contentWindow) {
+              iframe.contentWindow.focus()
+              iframe.contentWindow.print()
+            }
+            
+            // Clean up after printing
+            setTimeout(() => {
+              document.body.removeChild(iframe)
+              URL.revokeObjectURL(url)
+            }, 1000)
+          }, 500)
+        } catch (printError) {
+          console.error('Print error:', printError)
+          document.body.removeChild(iframe)
+          URL.revokeObjectURL(url)
+          throw new Error('Failed to open print dialog')
+        }
+      }
+
+      // Fallback: if iframe doesn't load, try window.open
+      iframe.onerror = () => {
+        document.body.removeChild(iframe)
+        URL.revokeObjectURL(url)
+        
+        // Fallback to window.open method
+        const printWindow = window.open(url, '_blank')
+        if (printWindow) {
+          printWindow.onload = () => {
+            setTimeout(() => {
+              printWindow.print()
+              setTimeout(() => {
+                URL.revokeObjectURL(url)
+              }, 1000)
+            }, 500)
+          }
+        } else {
+          throw new Error('Please allow popups to print the PDF')
         }
       }
 
       toast({
         title: "Success",
-        description: "Print dialog opened",
+        description: "Opening print dialog...",
       })
     } catch (error: any) {
+      console.error('PDF print error:', error)
       toast({
         title: "Error",
-        description: error.message || "Failed to open print dialog",
+        description: error?.response?.data?.error || error?.message || "Failed to open print dialog",
         variant: "destructive",
       })
     } finally {

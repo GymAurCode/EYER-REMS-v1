@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Search, Plus, CreditCard, Loader2, Printer, Pencil, Trash2, MoreVertical } from "lucide-react"
 import { AddPaymentDialog } from "./add-payment-dialog"
+import { EditPaymentDialog } from "./edit-payment-dialog"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import {
@@ -34,6 +35,8 @@ export function PaymentsView() {
   const [error, setError] = useState<string | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<any | null>(null)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   useEffect(() => {
     fetchPayments()
@@ -228,12 +231,8 @@ export function PaymentsView() {
                           Print Receipt
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => {
-                          // TODO: Open edit dialog - will implement edit dialog next
-                          // For now, show message that edit is available via API
-                          toast({
-                            title: "Edit Payment",
-                            description: "Payment edit functionality is available. Edit dialog coming soon.",
-                          })
+                          setEditingPayment(payment)
+                          setShowEditDialog(true)
                         }}>
                           <Pencil className="mr-2 h-4 w-4" />
                           Edit
@@ -311,8 +310,20 @@ export function PaymentsView() {
         </div>
       </Card>
 
-      {/* Dialog Component */}
+      {/* Dialog Components */}
       <AddPaymentDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={fetchPayments} />
+      <EditPaymentDialog 
+        open={showEditDialog} 
+        onOpenChange={(open) => {
+          setShowEditDialog(open)
+          if (!open) setEditingPayment(null)
+        }} 
+        onSuccess={() => {
+          fetchPayments()
+          setEditingPayment(null)
+        }}
+        payment={editingPayment}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
