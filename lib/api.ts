@@ -780,10 +780,11 @@ export const apiService = {
   // Finance - Payments
   payments: {
     getAll: () => api.get('/finance/payments'),
-    getById: (id: number) => api.get(`/finance/payments/${id}`),
+    getById: (id: string | number) => api.get(`/finance/payments/${id}`),
     create: (data: any) => api.post('/finance/payments', data),
-    update: (id: number, data: any) => api.put(`/finance/payments/${id}`, data),
-    delete: (id: number) => api.delete(`/finance/payments/${id}`),
+    update: (id: string | number, data: any) => api.put(`/finance/payments/${id}`, data),
+    delete: (id: string | number) => api.delete(`/finance/payments/${id}`),
+    printReceipt: (id: string | number) => api.get(`/finance/payments/${id}/receipt`, { responseType: 'blob' }),
   },
 
 

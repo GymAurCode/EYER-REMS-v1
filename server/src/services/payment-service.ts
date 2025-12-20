@@ -369,13 +369,120 @@ export class PaymentService {
   }
 
   /**
-   * Soft delete payment (creates reversal entries)
+   * Update payment and sync payment plan
    */
-  static async deletePayment(paymentId: string, userId: string): Promise<void> {
-    const payment = await prisma.payment.findUnique({
+  static async updatePayment(
+    paymentId: string,
+    updates: {
+      amount?: number;
+      paymentType?: string;
+      paymentMode?: string;
+      transactionId?: string;
+      referenceNumber?: string;
+      date?: Date;
+      remarks?: string;
+      installmentId?: string;
+    }
+  ): Promise<any> {
+    const existingPayment = await prisma.payment.findUnique({
       where: { id: paymentId },
       include: {
         deal: true,
+        ledgerEntries: true,
+      },
+    });
+
+    if (!existingPayment) {
+      throw new Error('Payment not found');
+    }
+
+    if (existingPayment.deletedAt) {
+      throw new Error('Cannot update deleted payment');
+    }
+
+    const oldAmount = existingPayment.amount;
+    const newAmount = updates.amount !== undefined ? updates.amount : oldAmount;
+    const amountDifference = newAmount - oldAmount;
+
+    return await prisma.$transaction(async (tx) => {
+      // Update payment
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          amount: updates.amount !== undefined ? updates.amount : undefined,
+          paymentType: updates.paymentType || undefined,
+          paymentMode: updates.paymentMode || undefined,
+          transactionId: updates.transactionId !== undefined ? updates.transactionId : undefined,
+          referenceNumber: updates.referenceNumber !== undefined ? updates.referenceNumber : undefined,
+          date: updates.date || undefined,
+          remarks: updates.remarks !== undefined ? updates.remarks : undefined,
+          installmentId: updates.installmentId !== undefined ? updates.installmentId : undefined,
+        },
+      });
+
+      // Update ledger entries if amount or date changed
+      if (amountDifference !== 0 || updates.date) {
+        for (const ledgerEntry of existingPayment.ledgerEntries) {
+          if (!ledgerEntry.deletedAt) {
+            await tx.ledgerEntry.update({
+              where: { id: ledgerEntry.id },
+              data: {
+                amount: newAmount,
+                date: updates.date || ledgerEntry.date,
+                remarks: `Payment ${updatedPayment.paymentId} - ${updates.remarks || ledgerEntry.remarks || 'Updated'}`,
+              },
+            });
+          }
+        }
+      }
+
+      // Sync payment plan if amount changed
+      if (amountDifference !== 0) {
+        // First, reverse the old amount, then apply the new amount
+        // We'll recalculate from scratch using syncPaymentPlanAfterPayment with the difference
+        const { PaymentPlanService } = await import('./payment-plan-service');
+        
+        // If amount increased, add the difference
+        // If amount decreased, subtract the difference (negative)
+        await PaymentPlanService.syncPaymentPlanAfterPayment(
+          existingPayment.dealId,
+          amountDifference,
+          updates.installmentId || existingPayment.installmentId || undefined,
+          tx
+        );
+      }
+
+      // Recompute deal status
+      await DealService.recomputeDealStatus(existingPayment.dealId, tx);
+
+      return await tx.payment.findUnique({
+        where: { id: paymentId },
+        include: {
+          deal: {
+            include: {
+              client: { select: { id: true, name: true, clientCode: true } },
+              property: { select: { id: true, name: true, propertyCode: true } },
+            },
+          },
+          ledgerEntries: true,
+        },
+      });
+    });
+  }
+
+  /**
+   * Soft delete payment (creates reversal entries and moves to recycle bin)
+   */
+  static async deletePayment(paymentId: string, userId: string, userName?: string): Promise<void> {
+    const payment = await prisma.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        deal: {
+          include: {
+            client: { select: { name: true } },
+            property: { select: { name: true } },
+          },
+        },
         ledgerEntries: true,
       },
     });
@@ -388,12 +495,16 @@ export class PaymentService {
       throw new Error('Payment already deleted');
     }
 
+    const paymentName = `Payment ${payment.paymentId} - ${payment.deal?.client?.name || 'Unknown'} - ${payment.deal?.property?.name || 'Unknown'}`;
+
+    const now = new Date();
+    
     await prisma.$transaction(async (tx) => {
       // Soft delete payment
       await tx.payment.update({
         where: { id: paymentId },
         data: {
-          deletedAt: new Date(),
+          deletedAt: now,
           deletedBy: userId,
         },
       });
@@ -402,8 +513,23 @@ export class PaymentService {
       await tx.ledgerEntry.updateMany({
         where: { paymentId },
         data: {
-          deletedAt: new Date(),
+          deletedAt: now,
           deletedBy: userId,
+        },
+      });
+
+      // Add to recycle bin (separate transaction since it uses its own transaction)
+      const expiresAt = new Date('2099-12-31T23:59:59.999Z');
+      await tx.deletedRecord.create({
+        data: {
+          entityType: 'payment',
+          entityId: paymentId,
+          entityName: paymentName,
+          entityData: payment as any,
+          deletedBy: userId,
+          deletedByName: userName,
+          deletedAt: now,
+          expiresAt,
         },
       });
 

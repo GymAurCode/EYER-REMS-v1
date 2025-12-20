@@ -125,13 +125,48 @@ export function CRMView() {
         apiService.commissions.getAll().catch(() => ({ data: [] })), // commissions may not be enabled yet
       ])
 
-      const leads: any[] = Array.isArray((leadsRes as any)?.data) ? (leadsRes as any).data : []
-      const clients: any[] = Array.isArray((clientsRes as any)?.data) ? (clientsRes as any).data : []
-      const deals: any[] = Array.isArray((dealsRes as any)?.data) ? (dealsRes as any).data : []
-      const dealers: any[] = Array.isArray((dealersRes as any)?.data) ? (dealersRes as any).data : []
-      const commissions: any[] = Array.isArray((commissionsRes as any)?.data)
-        ? (commissionsRes as any).data
-        : []
+      // Handle nested response structures: { success: true, data: [...] } or { data: [...] } or axios wrapped
+      const extractData = (response: any): any[] => {
+        if (!response) return []
+        
+        // Handle axios response wrapper: response.data contains the actual API response
+        const apiResponse = response.data || response
+        
+        // If already an array, return it
+        if (Array.isArray(apiResponse)) return apiResponse
+        
+        // Handle { success: true, data: [...] } structure
+        if (apiResponse?.success && Array.isArray(apiResponse.data)) {
+          return apiResponse.data
+        }
+        
+        // Handle { data: [...] } structure (nested data)
+        if (apiResponse?.data && Array.isArray(apiResponse.data)) {
+          return apiResponse.data
+        }
+        
+        // Handle direct { data: [...] } on response
+        if (response.data && Array.isArray(response.data)) {
+          return response.data
+        }
+        
+        return []
+      }
+
+      const leads: any[] = extractData(leadsRes as any)
+      const clients: any[] = extractData(clientsRes as any)
+      const deals: any[] = extractData(dealsRes as any)
+      const dealers: any[] = extractData(dealersRes as any)
+      const commissions: any[] = extractData(commissionsRes as any)
+      
+      // Debug logging (can be removed later)
+      console.log('CRM Stats Data:', {
+        leadsCount: leads.length,
+        clientsCount: clients.length,
+        dealsCount: deals.length,
+        dealersCount: dealers.length,
+        commissionsCount: commissions.length,
+      })
 
       const now = new Date()
       const weekAgo = new Date(now)

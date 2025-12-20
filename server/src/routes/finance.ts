@@ -894,21 +894,102 @@ router.post('/payments', authenticate, async (req: AuthRequest, res: Response) =
   }
 });
 
-router.put('/payments/:id', authenticate, async (_req: AuthRequest, res: Response) => {
-  res.status(405).json({ error: 'Payments cannot be edited. Please delete and recreate the payment.' });
+router.put('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { PaymentService } = await import('../services/payment-service');
+    const paymentId = req.params.id;
+    
+    const payment = await PaymentService.updatePayment(paymentId, {
+      amount: req.body.amount,
+      paymentType: req.body.paymentType,
+      paymentMode: req.body.paymentMode,
+      transactionId: req.body.transactionId,
+      referenceNumber: req.body.referenceNumber,
+      date: req.body.date ? new Date(req.body.date) : undefined,
+      remarks: req.body.remarks,
+      installmentId: req.body.installmentId,
+    });
+    
+    res.json({ success: true, data: payment });
+  } catch (error: any) {
+    logger.error('Update payment error:', error);
+    res.status(400).json({
+      success: false,
+      error: error.message || 'Failed to update payment',
+    });
+  }
 });
 
 router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?.id || '';
+    const userName = req.user?.username || req.user?.email || undefined;
     const { PaymentService } = await import('../services/payment-service');
     
-    await PaymentService.deletePayment(req.params.id, userId);
+    await PaymentService.deletePayment(req.params.id, userId, userName);
     
     res.status(204).end();
   } catch (error: any) {
     logger.error('Delete payment error:', error);
     res.status(400).json({ error: error.message || 'Failed to delete payment' });
+  }
+});
+
+// GET /finance/payments/:id/receipt - Generate receipt PDF for payment
+router.get('/payments/:id/receipt', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { generateReceiptPDF } = await import('../utils/pdf-generator');
+    
+    const payment = await prisma.payment.findUnique({
+      where: { id: req.params.id },
+      include: {
+        deal: {
+          include: {
+            client: { select: { name: true, email: true, phone: true, address: true } },
+            property: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    if (!payment || payment.deletedAt) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+
+    // Transform payment data to match ReceiptPDFData interface
+    const pdfData = {
+      receipt: {
+        receiptNo: payment.paymentId,
+        amount: payment.amount,
+        method: payment.paymentMode,
+        date: payment.date,
+        notes: payment.remarks || undefined,
+      },
+      deal: {
+        dealCode: payment.deal.dealCode || undefined,
+        title: payment.deal.title,
+        dealAmount: payment.deal.dealAmount,
+      },
+      client: {
+        name: payment.deal.client?.name || 'Unknown Client',
+        email: payment.deal.client?.email || undefined,
+        phone: payment.deal.client?.phone || undefined,
+        address: payment.deal.client?.address || undefined,
+      },
+      allocations: [], // Payment receipt doesn't show installment allocations
+    };
+
+    const pdfBuffer = await generateReceiptPDF(pdfData);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="payment-receipt-${payment.paymentId}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    logger.error('Generate payment receipt PDF error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to generate payment receipt PDF',
+    });
   }
 });
 
@@ -1410,14 +1491,10 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
 // GET /ledger/client/:clientId - Specific client ledger route
 router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { LedgerService } = await import('../services/ledger-service');
+    const { UnifiedLedgerService } = await import('../services/unified-ledger-service');
     const clientId = req.params.clientId;
-    const propertyId = req.query.propertyId as string | undefined;
-    const period = req.query.period as 'thisMonth' | 'all' | undefined;
     
     const filters: any = {};
-    if (propertyId) filters.propertyId = propertyId;
-    if (period) filters.period = period;
     
     // Handle date range
     if (req.query.startDate) {
@@ -1428,14 +1505,15 @@ router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, re
     }
     
     // Handle "thisMonth" period
+    const period = req.query.period as 'thisMonth' | 'all' | undefined;
     if (period === 'thisMonth') {
       const now = new Date();
       filters.startDate = new Date(now.getFullYear(), now.getMonth(), 1);
       filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
 
-    const rows = await LedgerService.getClientLedger(clientId, filters);
-    res.json({ success: true, data: rows });
+    const ledger = await UnifiedLedgerService.getLedger('client', clientId, filters);
+    res.json({ success: true, data: ledger });
   } catch (error: any) {
     logger.error('Client ledger error:', error);
     res.status(500).json({ success: false, error: error.message || 'Failed to fetch client ledger' });

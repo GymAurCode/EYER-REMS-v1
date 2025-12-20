@@ -4,16 +4,36 @@ import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Search, Plus, CreditCard, Loader2 } from "lucide-react"
+import { Search, Plus, CreditCard, Loader2, Printer, Pencil, Trash2, MoreVertical } from "lucide-react"
 import { AddPaymentDialog } from "./add-payment-dialog"
 import { apiService } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function PaymentsView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [payments, setPayments] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
 
   useEffect(() => {
     fetchPayments()
@@ -48,6 +68,53 @@ export function PaymentsView() {
       propertyName.includes(searchLower)
     )
   })
+
+  const handlePrintReceipt = async (payment: any) => {
+    try {
+      const response = await apiService.payments.printReceipt(payment.id)
+      if (response.data instanceof Blob) {
+        const url = URL.createObjectURL(response.data)
+        const printWindow = window.open(url, '_blank')
+        if (printWindow) {
+          printWindow.onload = () => {
+            printWindow.print()
+          }
+        }
+        toast({
+          title: "Receipt opened",
+          description: "Print dialog should open shortly",
+        })
+      }
+    } catch (err: any) {
+      console.error("Failed to print receipt:", err)
+      toast({
+        title: "Error",
+        description: err.response?.data?.error || "Failed to generate receipt",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    
+    try {
+      await apiService.payments.delete(deleteTarget.id)
+      toast({
+        title: "Payment deleted",
+        description: "Payment has been moved to recycle bin and payment plan has been updated",
+      })
+      setDeleteTarget(null)
+      setShowDeleteDialog(false)
+      fetchPayments()
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.response?.data?.error || "Failed to delete payment",
+        variant: "destructive",
+      })
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -93,22 +160,25 @@ export function PaymentsView() {
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Date
                 </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-destructive">{error}</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-destructive">{error}</td>
                 </tr>
               ) : filteredPayments.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-muted-foreground">No payments found</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">No payments found</td>
                 </tr>
               ) : (
                 filteredPayments.map((payment) => (
@@ -144,6 +214,42 @@ export function PaymentsView() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {new Date(payment.date).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handlePrintReceipt(payment)}>
+                          <Printer className="mr-2 h-4 w-4" />
+                          Print Receipt
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => {
+                          // TODO: Open edit dialog - will implement edit dialog next
+                          // For now, show message that edit is available via API
+                          toast({
+                            title: "Edit Payment",
+                            description: "Payment edit functionality is available. Edit dialog coming soon.",
+                          })
+                        }}>
+                          <Pencil className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => {
+                            setDeleteTarget(payment)
+                            setShowDeleteDialog(true)
+                          }}
+                          className="text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </td>
                 </tr>
                 ))
@@ -207,6 +313,31 @@ export function PaymentsView() {
 
       {/* Dialog Component */}
       <AddPaymentDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={fetchPayments} />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Payment</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete payment {deleteTarget?.paymentId}? 
+              This will update the payment plan (installments will be marked as pending if they become unpaid).
+              The payment will be moved to recycle bin and can be restored later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => {
+              setDeleteTarget(null)
+              setShowDeleteDialog(false)
+            }}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

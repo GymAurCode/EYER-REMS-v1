@@ -125,6 +125,18 @@ export async function softDeleteRecord(options: SoftDeleteOptions): Promise<void
           });
         }
         break;
+      case 'payment':
+        entityData = await tx.payment.findUnique({ where: { id: entityId } });
+        if (entityData) {
+          await tx.payment.update({
+            where: { id: entityId },
+            data: { 
+              deletedAt: now,
+              deletedBy: deletedBy,
+            },
+          });
+        }
+        break;
       default:
         throw new Error(`Unsupported entity type for soft delete: ${entityType}`);
     }

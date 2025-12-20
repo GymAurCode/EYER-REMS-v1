@@ -133,9 +133,8 @@ export class UnifiedLedgerService {
 
       // Check if deal date is in range
       const includeDeal =
-        !filters?.startDate || dealDate >= filters.startDate
-          ? !filters?.endDate || dealDate <= filters.endDate
-          : false;
+        (!filters?.startDate || dealDate >= filters.startDate) &&
+        (!filters?.endDate || dealDate <= filters.endDate);
 
       if (includeDeal && dealAmount > 0) {
         // Deal entry: Debit (amount owed)
