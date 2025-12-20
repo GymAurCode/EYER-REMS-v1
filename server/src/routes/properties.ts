@@ -1069,7 +1069,9 @@ router.get('/:id/dashboard', authenticate, async (req: AuthRequest, res: Respons
  */
 router.post('/upload-document', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { file, filename, propertyId } = req.body;
+    const { file, filename } = req.body;
+    const queryPropertyId = req.query.propertyId;
+    const propertyId = req.body.propertyId || (typeof queryPropertyId === 'string' ? queryPropertyId : Array.isArray(queryPropertyId) ? queryPropertyId[0] : undefined);
 
     if (!file || !propertyId) {
       return res.status(400).json({
@@ -1090,12 +1092,12 @@ router.post('/upload-document', authenticate, async (req: AuthRequest, res: Resp
     const base64Data = dataUrlMatch[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // Validate file type (PDF, JPG, PNG only)
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'];
+    // Validate file type (PDF, JPG, PNG, GIF, WEBP)
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
     if (!allowedTypes.includes(mimeType.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        error: 'Only PDF, JPG, and PNG files are allowed',
+        error: 'Only PDF, JPG, PNG, GIF, and WEBP files are allowed',
       });
     }
 
