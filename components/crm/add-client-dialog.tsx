@@ -21,8 +21,6 @@ import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, X, Plus, Paperclip, Upload, File, Trash2 } from "lucide-react"
-import { LocationSelector } from "@/components/locations/location-selector"
-import { LocationTreeNode } from "@/lib/location"
 
 interface ClientFormData {
   id?: string
@@ -124,7 +122,6 @@ export function AddClientDialog({
   const [dealers, setDealers] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState("basic")
   const [uploading, setUploading] = useState(false)
-  const [selectedLocationNode, setSelectedLocationNode] = useState<LocationTreeNode | null>(null)
   const { toast } = useToast()
   const isEdit = mode === "edit" && initialData?.id
 
@@ -147,7 +144,6 @@ export function AddClientDialog({
           clientType: initialData.clientType || "",
           clientCategory: initialData.clientCategory || "",
           propertyInterest: initialData.propertyInterest || "",
-          locationId: (initialData as any).locationId || null,
           billingAddress: initialData.billingAddress || "",
           notes: "",
           tags: Array.isArray(initialData.tags) ? initialData.tags : [],
@@ -312,7 +308,6 @@ export function AddClientDialog({
       if (formData.clientType) payload.clientType = formData.clientType
       if (formData.clientCategory) payload.clientCategory = formData.clientCategory
       if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
-      if (formData.locationId) payload.locationId = formData.locationId
       if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
       // Store notes and file attachments in attachments JSON field
       const attachmentsData: any = {}
@@ -536,20 +531,6 @@ export function AddClientDialog({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="grid gap-2 md:col-span-3">
-                  <LocationSelector
-                    value={selectedLocationNode?.id || formData.locationId || null}
-                    onChange={(node) => {
-                      setSelectedLocationNode(node)
-                      setFormData((p) => ({
-                        ...p,
-                        locationId: node?.id || null,
-                      }))
-                    }}
-                    label="Location"
-                    helperText="Select the location"
-                  />
                 </div>
                 <div className="grid gap-2 md:col-span-3">
                   <Label htmlFor="client-address">Address</Label>
