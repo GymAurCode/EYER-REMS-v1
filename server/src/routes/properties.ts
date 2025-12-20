@@ -196,13 +196,15 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     
     // Check if tid column exists - if not, we'll use select to exclude it
     const tidColumnExists = await columnExists('Property', 'tid');
-    // Check if propertySubsidiaryId column exists - if not, we'll exclude it from select
-    const propertySubsidiaryIdExists = await columnExists('Property', 'propertySubsidiaryId');
     // Check if subsidiaryOptionId column exists - if not, we'll exclude it from select
     const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:columnCheck',message:'Column existence check results',data:{tidColumnExists,subsidiaryOptionIdExists},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     // If any column is missing, use select from the start to avoid errors
-    const needsSelect = !tidColumnExists || !propertySubsidiaryIdExists || !subsidiaryOptionIdExists;
+    const needsSelect = !tidColumnExists || !subsidiaryOptionIdExists;
     
     // Helper function to build select fields
     const buildSelectFields = () => {
@@ -242,9 +244,6 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       // Only include columns if they exist
       if (tidColumnExists) {
         selectFields.tid = true;
-      }
-      if (propertySubsidiaryIdExists) {
-        selectFields.propertySubsidiaryId = true;
       }
       if (subsidiaryOptionIdExists) {
         selectFields.subsidiaryOptionId = true;
@@ -853,7 +852,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         where: { 
           dealId: { in: dealIds },
           isDeleted: false, 
-          transactionType: 'credit' 
+          category: 'credit' 
         },
         _sum: { amount: true },
       }),
@@ -861,7 +860,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         where: { 
           dealId: { in: dealIds },
           isDeleted: false, 
-          transactionType: 'debit' 
+          category: 'debit' 
         },
         _sum: { amount: true },
       }),
@@ -879,8 +878,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const financeRecords = financeEntries.map((entry: any) => ({
       id: entry.id,
       amount: entry.amount,
-      transactionType: entry.transactionType,
-      purpose: entry.purpose,
+      transactionType: entry.category,
+      purpose: entry.description || entry.notes || '',
       referenceType: entry.referenceType,
       description: entry.description,
       date: entry.date,
@@ -1243,7 +1242,7 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         where: { 
           dealId: { in: dealIds },
           isDeleted: false, 
-          transactionType: 'credit' 
+          category: 'credit' 
         },
         _sum: { amount: true },
       }),
@@ -1251,7 +1250,7 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         where: { 
           dealId: { in: dealIds },
           isDeleted: false, 
-          transactionType: 'debit' 
+          category: 'debit' 
         },
         _sum: { amount: true },
       }),
@@ -1269,8 +1268,8 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
     const financeRecords = financeEntries.map((entry) => ({
       id: entry.id,
       amount: entry.amount,
-      transactionType: entry.transactionType,
-      purpose: entry.purpose,
+      transactionType: entry.category,
+      purpose: entry.description || entry.notes || '',
       referenceType: entry.referenceType,
       description: entry.description,
       date: entry.date,
@@ -1443,12 +1442,12 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
     const normalizedFinance = financeEntries.map((entry) => ({
       id: entry.id,
       date: entry.date,
-      transactionType: entry.transactionType,
-      purpose: entry.purpose,
+      transactionType: entry.category,
+      purpose: entry.description || entry.notes || '',
       amount: entry.amount,
       referenceType: entry.referenceType,
       description: entry.description,
-      type: entry.transactionType === 'debit' ? 'expense' : 'income',
+      type: entry.category === 'debit' ? 'expense' : 'income',
     }));
 
     const normalizedPayments = dealPayments.map((payment) => ({
@@ -1583,7 +1582,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   // Check if columns exist before including them
   const tidColumnExists = await columnExists('Property', 'tid');
   const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
-  const propertySubsidiaryIdExists = await columnExists('Property', 'propertySubsidiaryId');
+  
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:createColumnCheck',message:'Column existence check for create',data:{tidColumnExists,subsidiaryOptionIdExists},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
 
   // Build create data object, only including fields that exist in database
   const createData: any = {
@@ -1614,14 +1616,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   if (documentsData) {
     createData.documents = documentsData;
   }
-  // Explicitly exclude propertySubsidiaryId if column doesn't exist
-  // DO NOT include it in createData at all if column doesn't exist
+  // Note: Property model does NOT have propertySubsidiaryId column
+  // It has subsidiaryOptionId instead. propertySubsidiaryId exists on SubsidiaryOption model.
 
   // Try to create property, handle column errors gracefully
   let property: any;
   try {
-    // First, ensure propertySubsidiaryId is never in createData if column doesn't exist
-    if (!propertySubsidiaryIdExists && 'propertySubsidiaryId' in createData) {
+    // Ensure propertySubsidiaryId is never in createData (it doesn't exist on Property)
+    if ('propertySubsidiaryId' in createData) {
       delete createData.propertySubsidiaryId;
     }
     
@@ -1660,18 +1662,20 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     // Only include optional columns if they exist
     if (tidColumnExists) selectFields.tid = true;
     if (subsidiaryOptionIdExists) selectFields.subsidiaryOptionId = true;
-    if (propertySubsidiaryIdExists) selectFields.propertySubsidiaryId = true;
     
     property = await prisma.property.create({
       data: createData,
       select: selectFields,
     });
   } catch (createError: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:createError',message:'Property create error caught',data:{code:createError?.code,message:createError?.message,meta:createError?.meta,createDataKeys:Object.keys(createData)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     // If error is about missing column, try again with minimal fields
     if (createError?.code === 'P2022' || 
         createError?.message?.includes('column') || 
-        createError?.message?.includes('does not exist') ||
-        createError?.message?.includes('propertySubsidiaryId')) {
+        createError?.message?.includes('does not exist')) {
       logger.warn('Column error during property create, retrying with minimal fields:', createError.message);
       
       // Create with only essential fields that definitely exist
@@ -1695,7 +1699,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
       if (propertyCode) minimalData.propertyCode = propertyCode;
       if (documentsData) minimalData.documents = documentsData;
-      // DO NOT include propertySubsidiaryId even if it exists in data
+      // Note: propertySubsidiaryId does not exist on Property model - it's on SubsidiaryOption model
       
       property = await prisma.property.create({
         data: minimalData,

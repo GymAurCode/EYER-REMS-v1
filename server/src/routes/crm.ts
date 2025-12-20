@@ -255,9 +255,22 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response
 // Clients
 router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:entry',message:'GET /clients endpoint called',data:{query:req.query,hasAuth:!!req.user,userId:req.user?.id},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     const { search } = req.query;
+    
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:beforeParse',message:'Before parsePaginationQuery',data:{query:req.query,search},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
+    
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:afterParse',message:'After parsePaginationQuery',data:{page,limit,skip},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     // Filter out soft-deleted records
     const where: any = { isDeleted: false };
@@ -276,6 +289,10 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
       };
     }
     
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:beforeQuery',message:'Before Prisma query',data:{where:JSON.stringify(where)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+    
     const [clients, total] = await Promise.all([
       prisma.client.findMany({
         where,
@@ -286,9 +303,17 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
       prisma.client.count({ where }),
     ]);
 
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:afterQuery',message:'After Prisma query',data:{clientsCount:clients.length,total},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
+
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, clients, 200, pagination);
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:clients:catch',message:'Error caught in /clients',data:{errorName:error?.name,errorMessage:error?.message,errorCode:error?.code,isZodError:error?.constructor?.name==='ZodError',isPrismaError:error?.constructor?.name?.includes('Prisma'),stack:error?.stack?.substring(0,500)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+    // #endregion
+    
     logger.error('Failed to fetch clients:', {
       error: error?.message || error,
       code: error?.code,

@@ -199,7 +199,7 @@ export async function syncCommissionToFinanceLedger(commissionId: string) {
     where: {
       referenceType: 'commission',
       referenceId: commissionId,
-      transactionType: 'debit',
+      category: 'debit',
     },
   });
 
@@ -228,9 +228,7 @@ export async function syncCommissionToFinanceLedger(commissionId: string) {
   const ledger = await prisma.financeLedger.create({
     data: {
       dealId: deal.id,
-      clientId: deal.clientId || undefined,
-      transactionType: 'debit',
-      purpose: 'commission',
+      category: 'debit',
       amount: commission.amount,
       date: new Date(),
       description: `Commission payment: ${commission.dealer?.name || 'Dealer'}`,
@@ -259,9 +257,7 @@ export async function syncDealToFinanceLedger(dealId: string) {
   const ledger = await prisma.financeLedger.create({
     data: {
       dealId: dealId,
-      clientId: deal.clientId || undefined,
-      transactionType: 'credit',
-      purpose: 'deal_closed',
+      category: 'credit',
       amount: deal.dealAmount,
       date: deal.actualClosingDate || new Date(),
       description: `Deal closed: ${deal.title}`,

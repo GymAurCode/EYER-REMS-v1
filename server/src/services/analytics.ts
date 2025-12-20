@@ -49,13 +49,13 @@ export async function getPropertyDashboard(propertyId: string) {
 
   // Calculate income (from invoices and payments)
   const income = allFinanceLedgers
-    .filter((ledger) => ledger.transactionType === 'credit')
+    .filter((ledger) => ledger.category === 'credit' || (ledger.amount > 0 && ledger.category !== 'debit'))
     .reduce((sum: number, ledger) => sum + ledger.amount, 0);
 
   // Calculate expenses
   const expenses = allFinanceLedgers
-    .filter((ledger) => ledger.transactionType === 'debit')
-    .reduce((sum: number, ledger) => sum + ledger.amount, 0);
+    .filter((ledger) => ledger.category === 'debit' || (ledger.amount < 0 && ledger.category !== 'credit'))
+    .reduce((sum: number, ledger) => sum + Math.abs(ledger.amount), 0);
 
   // Calculate net profit
   const netProfit = income - expenses;
@@ -155,7 +155,7 @@ export async function getOverallDashboard(filters?: {
     return (
       sum +
       allLedgers
-        .filter((l) => l.transactionType === 'credit')
+        .filter((l) => l.category === 'credit' || (l.amount > 0 && l.category !== 'debit'))
         .reduce((s: number, l) => s + l.amount, 0)
     );
   }, 0);
@@ -165,8 +165,8 @@ export async function getOverallDashboard(filters?: {
     return (
       sum +
       allLedgers
-        .filter((l) => l.transactionType === 'debit')
-        .reduce((s: number, l) => s + l.amount, 0)
+        .filter((l) => l.category === 'debit' || (l.amount < 0 && l.category !== 'credit'))
+        .reduce((s: number, l) => s + Math.abs(l.amount), 0)
     );
   }, 0);
 
@@ -226,7 +226,7 @@ export async function getRevenueTrends(months: number = 12) {
   const ledgers = await prisma.financeLedger.findMany({
     where: {
       isDeleted: false,
-      transactionType: 'credit',
+      category: 'credit',
       date: {
         gte: startDate,
         lte: endDate,
@@ -259,7 +259,7 @@ export async function getExpenseTrends(months: number = 12) {
   const ledgers = await prisma.financeLedger.findMany({
     where: {
       isDeleted: false,
-      transactionType: 'debit',
+      category: 'debit',
       date: {
         gte: startDate,
         lte: endDate,
@@ -305,12 +305,12 @@ export async function getTopProperties(limit: number = 10) {
   const propertyPerformance = properties.map((property) => {
     const allLedgers = property.deals.flatMap((deal) => deal.financeLedgers);
     const income = allLedgers
-      .filter((l) => l.transactionType === 'credit')
+      .filter((l) => l.category === 'credit' || (l.amount > 0 && l.category !== 'debit'))
       .reduce((sum: number, l) => sum + l.amount, 0);
 
     const expenses = allLedgers
-      .filter((l) => l.transactionType === 'debit')
-      .reduce((sum: number, l) => sum + l.amount, 0);
+      .filter((l) => l.category === 'debit' || (l.amount < 0 && l.category !== 'credit'))
+      .reduce((sum: number, l) => sum + Math.abs(l.amount), 0);
 
     return {
       propertyId: property.id,

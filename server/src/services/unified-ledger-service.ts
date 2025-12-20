@@ -516,26 +516,26 @@ export class UnifiedLedgerService {
 
     // Process finance ledger entries
     for (const financeEntry of financeEntries) {
-      if (financeEntry.transactionType === 'debit') {
+      if (financeEntry.category === 'debit') {
         // Debit: Credit (expense reduces property value)
         runningBalance -= financeEntry.amount;
         entries.push({
           id: `FINANCE-${financeEntry.id}`,
           date: financeEntry.date,
           referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.purpose || 'N/A'}`,
+          description: `Finance Entry: ${financeEntry.description || financeEntry.notes || 'N/A'}`,
           debit: 0,
           credit: Number(financeEntry.amount.toFixed(2)),
           runningBalance: Number(runningBalance.toFixed(2)),
         });
-      } else if (financeEntry.transactionType === 'credit') {
+      } else if (financeEntry.category === 'credit') {
         // Credit: Debit (income increases property value)
         runningBalance += financeEntry.amount;
         entries.push({
           id: `FINANCE-${financeEntry.id}`,
           date: financeEntry.date,
           referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.purpose || 'N/A'}`,
+          description: `Finance Entry: ${financeEntry.description || financeEntry.notes || 'N/A'}`,
           debit: Number(financeEntry.amount.toFixed(2)),
           credit: 0,
           runningBalance: Number(runningBalance.toFixed(2)),

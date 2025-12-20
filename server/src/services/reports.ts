@@ -25,25 +25,25 @@ export async function generateIncomeStatement(startDate: Date, endDate: Date, pr
 
   const [incomeEntries, expenseEntries] = await Promise.all([
     prisma.financeLedger.findMany({
-      where: { ...where, transactionType: 'credit' },
+      where: { ...where, category: 'credit' },
       include: { 
         deal: {
           include: {
-            property: { select: { id: true, name: true, propertyCode: true } }
+            property: { select: { id: true, name: true, propertyCode: true } },
+            client: { select: { id: true, name: true, clientCode: true } }
           }
         },
-        client: true,
       },
     }),
     prisma.financeLedger.findMany({
-      where: { ...where, transactionType: 'debit' },
+      where: { ...where, category: 'debit' },
       include: { 
         deal: {
           include: {
-            property: { select: { id: true, name: true, propertyCode: true } }
+            property: { select: { id: true, name: true, propertyCode: true } },
+            client: { select: { id: true, name: true, clientCode: true } }
           }
         },
-        client: true,
       },
     }),
   ]);

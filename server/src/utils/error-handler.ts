@@ -149,10 +149,18 @@ export function errorResponse(
         let columnName = 'unknown';
         let tableName = 'unknown';
         
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'error-handler.ts:P2022',message:'P2022 error caught',data:{code:error.code,meta:error.meta,message:error.message,stack:error.stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+        // #endregion
+        
         // Check error.meta first
         if (error.meta) {
           columnName = (error.meta as any).column_name || (error.meta as any).column || columnName;
           tableName = (error.meta as any).table_name || (error.meta as any).table || tableName;
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'error-handler.ts:meta',message:'Extracted from meta',data:{columnName,tableName,meta:error.meta},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
         }
         
         // Parse error message if meta doesn't have the info
@@ -188,6 +196,22 @@ export function errorResponse(
               columnName = ledgerMatch[1];
             }
           }
+          
+          // Try to extract Client column error (relation name used as column)
+          if (errorMsg.includes('Client') && !errorMsg.includes('clientId')) {
+            const clientMatch = errorMsg.match(/[`"]?Client[`"]?/i);
+            if (clientMatch && columnName === 'unknown') {
+              columnName = 'Client';
+              // Try to find table name from context
+              if (errorMsg.includes('Deal')) tableName = 'Deal';
+              else if (errorMsg.includes('FinanceLedger')) tableName = 'FinanceLedger';
+              else if (errorMsg.includes('Property')) tableName = 'Property';
+            }
+          }
+          
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'error-handler.ts:parsed',message:'After parsing error message',data:{columnName,tableName,errorMsg},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+          // #endregion
         }
         
         errorMessage = `Database column "${columnName}" not found in table "${tableName}". Please run database migrations.`;
@@ -229,6 +253,12 @@ export function errorResponse(
       }
     } : {}),
   });
+  
+  // #region agent log
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2022') {
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'error-handler.ts:finalLog',message:'P2022 error final details',data:{errorMessage,errorDetails,path:(res.req as any)?.path,method:(res.req as any)?.method,prismaError:error instanceof Prisma.PrismaClientKnownRequestError?{code:error.code,meta:error.meta,message:error.message}:null},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+  }
+  // #endregion
 
   // Sanitize error response for production
   const isProduction = process.env.NODE_ENV === 'production';
