@@ -319,29 +319,6 @@ export function DealsView() {
                       <p className="font-medium text-foreground mt-1">{deal.agent || "—"}</p>
                     </div>
                   </div>
-
-                  {/* Payment Progress Bar */}
-                  <div className="mt-4">
-                    {(() => {
-                      const dealAmount = typeof deal.dealAmount === "number" ? deal.dealAmount : (typeof deal.value === "number" ? deal.value : 0)
-                      const totalPaid = typeof deal.totalPaid === "number" ? deal.totalPaid : 0
-                      const progress = dealAmount > 0 ? Math.min((totalPaid / dealAmount) * 100, 100) : 0
-                      return (
-                        <>
-                          <div className="flex items-center justify-between text-xs text-muted-foreground mb-1">
-                            <span>Payment Progress</span>
-                            <span>{progress.toFixed(0)}% ({formatCurrency(totalPaid)} / {formatCurrency(dealAmount)})</span>
-                          </div>
-                          <div className="h-2 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className={`h-full transition-all ${progress >= 100 ? 'bg-green-500' : 'bg-primary'}`}
-                              style={{ width: `${progress}%` }}
-                            />
-                          </div>
-                        </>
-                      )
-                    })()}
-                  </div>
                 </div>
               </div>
             </Card>
