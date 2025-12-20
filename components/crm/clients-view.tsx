@@ -44,7 +44,17 @@ export function ClientsView() {
       setError(null)
       const response: any = await apiService.clients.getAll()
       const responseData = response.data as any
-      const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
+      
+      // Handle different response formats
+      let data: any[] = []
+      if (responseData?.success && Array.isArray(responseData?.data)) {
+        data = responseData.data
+      } else if (Array.isArray(responseData?.data)) {
+        data = responseData.data
+      } else if (Array.isArray(responseData)) {
+        data = responseData
+      }
+      
       const mapped = Array.isArray(data) ? data.map((c: any) => ({
         id: c.id,
         name: c.name,
@@ -57,8 +67,18 @@ export function ClientsView() {
       })) : []
       setClients(mapped)
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch clients")
+      console.error("Failed to fetch clients:", err)
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          err.message || 
+                          "Failed to fetch clients"
+      setError(errorMessage)
       setClients([])
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }

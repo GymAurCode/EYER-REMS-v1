@@ -560,7 +560,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   const handleSave = async () => {
     const errors: string[] = []
-    if (!form.tid.trim()) errors.push("TID")
+    // TID is optional, so don't require it
     if (!form.name.trim()) errors.push("Name")
     if (!form.type.trim()) errors.push("Type")
     if (!form.address.trim()) errors.push("Address")
@@ -577,7 +577,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     const { category, size, ...formWithoutCategorySize } = form
 
       const payload: any = {
-      tid: formWithoutCategorySize.tid.trim(),
       name: formWithoutCategorySize.name.trim(),
       type: formWithoutCategorySize.type,
       status: formWithoutCategorySize.status || "Active",
@@ -593,6 +592,11 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       dealerId: formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim() ? formWithoutCategorySize.dealerId.trim() : undefined,
       amenities: formWithoutCategorySize.amenities,
       imageUrl: formWithoutCategorySize.imageUrl && formWithoutCategorySize.imageUrl.trim() ? formWithoutCategorySize.imageUrl.trim() : undefined,
+    }
+    
+    // Only include TID if it's not empty
+    if (formWithoutCategorySize.tid && formWithoutCategorySize.tid.trim()) {
+      payload.tid = formWithoutCategorySize.tid.trim()
     }
     
     // Log payload for debugging
@@ -642,9 +646,32 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       onSuccess?.()
       onOpenChange(false)
     } catch (error: any) {
+      console.error("Property save error:", error)
+      let errorMessage = "Unknown error"
+      
+      if (error?.response?.data) {
+        const errorData = error.response.data
+        // Handle validation errors
+        if (errorData.error && Array.isArray(errorData.error)) {
+          errorMessage = errorData.error.map((e: any) => 
+            typeof e === 'string' ? e : `${e.path || ''}: ${e.message || ''}`
+          ).join(', ')
+        } else if (errorData.error && typeof errorData.error === 'string') {
+          errorMessage = errorData.error
+        } else if (errorData.message) {
+          errorMessage = errorData.message
+        } else if (errorData.details) {
+          errorMessage = Array.isArray(errorData.details) 
+            ? errorData.details.map((e: any) => `${e.path || ''}: ${e.message || ''}`).join(', ')
+            : String(errorData.details)
+        }
+      } else if (error?.message) {
+        errorMessage = error.message
+      }
+      
       toast({
         title: "Save failed",
-        description: error?.response?.data?.message || error?.message || "Unknown error",
+        description: errorMessage,
         variant: "destructive",
       })
     } finally {

@@ -1593,19 +1593,56 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     createData.documents = documentsData;
   }
   // Explicitly exclude propertySubsidiaryId if column doesn't exist
-  if (!propertySubsidiaryIdExists) {
-    // Don't include it at all
-  }
+  // DO NOT include it in createData at all if column doesn't exist
 
   // Try to create property, handle column errors gracefully
   let property: any;
   try {
+    // First, ensure propertySubsidiaryId is never in createData if column doesn't exist
+    if (!propertySubsidiaryIdExists && 'propertySubsidiaryId' in createData) {
+      delete createData.propertySubsidiaryId;
+    }
+    
+    // Use select instead of include to avoid relation issues with missing columns
+    const selectFields: any = {
+      id: true,
+      name: true,
+      type: true,
+      address: true,
+      location: true,
+      status: true,
+      imageUrl: true,
+      description: true,
+      yearBuilt: true,
+      totalArea: true,
+      totalUnits: true,
+      dealerId: true,
+      locationId: true,
+      createdAt: true,
+      updatedAt: true,
+      propertyCode: true,
+      units: {
+        select: {
+          id: true,
+          unitName: true,
+        },
+      },
+      blocks: {
+        select: {
+          id: true,
+          name: true,
+        },
+      },
+    };
+    
+    // Only include optional columns if they exist
+    if (tidColumnExists) selectFields.tid = true;
+    if (subsidiaryOptionIdExists) selectFields.subsidiaryOptionId = true;
+    if (propertySubsidiaryIdExists) selectFields.propertySubsidiaryId = true;
+    
     property = await prisma.property.create({
       data: createData,
-      include: {
-        units: true,
-        blocks: true,
-      },
+      select: selectFields,
     });
   } catch (createError: any) {
     // If error is about missing column, try again with minimal fields
@@ -1636,12 +1673,41 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
       if (propertyCode) minimalData.propertyCode = propertyCode;
       if (documentsData) minimalData.documents = documentsData;
+      // DO NOT include propertySubsidiaryId even if it exists in data
       
       property = await prisma.property.create({
         data: minimalData,
-        include: {
-          units: true,
-          blocks: true,
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          address: true,
+          location: true,
+          status: true,
+          imageUrl: true,
+          description: true,
+          yearBuilt: true,
+          totalArea: true,
+          totalUnits: true,
+          dealerId: true,
+          locationId: true,
+          createdAt: true,
+          updatedAt: true,
+          propertyCode: true,
+          ...(tidColumnExists && { tid: true }),
+          ...(subsidiaryOptionIdExists && { subsidiaryOptionId: true }),
+          units: {
+            select: {
+              id: true,
+              unitName: true,
+            },
+          },
+          blocks: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
       });
     } else {

@@ -21,7 +21,8 @@
     "apply-tid-migration": "tsx scripts/apply-tid-migration.ts",
     "fix-properties-error": "tsx scripts/fix-properties-error.ts",
     "check-migration": "tsx scripts/check-and-fix-migration.ts",
-    "fix-missing-columns": "tsx scripts/fix-missing-columns.ts"
+    "fix-missing-columns": "tsx scripts/fix-missing-columns.ts",
+    "apply-deal-location-id-fix": "tsx scripts/apply-deal-location-id-fix.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.19.1",

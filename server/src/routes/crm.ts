@@ -634,7 +634,7 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
       prisma.deal.findMany({
         where,
         orderBy: { createdAt: 'desc' },
-        include: { 
+        include: {
           client: {
             select: {
               id: true,
