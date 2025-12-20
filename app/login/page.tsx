@@ -68,8 +68,9 @@ export default function LoginPage() {
           }}
         />
         {/* Blurred background image effect */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-black/60 to-indigo-900/40 backdrop-blur-sm" />
-        
+        {/* <div className="absolute inset-0 bg-gradient-to-br from-purple-900/50 via-black/60 to-indigo-900/40 backdrop-blur-sm" /> */}
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-900/50 via-indigo-900/40 to-black/60 backdrop-blur-sm" />
+
         <div className="relative z-10 flex flex-col justify-between p-12 text-white">
           {/* Logo and Header */}
           <div>
@@ -160,7 +161,7 @@ export default function LoginPage() {
           }}
         />
         {/* Blurred background gradient */}
-        <div className="absolute inset-0 bg-gradient-to-br from-purple-950/80 via-black/60 to-indigo-950/80 backdrop-blur-sm" />
+        <div className="absolute inset-0 bg-gradient-to-l from-purple-950/80 via-indigo-950/80 to-black/60 backdrop-blur-sm" />
 
         <div className="relative z-10 w-full max-w-md">
           {/* Secure Access Portal Badge */}
