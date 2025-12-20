@@ -384,7 +384,7 @@ export function AddClientDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[900px] max-w-[90vw] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="w-[1200px] max-w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Client" : "Add New Client"}</DialogTitle>
           <DialogDescription>
@@ -402,7 +402,7 @@ export function AddClientDialog({
 
           <div className="flex-1 overflow-y-auto mt-4">
             <TabsContent value="basic" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className="grid gap-2">
                   <Label htmlFor="systemId">System ID (Auto-generated)</Label>
                   <Input
@@ -491,7 +491,7 @@ export function AddClientDialog({
             </TabsContent>
 
             <TabsContent value="details" className="space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 md:grid-cols-3">
                 <div className="grid gap-2">
                   <Label htmlFor="client-type">Client Type</Label>
                   <Select value={formData.clientType} onValueChange={(value) => setFormData({ ...formData, clientType: value })}>
@@ -537,7 +537,7 @@ export function AddClientDialog({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="grid gap-2">
+                <div className="grid gap-2 md:col-span-3">
                   <LocationSelector
                     value={selectedLocationNode?.id || formData.locationId || null}
                     onChange={(node) => {
@@ -548,10 +548,10 @@ export function AddClientDialog({
                       }))
                     }}
                     label="Location"
-                    helperText="Select the location first"
+                    helperText="Select the location"
                   />
                 </div>
-                <div className="grid gap-2 md:col-span-2">
+                <div className="grid gap-2 md:col-span-3">
                   <Label htmlFor="client-address">Address</Label>
                   <Input
                     id="client-address"
@@ -560,34 +560,7 @@ export function AddClientDialog({
                     onChange={(event) => setFormData({ ...formData, address: event.target.value })}
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="client-city">City</Label>
-                  <Input
-                    id="client-city"
-                    placeholder="City"
-                    value={formData.city}
-                    onChange={(event) => setFormData({ ...formData, city: event.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="client-country">Country</Label>
-                  <Input
-                    id="client-country"
-                    placeholder="Country"
-                    value={formData.country}
-                    onChange={(event) => setFormData({ ...formData, country: event.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="client-postal-code">Postal Code</Label>
-                  <Input
-                    id="client-postal-code"
-                    placeholder="Postal code"
-                    value={formData.postalCode}
-                    onChange={(event) => setFormData({ ...formData, postalCode: event.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2 md:col-span-2">
+                <div className="grid gap-2 md:col-span-3">
                   <Label htmlFor="billing-address">Billing Address</Label>
                   <Input
                     id="billing-address"
@@ -596,7 +569,7 @@ export function AddClientDialog({
                     onChange={(event) => setFormData({ ...formData, billingAddress: event.target.value })}
                   />
                 </div>
-                <div className="grid gap-2 md:col-span-2">
+                <div className="grid gap-2 md:col-span-3">
                   <Label htmlFor="client-notes">Notes</Label>
                   <Textarea
                     id="client-notes"
