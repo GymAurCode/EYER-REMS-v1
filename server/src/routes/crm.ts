@@ -806,7 +806,16 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
       include: {
-        client: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
         dealer: true,
         paymentPlan: {
           include: {
@@ -841,7 +850,16 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
       include: {
-        client: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
         dealer: true,
         property: {
           select: { id: true, name: true, propertyCode: true },
@@ -1007,7 +1025,16 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
       include: {
-        client: true,
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
         dealer: true,
         property: {
           select: { id: true, name: true, propertyCode: true },
@@ -1172,7 +1199,18 @@ router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, re
     // Get deal to extract clientId and dealAmount
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
-      include: { client: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+      },
     });
 
     if (!deal) {
@@ -1403,7 +1441,19 @@ router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
 
     const updatedDeal = await prisma.deal.findUnique({
       where: { id: req.params.id },
-      include: { client: true, dealer: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+        dealer: true,
+      },
     });
 
     await createActivity({
@@ -1432,7 +1482,19 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
     // Soft delete - move to recycle bin instead of permanent deletion
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
-      include: { client: true, dealer: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+        dealer: true,
+      },
     });
     
     if (!deal) {
@@ -1482,7 +1544,16 @@ router.get('/communications', authenticate, async (req: AuthRequest, res: Respon
         where,
         orderBy: { createdAt: 'desc' },
         include: {
-          client: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              clientCode: true,
+              status: true,
+            },
+          },
           lead: true,
         },
         skip,
@@ -1512,7 +1583,19 @@ router.post('/communications', authenticate, async (req: AuthRequest, res: Respo
   try {
     const item = await prisma.communication.create({
       data: req.body,
-      include: { client: true, lead: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+        lead: true,
+      },
     });
 
     await createActivity({
@@ -1540,7 +1623,19 @@ router.put('/communications/:id', authenticate, async (req: AuthRequest, res: Re
     const item = await prisma.communication.update({
       where: { id: req.params.id },
       data: req.body,
-      include: { client: true, lead: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+        lead: true,
+      },
     });
 
     await createActivity({
@@ -1567,7 +1662,19 @@ router.delete('/communications/:id', authenticate, async (req: AuthRequest, res:
   try {
     const item = await prisma.communication.delete({
       where: { id: req.params.id },
-      include: { client: true, lead: true },
+      include: {
+        client: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            clientCode: true,
+            status: true,
+          },
+        },
+        lead: true,
+      },
     });
 
     await createActivity({

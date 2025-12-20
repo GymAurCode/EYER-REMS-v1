@@ -775,7 +775,16 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           include: {
             payments: true,
             dealer: true,
-            client: true,
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                clientCode: true,
+                status: true,
+              },
+            },
             paymentPlan: {
               include: {
                 installments: {
@@ -1182,7 +1191,20 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         units: { where: { isDeleted: false } },
         deals: {
           where: { isDeleted: false, deletedAt: null },
-          include: { payments: true, dealer: true, client: true },
+          include: { 
+            payments: true, 
+            dealer: true, 
+            client: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                phone: true,
+                clientCode: true,
+                status: true,
+              },
+            },
+          },
         },
         sales: {
           where: { isDeleted: false },
