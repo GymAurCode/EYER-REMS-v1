@@ -48,17 +48,24 @@ export interface PaymentPlanPDFData {
  * Generate Payment Plan PDF - Clean professional report (matches property report style)
  */
 export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response): void {
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
-  
-  // Set response headers
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="payment-plan-${data.deal.dealCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf"`
-  );
+  try {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:50',message:'PDF generator entry',data:{hasDeal:!!data.deal,hasSummary:!!data.summary,installmentsCount:data.installments?.length||0,headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    
+    // Set response headers
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="payment-plan-${data.deal.dealCode || 'report'}-${new Date().toISOString().split('T')[0]}.pdf"`
+    );
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:58',message:'After setting headers',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
 
-  // Pipe PDF to response
-  doc.pipe(res);
+    // Pipe PDF to response
+    doc.pipe(res);
 
   const pageWidth = doc.page.width;
   const pageHeight = doc.page.height;
@@ -238,7 +245,27 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
   addFooter();
 
   // Finalize PDF
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:241',message:'Before doc.end()',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
   doc.end();
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:243',message:'After doc.end()',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+  // #endregion
+  } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:245',message:'PDF generator error',data:{errorMessage:error?.message,errorStack:error?.stack?.substring(0,500),errorName:error?.name,headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate PDF',
+      });
+    } else {
+      res.end();
+    }
+    throw error;
+  }
 }
 
 export interface ReceiptPDFData {

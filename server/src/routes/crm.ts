@@ -1020,6 +1020,9 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
 router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealId = req.params.id;
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1022',message:'PDF endpoint entry',data:{dealId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
     
     // Load deal with all necessary data
     const deal = await prisma.deal.findUnique({
@@ -1041,6 +1044,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
         },
       },
     });
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1044',message:'After deal query',data:{dealFound:!!deal,dealId:deal?.id,dealTitle:deal?.title,hasClient:!!deal?.client,hasDealer:!!deal?.dealer,hasProperty:!!deal?.property},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    // #endregion
 
     if (!deal) {
       return res.status(404).json({ success: false, error: 'Deal not found' });
@@ -1049,6 +1055,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     // Get payment plan if exists
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     const plan = await PaymentPlanService.getPaymentPlanByDealId(dealId);
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1051',message:'After payment plan query',data:{planFound:!!plan,planId:plan?.id,installmentsCount:plan?.installments?.length||0,installmentsType:typeof plan?.installments},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    // #endregion
 
     // Calculate paid amount from installments only (down payment is NOT auto-paid)
     const dealAmount = deal.dealAmount || 0;
@@ -1063,6 +1072,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
         select: { downPayment: true },
       });
       downPayment = paymentPlan?.downPayment || 0;
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1065',message:'After paymentPlan query',data:{planId:plan.id,downPayment,paymentPlanFound:!!paymentPlan},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      // #endregion
       
       // Calculate paid amount from installments only (exclude down payment installment)
       const installmentPaidAmount = (plan.installments || [])
@@ -1089,6 +1101,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
             },
           },
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1091',message:'After receipts query',data:{receiptsCount:receipts.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         
         // Check for payment records linked to this deal
         const payments = await prisma.payment.findMany({
@@ -1097,6 +1112,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
             deletedAt: null,
           },
         });
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1099',message:'After payments query',data:{paymentsCount:payments.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         
         // Calculate down payment paid amount from actual finance entries
         const receiptDownPaymentPaid = receipts.reduce((sum: number, receipt) => {
@@ -1135,6 +1153,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       });
       totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
     }
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1137',message:'After payment calculations',data:{totalPaid,downPayment,downPaymentPaid,dealAmount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
     
     const remainingAmount = Math.max(0, dealAmount - totalPaid);
     const progress = dealAmount > 0 ? (totalPaid / dealAmount) * 100 : 0;
@@ -1178,16 +1199,27 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       })),
       generatedAt: new Date(),
     };
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1180',message:'Before PDF generation',data:{pdfDataDealTitle:pdfData.deal.title,installmentsCount:pdfData.installments.length,hasSummary:!!pdfData.summary,summaryStatus:pdfData.summary.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    // #endregion
 
     // Generate PDF
     const { generatePaymentPlanPDF } = await import('../utils/pdf-generator');
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1184',message:'Calling generatePaymentPlanPDF',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     generatePaymentPlanPDF(pdfData, res);
   } catch (error: any) {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1186',message:'Error caught',data:{errorMessage:error?.message,errorStack:error?.stack?.substring(0,500),errorName:error?.name,headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    // #endregion
     logger.error('Generate PDF error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to generate PDF',
-    });
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate PDF',
+      });
+    }
   }
 });
 
