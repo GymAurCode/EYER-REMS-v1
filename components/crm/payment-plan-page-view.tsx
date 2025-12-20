@@ -708,7 +708,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       const response = await apiService.deals.getPaymentPlanPDF(dealId)
 
       // Handle blob response properly
-      let blob: Blob
+      let blob: Blob | null = null
       if (response.data instanceof Blob) {
         // Check if it's an error JSON response (small size or JSON type)
         if (response.data.type === 'application/json' || (response.data.size < 1000 && response.data.size > 0)) {
@@ -720,13 +720,15 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
             if (errorData.error) {
               throw new Error(errorData.error)
             }
-          } catch (parseError) {
-            // Not JSON, might be valid small PDF - use original blob
+            // If JSON parsed successfully but no error field, it's still an error (we expected PDF)
+            throw new Error('Received JSON response instead of PDF')
+          } catch (parseError: any) {
+            // If it's our error, re-throw it
+            if (parseError instanceof Error && parseError.message.includes('Received JSON')) {
+              throw parseError
+            }
+            // Not JSON or parsing failed, might be valid small PDF - use original blob
             blob = response.data
-          }
-          // If we got here and blob is not set, it means it was JSON error
-          if (!blob) {
-            throw new Error('Received error response instead of PDF')
           }
         } else {
           blob = response.data
@@ -761,7 +763,10 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       }
 
       // Verify blob is valid PDF
-      if (!blob || blob.size === 0) {
+      if (!blob) {
+        throw new Error('Failed to process PDF response')
+      }
+      if (blob.size === 0) {
         throw new Error('Received empty PDF file')
       }
 
@@ -804,7 +809,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       const response = await apiService.deals.getPaymentPlanPDF(dealId)
 
       // Handle blob response properly
-      let blob: Blob
+      let blob: Blob | null = null
       if (response.data instanceof Blob) {
         // Check if it's an error JSON response (small size or JSON type)
         if (response.data.type === 'application/json' || (response.data.size < 1000 && response.data.size > 0)) {
@@ -816,13 +821,15 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
             if (errorData.error) {
               throw new Error(errorData.error)
             }
-          } catch (parseError) {
-            // Not JSON, might be valid small PDF - use original blob
+            // If JSON parsed successfully but no error field, it's still an error (we expected PDF)
+            throw new Error('Received JSON response instead of PDF')
+          } catch (parseError: any) {
+            // If it's our error, re-throw it
+            if (parseError instanceof Error && parseError.message.includes('Received JSON')) {
+              throw parseError
+            }
+            // Not JSON or parsing failed, might be valid small PDF - use original blob
             blob = response.data
-          }
-          // If we got here and blob is not set, it means it was JSON error
-          if (!blob) {
-            throw new Error('Received error response instead of PDF')
           }
         } else {
           blob = response.data
@@ -857,7 +864,10 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
       }
 
       // Verify blob is valid PDF
-      if (!blob || blob.size === 0) {
+      if (!blob) {
+        throw new Error('Failed to process PDF response')
+      }
+      if (blob.size === 0) {
         throw new Error('Received empty PDF file')
       }
 
