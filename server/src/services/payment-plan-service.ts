@@ -643,11 +643,85 @@ export class PaymentPlanService {
         },
       });
 
-      // Smart allocation logic
+      // Smart allocation logic: prioritize downpayment first, then regular installments
       let remainingPayment = paymentToApply;
       const updatedInstallments: any[] = [];
 
-      for (const installment of installments) {
+      // Separate downpayment and regular installments
+      const downPaymentInstallment = installments.find((inst) => inst.type === 'down_payment');
+      const regularInstallments = installments.filter((inst) => inst.type !== 'down_payment');
+
+      // Process downpayment first if it exists and is not fully paid
+      if (downPaymentInstallment && remainingPayment > 0) {
+        const installmentRemaining = downPaymentInstallment.amount - (downPaymentInstallment.paidAmount || 0);
+        
+        if (installmentRemaining > 0) {
+          const paymentForThisInstallment = Math.min(remainingPayment, installmentRemaining);
+          const newPaidAmount = (downPaymentInstallment.paidAmount || 0) + paymentForThisInstallment;
+          const newRemaining = downPaymentInstallment.amount - newPaidAmount;
+          
+          // Determine status using utility function
+          const { calculateInstallmentStatus } = await import('../utils/payment-plan-utils');
+          const status = calculateInstallmentStatus(
+            downPaymentInstallment.amount,
+            newPaidAmount,
+            downPaymentInstallment.dueDate
+          );
+
+          // Update installment
+          const updated = await actualClient.dealInstallment.update({
+            where: { id: downPaymentInstallment.id },
+            data: {
+              paidAmount: newPaidAmount,
+              status,
+              paidDate: status === 'paid' ? paymentDate : downPaymentInstallment.paidDate,
+            },
+          });
+
+          updatedInstallments.push({
+            id: updated.id,
+            installmentNumber: updated.installmentNumber,
+            amount: updated.amount,
+            paidAmount: updated.paidAmount,
+            remaining: newRemaining,
+            status: updated.status,
+          });
+
+          // Create ledger entries for this installment payment
+          if (paymentForThisInstallment > 0) {
+            // Debit: Cash/Bank
+            await LedgerService.createLedgerEntry(
+              {
+                dealId: dealId,
+                paymentId: payment.id,
+                debitAccountId: paymentAccountId,
+                amount: paymentForThisInstallment,
+                remarks: `Payment for down payment`,
+                date: paymentDate,
+              },
+              actualClient
+            );
+
+            // Credit: Accounts Receivable
+            await LedgerService.createLedgerEntry(
+              {
+                dealId: dealId,
+                paymentId: payment.id,
+                creditAccountId: accounts.arAccountId,
+                amount: paymentForThisInstallment,
+                remarks: `Payment received for down payment`,
+                date: paymentDate,
+              },
+              actualClient
+            );
+          }
+
+          remainingPayment -= paymentForThisInstallment;
+        }
+      }
+
+      // Then process regular installments in order
+      for (const installment of regularInstallments) {
         if (remainingPayment <= 0) break;
 
         const installmentRemaining = installment.amount - (installment.paidAmount || 0);
@@ -821,6 +895,72 @@ export class PaymentPlanService {
               paidDate: status === 'paid' ? new Date() : (newPaidAmount === 0 ? null : installment.paidDate),
             },
           });
+        }
+      } else if (paymentAmount > 0) {
+        // Auto-allocate payment: prioritize downpayment first, then installments in order
+        let remainingPayment = paymentAmount;
+        const paymentDate = new Date();
+
+        // First, find and allocate to downpayment if it exists and is not fully paid
+        const downPaymentInstallment = plan.installments.find(
+          (inst) => inst.type === 'down_payment'
+        );
+
+        if (downPaymentInstallment && remainingPayment > 0) {
+          const downPaymentRemaining = downPaymentInstallment.amount - (downPaymentInstallment.paidAmount || 0);
+          if (downPaymentRemaining > 0) {
+            const paymentForDownPayment = Math.min(remainingPayment, downPaymentRemaining);
+            const newPaidAmount = (downPaymentInstallment.paidAmount || 0) + paymentForDownPayment;
+            const status = calculateInstallmentStatus(
+              downPaymentInstallment.amount,
+              newPaidAmount,
+              downPaymentInstallment.dueDate
+            );
+
+            await prismaClient.dealInstallment.update({
+              where: { id: downPaymentInstallment.id },
+              data: {
+                paidAmount: newPaidAmount,
+                status,
+                paidDate: status === 'paid' ? paymentDate : (downPaymentInstallment.paidDate || null),
+              },
+            });
+
+            remainingPayment -= paymentForDownPayment;
+          }
+        }
+
+        // Then allocate remaining payment to regular installments in order (excluding downpayment)
+        if (remainingPayment > 0) {
+          const regularInstallments = plan.installments
+            .filter((inst) => inst.type !== 'down_payment')
+            .sort((a, b) => a.installmentNumber - b.installmentNumber);
+
+          for (const installment of regularInstallments) {
+            if (remainingPayment <= 0) break;
+
+            const installmentRemaining = installment.amount - (installment.paidAmount || 0);
+            if (installmentRemaining <= 0) continue; // Skip if already fully paid
+
+            const paymentForThisInstallment = Math.min(remainingPayment, installmentRemaining);
+            const newPaidAmount = (installment.paidAmount || 0) + paymentForThisInstallment;
+            const status = calculateInstallmentStatus(
+              installment.amount,
+              newPaidAmount,
+              installment.dueDate
+            );
+
+            await prismaClient.dealInstallment.update({
+              where: { id: installment.id },
+              data: {
+                paidAmount: newPaidAmount,
+                status,
+                paidDate: status === 'paid' ? paymentDate : (installment.paidDate || null),
+              },
+            });
+
+            remainingPayment -= paymentForThisInstallment;
+          }
         }
       } else if (paymentAmount < 0) {
         // When deleting a payment (negative amount), we need to recalculate all installments
