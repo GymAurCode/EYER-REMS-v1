@@ -96,16 +96,10 @@ export function HRView() {
       setStatsLoading(true)
       const response = await apiService.stats.getHRStats()
       
-      // Debug: Log the response structure
-      console.log("HR Stats Response:", response)
-      console.log("Response.data:", response.data)
-      
       // API returns { success: true, data: {...} }, axios wraps it so response.data = { success: true, data: {...} }
       // Try multiple access patterns to handle different response structures
       const responseData = response.data as any
       const data = responseData?.data || responseData || {}
-      
-      console.log("Extracted HR Stats Data:", data)
       
       setHrStats([
         {
