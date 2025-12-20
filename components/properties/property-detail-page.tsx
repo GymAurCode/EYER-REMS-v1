@@ -46,10 +46,22 @@ type PropertyResponse = {
   occupied?: number
   yearBuilt?: string | number
   salePrice?: number | string
+  imageUrl?: string
   ownerName?: string
   ownerPhone?: string
   dealerName?: string
   dealerContact?: string
+  dealer?: {
+    id?: string
+    name?: string
+    phone?: string
+    email?: string
+  }
+  subsidiaryOptionId?: string | null
+  subsidiaryOption?: {
+    id?: string
+    name?: string
+  }
   financeSummary?: {
     totalReceived?: number
     totalExpenses?: number
@@ -489,6 +501,18 @@ export function PropertyDetailPage() {
             </Button>
           </div>
           <Separator className="my-4" />
+          {property.imageUrl && (
+            <div className="mb-4">
+              <img
+                src={property.imageUrl.startsWith('http') ? property.imageUrl : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`}
+                alt={property.name || "Property image"}
+                className="w-full h-64 object-cover rounded-lg border"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none"
+                }}
+              />
+            </div>
+          )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <div className="grid grid-cols-[140px,1fr] gap-2 text-sm">
@@ -717,14 +741,25 @@ export function PropertyDetailPage() {
             </div>
             <div className="space-y-1">
               <p className="text-sm font-semibold text-foreground">Dealer</p>
-              <p className="text-foreground">{property.dealerName || "N/A"}</p>
+              <p className="text-foreground">{property.dealerName || property.dealer?.name || "N/A"}</p>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Phone className="h-4 w-4" />
-                <span>{property.dealerContact || "No contact provided"}</span>
+                <span>{property.dealerContact || property.dealer?.phone || "No contact provided"}</span>
               </div>
             </div>
           </div>
         </div>
+        {property.subsidiaryOption && (
+          <div className="mt-4 flex gap-3 rounded-lg border border-border/60 p-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
+              <Building2 className="h-5 w-5 text-primary" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Subsidiary</p>
+              <p className="text-foreground">{property.subsidiaryOption.name || "N/A"}</p>
+            </div>
+          </div>
+        )}
       </Card>
 
       {/* Attachments Section */}
@@ -854,4 +889,6 @@ export function PropertyDetailPage() {
     </div>
   )
 }
+
+
 

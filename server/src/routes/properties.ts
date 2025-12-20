@@ -801,6 +801,12 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
             lease: true,
           },
         },
+        subsidiaryOption: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
       },
     });
 
@@ -1011,6 +1017,8 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     return successResponse(res, {
       ...property,
       dealer, // Include dealer information
+      dealerName: dealer?.name || null, // Map dealer name for frontend compatibility
+      dealerContact: dealer?.phone || null, // Map dealer contact for frontend compatibility
       ...(salePrice !== undefined ? { salePrice } : {}),
       amenities, // Add amenities to response
       occupied: occupiedUnits,
