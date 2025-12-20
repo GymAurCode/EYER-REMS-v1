@@ -85,7 +85,9 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
     try {
       setLoadingDeals(true)
       const response = await apiService.deals.getAll()
-      const data = Array.isArray(response.data) ? response.data : []
+      // Handle nested response structure: { success: true, data: [...], pagination: {...} }
+      const responseData = response.data?.data || response.data
+      const data = Array.isArray(responseData) ? responseData : []
       setDeals(
         data.map((deal: any) => ({
           id: deal.id,

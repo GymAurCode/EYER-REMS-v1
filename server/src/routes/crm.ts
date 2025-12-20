@@ -1084,21 +1084,24 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       // Check if down payment has been paid via finance entry (receipt or payment record)
       // Down payment is only considered paid if there's an actual finance entry
       if (downPayment > 0) {
+        // Get down payment installment IDs
+        const downPaymentInstallmentIds = (plan.installments || [])
+          .filter((inst: any) => inst.type === 'down_payment')
+          .map((inst: any) => inst.id);
+        
         // Check for receipts linked to this deal
         const receipts = await prisma.dealReceipt.findMany({
           where: {
             dealId: dealId,
           },
           include: {
-            allocations: {
+            allocations: downPaymentInstallmentIds.length > 0 ? {
               where: {
                 installmentId: {
-                  in: (plan.installments || [])
-                    .filter((inst: any) => inst.type === 'down_payment')
-                    .map((inst: any) => inst.id),
+                  in: downPaymentInstallmentIds,
                 },
               },
-            },
+            } : false,
           },
         });
         // #region agent log
@@ -1208,11 +1211,17 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1184',message:'Calling generatePaymentPlanPDF',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
     // #endregion
-    generatePaymentPlanPDF(pdfData, res);
+    try {
+      generatePaymentPlanPDF(pdfData, res);
+    } catch (pdfError: any) {
+      console.error('PDF generation error:', pdfError);
+      throw pdfError; // Re-throw to be caught by outer catch
+    }
   } catch (error: any) {
     // #region agent log
     fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1186',message:'Error caught',data:{errorMessage:error?.message,errorStack:error?.stack?.substring(0,500),errorName:error?.name,headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
     // #endregion
+    console.error('Generate PDF error:', error);
     logger.error('Generate PDF error:', error);
     if (!res.headersSent) {
       res.status(500).json({

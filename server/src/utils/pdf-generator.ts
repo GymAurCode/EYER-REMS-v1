@@ -31,6 +31,7 @@ export interface PaymentPlanPDFData {
     progress: number;
     status: string;
     downPayment?: number; // Down payment amount
+    downPaymentPaid?: number; // Down payment actually paid
   };
   installments: Array<{
     installmentNumber: number;
@@ -91,20 +92,35 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
-    return `Rs ${amount.toLocaleString('en-IN', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })}`;
+    try {
+      const numAmount = Number(amount);
+      if (isNaN(numAmount) || !isFinite(numAmount)) {
+        return 'Rs 0';
+      }
+      return `Rs ${numAmount.toLocaleString('en-IN', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      })}`;
+    } catch (error) {
+      return 'Rs 0';
+    }
   };
 
   // Helper function to format date
   const formatDate = (date: string | Date): string => {
-    const d = typeof date === 'string' ? new Date(date) : date;
-    return d.toLocaleDateString('en-IN', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+    try {
+      const d = typeof date === 'string' ? new Date(date) : date;
+      if (!(d instanceof Date) || isNaN(d.getTime())) {
+        return 'N/A';
+      }
+      return d.toLocaleDateString('en-IN', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch (error) {
+      return 'N/A';
+    }
   };
 
   // ============ HEADER SECTION ============
@@ -187,18 +203,17 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
         currentY = 50;
       }
       
-      const dpStatus = data.summary.paidAmount >= downPayment ? 'Paid' : 'Pending';
-      const dpPaid = Math.min(data.summary.paidAmount, downPayment);
+      const dpStatus = data.summary.downPaymentPaid && data.summary.downPaymentPaid >= downPayment ? 'Paid' : 'Pending';
+      const dpPaid = data.summary.downPaymentPaid || 0;
       const dpRemaining = Math.max(0, downPayment - dpPaid);
       
       doc.fillColor('#000000');
       doc.text('DP', col1, currentY);
       doc.text('Down Payment', col2, currentY);
-      doc.text('-', col3, currentY, { width: 90, align: 'right' });
-      doc.text(formatCurrency(downPayment), col4, currentY, { width: 90, align: 'right' });
-      doc.text(formatCurrency(dpPaid), col5, currentY, { width: 90, align: 'right' });
-      doc.text(formatCurrency(dpRemaining), col6, currentY, { width: 90, align: 'right' });
-      doc.text(dpStatus, col6 + 100, currentY);
+      doc.text(formatCurrency(downPayment), col3, currentY, { width: 90, align: 'right' });
+      doc.text(formatCurrency(dpPaid), col4, currentY, { width: 90, align: 'right' });
+      doc.text(formatCurrency(dpRemaining), col5, currentY, { width: 90, align: 'right' });
+      doc.text(dpStatus, col6, currentY);
       
       currentY += rowHeight;
     }
@@ -214,8 +229,8 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
       const status = (inst.status || 'pending').charAt(0).toUpperCase() + (inst.status || 'pending').slice(1).toLowerCase();
       
       doc.fillColor('#000000');
-      doc.text(inst.installmentNumber.toString(), col1, currentY);
-      doc.text(formatDate(inst.dueDate), col2, currentY);
+      doc.text((inst.installmentNumber || 0).toString(), col1, currentY);
+      doc.text(formatDate(inst.dueDate || new Date()), col2, currentY);
       doc.text(formatCurrency(inst.amount || 0), col3, currentY, { width: 90, align: 'right' });
       doc.text(formatCurrency(inst.paidAmount || 0), col4, currentY, { width: 90, align: 'right' });
       doc.text(formatCurrency(remaining), col5, currentY, { width: 90, align: 'right' });
