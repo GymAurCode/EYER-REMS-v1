@@ -1306,12 +1306,349 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
   }
 });
 
+// GET /finance/vouchers/:id - Get voucher by ID
+router.get('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: req.params.id },
+      include: {
+        account: true,
+        expenseCategory: true,
+        preparedBy: true,
+        approvedBy: true,
+        journalEntry: { 
+          include: { 
+            lines: {
+              include: {
+                account: true,
+              },
+            },
+          },
+        },
+        deal: {
+          include: {
+            client: true,
+            property: true,
+          },
+        },
+      },
+    });
+    if (!voucher) {
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+    res.json(voucher);
+  } catch (error: any) {
+    logger.error('Get voucher error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch voucher' });
+  }
+});
+
+// PUT /finance/vouchers/:id - Update voucher
+router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      paymentMethod,
+      accountId,
+      amount,
+      date,
+      description,
+      referenceNumber,
+      expenseCategoryId,
+      transactionCategoryId,
+      attachments,
+      approvedByUserId,
+      counterAccountId,
+      dealId,
+    } = req.body;
+
+    // Check if voucher exists
+    const existingVoucher = await prisma.voucher.findUnique({
+      where: { id: req.params.id },
+      include: { journalEntry: true },
+    });
+
+    if (!existingVoucher) {
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+
+    // Validate deal exists if dealId is provided
+    if (dealId) {
+      const deal = await prisma.deal.findUnique({
+        where: { id: dealId },
+        select: { id: true },
+      });
+      if (!deal) {
+        return res.status(400).json({ error: 'Deal not found' });
+      }
+    }
+
+    const voucherDate = date ? normalizeDateInput(date) : existingVoucher.date;
+    const normalizedAttachments = normalizeAttachments(attachments);
+    const voucherType = existingVoucher.type;
+    const isReceipt = voucherType.includes('receipt');
+    
+    const categoryId = transactionCategoryId || expenseCategoryId || existingVoucher.expenseCategoryId || null;
+    const category = categoryId
+      ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
+      : null;
+
+    let debitAccountId: string | null = null;
+    let creditAccountId: string | null = null;
+
+    if (isReceipt) {
+      debitAccountId = accountId || existingVoucher.accountId;
+      creditAccountId = counterAccountId || category?.defaultCreditAccountId || null;
+    } else {
+      debitAccountId = category?.defaultDebitAccountId || counterAccountId || null;
+      creditAccountId = accountId || existingVoucher.accountId;
+    }
+
+    if (!debitAccountId || !creditAccountId) {
+      return res.status(400).json({ error: 'Unable to resolve voucher accounts. Please provide a category or counter account.' });
+    }
+
+    const finalAmount = amount !== undefined ? parseFloat(amount) : existingVoucher.amount;
+
+    const updatedVoucher = await prisma.$transaction(async (tx) => {
+      // Update voucher
+      const voucher = await tx.voucher.update({
+        where: { id: req.params.id },
+        data: {
+          paymentMethod: paymentMethod || existingVoucher.paymentMethod,
+          accountId: accountId || existingVoucher.accountId,
+          expenseCategoryId: categoryId,
+          dealId: dealId !== undefined ? dealId : existingVoucher.dealId,
+          description: description !== undefined ? description : existingVoucher.description,
+          referenceNumber: referenceNumber !== undefined ? referenceNumber : existingVoucher.referenceNumber,
+          amount: finalAmount,
+          attachments: normalizedAttachments.length > 0 ? normalizedAttachments : (existingVoucher.attachments as any) || undefined,
+          approvedByUserId: approvedByUserId || existingVoucher.approvedByUserId,
+          date: voucherDate,
+        },
+        include: {
+          account: true,
+          expenseCategory: true,
+          journalEntry: { include: { lines: true } },
+        },
+      });
+
+      // Update journal entry if it exists
+      if (existingVoucher.journalEntryId) {
+        const lines = isReceipt
+          ? [
+              { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Receipt' },
+              { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Income' },
+            ]
+          : [
+              { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Expense' },
+              { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Cash/Bank' },
+            ];
+
+        // Delete old journal lines
+        await tx.journalLine.deleteMany({
+          where: { entryId: existingVoucher.journalEntryId },
+        });
+
+        // Create new journal lines
+        await tx.journalEntry.update({
+          where: { id: existingVoucher.journalEntryId },
+          data: {
+            date: voucherDate,
+            description: description || `Voucher ${voucher.voucherNumber}`,
+            narration: referenceNumber || null,
+            attachments: normalizedAttachments.length > 0 ? normalizedAttachments : (existingVoucher.attachments as any) || undefined,
+            lines: {
+              create: lines,
+            },
+          },
+        });
+      }
+
+      return voucher;
+    });
+
+    res.json(updatedVoucher);
+  } catch (error: any) {
+    logger.error('Update voucher error:', error);
+    const message = error?.message || 'Failed to update voucher';
+    res.status(400).json({ error: message });
+  }
+});
+
+// GET /finance/vouchers/:id/pdf - Generate voucher PDF
+router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: req.params.id },
+      include: {
+        account: true,
+        expenseCategory: true,
+        preparedBy: true,
+        approvedBy: true,
+        journalEntry: { 
+          include: { 
+            lines: {
+              include: {
+                account: true,
+              },
+            },
+          },
+        },
+        deal: {
+          include: {
+            client: true,
+            property: true,
+          },
+        },
+      },
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+
+    // Generate PDF using the pdf-generator utility
+    const { generateReceiptPDF } = await import('../utils/pdf-generator');
+    
+    // Transform voucher data to PDF format
+    const pdfData = {
+      receipt: {
+        receiptNo: voucher.voucherNumber,
+        amount: voucher.amount,
+        method: voucher.paymentMethod,
+        date: voucher.date,
+        notes: voucher.description || undefined,
+      },
+      deal: voucher.deal ? {
+        dealCode: voucher.deal.dealCode || undefined,
+        title: voucher.deal.title,
+        dealAmount: voucher.deal.dealAmount,
+      } : {
+        dealCode: undefined,
+        title: 'N/A',
+        dealAmount: 0,
+      },
+      client: voucher.deal?.client ? {
+        name: voucher.deal.client.name,
+        email: voucher.deal.client.email || undefined,
+        phone: voucher.deal.client.phone || undefined,
+        address: voucher.deal.client.address || undefined,
+      } : {
+        name: 'N/A',
+        email: undefined,
+        phone: undefined,
+        address: undefined,
+      },
+      allocations: [],
+      receivedBy: voucher.preparedBy ? {
+        username: voucher.preparedBy.username || undefined,
+        email: voucher.preparedBy.email || undefined,
+      } : undefined,
+    };
+
+    const pdfBuffer = await generateReceiptPDF(pdfData);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="voucher-${voucher.voucherNumber}.pdf"`);
+    res.send(pdfBuffer);
+  } catch (error: any) {
+    logger.error('Generate voucher PDF error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to generate voucher PDF',
+    });
+  }
+});
+
+// GET /finance/vouchers/export - Export vouchers
+router.get('/vouchers/export', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { type, startDate, endDate } = req.query;
+    
+    const where: any = {};
+    if (type) where.type = type;
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) where.date.lte = new Date(endDate as string);
+    }
+
+    const vouchers = await prisma.voucher.findMany({
+      where,
+      include: {
+        account: true,
+        expenseCategory: true,
+        preparedBy: true,
+        approvedBy: true,
+        deal: {
+          include: {
+            client: true,
+            property: true,
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    // Generate CSV
+    const csvRows = [
+      ['Voucher Number', 'Type', 'Date', 'Payment Method', 'Amount', 'Description', 'Account', 'Category', 'Prepared By'].join(','),
+      ...vouchers.map(v => [
+        v.voucherNumber,
+        v.type,
+        v.date.toISOString().split('T')[0],
+        v.paymentMethod,
+        v.amount,
+        v.description || '',
+        v.account.name,
+        v.expenseCategory?.name || '',
+        v.preparedBy?.username || '',
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const csvBuffer = Buffer.from(csvContent, 'utf-8');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="vouchers-export-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(csvBuffer);
+  } catch (error: any) {
+    logger.error('Export vouchers error:', error);
+    res.status(500).json({
+      error: error.message || 'Failed to export vouchers',
+    });
+  }
+});
+
 router.delete('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    await prisma.voucher.delete({ where: { id: req.params.id } });
+    const voucher = await prisma.voucher.findUnique({
+      where: { id: req.params.id },
+      include: { journalEntry: true },
+    });
+
+    if (!voucher) {
+      return res.status(404).json({ error: 'Voucher not found' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete journal entry if exists
+      if (voucher.journalEntryId) {
+        await tx.journalLine.deleteMany({
+          where: { entryId: voucher.journalEntryId },
+        });
+        await tx.journalEntry.delete({
+          where: { id: voucher.journalEntryId },
+        });
+      }
+
+      // Delete voucher
+      await tx.voucher.delete({ where: { id: req.params.id } });
+    });
+
     res.status(204).end();
-  } catch {
-    res.status(400).json({ error: 'Failed to delete voucher' });
+  } catch (error: any) {
+    logger.error('Delete voucher error:', error);
+    res.status(400).json({ error: error.message || 'Failed to delete voucher' });
   }
 });
 
@@ -2860,6 +3197,323 @@ router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res: Resp
     res.status(500).json({
       success: false,
       error: error.message || 'Failed to get receipts',
+    });
+  }
+});
+
+// GET /finance/receipts - Get all receipts
+router.get('/receipts', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { type, startDate, endDate, dealId, clientId } = req.query;
+    
+    const where: any = {};
+    if (dealId) where.dealId = dealId;
+    if (clientId) where.clientId = clientId;
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) where.date.lte = new Date(endDate as string);
+    }
+
+    const receipts = await prisma.dealReceipt.findMany({
+      where,
+      include: {
+        client: true,
+        deal: {
+          include: {
+            property: true,
+          },
+        },
+        receivedByUser: true,
+        allocations: {
+          include: {
+            installment: true,
+          },
+        },
+        journalEntry: {
+          include: {
+            lines: {
+              include: {
+                account: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    res.json({ success: true, data: receipts });
+  } catch (error: any) {
+    logger.error('Get receipts error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get receipts',
+    });
+  }
+});
+
+// GET /finance/receipts/id/:id - Get receipt by ID
+router.get('/receipts/id/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { ReceiptService } = await import('../services/receipt-service');
+    const receipt = await ReceiptService.getReceiptById(req.params.id);
+
+    if (!receipt) {
+      return res.status(404).json({ success: false, error: 'Receipt not found' });
+    }
+
+    res.json({ success: true, data: receipt });
+  } catch (error: any) {
+    logger.error('Get receipt error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to get receipt',
+    });
+  }
+});
+
+// PUT /finance/receipts/:id - Update receipt
+router.put('/receipts/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { ReceiptService } = await import('../services/receipt-service');
+    const { amount, method, date, notes, referenceNumber } = req.body;
+
+    const existingReceipt = await prisma.dealReceipt.findUnique({
+      where: { id: req.params.id },
+      include: {
+        allocations: true,
+        journalEntry: true,
+      },
+    });
+
+    if (!existingReceipt) {
+      return res.status(404).json({ success: false, error: 'Receipt not found' });
+    }
+
+    // Update receipt
+    const updatedReceipt = await prisma.$transaction(async (tx) => {
+      const receipt = await tx.dealReceipt.update({
+        where: { id: req.params.id },
+        data: {
+          amount: amount !== undefined ? parseFloat(amount) : existingReceipt.amount,
+          method: method || existingReceipt.method,
+          date: date ? new Date(date) : existingReceipt.date,
+          notes: notes !== undefined ? notes : existingReceipt.notes,
+          referenceNumber: referenceNumber !== undefined ? referenceNumber : existingReceipt.referenceNumber,
+        },
+        include: {
+          client: true,
+          deal: {
+            include: {
+              property: true,
+            },
+          },
+          receivedByUser: true,
+          allocations: {
+            include: {
+              installment: true,
+            },
+          },
+          journalEntry: {
+            include: {
+              lines: {
+                include: {
+                  account: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      // Update journal entry if amount or date changed
+      if (receipt.journalEntryId && (amount !== undefined || date)) {
+        const newAmount = amount !== undefined ? parseFloat(amount) : existingReceipt.amount;
+        const newDate = date ? new Date(date) : existingReceipt.date;
+
+        // Update journal entry lines
+        const journalEntry = await tx.journalEntry.findUnique({
+          where: { id: receipt.journalEntryId },
+          include: { lines: true },
+        });
+
+        if (journalEntry) {
+          // Delete old lines
+          await tx.journalLine.deleteMany({
+            where: { entryId: receipt.journalEntryId },
+          });
+
+          // Get account IDs from old lines
+          const oldDebitAccount = journalEntry.lines.find(l => l.debit > 0);
+          const oldCreditAccount = journalEntry.lines.find(l => l.credit > 0);
+
+          if (oldDebitAccount && oldCreditAccount) {
+            // Create new lines with updated amounts
+            await tx.journalEntry.update({
+              where: { id: receipt.journalEntryId },
+              data: {
+                date: newDate,
+                description: `Receipt ${receipt.receiptNo} - ${method || receipt.method} payment`,
+                lines: {
+                  create: [
+                    {
+                      accountId: oldDebitAccount.accountId,
+                      debit: newAmount,
+                      credit: 0,
+                      description: `Receipt ${receipt.receiptNo} - ${method || receipt.method}`,
+                    },
+                    {
+                      accountId: oldCreditAccount.accountId,
+                      debit: 0,
+                      credit: newAmount,
+                      description: `Receipt ${receipt.receiptNo} - Installment Receivable`,
+                    },
+                  ],
+                },
+              },
+            });
+          }
+        }
+      }
+
+      return receipt;
+    });
+
+    res.json({ success: true, data: updatedReceipt });
+  } catch (error: any) {
+    logger.error('Update receipt error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to update receipt',
+    });
+  }
+});
+
+// DELETE /finance/receipts/:id - Delete receipt
+router.delete('/receipts/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const receipt = await prisma.dealReceipt.findUnique({
+      where: { id: req.params.id },
+      include: {
+        allocations: true,
+        journalEntry: true,
+      },
+    });
+
+    if (!receipt) {
+      return res.status(404).json({ success: false, error: 'Receipt not found' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Delete allocations
+      await tx.dealReceiptAllocation.deleteMany({
+        where: { receiptId: receipt.id },
+      });
+
+      // Delete journal entry if exists
+      if (receipt.journalEntryId) {
+        await tx.journalLine.deleteMany({
+          where: { entryId: receipt.journalEntryId },
+        });
+        await tx.journalEntry.delete({
+          where: { id: receipt.journalEntryId },
+        });
+      }
+
+      // Delete associated voucher if exists
+      const voucher = await tx.voucher.findFirst({
+        where: {
+          referenceNumber: receipt.receiptNo,
+          type: receipt.method === 'Cash' ? 'cash_receipt' : 'bank_receipt',
+        },
+      });
+
+      if (voucher) {
+        if (voucher.journalEntryId && voucher.journalEntryId !== receipt.journalEntryId) {
+          await tx.journalLine.deleteMany({
+            where: { entryId: voucher.journalEntryId },
+          });
+          await tx.journalEntry.delete({
+            where: { id: voucher.journalEntryId },
+          });
+        }
+        await tx.voucher.delete({
+          where: { id: voucher.id },
+        });
+      }
+
+      // Delete receipt
+      await tx.dealReceipt.delete({
+        where: { id: receipt.id },
+      });
+    });
+
+    res.status(204).end();
+  } catch (error: any) {
+    logger.error('Delete receipt error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete receipt',
+    });
+  }
+});
+
+// GET /finance/receipts/export - Export receipts
+router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate, dealId, clientId } = req.query;
+    
+    const where: any = {};
+    if (dealId) where.dealId = dealId;
+    if (clientId) where.clientId = clientId;
+    if (startDate || endDate) {
+      where.date = {};
+      if (startDate) where.date.gte = new Date(startDate as string);
+      if (endDate) where.date.lte = new Date(endDate as string);
+    }
+
+    const receipts = await prisma.dealReceipt.findMany({
+      where,
+      include: {
+        client: true,
+        deal: {
+          include: {
+            property: true,
+          },
+        },
+        receivedByUser: true,
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    // Generate CSV
+    const csvRows = [
+      ['Receipt Number', 'Date', 'Client', 'Deal', 'Amount', 'Method', 'Reference Number', 'Notes', 'Received By'].join(','),
+      ...receipts.map(r => [
+        r.receiptNo,
+        r.date.toISOString().split('T')[0],
+        r.client.name,
+        r.deal.title,
+        r.amount,
+        r.method,
+        r.referenceNumber || '',
+        r.notes || '',
+        r.receivedByUser?.username || '',
+      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+    ];
+
+    const csvContent = csvRows.join('\n');
+    const csvBuffer = Buffer.from(csvContent, 'utf-8');
+
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="receipts-export-${new Date().toISOString().split('T')[0]}.csv"`);
+    res.send(csvBuffer);
+  } catch (error: any) {
+    logger.error('Export receipts error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to export receipts',
     });
   }
 });

@@ -6,10 +6,18 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Button } from "@/components/ui/button"
-import { Loader2, Download, FileText } from "lucide-react"
+import { Loader2, Download, FileText, Eye, Pencil, Trash2, MoreVertical } from "lucide-react"
 import { format } from "date-fns"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { ViewReceiptDialog } from "@/components/finance/view-receipt-dialog"
+import { EditReceiptDialog } from "@/components/finance/edit-receipt-dialog"
 
 interface ClientLedgerViewProps {
   dealId: string
@@ -61,6 +69,10 @@ export function ClientLedgerView({ dealId }: ClientLedgerViewProps) {
     remainingAmount: 0,
     progress: 0,
   })
+  const [viewingReceiptId, setViewingReceiptId] = useState<string | null>(null)
+  const [editingReceiptId, setEditingReceiptId] = useState<string | null>(null)
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   useEffect(() => {
     loadLedgerData()
@@ -126,6 +138,37 @@ export function ClientLedgerView({ dealId }: ClientLedgerViewProps) {
       overdue: "destructive",
     }
     return <Badge variant={variants[status] || "secondary"}>{status}</Badge>
+  }
+
+  const handleViewReceipt = (receiptId: string) => {
+    setViewingReceiptId(receiptId)
+    setShowViewDialog(true)
+  }
+
+  const handleEditReceipt = (receiptId: string) => {
+    setEditingReceiptId(receiptId)
+    setShowEditDialog(true)
+  }
+
+  const handleDeleteReceipt = async (receiptId: string) => {
+    if (!window.confirm("Are you sure you want to delete this receipt? This action cannot be undone.")) {
+      return
+    }
+
+    try {
+      await apiService.receipts.delete(receiptId)
+      toast({
+        title: "Success",
+        description: "Receipt deleted successfully",
+      })
+      await loadLedgerData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.error || error?.message || "Failed to delete receipt",
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDownloadReceipt = async (receiptId: string, receiptNo: string) => {
@@ -240,13 +283,34 @@ export function ClientLedgerView({ dealId }: ClientLedgerViewProps) {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDownloadReceipt(receipt.id, receipt.receiptNo)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewReceipt(receipt.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditReceipt(receipt.id)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadReceipt(receipt.id, receipt.receiptNo)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteReceipt(receipt.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -297,6 +361,40 @@ export function ClientLedgerView({ dealId }: ClientLedgerViewProps) {
           )}
         </CardContent>
       </Card>
+
+      {viewingReceiptId && (
+        <ViewReceiptDialog
+          open={showViewDialog}
+          onOpenChange={(open) => {
+            setShowViewDialog(open)
+            if (!open) setViewingReceiptId(null)
+          }}
+          receiptId={viewingReceiptId}
+          onEdit={() => {
+            setShowViewDialog(false)
+            setEditingReceiptId(viewingReceiptId)
+            setShowEditDialog(true)
+          }}
+        />
+      )}
+
+      {editingReceiptId && (
+        <EditReceiptDialog
+          open={showEditDialog}
+          onOpenChange={(open) => {
+            setShowEditDialog(open)
+            if (!open) {
+              setEditingReceiptId(null)
+            }
+          }}
+          receiptId={editingReceiptId}
+          onSuccess={() => {
+            loadLedgerData()
+            setEditingReceiptId(null)
+            setShowEditDialog(false)
+          }}
+        />
+      )}
     </div>
   )
 }

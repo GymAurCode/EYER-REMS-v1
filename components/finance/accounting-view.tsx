@@ -6,15 +6,22 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, FileText, Trash2 } from "lucide-react"
+import { Search, Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
 import { AddAccountDialog } from "./add-account-dialog"
 import { AddVoucherDialog } from "./add-voucher-dialog"
 import { AddGeneralVoucherDialog } from "./add-general-voucher-dialog"
+import { EditVoucherDialog } from "./edit-voucher-dialog"
+import { ViewVoucherDialog } from "./view-voucher-dialog"
 import { apiService } from "@/lib/api"
-import { Loader2 } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 export function AccountingView() {
   const { toast } = useToast()
@@ -30,6 +37,10 @@ export function AccountingView() {
   const [payments, setPayments] = useState<any[]>([])
   const [vouchers, setVouchers] = useState<any[]>([])
   const [accounts, setAccounts] = useState<any[]>([])
+  const [viewingVoucherId, setViewingVoucherId] = useState<string | null>(null)
+  const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null)
+  const [showViewDialog, setShowViewDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -111,13 +122,94 @@ export function AccountingView() {
         date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
         from: v.description || v.account?.name || "Customer",
         amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amountRaw: v.amount || 0,
         description: v.description || "Bank receipt",
         status: v.status || "posted",
       }))
   }, [vouchers])
 
-  const cashPaymentVouchers = bankPaymentVouchers
-  const cashReceiptVouchers = bankReceiptVouchers
+  const cashReceiptVouchers = useMemo(() => {
+    return vouchers
+      .filter((v) => v.type === "cash_receipt" || (v.type === "receipt" && v.paymentMethod === "Cash"))
+      .map((v) => ({
+        id: v.id,
+        voucherId: v.id,
+        voucherNumber: v.voucherNumber || v.id,
+        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        from: v.description || v.account?.name || "Customer",
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amountRaw: v.amount || 0,
+        description: v.description || "Cash receipt",
+        status: v.status || "posted",
+      }))
+  }, [vouchers])
+
+  const cashPaymentVouchers = useMemo(() => {
+    return vouchers
+      .filter((v) => v.type === "cash_payment" || (v.type === "payment" && v.paymentMethod === "Cash"))
+      .map((v) => ({
+        id: v.id,
+        voucherId: v.id,
+        voucherNumber: v.voucherNumber || v.id,
+        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        payee: v.description || v.account?.name || "Payee",
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amountRaw: v.amount || 0,
+        description: v.description || "Cash payment",
+        status: v.status || "posted",
+      }))
+  }, [vouchers])
+
+  const handleViewVoucher = (voucherId: string) => {
+    setViewingVoucherId(voucherId)
+    setShowViewDialog(true)
+  }
+
+  const handleEditVoucher = (voucherId: string) => {
+    setEditingVoucherId(voucherId)
+    setShowEditDialog(true)
+  }
+
+  const handleDownloadPDF = async (voucherId: string) => {
+    try {
+      const response = await apiService.vouchers.getPDF(voucherId)
+      const blob = new Blob([response.data as BlobPart], { type: 'application/pdf' })
+      const url = window.URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `voucher-${voucherId}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      window.URL.revokeObjectURL(url)
+      toast({ title: "PDF downloaded successfully" })
+    } catch (error: any) {
+      toast({
+        title: "Failed to download PDF",
+        description: error?.response?.data?.error || error?.message || "Unknown error",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteVoucher = async (voucherId: string) => {
+    if (!window.confirm("Are you sure you want to delete this voucher?")) return
+    
+    try {
+      await apiService.vouchers.delete(voucherId)
+      toast({
+        title: "Success",
+        description: "Voucher deleted successfully",
+      })
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.error || error?.message || "Failed to delete voucher",
+        variant: "destructive",
+      })
+    }
+  }
 
   const journalVouchers: any[] = []
 
@@ -294,36 +386,34 @@ export function AccountingView() {
                       <Badge variant="secondary">{voucher.status}</Badge>
                     </TableCell>
                     <TableCell>
-                      <div className="flex gap-2">
-                        <Button variant="ghost" size="sm" title="View Details">
-                          <FileText className="h-4 w-4" />
-                        </Button>
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          title="Delete"
-                          onClick={async () => {
-                            if (window.confirm("Are you sure you want to delete this voucher?")) {
-                              try {
-                                await apiService.vouchers.delete(voucher.voucherId || voucher.id)
-                                toast({
-                                  title: "Success",
-                                  description: "Voucher deleted successfully",
-                                })
-                                await fetchData()
-                              } catch (error: any) {
-                                toast({
-                                  title: "Error",
-                                  description: error?.response?.data?.error || error?.message || "Failed to delete voucher",
-                                  variant: "destructive",
-                                })
-                              }
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteVoucher(voucher.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -359,6 +449,7 @@ export function AccountingView() {
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -370,13 +461,43 @@ export function AccountingView() {
                   </TableRow>
                 ) : cashPaymentVouchers.map((voucher) => (
                   <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.id}</TableCell>
+                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
                     <TableCell>{voucher.date}</TableCell>
                     <TableCell>{voucher.payee}</TableCell>
                     <TableCell>{voucher.description}</TableCell>
                     <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
                     <TableCell>
                       <Badge>{voucher.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteVoucher(voucher.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -412,24 +533,55 @@ export function AccountingView() {
                   <TableHead>Description</TableHead>
                   <TableHead className="text-right">Amount</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="px-6 py-12 text-center">
+                    <TableCell colSpan={7} className="px-6 py-12 text-center">
                       <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                     </TableCell>
                   </TableRow>
                 ) : cashReceiptVouchers.map((voucher) => (
                   <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.id}</TableCell>
+                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
                     <TableCell>{voucher.date}</TableCell>
                     <TableCell>{voucher.from}</TableCell>
                     <TableCell>{voucher.description}</TableCell>
                     <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
                     <TableCell>
                       <Badge variant="secondary">{voucher.status}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
+                            <Pencil className="mr-2 h-4 w-4" />
+                            Edit
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Download PDF
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteVoucher(voucher.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -499,6 +651,40 @@ export function AccountingView() {
         if (!open) fetchData()
       }} voucherType={voucherType} onSuccess={fetchData} />
       <AddGeneralVoucherDialog open={showAddGeneralVoucherDialog} onOpenChange={setShowAddGeneralVoucherDialog} />
+      
+      {viewingVoucherId && (
+        <ViewVoucherDialog
+          open={showViewDialog}
+          onOpenChange={(open) => {
+            setShowViewDialog(open)
+            if (!open) setViewingVoucherId(null)
+          }}
+          voucherId={viewingVoucherId}
+          onEdit={() => {
+            setShowViewDialog(false)
+            setEditingVoucherId(viewingVoucherId)
+            setShowEditDialog(true)
+          }}
+        />
+      )}
+      
+      {editingVoucherId && (
+        <EditVoucherDialog
+          open={showEditDialog}
+          onOpenChange={(open) => {
+            setShowEditDialog(open)
+            if (!open) {
+              setEditingVoucherId(null)
+            }
+          }}
+          voucherId={editingVoucherId}
+          onSuccess={() => {
+            fetchData()
+            setEditingVoucherId(null)
+            setShowEditDialog(false)
+          }}
+        />
+      )}
     </div>
   )
 }

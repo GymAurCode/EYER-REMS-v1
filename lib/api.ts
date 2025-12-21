@@ -837,8 +837,12 @@ export const apiService = {
 
   vouchers: {
     getAll: () => api.get('/finance/vouchers'),
+    getById: (id: string) => api.get(`/finance/vouchers/${id}`),
     create: (data: any) => api.post('/finance/vouchers', data),
+    update: (id: string, data: any) => api.put(`/finance/vouchers/${id}`, data),
     delete: (id: string) => api.delete(`/finance/vouchers/${id}`),
+    getPDF: (id: string) => api.get(`/finance/vouchers/${id}/pdf`, { responseType: 'blob' }),
+    export: (filters?: any) => api.get('/finance/vouchers/export', { params: filters, responseType: 'blob' }),
   },
 
   // Finance - Payment Plans
@@ -854,8 +858,12 @@ export const apiService = {
 
   // Finance - Receipts
   receipts: {
+    getAll: (filters?: any) => api.get('/finance/receipts', { params: filters }),
+    getById: (id: string) => api.get(`/finance/receipts/id/${id}`),
     create: (data: any) => api.post('/finance/receipts/create', data),
     getByDealId: (dealId: string) => api.get(`/finance/receipts/${dealId}`),
+    update: (id: string, data: any) => api.put(`/finance/receipts/${id}`, data),
+    delete: (id: string) => api.delete(`/finance/receipts/${id}`),
     getPDF: (id: string) => api.get(`/finance/receipts/pdf/${id}`, { responseType: 'blob' }),
     generate: (paymentId: string) => api.get(`/receipts/generate/${paymentId}`),
     getByTenant: (tenantId: string) => api.get(`/receipts/tenant/${tenantId}`),
