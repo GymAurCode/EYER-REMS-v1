@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, Grid, ArrowRight } from "lucide-react"
+import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, Video, MessageSquare, Code, Grid, ArrowRight } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { AuthToasts } from "@/lib/toast-utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -53,9 +53,88 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-8 bg-white">
-      {/* Login Form */}
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex bg-white">
+      {/* Left Panel - EYERCALL Details */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-white border-r border-purple-100">
+        <div className="relative z-10 flex flex-col justify-between p-12">
+          {/* Logo and Header */}
+          <div>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/30">
+                <span className="text-white font-bold text-xl">A</span>
+              </div>
+              <span className="text-2xl font-bold tracking-tight text-purple-900">EYERCALL</span>
+            </div>
+            <p className="text-lg text-purple-700 mb-12">
+              Connecting the world through secure communication and digital innovation.
+            </p>
+          </div>
+
+          {/* Features Section */}
+          <div className="space-y-8 mb-12">
+            {/* Secure Video Meetings */}
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
+                <Video className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-2 text-purple-900">Secure Video Meetings</h3>
+                <p className="text-purple-600 text-sm leading-relaxed">
+                  Seamless and secure video meetings for various purposes—online classes, business conferences, personal discussions. A reliable, user-friendly platform for crystal-clear communication.
+                </p>
+              </div>
+            </div>
+
+            {/* Messaging & Courses */}
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
+                <MessageSquare className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-2 text-purple-900">Messaging & Courses</h3>
+                <p className="text-purple-600 text-sm leading-relaxed">
+                  Built-in messaging for students and teachers, and exploring academic and professional courses.
+                </p>
+              </div>
+            </div>
+
+            {/* Custom Website & More */}
+            <div className="flex gap-4">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
+                <Code className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg mb-2 text-purple-900">Custom Website & More</h3>
+                <p className="text-purple-600 text-sm leading-relaxed">
+                  Powerful, customized digital solutions, from modern websites to advanced software development, to help businesses grow and scale.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div>
+            <Link 
+              href="#" 
+              className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 transition-colors mb-8 font-medium"
+            >
+              Explore our ecosystem <ArrowRight className="w-4 h-4" />
+            </Link>
+            <div className="text-sm text-purple-500">
+              <div className="mb-2">© 2024 EYERCALL INC.</div>
+              <div className="flex gap-4">
+                <Link href="#" className="hover:text-purple-700 transition-colors">PRIVACY POLICY</Link>
+                <span>•</span>
+                <Link href="#" className="hover:text-purple-700 transition-colors">TERMS</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Right Panel - Login Form */}
+      <div className="flex-1 lg:w-1/2 flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-md">
         {/* Secure Access Portal Badge */}
         <div className="flex items-center gap-2 mb-6">
           <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-purple-500/30 bg-purple-50">
@@ -156,6 +235,7 @@ export default function LoginPage() {
           <Link href="/signup" className="text-purple-700 hover:text-purple-800 font-medium transition-colors">
             Start Free Trial
           </Link>
+        </div>
         </div>
       </div>
     </div>
