@@ -60,7 +60,7 @@ export function PaymentsView() {
 
   const filteredPayments = payments.filter((payment) => {
     const paymentId = payment.paymentId?.toLowerCase() || ""
-    const dealTitle = payment.deal?.title?.toLowerCase() || ""
+    const dealTitle = payment.deal?.trackingId?.toLowerCase() || payment.deal?.title?.toLowerCase() || ""
     const clientName = payment.deal?.client?.name?.toLowerCase() || ""
     const propertyName = payment.deal?.property?.name?.toLowerCase() || ""
     const searchLower = searchQuery.toLowerCase()
@@ -196,14 +196,14 @@ export function PaymentsView() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                     <div className="flex flex-col">
-                      <span className="font-medium">{payment.deal?.title || "N/A"}</span>
+                      <span className="font-medium">{payment.deal?.trackingId || payment.deal?.title || "N/A"}</span>
                       <span className="text-xs text-muted-foreground">{payment.deal?.stage}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     <div className="flex flex-col">
                       <span>{payment.deal?.client?.name || "Unassigned Client"}</span>
-                      <span className="text-xs text-muted-foreground">{payment.deal?.property?.name || "Unassigned Property"}</span>
+                      <span className="text-xs text-muted-foreground">{payment.deal?.trackingId || "Unassigned Property"}</span>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -275,7 +275,7 @@ export function PaymentsView() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-foreground truncate">{payment.paymentId}</p>
-                        <p className="text-xs text-muted-foreground truncate mt-1">{payment.deal?.title || "N/A"}</p>
+                        <p className="text-xs text-muted-foreground truncate mt-1">{payment.deal?.trackingId || payment.deal?.title || "N/A"}</p>
                       </div>
                     </div>
                     <div className="text-right">
@@ -292,7 +292,7 @@ export function PaymentsView() {
                     </div>
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">Property:</span>
-                      <span className="text-foreground truncate ml-2">{payment.deal?.property?.name || "Unassigned Property"}</span>
+                      <span className="text-foreground truncate ml-2">{payment.deal?.trackingId || "Unassigned Property"}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
                       <span className="text-muted-foreground">Type:</span>

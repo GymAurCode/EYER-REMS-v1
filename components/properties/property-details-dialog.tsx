@@ -5,12 +5,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Building2, MapPin, Home, Users, DollarSign, Loader2, FileText, Receipt } from "lucide-react"
+import { Building2, MapPin, Home, Users, DollarSign, Loader2, FileText, Receipt, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { AddUnitDialog } from "./add-unit-dialog"
 import { AddTenantDialog } from "./add-tenant-dialog"
 import { AddLeaseDialog } from "./add-lease-dialog"
 import { AddPaymentDialog } from "@/components/finance/add-payment-dialog"
+import { DocumentViewer } from "@/components/shared/document-viewer"
 
 interface PropertyDetailsDialogProps {
   propertyId: number | string
@@ -29,12 +30,27 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
   const [financeSummary, setFinanceSummary] = useState<any | null>(null)
   const [financeRecords, setFinanceRecords] = useState<any[]>([])
   const [reportLoading, setReportLoading] = useState(false)
+  const [attachments, setAttachments] = useState<Array<{ id: string; fileUrl: string; fileName: string; fileType: string }>>([])
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<{ id?: string; url: string; name: string; fileType: string } | null>(null)
 
   useEffect(() => {
     if (open && propertyId) {
       fetchPropertyDetails()
     }
   }, [open, propertyId])
+
+  const fetchAttachments = async () => {
+    if (!propertyId) return
+    try {
+      const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
+      const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
+      setAttachments(Array.isArray(attachmentsData) ? attachmentsData : [])
+    } catch (err) {
+      // Ignore if attachments endpoint fails
+      console.warn("Failed to load attachments", err)
+    }
+  }
 
   const fetchPropertyDetails = async () => {
     try {
@@ -58,6 +74,9 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
       setProperty(propertyData)
       setFinanceSummary(propertyData.financeSummary || null)
       setFinanceRecords(Array.isArray(propertyData.financeRecords) ? propertyData.financeRecords : [])
+      
+      // Load attachments
+      await fetchAttachments()
     } catch (err: any) {
       console.error("Failed to fetch property details:", err)
       setError(err.response?.data?.message || err.response?.data?.error || "Failed to fetch property details")
@@ -96,7 +115,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
-      link.download = `${(property?.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
+      link.download = `${(property?.tid || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
       link.click()
       window.URL.revokeObjectURL(url)
     } catch (error) {
@@ -114,7 +133,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
               <Building2 className="h-5 w-5 text-primary" />
             </div>
-            {loading ? "Loading..." : property?.name || "Property Details"}
+            {loading ? "Loading..." : property?.tid || "Property Details"}
           </DialogTitle>
           <div className="flex items-center gap-2">
             <Button
@@ -146,7 +165,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                       ? property.imageUrl
                       : `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, '')}${property.imageUrl}`
                   }
-                  alt={property.name || "Property image"}
+                  alt={property.tid || "Property image"}
                   className="h-full w-full object-cover"
                   onError={(e) => {
                     ;(e.target as HTMLImageElement).style.display = "none"
@@ -181,7 +200,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                 <div className="space-y-3 text-sm">
                   <div className="grid grid-cols-[120px,1fr] gap-2">
                     <span className="text-muted-foreground">Name</span>
-                    <span className="font-medium text-foreground">{property.name || "N/A"}</span>
+                    <span className="font-medium text-foreground">{property.tid || "N/A"}</span>
                   </div>
                   <div className="grid grid-cols-[120px,1fr] gap-2">
                     <span className="text-muted-foreground">System ID</span>
@@ -529,6 +548,67 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                 </div>
               </Card>
             )}
+            
+            {/* Attachments Section */}
+            {attachments.length > 0 && (
+              <Card className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold tracking-wide text-muted-foreground">Attachments</p>
+                  <span className="text-xs text-muted-foreground">{attachments.length} file(s)</span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  {attachments.map((attachment, idx) => {
+                    const isImage = attachment.fileType?.startsWith('image/')
+                    const imageUrl = attachment.fileUrl.startsWith('http')
+                      ? attachment.fileUrl
+                      : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.fileUrl}`
+                    
+                    const handleViewDocument = () => {
+                      setSelectedDocument({
+                        id: attachment.id,
+                        url: attachment.fileUrl,
+                        name: attachment.fileName,
+                        fileType: attachment.fileType
+                      })
+                      setDocumentViewerOpen(true)
+                    }
+                    
+                    return (
+                      <div
+                        key={attachment.id || idx}
+                        className="relative group border rounded-lg overflow-hidden bg-muted"
+                      >
+                        {isImage ? (
+                          <div className="aspect-square cursor-pointer" onClick={handleViewDocument}>
+                            <img
+                              src={imageUrl}
+                              alt={attachment.fileName}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                              onError={(e) => {
+                                ;(e.target as HTMLImageElement).style.display = "none"
+                              }}
+                            />
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="aspect-square flex flex-col items-center justify-center p-3 cursor-pointer" onClick={handleViewDocument}>
+                            <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+                            <p className="text-xs text-center text-muted-foreground truncate w-full px-1">
+                              {attachment.fileName}
+                            </p>
+                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                              <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+            )}
           </div>
         ) : (
           <div className="py-12 text-center text-muted-foreground">Property not found</div>
@@ -570,6 +650,16 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
           handleRefresh()
           setShowAddPaymentDialog(false)
         }}
+      />
+      
+      {/* Document Viewer */}
+      <DocumentViewer
+        open={documentViewerOpen}
+        onClose={() => {
+          setDocumentViewerOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
       />
     </Dialog>
   )

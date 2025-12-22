@@ -108,6 +108,7 @@ model Property {
   description              String?
   yearBuilt                Int?
   totalArea                Float?
+  amenities                String[]
   totalUnits               Int                  @default(0)
   dealerId                 String?
   isDeleted                Boolean              @default(false)

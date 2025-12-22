@@ -25,6 +25,7 @@ import { Loader2, X, Plus, Paperclip, Upload, File, Trash2 } from "lucide-react"
 interface ClientFormData {
   id?: string
   name?: string
+  tid?: string
   email?: string
   phone?: string
   company?: string
@@ -77,11 +78,15 @@ const CLIENT_CATEGORIES = [
 
 const PROPERTY_INTEREST_OPTIONS = ["buy", "rent", "invest"] as const
 
-const defaultFormState: ClientFormData & { 
+type FormState = ClientFormData & {
   systemId: string
+  tid: string
   attachments: { name: string; url: string; type: string; size: number }[]
-} = {
+}
+
+const defaultFormState: FormState = {
   name: "",
+  tid: "",
   email: "",
   phone: "",
   company: "",
@@ -105,6 +110,8 @@ const defaultFormState: ClientFormData & {
   attachments: [] as { name: string; url: string; type: string; size: number }[],
 }
 
+
+
 export function AddClientDialog({
   open,
   onOpenChange,
@@ -112,10 +119,7 @@ export function AddClientDialog({
   initialData = null,
   mode = "create",
 }: AddClientDialogProps) {
-  const [formData, setFormData] = useState<ClientFormData & { 
-    systemId: string
-    attachments: { name: string; url: string; type: string; size: number }[]
-  }>(defaultFormState)
+  const [formData, setFormData] = useState<FormState>(defaultFormState as any)
   const [submitting, setSubmitting] = useState(false)
   const [tagInput, setTagInput] = useState("")
   const [agents, setAgents] = useState<any[]>([])
@@ -132,6 +136,7 @@ export function AddClientDialog({
       if (isEdit && initialData) {
         setFormData({
           name: initialData.name || "",
+          tid: initialData.tid || "",
           email: initialData.email || "",
           phone: initialData.phone || "",
           company: initialData.company || "",
@@ -212,7 +217,7 @@ export function AddClientDialog({
     setUploading(true)
     try {
       const newAttachments: { name: string; url: string; type: string; size: number }[] = []
-      
+
       for (const file of Array.from(files)) {
         // Convert file to base64 for storage (for small files)
         // For production, you'd upload to cloud storage and store URL
@@ -222,7 +227,7 @@ export function AddClientDialog({
           reader.onerror = reject
           reader.readAsDataURL(file)
         })
-        
+
         newAttachments.push({
           name: file.name,
           url: base64,
@@ -261,7 +266,7 @@ export function AddClientDialog({
 
   const handleSubmit = async (event?: React.FormEvent<HTMLFormElement> | React.MouseEvent<HTMLButtonElement>) => {
     event?.preventDefault()
-    
+
     // Validation: Name is required
     if (!formData.name || formData.name.trim().length === 0) {
       toast({
@@ -296,6 +301,7 @@ export function AddClientDialog({
       }
 
       // Add optional fields only if they have values
+      if (formData.tid?.trim()) payload.tid = formData.tid.trim()
       if (normalizedEmail) payload.email = normalizedEmail
       if (formData.phone?.trim()) payload.phone = formData.phone.trim()
       if (formData.company?.trim()) payload.company = formData.company.trim()
@@ -339,7 +345,7 @@ export function AddClientDialog({
     } catch (error: any) {
       console.error("Failed to save client", error)
       console.error("Error response:", error.response?.data)
-      
+
       // Handle Zod validation errors
       let errorMessage = "An error occurred"
       if (error.response?.data?.error) {
@@ -359,11 +365,11 @@ export function AddClientDialog({
       } else if (error.message) {
         errorMessage = error.message
       }
-      
-      toast({ 
-        title: `Failed to ${isEdit ? "update" : "add"} client`, 
+
+      toast({
+        title: `Failed to ${isEdit ? "update" : "add"} client`,
         description: errorMessage,
-        variant: "destructive" 
+        variant: "destructive"
       })
     } finally {
       setSubmitting(false)
@@ -428,6 +434,16 @@ export function AddClientDialog({
                     onChange={(event) => setFormData({ ...formData, name: event.target.value })}
                     required
                   />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="client-tid">TID (Transaction ID)</Label>
+                  <Input
+                    id="client-tid"
+                    placeholder="Enter TID (optional)"
+                    value={formData.tid}
+                    onChange={(event) => setFormData({ ...formData, tid: event.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Optional: Transaction ID for this client</p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="client-email">Email</Label>
@@ -645,7 +661,7 @@ export function AddClientDialog({
               <div className="rounded-md border border-dashed border-muted px-4 py-3 text-sm text-muted-foreground mb-4">
                 Properties are now linked through Deals. Create or update a deal whenever you want to attach this client to a property.
               </div>
-              
+
               {/* Attachments Section */}
               <div className="space-y-4">
                 <Label className="flex items-center gap-2">

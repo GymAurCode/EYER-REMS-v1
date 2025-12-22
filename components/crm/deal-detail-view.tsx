@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, DollarSign, User, Building, Calendar, FileText, Loader2, CreditCard } from "lucide-react"
+import { ArrowLeft, DollarSign, User, Building, Calendar, FileText, Loader2, CreditCard, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { DealTimeline } from "./deal-timeline"
+import { DocumentViewer } from "@/components/shared/document-viewer"
 
 // Utility functions for frontend
 const formatCurrency = (amount: number) => {
@@ -41,16 +42,38 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [deal, setDeal] = useState<any>(null)
+  const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; fileType: string; size?: number }>>([])
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<{ id?: string; url: string; name: string; fileType: string } | null>(null)
 
   useEffect(() => {
     loadDeal()
   }, [dealId])
+
+  const loadAttachments = () => {
+    // Load attachments from deal data if available
+    const dealAttachments = deal?.attachments?.files || []
+    if (Array.isArray(dealAttachments) && dealAttachments.length > 0) {
+      setAttachments(dealAttachments.map((file: any) => ({
+        id: file.id,
+        url: file.url || file.path,
+        name: file.name || file.filename,
+        fileType: file.type || file.mimeType || 'application/octet-stream',
+        size: file.size
+      })))
+    } else {
+      setAttachments([])
+    }
+  }
 
   const loadDeal = async () => {
     try {
       setLoading(true)
       const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://eyer-rems-v1-production-f00e.up.railway.app'}/api/crm/deals/${dealId}`).then(r => r.json())
       setDeal(response?.data || response)
+      
+      // Load attachments after deal is loaded
+      setTimeout(loadAttachments, 100)
     } catch (error: any) {
       toast({
         title: "Error",
@@ -104,7 +127,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{deal.title || deal.dealCode || "Deal"}</h1>
+            <h1 className="text-3xl font-bold">{deal.trackingId || deal.title || deal.dealCode || "Deal"}</h1>
             <p className="text-muted-foreground">
               {deal.dealCode && `Code: ${deal.dealCode}`} • {deal.client?.name || "No Client"}
             </p>
@@ -268,6 +291,79 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
           <DealTimeline deal={deal} onRefresh={loadDeal} />
         </CardContent>
       </Card>
+      
+      {/* Attachments Section */}
+      {attachments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Attachments</CardTitle>
+            <CardDescription>Documents and files related to this deal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {attachments.map((attachment, idx) => {
+                const isImage = attachment.fileType?.startsWith('image/')
+                const imageUrl = attachment.url.startsWith('http')
+                  ? attachment.url
+                  : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.url}`
+                
+                const handleViewDocument = () => {
+                  setSelectedDocument({
+                    id: attachment.id,
+                    url: attachment.url,
+                    name: attachment.name,
+                    fileType: attachment.fileType
+                  })
+                  setDocumentViewerOpen(true)
+                }
+                
+                return (
+                  <div
+                    key={attachment.id || idx}
+                    className="relative group border rounded-lg overflow-hidden bg-muted"
+                  >
+                    {isImage ? (
+                      <div className="aspect-square cursor-pointer" onClick={handleViewDocument}>
+                        <img
+                          src={imageUrl}
+                          alt={attachment.name}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            ;(e.target as HTMLImageElement).style.display = "none"
+                          }}
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="aspect-square flex flex-col items-center justify-center p-3 cursor-pointer" onClick={handleViewDocument}>
+                        <FileText className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-xs text-center text-muted-foreground truncate w-full px-1">
+                          {attachment.name}
+                        </p>
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+                          <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      {/* Document Viewer */}
+      <DocumentViewer
+        open={documentViewerOpen}
+        onClose={() => {
+          setDocumentViewerOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+      />
     </div>
   )
 }

@@ -22,18 +22,21 @@ import {
   DollarSign,
   Upload,
   Loader2,
+  Eye,
 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
 import { PropertyReportHTML } from "@/components/reports/property-report-html"
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ImageLightbox } from "@/components/shared/image-lightbox"
+import { DocumentViewer } from "@/components/shared/document-viewer"
 import { useToast } from "@/hooks/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 
 type PropertyResponse = {
   id: string | number
+  tid?: string
   name?: string
   propertyCode?: string
   manualUniqueId?: string
@@ -42,6 +45,8 @@ type PropertyResponse = {
   address?: string
   location?: string
   totalArea?: number
+  amenities?: string[]
+  description?: string
   units?: number | any[]
   occupied?: number
   yearBuilt?: string | number
@@ -121,6 +126,8 @@ export function PropertyDetailPage() {
   const [lightboxOpen, setLightboxOpen] = useState(false)
   const [lightboxIndex, setLightboxIndex] = useState(0)
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
+  const [documentViewerOpen, setDocumentViewerOpen] = useState(false)
+  const [selectedDocument, setSelectedDocument] = useState<{ id?: string; url: string; name: string; fileType: string } | null>(null)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -178,18 +185,18 @@ export function PropertyDetailPage() {
         }
 
         const base64 = await toBase64(file)
-        
+
         const response: any = await apiService.properties.uploadDocument(String(propertyId), {
           file: base64,
           filename: file.name,
         })
-        
+
         const responseData = response.data as any
         const uploaded = responseData?.data || responseData
-        
+
         // Refresh attachments list
         await fetchAttachments()
-        
+
         toast({ title: `File "${file.name}" uploaded successfully` })
       }
     } catch (error: any) {
@@ -234,7 +241,7 @@ export function PropertyDetailPage() {
         const installments = plan.installments || []
         const totalInstallments = installments.length
         const installmentAmount = totalInstallments > 0 ? installments[0].amount || 0 : 0
-        
+
         // Calculate duration (months)
         let duration = "N/A"
         if (installments.length > 0) {
@@ -424,7 +431,7 @@ export function PropertyDetailPage() {
             )}
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground leading-tight">{property.name || "Property Details"}</h1>
+            <h1 className="text-3xl font-bold text-foreground leading-tight">{property.tid || "Property Details"}</h1>
             <Badge variant="secondary">{property.type || "N/A"}</Badge>
             <Badge
               variant={
@@ -505,7 +512,7 @@ export function PropertyDetailPage() {
             <div className="mb-4">
               <img
                 src={property.imageUrl.startsWith('http') ? property.imageUrl : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`}
-                alt={property.name || "Property image"}
+                alt={property.tid || "Property image"}
                 className="w-full h-64 object-cover rounded-lg border"
                 onError={(e) => {
                   (e.target as HTMLImageElement).style.display = "none"
@@ -561,6 +568,31 @@ export function PropertyDetailPage() {
               </div>
             </div>
           </div>
+          {(property.description || (property.amenities && property.amenities.length > 0)) && (
+            <>
+              <Separator className="my-4" />
+              <div className="space-y-4">
+                {property.description && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Description</h3>
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap">{property.description}</p>
+                  </div>
+                )}
+                {property.amenities && property.amenities.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-2">Amenities</h3>
+                    <div className="flex flex-wrap gap-2">
+                      {property.amenities.map((amenity, index) => (
+                        <Badge key={index} variant="outline">
+                          {amenity}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
         </Card>
 
         <Card className="p-6">
@@ -810,30 +842,37 @@ export function PropertyDetailPage() {
               const imageUrl = attachment.fileUrl.startsWith('http')
                 ? attachment.fileUrl
                 : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.fileUrl}`
-              
+
+              const handleViewDocument = () => {
+                setSelectedDocument({
+                  id: attachment.id,
+                  url: attachment.fileUrl,
+                  name: attachment.fileName,
+                  fileType: attachment.fileType
+                })
+                setDocumentViewerOpen(true)
+              }
+
+              const handleImageView = () => {
+                const imageAttachments = attachments.filter(a => a.fileType?.startsWith('image/'))
+                const imageIndex = imageAttachments.findIndex(a => a.id === attachment.id)
+                setLightboxIndex(imageIndex >= 0 ? imageIndex : 0)
+                setLightboxOpen(true)
+              }
+
               return (
                 <div
                   key={attachment.id || idx}
-                  className="relative group cursor-pointer"
-                  onClick={() => {
-                    if (isImage) {
-                      const imageAttachments = attachments.filter(a => a.fileType?.startsWith('image/'))
-                      const imageIndex = imageAttachments.findIndex(a => a.id === attachment.id)
-                      setLightboxIndex(imageIndex >= 0 ? imageIndex : 0)
-                      setLightboxOpen(true)
-                    } else {
-                      window.open(imageUrl, '_blank')
-                    }
-                  }}
+                  className="relative group"
                 >
                   {isImage ? (
-                    <div className="aspect-square rounded-lg border overflow-hidden bg-muted">
+                    <div className="aspect-square rounded-lg border overflow-hidden bg-muted cursor-pointer" onClick={handleImageView}>
                       <img
                         src={imageUrl}
                         alt={attachment.fileName}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         onError={(e) => {
-                          ;(e.target as HTMLImageElement).style.display = "none"
+                          ; (e.target as HTMLImageElement).style.display = "none"
                         }}
                       />
                       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -841,13 +880,45 @@ export function PropertyDetailPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="aspect-square rounded-lg border bg-muted flex flex-col items-center justify-center p-2 group-hover:bg-muted/80 transition-colors">
+                    <div className="aspect-square rounded-lg border bg-muted flex flex-col items-center justify-center p-2">
                       <FileText className="h-8 w-8 text-muted-foreground mb-2" />
                       <p className="text-xs text-center text-muted-foreground truncate w-full px-1">
                         {attachment.fileName}
                       </p>
                     </div>
                   )}
+
+                  {/* Action buttons overlay */}
+                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                    <div className="flex gap-2">
+                      {isImage ? (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleImageView()
+                          }}
+                          className="bg-white/90 hover:bg-white text-gray-900"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewDocument()
+                          }}
+                          className="bg-white/90 hover:bg-white text-gray-900"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
                   <p className="text-xs text-muted-foreground mt-1 truncate" title={attachment.fileName}>
                     {attachment.fileName}
                   </p>
@@ -886,6 +957,16 @@ export function PropertyDetailPage() {
           }}
         />
       )}
+
+      {/* Document Viewer */}
+      <DocumentViewer
+        open={documentViewerOpen}
+        onClose={() => {
+          setDocumentViewerOpen(false)
+          setSelectedDocument(null)
+        }}
+        document={selectedDocument}
+      />
     </div>
   )
 }

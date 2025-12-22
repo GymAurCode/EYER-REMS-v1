@@ -79,6 +79,7 @@ export function DealsView() {
   const filteredDeals = useMemo(() => {
     const query = searchQuery.toLowerCase()
     return deals.filter((deal) =>
+      (deal.trackingId || "").toLowerCase().includes(query) ||
       (deal.title || "").toLowerCase().includes(query) ||
       (deal.clientName || "").toLowerCase().includes(query) ||
       (typeof deal.client === "string" ? deal.client.toLowerCase().includes(query) : false) ||
@@ -225,7 +226,7 @@ export function DealsView() {
                       onClick={() => router.push(`/details/deals/${deal.id}`)}
                       role="button"
                     >
-                      <h3 className="font-semibold text-foreground text-lg">{deal.title}</h3>
+                      <h3 className="font-semibold text-foreground text-lg">{deal.trackingId || deal.title}</h3>
                       <Badge
                         variant={
                           normalizeStage(deal.stage) === "closing"
@@ -340,6 +341,7 @@ export function DealsView() {
             ? {
                 id: editingDeal.id,
                 title: editingDeal.title,
+                trackingId: editingDeal.trackingId,
                 clientId: editingDeal.clientId || editingDeal.client?.id || null,
                 dealAmount: editingDeal.dealAmount ?? editingDeal.value ?? null,
                 stage: editingDeal.stage,
@@ -354,7 +356,7 @@ export function DealsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Deal</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {deleteTarget?.title}? This action cannot be undone.
+              Are you sure you want to delete {deleteTarget?.trackingId || deleteTarget?.title}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

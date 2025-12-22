@@ -44,7 +44,7 @@ export function ClientsView() {
       setError(null)
       const response: any = await apiService.clients.getAll()
       const responseData = response.data as any
-      
+
       // Handle different response formats
       let data: any[] = []
       if (responseData?.success && Array.isArray(responseData?.data)) {
@@ -54,9 +54,10 @@ export function ClientsView() {
       } else if (Array.isArray(responseData)) {
         data = responseData
       }
-      
+
       const mapped = Array.isArray(data) ? data.map((c: any) => ({
         id: c.id,
+        tid: c.tid || "-",
         name: c.name,
         email: c.email || "",
         phone: c.phone || "",
@@ -68,10 +69,10 @@ export function ClientsView() {
       setClients(mapped)
     } catch (err: any) {
       console.error("Failed to fetch clients:", err)
-      const errorMessage = err.response?.data?.error || 
-                          err.response?.data?.message || 
-                          err.message || 
-                          "Failed to fetch clients"
+      const errorMessage = err.response?.data?.error ||
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to fetch clients"
       setError(errorMessage)
       setClients([])
       toast({
@@ -180,7 +181,7 @@ export function ClientsView() {
               {clients.length === 0 ? "No clients yet" : "No clients match your filters"}
             </p>
             <p className="text-sm text-muted-foreground mb-6 max-w-md">
-              {clients.length === 0 
+              {clients.length === 0
                 ? "Convert qualified leads to clients or add clients directly. Clients can be linked to deals and properties."
                 : "Try adjusting your search or filter criteria"}
             </p>
@@ -202,6 +203,7 @@ export function ClientsView() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>T.ID</TableHead>
                 <TableHead>Client Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Company</TableHead>
@@ -219,6 +221,9 @@ export function ClientsView() {
                   className="cursor-pointer hover:bg-muted/50"
                   onClick={() => openClientDetails(client.id)}
                 >
+                  <TableCell>
+                    <span className="font-mono text-sm">{client.tid}</span>
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase flex-shrink-0">

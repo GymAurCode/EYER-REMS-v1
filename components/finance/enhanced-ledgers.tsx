@@ -225,7 +225,7 @@ export function EnhancedLedgers() {
                           <TableCell className="font-medium">{row.paymentId || row.id || "Deal Opening"}</TableCell>
                           <TableCell>
                             <div className="flex flex-col">
-                              <span className="font-medium">{row.dealTitle || row.deal?.title || "—"}</span>
+                              <span className="font-medium">{row.dealTitle || row.deal?.trackingId || row.deal?.title || "—"}</span>
                               <span className="text-xs text-muted-foreground">Deal ID: {row.dealId || row.deal?.id || "—"}</span>
                             </div>
                           </TableCell>
@@ -315,7 +315,7 @@ export function EnhancedLedgers() {
                           ) : (
                             property.payments.map((payment: any, idx: number) => (
                               <TableRow key={payment.id || payment.paymentId || idx}>
-                                <TableCell className="font-medium">{payment.dealTitle || payment.deal?.title || "—"}</TableCell>
+                                <TableCell className="font-medium">{payment.dealTitle || payment.deal?.trackingId || payment.deal?.title || "—"}</TableCell>
                                 <TableCell>{payment.paymentId || payment.id || "—"}</TableCell>
                                 <TableCell className="capitalize">{payment.paymentMode?.replace("_", " ") || payment.mode || "—"}</TableCell>
                                 <TableCell className="text-right">

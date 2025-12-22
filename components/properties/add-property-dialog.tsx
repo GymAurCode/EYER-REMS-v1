@@ -16,7 +16,6 @@ import { useDropdownOptions } from "@/hooks/use-dropdowns"
 
 type PropertyForm = {
   tid: string // Transaction ID - unique across Property, Deal, Client
-  name: string
   type: string
   status: string
   category: string
@@ -37,7 +36,6 @@ type PropertyForm = {
 
 const DEFAULT_FORM: PropertyForm = {
   tid: "",
-  name: "",
   type: "",
   status: "Active",
   category: "",
@@ -274,7 +272,7 @@ function ManagedDropdown({
         <SelectContent>
           {allOptions.length === 0 ? (
             <div className="px-2 py-6 text-center text-sm text-muted-foreground">
-              {dropdownKey === "property.location" 
+              {dropdownKey === "property.location"
                 ? "No locations available. Add locations in Advanced Options."
                 : "No options available"}
             </div>
@@ -370,7 +368,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         setLoadingLocations(true)
         setLocationError(null)
         setLocationLoadTimeout(false)
-        
+
         try {
           const response = await apiService.locations.getLeaves()
           const data = (response.data as any)?.data || response.data || []
@@ -383,16 +381,16 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           setLoadingLocations(false)
         }
       }
-      
+
       loadLeafLocations()
-      
+
       // Set a timeout to prevent infinite loading
       const timeout = setTimeout(() => {
         if (loadingLocations) {
           setLocationLoadTimeout(true)
         }
       }, 10000) // 10 second timeout
-      
+
       return () => {
         clearTimeout(timeout)
         setLocationLoadTimeout(false)
@@ -452,10 +450,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           const documents = typeof payload.documents === "object" ? payload.documents : {}
           const dealerId = payload.dealerId || payload.dealer?.id || ""
           const imageUrl = payload.imageUrl || ""
-          
+
           setForm({
             tid: payload.tid || "",
-            name: payload.name || "",
             type: payload.type || "",
             status: payload.status || "Active",
             category: payload.category || "",
@@ -474,12 +471,12 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             description: payload.description || "",
           })
           setImagePreview(imageUrl || null)
-          
+
           // Log for debugging
-          console.log("Property loaded:", { 
-            dealerId, 
-            dealer: payload.dealer, 
-            imageUrl: imageUrl ? `${imageUrl.substring(0, 50)}...` : "none" 
+          console.log("Property loaded:", {
+            dealerId,
+            dealer: payload.dealer,
+            imageUrl: imageUrl ? `${imageUrl.substring(0, 50)}...` : "none"
           })
 
           // Load existing attachments
@@ -535,9 +532,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         // Transform options - ensure it's an array
         const options = Array.isArray(data)
           ? data.map((opt: any) => ({
-              id: opt.id,
-              name: opt.name,
-            }))
+            id: opt.id,
+            name: opt.name,
+          }))
           : []
         setSubsidiaryOptions(options)
 
@@ -561,7 +558,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const handleSave = async () => {
     const errors: string[] = []
     // TID is optional, so don't require it
-    if (!form.name.trim()) errors.push("Name")
     if (!form.type.trim()) errors.push("Type")
     if (!form.address.trim()) errors.push("Address")
     if (errors.length) {
@@ -576,8 +572,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     // Remove category and size from payload as they're not supported by server
     const { category, size, ...formWithoutCategorySize } = form
 
-      const payload: any = {
-      name: formWithoutCategorySize.name.trim(),
+    const payload: any = {
       type: formWithoutCategorySize.type,
       status: formWithoutCategorySize.status || "Active",
       address: formWithoutCategorySize.address,
@@ -593,19 +588,26 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       amenities: formWithoutCategorySize.amenities,
       imageUrl: formWithoutCategorySize.imageUrl && formWithoutCategorySize.imageUrl.trim() ? formWithoutCategorySize.imageUrl.trim() : undefined,
     }
-    
+
     // Only include TID if it's not empty
     if (formWithoutCategorySize.tid && formWithoutCategorySize.tid.trim()) {
       payload.tid = formWithoutCategorySize.tid.trim()
     }
-    
+
+    // Auto-generate name if not present (required by backend)
+    // Priority: TID -> Type + Address -> "Unnamed Property"
+    const generatedName = payload.tid ||
+      (payload.type && payload.address ? `${payload.type} at ${payload.address}` : "Unnamed Property")
+
+    payload.name = generatedName
+
     // Log payload for debugging
     console.log("Property save payload:", { ...payload, imageUrl: payload.imageUrl ? `${payload.imageUrl.substring(0, 50)}...` : "none", dealerId: payload.dealerId || "none" })
 
     try {
       setSaving(true)
       let createdPropertyId: string | null = null
-      
+
       if (isEdit) {
         await apiService.properties.update(String(propertyId), payload)
         toast({ title: "Property updated" })
@@ -648,12 +650,12 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     } catch (error: any) {
       console.error("Property save error:", error)
       let errorMessage = "Unknown error"
-      
+
       if (error?.response?.data) {
         const errorData = error.response.data
         // Handle validation errors
         if (errorData.error && Array.isArray(errorData.error)) {
-          errorMessage = errorData.error.map((e: any) => 
+          errorMessage = errorData.error.map((e: any) =>
             typeof e === 'string' ? e : `${e.path || ''}: ${e.message || ''}`
           ).join(', ')
         } else if (errorData.error && typeof errorData.error === 'string') {
@@ -661,14 +663,14 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         } else if (errorData.message) {
           errorMessage = errorData.message
         } else if (errorData.details) {
-          errorMessage = Array.isArray(errorData.details) 
+          errorMessage = Array.isArray(errorData.details)
             ? errorData.details.map((e: any) => `${e.path || ''}: ${e.message || ''}`).join(', ')
             : String(errorData.details)
         }
       } else if (error?.message) {
         errorMessage = error.message
       }
-      
+
       toast({
         title: "Save failed",
         description: errorMessage,
@@ -687,7 +689,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       const url = window.URL.createObjectURL(blob)
       const link = document.createElement("a")
       link.href = url
-      link.download = `${(form.name || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
+      link.download = `${(form.tid || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
       link.click()
       window.URL.revokeObjectURL(url)
     } catch (error: any) {
@@ -736,17 +738,17 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         image: base64,
         filename: file.name,
       })
-      
+
       // Try multiple response paths to get the image URL
       const responseData = response?.data || response
-      const imageUrl = 
-        responseData?.data?.url || 
+      const imageUrl =
+        responseData?.data?.url ||
         responseData?.data?.data?.url ||
-        responseData?.url || 
+        responseData?.url ||
         responseData?.imageUrl ||
         (typeof responseData === 'string' ? responseData : null) ||
         base64
-      
+
       if (!imageUrl || imageUrl === base64) {
         console.warn("Image upload response structure unexpected:", response)
         toast({
@@ -755,7 +757,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           variant: "default",
         })
       }
-      
+
       setForm((p) => ({ ...p, imageUrl: imageUrl || "" }))
       setImagePreview(imageUrl)
       toast({ title: "Image uploaded successfully" })
@@ -783,7 +785,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     setUploadingAttachments(true)
     try {
       const uploads: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
-      
+
       for (const file of Array.from(files)) {
         // Validate file type
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
@@ -807,7 +809,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         }
 
         const base64 = await toBase64(file)
-        
+
         // If editing, upload to property
         if (propertyId) {
           const response: any = await apiService.properties.uploadDocument(String(propertyId), {
@@ -890,183 +892,180 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             ) : (
               <ScrollArea className="h-full">
                 <div className="px-6 pb-4">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                  <div className="lg:col-span-7 space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>TID (Transaction ID) *</Label>
-                        <Input 
-                          value={form.tid} 
-                          onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value.toUpperCase().trim() }))}
-                          placeholder="Enter unique TID"
-                          disabled={isEdit}
-                          className={isEdit ? "bg-muted" : ""}
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                    <div className="lg:col-span-7 space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>TID (Transaction ID) *</Label>
+                          <Input
+                            value={form.tid}
+                            onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value.toUpperCase().trim() }))}
+                            placeholder="Enter unique TID"
+                            disabled={isEdit}
+                            className={isEdit ? "bg-muted" : ""}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            {isEdit ? "TID cannot be changed after creation" : "Unique identifier across Property, Deal, and Client"}
+                          </p>
+                        </div>
+
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Address *</Label>
+                          <Input
+                            value={form.address}
+                            onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ManagedDropdown
+                          dropdownKey="property.type"
+                          value={form.type}
+                          onChange={(val) => setForm((p) => ({ ...p, type: val }))}
+                          required
                         />
-                        <p className="text-xs text-muted-foreground">
-                          {isEdit ? "TID cannot be changed after creation" : "Unique identifier across Property, Deal, and Client"}
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Name *</Label>
-                        <Input value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Address *</Label>
-                        <Input
-                          value={form.address}
-                          onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ManagedDropdown
-                        dropdownKey="property.type"
-                        value={form.type}
-                        onChange={(val) => setForm((p) => ({ ...p, type: val }))}
-                        required
-                      />
-                      <ManagedDropdown
-                        dropdownKey="property.status"
-                        value={form.status}
-                        onChange={(val) => setForm((p) => ({ ...p, status: val }))}
-                        required
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <ManagedDropdown
-                        dropdownKey="property.category"
-                        value={form.category}
-                        onChange={(val) => setForm((p) => ({ ...p, category: val }))}
-                      />
-                      <ManagedDropdown
-                        dropdownKey="property.size"
-                        value={form.size}
-                        onChange={(val) => setForm((p) => ({ ...p, size: val }))}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Sale Price</Label>
-                        <Input
-                          type="number"
-                          value={form.salePrice}
-                          onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
+                        <ManagedDropdown
+                          dropdownKey="property.status"
+                          value={form.status}
+                          onChange={(val) => setForm((p) => ({ ...p, status: val }))}
+                          required
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Dealer</Label>
-                        <Select
-                          value={form.dealerId || "none"}
-                          onValueChange={(val) =>
-                            setForm((p) => ({
-                              ...p,
-                              dealerId: val === "none" ? "" : val,
-                            }))
-                          }
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select dealer (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            {dealers.map((d) => (
-                              <SelectItem key={d.id} value={d.id}>
-                                {d.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="space-y-2">
-                        <Label>Total Area (sq ft)</Label>
-                        <Input
-                          type="number"
-                          value={form.totalArea}
-                          onChange={(e) => setForm((p) => ({ ...p, totalArea: e.target.value }))}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ManagedDropdown
+                          dropdownKey="property.category"
+                          value={form.category}
+                          onChange={(val) => setForm((p) => ({ ...p, category: val }))}
+                        />
+                        <ManagedDropdown
+                          dropdownKey="property.size"
+                          value={form.size}
+                          onChange={(val) => setForm((p) => ({ ...p, size: val }))}
                         />
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Sale Price</Label>
+                          <Input
+                            type="number"
+                            value={form.salePrice}
+                            onChange={(e) => setForm((p) => ({ ...p, salePrice: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Dealer</Label>
+                          <Select
+                            value={form.dealerId || "none"}
+                            onValueChange={(val) =>
+                              setForm((p) => ({
+                                ...p,
+                                dealerId: val === "none" ? "" : val,
+                              }))
+                            }
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select dealer (optional)" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">None</SelectItem>
+                              {dealers.map((d) => (
+                                <SelectItem key={d.id} value={d.id}>
+                                  {d.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Total Area (sq ft)</Label>
+                          <Input
+                            type="number"
+                            value={form.totalArea}
+                            onChange={(e) => setForm((p) => ({ ...p, totalArea: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Total Units</Label>
+                          <Input
+                            type="number"
+                            value={form.totalUnits}
+                            onChange={(e) => setForm((p) => ({ ...p, totalUnits: e.target.value }))}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Year Built</Label>
+                          <Input
+                            type="number"
+                            value={form.yearBuilt}
+                            onChange={(e) => setForm((p) => ({ ...p, yearBuilt: e.target.value }))}
+                          />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
-                        <Label>Total Units</Label>
-                        <Input
-                          type="number"
-                          value={form.totalUnits}
-                          onChange={(e) => setForm((p) => ({ ...p, totalUnits: e.target.value }))}
+                        <Label>Description</Label>
+                        <Textarea
+                          rows={3}
+                          value={form.description}
+                          onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
                         />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Year Built</Label>
-                        <Input
-                          type="number"
-                          value={form.yearBuilt}
-                          onChange={(e) => setForm((p) => ({ ...p, yearBuilt: e.target.value }))}
-                        />
-                      </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label>Description</Label>
-                      <Textarea
-                        rows={3}
-                        value={form.description}
-                        onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label>Property Image</Label>
                       <div className="space-y-2">
-                        {imagePreview ? (
-                          <div className="relative">
-                            <img
-                              src={imagePreview}
-                              alt="Property preview"
-                              className="w-full h-48 object-cover rounded-lg border"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={handleRemoveImage}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                            <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                            <Label htmlFor="image-upload" className="cursor-pointer">
-                              <span className="text-sm text-muted-foreground">Click to upload or drag and drop</span>
-                              <Input
-                                id="image-upload"
-                                type="file"
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                disabled={uploadingImage}
-                                className="hidden"
+                        <Label>Property Image</Label>
+                        <div className="space-y-2">
+                          {imagePreview ? (
+                            <div className="relative">
+                              <img
+                                src={imagePreview}
+                                alt="Property preview"
+                                className="w-full h-48 object-cover rounded-lg border"
                               />
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-2">PNG, JPG, GIF up to 10MB</p>
-                          </div>
-                        )}
-                        {uploadingImage && (
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Uploading image...
-                          </div>
-                        )}
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={handleRemoveImage}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
+                              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                              <Label htmlFor="image-upload" className="cursor-pointer">
+                                <span className="text-sm text-muted-foreground">Click to upload or drag and drop</span>
+                                <Input
+                                  id="image-upload"
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleImageUpload}
+                                  disabled={uploadingImage}
+                                  className="hidden"
+                                />
+                              </Label>
+                              <p className="text-xs text-muted-foreground mt-2">PNG, JPG, GIF up to 10MB</p>
+                            </div>
+                          )}
+                          {uploadingImage && (
+                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Uploading image...
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                  </div>
+                    </div>
 
                     <div className="lg:col-span-5 space-y-4">
                       <div className="space-y-2">
@@ -1116,11 +1115,11 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                         >
                           <SelectTrigger>
                             <SelectValue placeholder={
-                              loadingLocations && !locationLoadTimeout && !locationError 
-                                ? "Loading locations..." 
+                              loadingLocations && !locationLoadTimeout && !locationError
+                                ? "Loading locations..."
                                 : locationError || locationLoadTimeout
-                                ? "Error loading locations - Click Refresh"
-                                : "Select location"
+                                  ? "Error loading locations - Click Refresh"
+                                  : "Select location"
                             } />
                           </SelectTrigger>
                           <SelectContent>
@@ -1411,7 +1410,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                   </div>
                 </div>
               </ScrollArea>
-              )}
+            )}
           </div>
         </div>
 

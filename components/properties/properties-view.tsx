@@ -574,7 +574,7 @@ export function PropertiesView() {
                   Showing <span className="font-semibold text-foreground">
                     {properties.filter((property) => {
                       const matchesSearch =
-                        property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        property.tid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -588,7 +588,7 @@ export function PropertiesView() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Property Name</TableHead>
+                    <TableHead>T.ID</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
@@ -641,7 +641,7 @@ export function PropertiesView() {
                                           ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
                                           : property.imageUrl
                                     }
-                                    alt={property.name || "Property"}
+                                    alt={property.tid || "Property"}
                                     className="h-full w-full object-cover"
                                     onError={(e) => {
                                       const imgElement = e.target as HTMLImageElement;
@@ -673,7 +673,7 @@ export function PropertiesView() {
                                 </div>
                               )}
                               <div>
-                                <p className="font-semibold">{property.name || "N/A"}</p>
+                                <p className="font-semibold">{property.tid || "N/A"}</p>
                               </div>
                             </div>
                           </TableCell>
@@ -696,7 +696,7 @@ export function PropertiesView() {
                               className="cursor-pointer hover:opacity-80 transition-opacity"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.name })
+                                setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.tid })
                               }}
                             >
                               {property.status || "—"}
@@ -766,7 +766,7 @@ export function PropertiesView() {
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => {
                                   setStructurePropertyId(String(property.id))
-                                  setStructurePropertyName(property.name || "")
+                                  setStructurePropertyName(property.tid || "")
                                   setShowStructureDialog(true)
                                 }}>
                                   <Building2 className="h-4 w-4 mr-2" />
@@ -777,7 +777,7 @@ export function PropertiesView() {
                                   onClick={() => {
                                     setDeletingProperty({
                                       id: property.id,
-                                      name: property.name,
+                                      name: property.tid,
                                       propertyCode: property.propertyCode,
                                     })
                                   }}
@@ -832,7 +832,7 @@ export function PropertiesView() {
         <PropertyDeleteDialog
           open={!!deletingProperty}
           propertyId={deletingProperty.id}
-          propertyName={deletingProperty.name}
+          propertyName={deletingProperty.tid}
           propertyCode={deletingProperty.propertyCode}
           onOpenChange={(open) => {
             if (!open) setDeletingProperty(null)

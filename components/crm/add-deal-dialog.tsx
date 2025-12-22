@@ -19,11 +19,13 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { apiService } from "@/lib/api"
-import { DealToasts, showErrorToast } from "@/lib/toast-utils"
+import { DealToasts } from "@/lib/toast-utils"
+import { Loader2, Paperclip, Upload, File, Trash2 } from "lucide-react"
 
 interface DealFormData {
   id?: string
   title?: string
+  trackingId?: string
   clientId?: string | null
   propertyId?: string | null
   role?: string | null
@@ -33,6 +35,7 @@ interface DealFormData {
   dealDate?: string | null
   description?: string | null
   dueDate?: string | null
+  attachments?: { name: string; url: string; type: string; size: number }[]
 }
 
 interface AddDealDialogProps {
@@ -51,6 +54,7 @@ type ClientOption = {
 type PropertyOption = {
   id: string
   name: string
+  tid?: string
   propertyCode?: string
   salePrice?: number
 }
@@ -84,6 +88,7 @@ const FALLBACK_STATUS_OPTIONS = [
 
 const defaultFormState = {
   title: "",
+  trackingId: "",
   clientId: "",
   propertyId: "",
   role: "buyer",
@@ -93,8 +98,7 @@ const defaultFormState = {
   dealDate: new Date().toISOString().split("T")[0],
   description: "",
   dueDate: "",
-  systemId: "",
-  manualUniqueId: "",
+  attachments: [] as { name: string; url: string; type: string; size: number }[],
 }
 
 export function AddDealDialog({
@@ -110,6 +114,7 @@ export function AddDealDialog({
   const [loadingClients, setLoadingClients] = useState(false)
   const [loadingProperties, setLoadingProperties] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const isEdit = mode === "edit" && initialData?.id
@@ -130,10 +135,12 @@ export function AddDealDialog({
         // Handle nested data structure: response.data.data or response.data
         const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
         setClients(
-          data.map((client: any) => ({
-            id: client.id,
-            name: client.name,
-          })),
+          data
+            .map((client: any) => ({
+              id: String(client.id || ''),
+              name: String(client.name || client.id || ''),
+            }))
+            .filter((client: { id: string, name: string }) => client.id && client.name) // Filter out invalid clients
         )
       } catch (error) {
         console.error("Failed to load clients", error)
@@ -150,12 +157,15 @@ export function AddDealDialog({
         const responseData = response.data as any
         const payload = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
         setProperties(
-          payload.map((property: any) => ({
-            id: property.id,
-            name: property.name,
-            propertyCode: property.propertyCode,
-            salePrice: property.salePrice,
-          })),
+          payload
+            .map((property: any) => ({
+              id: String(property.id || ''),
+              tid: property.tid ? String(property.tid) : undefined,
+              name: String(property.name || property.id || ''),
+              propertyCode: property.propertyCode ? String(property.propertyCode) : undefined,
+              salePrice: property.salePrice ? Number(property.salePrice) : undefined,
+            }))
+            .filter((property: { id: string, name: string }) => property.id && property.name) // Filter out invalid properties
         )
       } catch (error) {
         console.error("Failed to load properties", error)
@@ -167,7 +177,7 @@ export function AddDealDialog({
 
     loadClients()
     loadProperties()
-  }, [open, toast])
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -192,6 +202,7 @@ export function AddDealDialog({
 
         setFormData({
           title: initialData.title || "",
+          trackingId: initialData.trackingId || "",
           clientId: existingClientId,
           propertyId:
             initialData.propertyId !== undefined && initialData.propertyId !== null
@@ -207,8 +218,7 @@ export function AddDealDialog({
           dealDate: initialData.dealDate ? initialData.dealDate.split("T")[0] : new Date().toISOString().split("T")[0],
           description: initialData.description || "",
           dueDate: initialData.dueDate ? initialData.dueDate.split("T")[0] : "",
-          systemId: "",
-          manualUniqueId: "",
+          attachments: Array.isArray((initialData as any).attachments?.files) ? (initialData as any).attachments.files : [],
         })
       } else {
         setFormData(defaultFormState)
@@ -220,14 +230,93 @@ export function AddDealDialog({
     setFormData(defaultFormState)
     setErrors({})
     setSubmitting(false)
+    setUploading(false)
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const newAttachments: { name: string; url: string; type: string; size: number }[] = []
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+      for (const file of Array.from(files)) {
+        // Validate file size
+        if (file.size > MAX_FILE_SIZE) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds the maximum size of 10MB`,
+            variant: "destructive"
+          })
+          continue
+        }
+
+        // Convert file to base64 for storage (for small files)
+        // For production, you'd upload to cloud storage and store URL
+        const reader = new FileReader()
+        const base64 = await new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+
+        newAttachments.push({
+          name: file.name,
+          url: base64,
+          type: file.type,
+          size: file.size,
+        })
+      }
+
+      if (newAttachments.length > 0) {
+        setFormData(prev => ({
+          ...prev,
+          attachments: [...prev.attachments, ...newAttachments]
+        }))
+
+        toast({ title: `${newAttachments.length} file(s) added` })
+      } else {
+        toast({
+          title: "No files added",
+          description: "All selected files were too large",
+          variant: "destructive"
+        })
+      }
+    } catch (err) {
+      console.error("Failed to upload file:", err)
+      toast({ title: "Failed to upload file", variant: "destructive" })
+    } finally {
+      setUploading(false)
+      e.target.value = "" // Reset input
+    }
+  }
+
+  const removeAttachment = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }))
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.title || formData.title.trim() === "") {
-      newErrors.title = "Deal title is required"
+    if (!formData.trackingId || formData.trackingId.trim() === "") {
+      newErrors.trackingId = "Tracking ID is required"
     }
+
+    // Title is optional now, will be auto-generated if missing
+    // if (!formData.title || formData.title.trim() === "") {
+    //   newErrors.title = "Deal title is required"
+    // }
 
     if (!formData.clientId || formData.clientId.trim() === "") {
       newErrors.clientId = "Please select a client"
@@ -238,9 +327,11 @@ export function AddDealDialog({
     }
 
     const dealAmount = Number.parseFloat(formData.dealAmount || "0")
-    if (!formData.dealAmount || formData.dealAmount.trim() === "" || isNaN(dealAmount) || dealAmount <= 0) {
-      newErrors.dealAmount = "Deal amount must be greater than 0"
+    if (isNaN(dealAmount) || dealAmount <= 0) {
+      newErrors.dealAmount = "Deal amount must be a valid number greater than 0"
     }
+
+    // Validate against property sale price if available
     if (selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null) {
       const salePriceValue = Number(selectedProperty.salePrice)
       if (!Number.isNaN(salePriceValue) && Math.abs(dealAmount - salePriceValue) > 0.01) {
@@ -270,8 +361,11 @@ export function AddDealDialog({
       setErrors({})
 
       const dealAmount = Number.parseFloat(formData.dealAmount || "0")
+      const autoTitle = formData.title?.trim() || `Deal ${formData.trackingId}`
+
       const payload = {
-        title: formData.title.trim(),
+        title: autoTitle,
+        trackingId: formData.trackingId.trim(),
         clientId: formData.clientId,
         propertyId: formData.propertyId,
         role: formData.role || "buyer",
@@ -281,6 +375,13 @@ export function AddDealDialog({
         dealDate: formData.dealDate ? new Date(formData.dealDate).toISOString() : undefined,
         expectedClosingDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
         notes: formData.description || undefined,
+      }
+
+      // Add attachments if any
+      if (formData.attachments && formData.attachments.length > 0) {
+        ; (payload as any).attachments = {
+          files: formData.attachments
+        }
       }
 
       if (isEdit) {
@@ -320,7 +421,7 @@ export function AddDealDialog({
           })
         } else if (typeof apiError === "object") {
           // Handle error object - extract message
-          const errorMsg = apiError?.message || apiError?.error || JSON.stringify(apiError)
+          const errorMsg = (apiError as any)?.message || (apiError as any)?.error || JSON.stringify(apiError)
           toast({
             title: "Error",
             description: String(errorMsg),
@@ -356,16 +457,30 @@ export function AddDealDialog({
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="grid gap-2">
+              <Label htmlFor="trackingId">Tracking ID *</Label>
+              <Input
+                id="trackingId"
+                placeholder="Enter unique tracking ID"
+                value={formData.trackingId}
+                onChange={(e) => {
+                  setFormData({ ...formData, trackingId: e.target.value.toUpperCase().trim() })
+                  if (errors.trackingId) setErrors({ ...errors, trackingId: "" })
+                }}
+                required
+                className={errors.trackingId ? "border-destructive" : ""}
+              />
+              {errors.trackingId && <p className="text-sm text-destructive">{errors.trackingId}</p>}
+            </div>
+            <div className="grid gap-2">
               <Label htmlFor="title">Deal Title</Label>
               <Input
                 id="title"
-                placeholder="e.g., Commercial Property Sale"
+                placeholder="e.g., Commercial Property Sale (Optional)"
                 value={formData.title}
                 onChange={(e) => {
                   setFormData({ ...formData, title: e.target.value })
                   if (errors.title) setErrors({ ...errors, title: "" })
                 }}
-                required
                 className={errors.title ? "border-destructive" : ""}
               />
               {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
@@ -404,6 +519,8 @@ export function AddDealDialog({
               <Select
                 value={formData.propertyId}
                 onValueChange={(value) => {
+                  if (value === "no-properties") return // Don't allow selection of "no properties" option
+
                   const property = properties.find((p) => p.id === value)
                   const salePrice = property?.salePrice
                   setFormData({
@@ -426,7 +543,7 @@ export function AddDealDialog({
                   ) : (
                     properties.map((property) => (
                       <SelectItem key={property.id} value={property.id}>
-                        {property.name} {property.propertyCode ? `(${property.propertyCode})` : ""}
+                        {property.name || property.id} {property.propertyCode ? `(${property.propertyCode})` : ""}
                       </SelectItem>
                     ))
                   )}
@@ -530,6 +647,60 @@ export function AddDealDialog({
                 value={formData.dueDate}
                 onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
+            </div>
+
+            {/* Attachments Section */}
+            <div className="space-y-4">
+              <Label className="flex items-center gap-2">
+                <Paperclip className="h-4 w-4" />
+                Attachments
+              </Label>
+              <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+                <input
+                  type="file"
+                  multiple
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  id="deal-attachments"
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                />
+                <label
+                  htmlFor="deal-attachments"
+                  className="cursor-pointer flex flex-col items-center gap-2"
+                >
+                  <Upload className="h-8 w-8 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    {uploading ? "Uploading..." : "Click to upload files (PDF, DOC, Images, Excel)"}
+                  </span>
+                </label>
+              </div>
+
+              {formData.attachments.length > 0 && (
+                <div className="space-y-2">
+                  {formData.attachments.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <File className="h-5 w-5 text-muted-foreground" />
+                        <div>
+                          <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeAttachment(index)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>

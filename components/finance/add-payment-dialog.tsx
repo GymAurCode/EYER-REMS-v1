@@ -26,6 +26,7 @@ interface AddPaymentDialogProps {
 type DealOption = {
   id: string
   title: string
+  trackingId: string
   clientName: string
   propertyName: string
   dealAmount: number
@@ -92,8 +93,9 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
         data.map((deal: any) => ({
           id: deal.id,
           title: deal.title,
+          trackingId: deal.trackingId,
           clientName: deal.client?.name || "Unassigned Client",
-          propertyName: deal.property?.name || "Unassigned Property",
+          propertyName: deal.property?.tid || deal.property?.name || "Unassigned Property",
           dealAmount:
             typeof deal.dealAmount === "number"
               ? deal.dealAmount
@@ -257,7 +259,7 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
                 ) : (
                   deals.map((deal) => (
                     <SelectItem key={deal.id} value={deal.id}>
-                      {deal.title} — {deal.clientName}
+                      {deal.trackingId || deal.title} — {deal.clientName}
                     </SelectItem>
                   ))
                 )}
@@ -269,7 +271,7 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
             <div className="rounded-md border border-border px-4 py-3 text-sm">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <p className="font-medium">{selectedDeal.propertyName}</p>
+                  <p className="font-medium">{selectedDeal.trackingId || selectedDeal.propertyName}</p>
                   <p className="text-muted-foreground">{selectedDeal.clientName}</p>
                 </div>
                 <div className="text-right">
