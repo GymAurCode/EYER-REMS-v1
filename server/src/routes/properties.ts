@@ -79,7 +79,7 @@ const updatePropertySchema = createPropertySchema.partial();
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, location: locationQuery, locationId, search } = req.query;
-    
+
     // Validate pagination parameters with better error handling
     let page: number;
     let limit: number;
@@ -99,7 +99,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       }
       throw error;
     }
-    
+
     const skip = (page - 1) * limit;
 
     const where: Prisma.PropertyWhereInput = {
@@ -135,7 +135,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
             400
           );
         }
-        
+
         try {
           const subtreeIds = await getSubtreeIds(locationFilterId);
           if (subtreeIds.length === 0) {
@@ -193,19 +193,19 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     let properties: any[];
     let total: number;
-    
+
     // Check if tid column exists - if not, we'll use select to exclude it
     const tidColumnExists = await columnExists('Property', 'tid');
     // Check if subsidiaryOptionId column exists - if not, we'll exclude it from select
     const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
-    
+
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:columnCheck',message:'Column existence check results',data:{tidColumnExists,subsidiaryOptionIdExists},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:columnCheck', message: 'Column existence check results', data: { tidColumnExists, subsidiaryOptionIdExists }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
-    
+
     // If any column is missing, use select from the start to avoid errors
     const needsSelect = !tidColumnExists || !subsidiaryOptionIdExists;
-    
+
     // Helper function to build select fields
     const buildSelectFields = () => {
       const selectFields: any = {
@@ -250,7 +250,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       }
       return selectFields;
     };
-    
+
     try {
       if (needsSelect) {
         // Use select if any columns are missing (silently handled - no need to log on every request)
@@ -285,7 +285,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       if (error?.code === 'P2022' || error?.message?.includes('column') || error?.message?.includes('does not exist')) {
         const errorMessage = error?.message || '';
         const isLocationError = errorMessage.includes('Location') || errorMessage.includes('locationNode');
-        
+
         if (isLocationError && !needsSelect) {
           // Try without locationNode (only if we haven't already used select)
           logger.warn('LocationNode relation not available, fetching without it:', error.message);
@@ -504,18 +504,18 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       const rentRevenueTransactions = propertyIncomeTransactions.filter((tx) => {
         const categoryName = tx.transactionCategory?.name?.toLowerCase() || '';
         const description = tx.description?.toLowerCase() || '';
-        const isSale = categoryName.includes('sale') || 
-                      description.includes('sale') ||
-                      description.includes('property sale');
+        const isSale = categoryName.includes('sale') ||
+          description.includes('sale') ||
+          description.includes('property sale');
         return !isSale;
       });
 
       const rentRevenueFromTransactions = rentRevenueTransactions.reduce(
-        (sum, tx) => sum + (tx.totalAmount || tx.amount || 0), 
+        (sum, tx) => sum + (tx.totalAmount || tx.amount || 0),
         0
       );
       const rentRevenueFromPayments = rentPayments.reduce(
-        (sum, payment) => sum + (payment.amount || 0), 
+        (sum, payment) => sum + (payment.amount || 0),
         0
       );
       const rentRevenue = rentRevenueFromTransactions + rentRevenueFromPayments;
@@ -524,14 +524,14 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       const propertySales = saleMap.get(property.id) || [];
       const saleRevenue = propertySales.reduce((sum, sale) => sum + (sale.saleValue || 0), 0);
       const totalPropertyCost = propertySales.reduce(
-        (sum, sale) => sum + (sale.actualPropertyValue || 0), 
+        (sum, sale) => sum + (sale.actualPropertyValue || 0),
         0
       );
       const saleProfit = saleRevenue - totalPropertyCost;
 
       // Calculate expenses
       const totalExpenses = propertyExpenseTransactions.reduce(
-        (sum, tx) => sum + (tx.totalAmount || tx.amount || 0), 
+        (sum, tx) => sum + (tx.totalAmount || tx.amount || 0),
         0
       );
       const rentProfit = rentRevenue - totalExpenses;
@@ -539,7 +539,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       // Calculate outstanding invoices
       const propertyOutstandingInvoices = outstandingInvoiceMap.get(property.id) || [];
       const outstandingInvoicesAmount = propertyOutstandingInvoices.reduce(
-        (sum, inv) => sum + (Number(inv.remainingAmount ?? inv.totalAmount ?? 0)), 
+        (sum, inv) => sum + (Number(inv.remainingAmount ?? inv.totalAmount ?? 0)),
         0
       );
 
@@ -640,32 +640,32 @@ router.get('/:id/structure', authenticate, async (req: AuthRequest, res: Respons
     });
 
     return successResponse(res, {
-        property: {
-          id: property.id,
-          name: property.name,
-          propertyCode: property.propertyCode,
-        },
-        floors: floors.map((floor) => ({
-          id: floor.id,
-          name: floor.name,
-          floorNumber: floor.floorNumber,
-          description: floor.description,
-          units: floor.units,
-          unitCount: floor._count.units,
-        })),
-        summary: {
-          totalFloors: floors.length,
-          totalUnits: floors.reduce((sum, floor) => sum + floor._count.units, 0),
-          occupiedUnits: floors.reduce(
-            (sum, floor) =>
-              sum + floor.units.filter((u) => u.status === 'Occupied').length,
-            0
-          ),
-          vacantUnits: floors.reduce(
-            (sum, floor) =>
-              sum + floor.units.filter((u) => u.status === 'Vacant').length,
-            0
-          ),
+      property: {
+        id: property.id,
+        name: property.name,
+        propertyCode: property.propertyCode,
+      },
+      floors: floors.map((floor) => ({
+        id: floor.id,
+        name: floor.name,
+        floorNumber: floor.floorNumber,
+        description: floor.description,
+        units: floor.units,
+        unitCount: floor._count.units,
+      })),
+      summary: {
+        totalFloors: floors.length,
+        totalUnits: floors.reduce((sum, floor) => sum + floor._count.units, 0),
+        occupiedUnits: floors.reduce(
+          (sum, floor) =>
+            sum + floor.units.filter((u) => u.status === 'Occupied').length,
+          0
+        ),
+        vacantUnits: floors.reduce(
+          (sum, floor) =>
+            sum + floor.units.filter((u) => u.status === 'Vacant').length,
+          0
+        ),
       },
     });
   } catch (error) {
@@ -722,93 +722,140 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    const property = await prisma.property.findFirst({
-      where: {
-        id,
-        isDeleted: false,
+    // Check for missing columns to avoid P2022 errors
+    const tidExists = await columnExists('Property', 'tid');
+    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+
+    // Define the relations we want to include (as select objects)
+    const relationSelects = {
+      units: {
+        where: { isDeleted: false },
+        include: {
+          tenant: {
+            where: { isDeleted: false },
+          },
+          block: {
+            where: { isDeleted: false },
+          },
+          floor: {
+            where: { isDeleted: false },
+          },
+        },
       },
-      include: {
-        units: {
-          where: { isDeleted: false },
-          include: {
-            tenant: {
-              where: { isDeleted: false },
-            },
-            block: {
-              where: { isDeleted: false },
-            },
-            floor: {
-              where: { isDeleted: false },
-            },
-          },
-        },
-        blocks: {
-          where: { isDeleted: false },
-        },
-        floors: {
-          where: { isDeleted: false },
-          include: {
-            units: {
-              where: { isDeleted: false },
-              select: {
-                id: true,
-                unitName: true,
-                status: true,
-              },
-            },
-          },
-          orderBy: {
-            floorNumber: 'asc',
-          },
-        },
-        sales: {
-          where: { isDeleted: false },
-          include: {
-            buyers: {
-              where: { isDeleted: false },
+      blocks: {
+        where: { isDeleted: false },
+      },
+      floors: {
+        where: { isDeleted: false },
+        include: {
+          units: {
+            where: { isDeleted: false },
+            select: {
+              id: true,
+              unitName: true,
+              status: true,
             },
           },
         },
-        deals: {
-          where: { isDeleted: false },
-          include: {
-            payments: true,
-            dealer: true,
-            client: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                phone: true,
-                clientCode: true,
-                status: true,
-              },
+        orderBy: {
+          floorNumber: 'asc' as const,
+        },
+      },
+      sales: {
+        where: { isDeleted: false },
+        include: {
+          buyers: {
+            where: { isDeleted: false },
+          },
+        },
+      },
+      deals: {
+        where: { isDeleted: false },
+        include: {
+          payments: true,
+          dealer: true,
+          client: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              phone: true,
+              clientCode: true,
+              status: true,
             },
-            paymentPlan: {
-              include: {
-                installments: {
-                  where: { isDeleted: false },
-                  orderBy: { dueDate: 'asc' },
-                },
+          },
+          paymentPlan: {
+            include: {
+              installments: {
+                where: { isDeleted: false },
+                orderBy: { dueDate: 'asc' as const },
               },
             },
           },
         },
-        tenancies: {
-          where: { isDeleted: false },
-          include: {
-            tenant: true,
-            lease: true,
+      },
+      tenancies: {
+        where: { isDeleted: false },
+        include: {
+          tenant: true,
+          lease: true,
+        },
+      },
+    };
+
+    let property;
+
+    if (tidExists && subsidiaryOptionIdExists) {
+      // Safe to use standard include if all columns exist
+      property = await prisma.property.findFirst({
+        where: {
+          id,
+          isDeleted: false,
+        },
+        include: {
+          ...relationSelects,
+          // Only include this if we know the column exists, though strict logic would be in select
+          // But if subsidiaryOptionIdExists is true, the relation should be fine.
+          subsidiaryOption: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
-        subsidiaryOption: {
+      });
+    } else {
+      // Fallback: Dynamically build select to exclude missing columns
+      const select: any = {};
+
+      // Add all scalar fields that exist
+      for (const key of Object.keys(Prisma.PropertyScalarFieldEnum)) {
+        if (key === 'tid' && !tidExists) continue;
+        if (key === 'subsidiaryOptionId' && !subsidiaryOptionIdExists) continue;
+        select[key] = true;
+      }
+
+      // Add relations
+      Object.assign(select, relationSelects);
+
+      // Conditional relation
+      if (subsidiaryOptionIdExists) {
+        select.subsidiaryOption = {
           select: {
             id: true,
             name: true,
           },
+        };
+      }
+
+      property = await prisma.property.findFirst({
+        where: {
+          id,
+          isDeleted: false,
         },
-      },
-    });
+        select,
+      });
+    }
 
     if (!property) {
       return errorResponse(res, 'Property not found', 404);
@@ -855,25 +902,25 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     // Finance summary (aggregated) and latest finance entries - query through Deal relationship
     const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
       prisma.financeLedger.aggregate({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false, 
-          category: 'credit' 
+          isDeleted: false,
+          category: 'credit'
         },
         _sum: { amount: true },
       }),
       prisma.financeLedger.aggregate({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false, 
-          category: 'debit' 
+          isDeleted: false,
+          category: 'debit'
         },
         _sum: { amount: true },
       }),
       prisma.financeLedger.findMany({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false 
+          isDeleted: false
         },
         orderBy: { date: 'desc' },
         take: 10,
@@ -1200,9 +1247,9 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
         units: { where: { isDeleted: false } },
         deals: {
           where: { isDeleted: false, deletedAt: null },
-          include: { 
-            payments: true, 
-            dealer: true, 
+          include: {
+            payments: true,
+            dealer: true,
             client: {
               select: {
                 id: true,
@@ -1234,9 +1281,9 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
 
     const dealer = property.dealerId
       ? await prisma.dealer.findUnique({
-          where: { id: property.dealerId },
-          select: { name: true, email: true, phone: true },
-        })
+        where: { id: property.dealerId },
+        select: { name: true, email: true, phone: true },
+      })
       : null;
 
     // Get deal IDs for this property
@@ -1249,25 +1296,25 @@ router.get('/:id/report', authenticate, async (req: AuthRequest, res: Response) 
     // Finance data (aggregated + recent entries) - query through Deal relationship
     const [incomeAgg, expenseAgg, financeEntries] = await Promise.all([
       prisma.financeLedger.aggregate({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false, 
-          category: 'credit' 
+          isDeleted: false,
+          category: 'credit'
         },
         _sum: { amount: true },
       }),
       prisma.financeLedger.aggregate({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false, 
-          category: 'debit' 
+          isDeleted: false,
+          category: 'debit'
         },
         _sum: { amount: true },
       }),
       prisma.financeLedger.findMany({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false 
+          isDeleted: false
         },
         orderBy: { date: 'desc' },
         take: 20,
@@ -1430,9 +1477,9 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
 
     const [financeEntries, dealPayments] = await Promise.all([
       prisma.financeLedger.findMany({
-        where: { 
+        where: {
           dealId: { in: dealIds },
-          isDeleted: false 
+          isDeleted: false
         },
         orderBy: { date: 'desc' },
       }),
@@ -1509,7 +1556,7 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
-    
+
     // Parse and validate request body
     let data;
     try {
@@ -1520,14 +1567,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         errors: validationError.errors,
         body: req.body,
       });
-      
+
       if (validationError instanceof ZodError) {
         return errorResponse(
           res,
           'Validation error',
           400,
-          validationError.errors.map((e) => ({ 
-            path: e.path.join('.'), 
+          validationError.errors.map((e) => ({
+            path: e.path.join('.'),
             message: e.message,
             code: e.code,
           }))
@@ -1550,7 +1597,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
             stack: tidError?.stack,
             code: tidError?.code,
           });
-          
+
           // Check if it's a database column error
           if (tidError?.code?.startsWith('P') || tidError?.message?.includes('column') || tidError?.message?.includes('does not exist')) {
             logger.warn('TID column may not exist in all tables, skipping TID validation');
@@ -1580,176 +1627,176 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       // Continue without property code if generation fails
     }
 
-  // Store extra attributes in documents field (keeps schema unchanged)
-  let documentsData: { amenities?: string[]; salePrice?: number } | null = null;
-  if (data.amenities && Array.isArray(data.amenities) && data.amenities.length > 0) {
-    documentsData = { ...(documentsData || {}), amenities: data.amenities };
-  }
-  if (typeof data.salePrice === 'number') {
-    documentsData = { ...(documentsData || {}), salePrice: data.salePrice };
-  }
-
-  // Check if columns exist before including them
-  const tidColumnExists = await columnExists('Property', 'tid');
-  const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
-  
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:createColumnCheck',message:'Column existence check for create',data:{tidColumnExists,subsidiaryOptionIdExists},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  // #endregion
-
-  // Build create data object, only including fields that exist in database
-  const createData: any = {
-    name: data.name,
-    type: data.type,
-    address: data.address,
-    location: data.location || undefined,
-    status: data.status || 'Active',
-    imageUrl: data.imageUrl || undefined,
-    description: data.description || undefined,
-    yearBuilt: data.yearBuilt || undefined,
-    totalArea: data.totalArea || undefined,
-    totalUnits: data.totalUnits || 0,
-    dealerId: data.dealerId || undefined,
-    locationId: data.locationId ?? null,
-  };
-
-  // Only include columns that exist in the database
-  if (subsidiaryOptionIdExists) {
-    createData.subsidiaryOptionId = data.subsidiaryOptionId ?? null;
-  }
-  if (tidColumnExists) {
-    createData.tid = data.tid?.trim() || null;
-  }
-  if (propertyCode) {
-    createData.propertyCode = propertyCode;
-  }
-  if (documentsData) {
-    createData.documents = documentsData;
-  }
-  // Note: Property model does NOT have propertySubsidiaryId column
-  // It has subsidiaryOptionId instead. propertySubsidiaryId exists on SubsidiaryOption model.
-
-  // Try to create property, handle column errors gracefully
-  let property: any;
-  try {
-    // Ensure propertySubsidiaryId is never in createData (it doesn't exist on Property)
-    if ('propertySubsidiaryId' in createData) {
-      delete createData.propertySubsidiaryId;
+    // Store extra attributes in documents field (keeps schema unchanged)
+    let documentsData: { amenities?: string[]; salePrice?: number } | null = null;
+    if (data.amenities && Array.isArray(data.amenities) && data.amenities.length > 0) {
+      documentsData = { ...(documentsData || {}), amenities: data.amenities };
     }
-    
-    // Use select instead of include to avoid relation issues with missing columns
-    const selectFields: any = {
-      id: true,
-      name: true,
-      type: true,
-      address: true,
-      location: true,
-      status: true,
-      imageUrl: true,
-      description: true,
-      yearBuilt: true,
-      totalArea: true,
-      totalUnits: true,
-      dealerId: true,
-      locationId: true,
-      createdAt: true,
-      updatedAt: true,
-      propertyCode: true,
-      units: {
-        select: {
-          id: true,
-          unitName: true,
-        },
-      },
-      blocks: {
-        select: {
-          id: true,
-          name: true,
-        },
-      },
-    };
-    
-    // Only include optional columns if they exist
-    if (tidColumnExists) selectFields.tid = true;
-    if (subsidiaryOptionIdExists) selectFields.subsidiaryOptionId = true;
-    
-    property = await prisma.property.create({
-      data: createData,
-      select: selectFields,
-    });
-  } catch (createError: any) {
+    if (typeof data.salePrice === 'number') {
+      documentsData = { ...(documentsData || {}), salePrice: data.salePrice };
+    }
+
+    // Check if columns exist before including them
+    const tidColumnExists = await columnExists('Property', 'tid');
+    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'properties.ts:createError',message:'Property create error caught',data:{code:createError?.code,message:createError?.message,meta:createError?.meta,createDataKeys:Object.keys(createData)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:createColumnCheck', message: 'Column existence check for create', data: { tidColumnExists, subsidiaryOptionIdExists }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
-    
-    // If error is about missing column, try again with minimal fields
-    if (createError?.code === 'P2022' || 
-        createError?.message?.includes('column') || 
-        createError?.message?.includes('does not exist')) {
-      logger.warn('Column error during property create, retrying with minimal fields:', createError.message);
-      
-      // Create with only essential fields that definitely exist
-      const minimalData: any = {
-        name: data.name,
-        type: data.type,
-        address: data.address,
-        status: data.status || 'Active',
-        totalUnits: data.totalUnits || 0,
-      };
-      
-      // Add optional fields that are safe
-      if (data.location) minimalData.location = data.location;
-      if (data.imageUrl) minimalData.imageUrl = data.imageUrl;
-      if (data.description) minimalData.description = data.description;
-      if (data.yearBuilt) minimalData.yearBuilt = data.yearBuilt;
-      if (data.totalArea) minimalData.totalArea = data.totalArea;
-      if (data.dealerId) minimalData.dealerId = data.dealerId;
-      if (data.locationId) minimalData.locationId = data.locationId;
-      if (tidColumnExists && data.tid) minimalData.tid = data.tid.trim();
-      if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
-      if (propertyCode) minimalData.propertyCode = propertyCode;
-      if (documentsData) minimalData.documents = documentsData;
-      // Note: propertySubsidiaryId does not exist on Property model - it's on SubsidiaryOption model
-      
-      property = await prisma.property.create({
-        data: minimalData,
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          address: true,
-          location: true,
-          status: true,
-          imageUrl: true,
-          description: true,
-          yearBuilt: true,
-          totalArea: true,
-          totalUnits: true,
-          dealerId: true,
-          locationId: true,
-          createdAt: true,
-          updatedAt: true,
-          propertyCode: true,
-          ...(tidColumnExists && { tid: true }),
-          ...(subsidiaryOptionIdExists && { subsidiaryOptionId: true }),
-          units: {
-            select: {
-              id: true,
-              unitName: true,
-            },
-          },
-          blocks: {
-            select: {
-              id: true,
-              name: true,
-            },
+
+    // Build create data object, only including fields that exist in database
+    const createData: any = {
+      name: data.name,
+      type: data.type,
+      address: data.address,
+      location: data.location || undefined,
+      status: data.status || 'Active',
+      imageUrl: data.imageUrl || undefined,
+      description: data.description || undefined,
+      yearBuilt: data.yearBuilt || undefined,
+      totalArea: data.totalArea || undefined,
+      totalUnits: data.totalUnits || 0,
+      dealerId: data.dealerId || undefined,
+      locationId: data.locationId ?? null,
+    };
+
+    // Only include columns that exist in the database
+    if (subsidiaryOptionIdExists) {
+      createData.subsidiaryOptionId = data.subsidiaryOptionId ?? null;
+    }
+    if (tidColumnExists) {
+      createData.tid = data.tid?.trim() || null;
+    }
+    if (propertyCode) {
+      createData.propertyCode = propertyCode;
+    }
+    if (documentsData) {
+      createData.documents = documentsData;
+    }
+    // Note: Property model does NOT have propertySubsidiaryId column
+    // It has subsidiaryOptionId instead. propertySubsidiaryId exists on SubsidiaryOption model.
+
+    // Try to create property, handle column errors gracefully
+    let property: any;
+    try {
+      // Ensure propertySubsidiaryId is never in createData (it doesn't exist on Property)
+      if ('propertySubsidiaryId' in createData) {
+        delete createData.propertySubsidiaryId;
+      }
+
+      // Use select instead of include to avoid relation issues with missing columns
+      const selectFields: any = {
+        id: true,
+        name: true,
+        type: true,
+        address: true,
+        location: true,
+        status: true,
+        imageUrl: true,
+        description: true,
+        yearBuilt: true,
+        totalArea: true,
+        totalUnits: true,
+        dealerId: true,
+        locationId: true,
+        createdAt: true,
+        updatedAt: true,
+        propertyCode: true,
+        units: {
+          select: {
+            id: true,
+            unitName: true,
           },
         },
+        blocks: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      };
+
+      // Only include optional columns if they exist
+      if (tidColumnExists) selectFields.tid = true;
+      if (subsidiaryOptionIdExists) selectFields.subsidiaryOptionId = true;
+
+      property = await prisma.property.create({
+        data: createData,
+        select: selectFields,
       });
-    } else {
-      throw createError;
+    } catch (createError: any) {
+      // #region agent log
+      fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:createError', message: 'Property create error caught', data: { code: createError?.code, message: createError?.message, meta: createError?.meta, createDataKeys: Object.keys(createData) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
+      // #endregion
+
+      // If error is about missing column, try again with minimal fields
+      if (createError?.code === 'P2022' ||
+        createError?.message?.includes('column') ||
+        createError?.message?.includes('does not exist')) {
+        logger.warn('Column error during property create, retrying with minimal fields:', createError.message);
+
+        // Create with only essential fields that definitely exist
+        const minimalData: any = {
+          name: data.name,
+          type: data.type,
+          address: data.address,
+          status: data.status || 'Active',
+          totalUnits: data.totalUnits || 0,
+        };
+
+        // Add optional fields that are safe
+        if (data.location) minimalData.location = data.location;
+        if (data.imageUrl) minimalData.imageUrl = data.imageUrl;
+        if (data.description) minimalData.description = data.description;
+        if (data.yearBuilt) minimalData.yearBuilt = data.yearBuilt;
+        if (data.totalArea) minimalData.totalArea = data.totalArea;
+        if (data.dealerId) minimalData.dealerId = data.dealerId;
+        if (data.locationId) minimalData.locationId = data.locationId;
+        if (tidColumnExists && data.tid) minimalData.tid = data.tid.trim();
+        if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
+        if (propertyCode) minimalData.propertyCode = propertyCode;
+        if (documentsData) minimalData.documents = documentsData;
+        // Note: propertySubsidiaryId does not exist on Property model - it's on SubsidiaryOption model
+
+        property = await prisma.property.create({
+          data: minimalData,
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            address: true,
+            location: true,
+            status: true,
+            imageUrl: true,
+            description: true,
+            yearBuilt: true,
+            totalArea: true,
+            totalUnits: true,
+            dealerId: true,
+            locationId: true,
+            createdAt: true,
+            updatedAt: true,
+            propertyCode: true,
+            ...(tidColumnExists && { tid: true }),
+            ...(subsidiaryOptionIdExists && { subsidiaryOptionId: true }),
+            units: {
+              select: {
+                id: true,
+                unitName: true,
+              },
+            },
+            blocks: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
+        });
+      } else {
+        throw createError;
+      }
     }
-  }
 
     // Log activity
     await createActivity({
@@ -1777,7 +1824,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       body: req.body,
       code: error?.code,
     });
-    
+
     // Handle Zod validation errors specifically
     if (error instanceof ZodError) {
       return errorResponse(
@@ -1787,7 +1834,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         error.errors.map((e) => ({ path: e.path.join('.'), message: e.message }))
       );
     }
-    
+
     return errorResponse(res, error);
   }
 });
@@ -1937,7 +1984,7 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           propertyId: id,
           isDeleted: false,
         },
-        data: { 
+        data: {
           isDeleted: true,
           status: 'Vacant', // Also set status to Vacant
         },
@@ -1999,10 +2046,10 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     });
 
     return successResponse(res, {
-        unitsDeleted: property.units.length,
-        blocksDeleted: property.blocks.length,
-        floorsDeleted: property.floors.length,
-        tenanciesEnded: property.tenancies.length,
+      unitsDeleted: property.units.length,
+      blocksDeleted: property.blocks.length,
+      floorsDeleted: property.floors.length,
+      tenanciesEnded: property.tenancies.length,
     });
   } catch (error) {
     logger.error('Delete property error:', error);
