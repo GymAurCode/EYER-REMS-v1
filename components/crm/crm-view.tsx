@@ -122,7 +122,7 @@ export function CRMView() {
           console.error("Failed to fetch deals:", error)
           return { data: [] }
         }),
-        apiService.dealers.getAll(config).catch((error) => {
+        apiService.dealers.getAll(undefined, config).catch((error) => {
           console.error("Failed to fetch dealers:", error)
           return { data: [] }
         }),
