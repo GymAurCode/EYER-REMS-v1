@@ -34,6 +34,20 @@ const columnExists = async (tableName: string, columnName: string): Promise<bool
 
 const router = (express as any).Router();
 
+const getExistingColumns = async (tableName: string): Promise<Set<string>> => {
+  try {
+    const rows = await prisma.$queryRaw<Array<{ column_name: string }>>`
+      SELECT LOWER(column_name) AS column_name
+      FROM information_schema.columns
+      WHERE table_schema = current_schema()
+        AND LOWER(table_name) = LOWER(${tableName})
+    `;
+    return new Set((rows || []).map(r => r.column_name));
+  } catch {
+    return new Set<string>();
+  }
+};
+
 // Validation schemas
 const createPropertySchema = z.object({
   tid: z.string().optional(),
@@ -194,60 +208,52 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     let properties: any[];
     let total: number;
 
-    // Check if tid column exists - if not, we'll use select to exclude it
-    const tidColumnExists = await columnExists('Property', 'tid');
-    // Check if subsidiaryOptionId column exists - if not, we'll exclude it from select
-    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+    const existingColumns = await getExistingColumns('Property');
+    const tidColumnExists = existingColumns.has('tid');
+    const subsidiaryOptionIdExists = existingColumns.has('subsidiaryoptionid');
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:columnCheck', message: 'Column existence check results', data: { tidColumnExists, subsidiaryOptionIdExists }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
-
-    // If any column is missing, use select from the start to avoid errors
-    const needsSelect = !tidColumnExists || !subsidiaryOptionIdExists;
+    const scalarFieldsCandidate = [
+      'id','name','type','address','location','status','imageurl','description','yearbuilt','totalarea','totalunits','dealerid','isdeleted','createdat','updatedat','propertycode','city','documents','ownername','ownerphone','previoustenants','rentamount','rentescalationpercentage','securitydeposit','size','title','locationid','manualuniqueid','tid','subsidiaryoptionid'
+    ];
+    const needsSelect = scalarFieldsCandidate.some(f => !existingColumns.has(f));
 
     // Helper function to build select fields
     const buildSelectFields = () => {
       const selectFields: any = {
-        id: true,
-        name: true,
-        type: true,
-        address: true,
-        location: true,
-        status: true,
-        imageUrl: true,
-        description: true,
-        yearBuilt: true,
-        totalArea: true,
-        totalUnits: true,
-        dealerId: true,
-        isDeleted: true,
-        createdAt: true,
-        updatedAt: true,
-        propertyCode: true,
-        city: true,
-        documents: true,
-        ownerName: true,
-        ownerPhone: true,
-        previousTenants: true,
-        rentAmount: true,
-        rentEscalationPercentage: true,
-        securityDeposit: true,
-        size: true,
-        title: true,
-        locationId: true,
-        manualUniqueId: true,
-        units: baseInclude.units,
-        blocks: baseInclude.blocks,
-        _count: baseInclude._count,
       };
-      // Only include columns if they exist
-      if (tidColumnExists) {
-        selectFields.tid = true;
-      }
-      if (subsidiaryOptionIdExists) {
-        selectFields.subsidiaryOptionId = true;
-      }
+      if (existingColumns.has('id')) selectFields.id = true;
+      if (existingColumns.has('name')) selectFields.name = true;
+      if (existingColumns.has('type')) selectFields.type = true;
+      if (existingColumns.has('address')) selectFields.address = true;
+      if (existingColumns.has('location')) selectFields.location = true;
+      if (existingColumns.has('status')) selectFields.status = true;
+      if (existingColumns.has('imageurl')) selectFields.imageUrl = true;
+      if (existingColumns.has('description')) selectFields.description = true;
+      if (existingColumns.has('yearbuilt')) selectFields.yearBuilt = true;
+      if (existingColumns.has('totalarea')) selectFields.totalArea = true;
+      if (existingColumns.has('totalunits')) selectFields.totalUnits = true;
+      if (existingColumns.has('dealerid')) selectFields.dealerId = true;
+      if (existingColumns.has('isdeleted')) selectFields.isDeleted = true;
+      if (existingColumns.has('createdat')) selectFields.createdAt = true;
+      if (existingColumns.has('updatedat')) selectFields.updatedAt = true;
+      if (existingColumns.has('propertycode')) selectFields.propertyCode = true;
+      if (existingColumns.has('city')) selectFields.city = true;
+      if (existingColumns.has('documents')) selectFields.documents = true;
+      if (existingColumns.has('ownername')) selectFields.ownerName = true;
+      if (existingColumns.has('ownerphone')) selectFields.ownerPhone = true;
+      if (existingColumns.has('previoustenants')) selectFields.previousTenants = true;
+      if (existingColumns.has('rentamount')) selectFields.rentAmount = true;
+      if (existingColumns.has('rentescalationpercentage')) selectFields.rentEscalationPercentage = true;
+      if (existingColumns.has('securitydeposit')) selectFields.securityDeposit = true;
+      if (existingColumns.has('size')) selectFields.size = true;
+      if (existingColumns.has('title')) selectFields.title = true;
+      if (existingColumns.has('locationid')) selectFields.locationId = true;
+      if (existingColumns.has('manualuniqueid')) selectFields.manualUniqueId = true;
+      if (tidColumnExists) selectFields.tid = true;
+      if (subsidiaryOptionIdExists) selectFields.subsidiaryOptionId = true;
+      selectFields.units = baseInclude.units;
+      selectFields.blocks = baseInclude.blocks;
+      selectFields._count = baseInclude._count;
       return selectFields;
     };
 
@@ -722,9 +728,13 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
-    // Check for missing columns to avoid P2022 errors
-    const tidExists = await columnExists('Property', 'tid');
-    const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
+    const existingColumns = await getExistingColumns('Property');
+    const tidExists = existingColumns.has('tid');
+    const subsidiaryOptionIdExists = existingColumns.has('subsidiaryoptionid');
+    const scalarFieldsCandidate = [
+      'id','name','type','address','location','status','imageurl','description','yearbuilt','totalarea','totalunits','dealerid','isdeleted','createdat','updatedat','propertycode','city','documents','ownername','ownerphone','previoustenants','rentamount','rentescalationpercentage','securitydeposit','size','title','locationid','manualuniqueid','tid','subsidiaryoptionid'
+    ];
+    const allColumnsPresent = scalarFieldsCandidate.every(f => existingColumns.has(f));
 
     // Define the relations we want to include (as select objects)
     const relationSelects = {
@@ -803,9 +813,9 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       },
     };
 
-    let property;
+    let property: any;
 
-    if (tidExists && subsidiaryOptionIdExists) {
+    if (allColumnsPresent) {
       // Safe to use standard include if all columns exist
       property = await prisma.property.findFirst({
         where: {
@@ -828,12 +838,36 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       // Fallback: Dynamically build select to exclude missing columns
       const select: any = {};
 
-      // Add all scalar fields that exist
-      for (const key of Object.keys(Prisma.PropertyScalarFieldEnum)) {
-        if (key === 'tid' && !tidExists) continue;
-        if (key === 'subsidiaryOptionId' && !subsidiaryOptionIdExists) continue;
-        select[key] = true;
-      }
+      if (existingColumns.has('id')) select.id = true;
+      if (existingColumns.has('name')) select.name = true;
+      if (existingColumns.has('type')) select.type = true;
+      if (existingColumns.has('address')) select.address = true;
+      if (existingColumns.has('location')) select.location = true;
+      if (existingColumns.has('status')) select.status = true;
+      if (existingColumns.has('imageurl')) select.imageUrl = true;
+      if (existingColumns.has('description')) select.description = true;
+      if (existingColumns.has('yearbuilt')) select.yearBuilt = true;
+      if (existingColumns.has('totalarea')) select.totalArea = true;
+      if (existingColumns.has('totalunits')) select.totalUnits = true;
+      if (existingColumns.has('dealerid')) select.dealerId = true;
+      if (existingColumns.has('isdeleted')) select.isDeleted = true;
+      if (existingColumns.has('createdat')) select.createdAt = true;
+      if (existingColumns.has('updatedat')) select.updatedAt = true;
+      if (existingColumns.has('propertycode')) select.propertyCode = true;
+      if (existingColumns.has('city')) select.city = true;
+      if (existingColumns.has('documents')) select.documents = true;
+      if (existingColumns.has('ownername')) select.ownerName = true;
+      if (existingColumns.has('ownerphone')) select.ownerPhone = true;
+      if (existingColumns.has('previoustenants')) select.previousTenants = true;
+      if (existingColumns.has('rentamount')) select.rentAmount = true;
+      if (existingColumns.has('rentescalationpercentage')) select.rentEscalationPercentage = true;
+      if (existingColumns.has('securitydeposit')) select.securityDeposit = true;
+      if (existingColumns.has('size')) select.size = true;
+      if (existingColumns.has('title')) select.title = true;
+      if (existingColumns.has('locationid')) select.locationId = true;
+      if (existingColumns.has('manualuniqueid')) select.manualUniqueId = true;
+      if (tidExists) select.tid = true;
+      if (subsidiaryOptionIdExists) select.subsidiaryOptionId = true;
 
       // Add relations
       Object.assign(select, relationSelects);
@@ -2112,4 +2146,3 @@ router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res: R
 });
 
 export default router;
-

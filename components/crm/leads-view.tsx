@@ -61,8 +61,18 @@ export function LeadsView() {
     try {
       setLoading(true)
       setError(null)
-      const response = await apiService.leads.getAll()
-      const data = Array.isArray(response.data) ? response.data : []
+      console.log("Fetching leads...")
+      const response: any = await apiService.leads.getAll()
+      const responseData = response?.data
+      let data: any[] = []
+      if (responseData?.success && Array.isArray(responseData?.data)) {
+        data = responseData.data
+      } else if (Array.isArray(responseData?.data)) {
+        data = responseData.data
+      } else if (Array.isArray(responseData)) {
+        data = responseData
+      }
+      console.log(`Fetched ${data.length} leads`)
       setLeads(data)
     } catch (err: any) {
       setError(err.response?.data?.message || "Failed to fetch leads")

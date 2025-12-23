@@ -460,19 +460,27 @@ router.get('/hr', authenticate, async (req: AuthRequest, res: Response) => {
 // Get CRM stats
 router.get('/crm', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    // Get total leads
-    const totalLeads = await prisma.lead.count();
+    // Get total leads for current user
+    const totalLeads = await prisma.lead.count({
+      where: { assignedToUserId: req.user?.id, isDeleted: false }
+    });
 
     // Get active leads (new, qualified, negotiation)
     const activeLeads = await prisma.lead.count({
       where: {
+        assignedToUserId: req.user?.id,
+        isDeleted: false,
         status: { in: ['new', 'qualified', 'negotiation'] }
       }
     });
 
     // Get converted leads (won)
     const convertedLeads = await prisma.lead.count({
-      where: { status: 'won' }
+      where: {
+        assignedToUserId: req.user?.id,
+        isDeleted: false,
+        status: 'won'
+      }
     });
 
     // Calculate conversion rate
@@ -482,13 +490,14 @@ router.get('/crm', authenticate, async (req: AuthRequest, res: Response) => {
     const leadsBySource = await prisma.lead.groupBy({
       by: ['source'],
       _count: { id: true },
-      where: { source: { not: null } }
+      where: { assignedToUserId: req.user?.id, isDeleted: false, source: { not: null } }
     });
 
     // Get leads by status for chart data
     const leadsByStatus = await prisma.lead.groupBy({
       by: ['status'],
-      _count: { id: true }
+      _count: { id: true },
+      where: { assignedToUserId: req.user?.id, isDeleted: false }
     });
 
     // Get clients count (exclude deleted)
@@ -514,13 +523,13 @@ router.get('/crm', authenticate, async (req: AuthRequest, res: Response) => {
     // Format leads conversion data for charts
     const leadsConversionData = leadsBySource.map(item => ({
       name: item.source || 'Unknown',
-      value: item._count.id
+      value: Number((item as any)._count?.id || 0)
     }));
 
     // Format leads by status data
     const leadsStatusData = leadsByStatus.map(item => ({
       name: item.status || 'Unknown',
-      value: item._count.id
+      value: Number((item as any)._count?.id || 0)
     }));
 
     res.json({

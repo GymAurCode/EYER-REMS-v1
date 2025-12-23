@@ -379,6 +379,7 @@ export function AddLeadDialog({
         toast({ title: "Lead added successfully", variant: "success" })
       }
 
+      console.log("Lead created successfully, calling onSuccess")
       onSuccess?.()
       onOpenChange(false)
       resetDialog()

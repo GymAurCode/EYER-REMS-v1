@@ -58,17 +58,33 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
     try {
       setLoading(true)
       setError(null)
-
-      const dealersRes: any = await apiService.dealers.getAll()
-      let dealsRes: any
+      console.log("Fetching dealers...")
+      const dealersResp: any = await apiService.dealers.getAll()
+      let dealsResp: any
       try {
-        dealsRes = await apiService.deals.getAll()
+        dealsResp = await apiService.deals.getAll()
       } catch {
-        dealsRes = { data: [] }
+        dealsResp = null
       }
-
-      const dealerList = Array.isArray(dealersRes?.data) ? dealersRes.data : []
-      const deals = Array.isArray(dealsRes?.data) ? dealsRes.data : []
+      const dealersPayload = dealersResp?.data
+      let dealerList: any[] = []
+      if (dealersPayload?.success && Array.isArray(dealersPayload?.data)) {
+        dealerList = dealersPayload.data
+      } else if (Array.isArray(dealersPayload?.data)) {
+        dealerList = dealersPayload.data
+      } else if (Array.isArray(dealersPayload)) {
+        dealerList = dealersPayload
+      }
+      let deals: any[] = []
+      const dealsPayload = dealsResp?.data
+      if (dealsPayload?.success && Array.isArray(dealsPayload?.data)) {
+        deals = dealsPayload.data
+      } else if (Array.isArray(dealsPayload?.data)) {
+        deals = dealsPayload.data
+      } else if (Array.isArray(dealsPayload)) {
+        deals = dealsPayload
+      }
+      console.log(`Fetched ${dealerList.length} dealers`)
 
       const dealsByDealer: Record<string, { count: number; totalValue: number; lastDealAt?: string }> = {}
       deals.forEach((deal: any) => {

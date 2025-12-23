@@ -27,6 +27,8 @@ router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
       prisma.lead.count({ where }),
     ]);
 
+    logger.info(`Fetching leads: total=${total}, returned=${leads.length}, page=${page}, limit=${limit}, where=${JSON.stringify(where)}`);
+
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, leads, 200, pagination);
   } catch (error) {
@@ -47,14 +49,17 @@ router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
     const leadCode = await generateSystemId('lead');
     
     const lead = await prisma.$transaction(async (tx) => {
-      return await tx.lead.create({ 
+      return await tx.lead.create({
         data: {
           ...leadData,
           leadCode,
           manualUniqueId: manualUniqueId?.trim() || null,
+          userId: req.user?.id,
         }
       });
     });
+
+    logger.info(`Lead created: ${lead.id}, name: ${lead.name}, isDeleted: ${lead.isDeleted}`);
 
     await createActivity({
       type: 'lead',
@@ -259,9 +264,9 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    // Filter out soft-deleted records
-    const where: any = { isDeleted: false };
-    
+    // Filter out soft-deleted records and scope to user
+    const where: any = { isDeleted: false, userId: req.user?.id };
+
     if (search) {
       where.AND = {
         OR: [
@@ -348,7 +353,7 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
     const nextClientNo = `CL-${String(nextSrNo).padStart(4, '0')}`;
     
     const client = await prisma.$transaction(async (tx) => {
-      return await tx.client.create({ 
+      return await tx.client.create({
         data: {
           ...clientData,
           clientCode,
@@ -357,6 +362,7 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
           clientNo: nextClientNo,
           status: clientData.status || 'active',
           isDeleted: false,
+          userId: req.user?.id,
         }
       });
     });
@@ -470,9 +476,9 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    // Filter out soft-deleted records
-    const where: any = { isDeleted: false };
-    
+    // Filter out soft-deleted records and scope to user
+    const where: any = { isDeleted: false, userId: req.user?.id };
+
     if (search) {
       where.OR = [
         { name: { contains: search as string, mode: 'insensitive' } },
@@ -483,9 +489,9 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
     }
-    
+
     const [dealers, total] = await Promise.all([
-      prisma.dealer.findMany({ 
+      prisma.dealer.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         skip,
@@ -493,6 +499,8 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
       }),
       prisma.dealer.count({ where }),
     ]);
+
+    logger.info(`Fetching dealers: total=${total}, returned=${dealers.length}, page=${page}, limit=${limit}, where=${JSON.stringify(where)}`);
 
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, dealers, 200, pagination);
@@ -524,14 +532,17 @@ router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) =>
     const dealerCode = await generateSystemId('deal');
     
     const dealer = await prisma.$transaction(async (tx) => {
-      return await tx.dealer.create({ 
+      return await tx.dealer.create({
         data: {
           ...dealerData,
           dealerCode,
           manualUniqueId: manualUniqueId?.trim() || null,
+          userId: req.user?.id,
         }
       });
     });
+
+    logger.info(`Dealer created: ${dealer.id}, name: ${dealer.name}, isDeleted: ${dealer.isDeleted}`);
 
     await createActivity({
       type: 'dealer',

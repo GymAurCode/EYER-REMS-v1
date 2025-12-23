@@ -26,6 +26,14 @@ import {
   KeyRound,
   Loader2,
 } from "lucide-react"
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -72,6 +80,12 @@ export function PropertiesView() {
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [reportProperty, setReportProperty] = useState<any>(null)
   const [reportLoading, setReportLoading] = useState(false)
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage, setItemsPerPage] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalItems, setTotalItems] = useState(0)
 
   const updateActiveTab = useCallback(
     (value: string, { shouldPersistQuery = true }: { shouldPersistQuery?: boolean } = {}) => {
@@ -135,25 +149,35 @@ export function PropertiesView() {
   )
 
   useEffect(() => {
-    fetchProperties()
-    fetchStats()
-
-    // Check for search query from URL
     const urlSearch = searchParams.get("search")
-    if (urlSearch) {
+    if (urlSearch && urlSearch !== searchQuery) {
       setSearchQuery(urlSearch)
     }
+    fetchStats()
   }, [searchParams])
+
+  useEffect(() => {
+    fetchProperties()
+  }, [currentPage, itemsPerPage, searchQuery])
 
   const fetchProperties = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response: any = await apiService.properties.getAll()
+      const response: any = await apiService.properties.getAll({
+        page: currentPage,
+        limit: itemsPerPage,
+        search: searchQuery
+      })
       // Backend returns { success: true, data: [...] }
       const responseData = response.data as any
       const propertiesData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
       setProperties(propertiesData)
+
+      if (responseData?.pagination) {
+        setTotalPages(responseData.pagination.totalPages || 1)
+        setTotalItems(responseData.pagination.total || 0)
+      }
     } catch (err: any) {
       setError(err.response?.data?.message || err.response?.data?.error || "Failed to fetch properties")
       setProperties([])
@@ -568,6 +592,7 @@ export function PropertiesView() {
           ) : properties.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">No properties found</div>
           ) : (
+            <>
             <Card className="p-0">
               <div className="p-4 border-b">
                 <p className="text-sm text-muted-foreground">
@@ -794,6 +819,37 @@ export function PropertiesView() {
                 </TableBody>
               </Table>
             </Card>
+            {totalPages > 1 && (
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <Pagination>
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      
+                      <PaginationItem>
+                        <span className="flex h-9 min-w-[2rem] items-center justify-center text-sm font-medium">
+                          Page {currentPage} of {totalPages}
+                        </span>
+                      </PaginationItem>
+
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                  <p className="text-xs text-muted-foreground">
+                    Total {totalItems} properties
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </TabsContent>
 

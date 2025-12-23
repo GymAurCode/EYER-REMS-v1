@@ -104,6 +104,7 @@ export function AddDealerDialog({
         commissionRate: formData.commissionRate ? Number.parseFloat(formData.commissionRate) : null,
         cnic: formData.cnic || null,
         address: formData.address || null,
+        isActive: true,
         manualUniqueId: formData.manualUniqueId?.trim() || undefined,
       } as any
 
@@ -115,6 +116,7 @@ export function AddDealerDialog({
         toast({ title: "Dealer added successfully" })
       }
 
+      console.log("Dealer created successfully, calling onSuccess")
       onOpenChange(false)
       resetForm()
       onSuccess?.()
