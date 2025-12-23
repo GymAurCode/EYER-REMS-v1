@@ -59,13 +59,25 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       setLoading(true)
       setError(null)
       console.log("Fetching dealers...")
-      const dealersResp: any = await apiService.dealers.getAll()
+      
+      // Fetch dealers
+      let dealersResp: any
+      try {
+        dealersResp = await apiService.dealers.getAll()
+      } catch (err: any) {
+        console.error("Failed to fetch dealers API:", err)
+        throw new Error(err.response?.data?.message || err.message || "Failed to fetch dealers list")
+      }
+
+      // Fetch deals (don't fail if deals fail)
       let dealsResp: any
       try {
         dealsResp = await apiService.deals.getAll()
-      } catch {
-        dealsResp = null
+      } catch (err) {
+        console.warn("Failed to fetch deals for statistics:", err)
+        dealsResp = { data: [] }
       }
+
       const dealersPayload = dealersResp?.data
       let dealerList: any[] = []
       if (dealersPayload?.success && Array.isArray(dealersPayload?.data)) {
@@ -75,6 +87,7 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       } else if (Array.isArray(dealersPayload)) {
         dealerList = dealersPayload
       }
+
       let deals: any[] = []
       const dealsPayload = dealsResp?.data
       if (dealsPayload?.success && Array.isArray(dealsPayload?.data)) {
@@ -84,7 +97,8 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       } else if (Array.isArray(dealsPayload)) {
         deals = dealsPayload
       }
-      console.log(`Fetched ${dealerList.length} dealers`)
+      
+      console.log(`Fetched ${dealerList.length} dealers and ${deals.length} deals`)
 
       const dealsByDealer: Record<string, { count: number; totalValue: number; lastDealAt?: string }> = {}
       deals.forEach((deal: any) => {
@@ -127,8 +141,15 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
 
       setDealers(mapped)
     } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to fetch dealers")
+      console.error("Error in fetchDealers:", err)
+      const msg = err.message || "Failed to fetch dealers"
+      setError(`${msg} ${err.response?.status ? `(${err.response.status})` : ''}`)
       setDealers([])
+      toast({
+        title: "Error fetching dealers",
+        description: msg,
+        variant: "destructive"
+      })
     } finally {
       setLoading(false)
     }

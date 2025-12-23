@@ -71,7 +71,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
       setLoading(true)
       const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://eyer-rems-v1-production-f00e.up.railway.app'}/api/crm/deals/${dealId}`).then(r => r.json())
       setDeal(response?.data || response)
-      
+
       // Load attachments after deal is loaded
       setTimeout(loadAttachments, 100)
     } catch (error: any) {
@@ -127,7 +127,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             <ArrowLeft className="h-5 w-5" />
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">{deal.trackingId || deal.title || deal.dealCode || "Deal"}</h1>
+            <h1 className="text-3xl font-bold">{deal.property?.tid || deal.title || deal.dealCode || "Deal"}</h1>
             <p className="text-muted-foreground">
               {deal.dealCode && `Code: ${deal.dealCode}`} • {deal.client?.name || "No Client"}
             </p>
@@ -291,7 +291,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
           <DealTimeline deal={deal} onRefresh={loadDeal} />
         </CardContent>
       </Card>
-      
+
       {/* Attachments Section */}
       {attachments.length > 0 && (
         <Card>
@@ -306,7 +306,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 const imageUrl = attachment.url.startsWith('http')
                   ? attachment.url
                   : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.url}`
-                
+
                 const handleViewDocument = () => {
                   setSelectedDocument({
                     id: attachment.id,
@@ -316,7 +316,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                   })
                   setDocumentViewerOpen(true)
                 }
-                
+
                 return (
                   <div
                     key={attachment.id || idx}
@@ -329,7 +329,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                           alt={attachment.name}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                           onError={(e) => {
-                            ;(e.target as HTMLImageElement).style.display = "none"
+                            ; (e.target as HTMLImageElement).style.display = "none"
                           }}
                         />
                         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
@@ -354,7 +354,7 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
           </CardContent>
         </Card>
       )}
-      
+
       {/* Document Viewer */}
       <DocumentViewer
         open={documentViewerOpen}

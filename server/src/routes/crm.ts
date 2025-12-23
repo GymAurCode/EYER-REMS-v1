@@ -32,7 +32,7 @@ router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, leads, 200, pagination);
   } catch (error) {
-    res.status(500).json({ error: 'Failed to fetch leads' });
+    return errorResponse(res, error);
   }
 });
 
@@ -47,14 +47,14 @@ router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Generate system ID: lead-YY-####
     const leadCode = await generateSystemId('lead');
-    
+
     const lead = await prisma.$transaction(async (tx) => {
       return await tx.lead.create({
         data: {
           ...leadData,
           leadCode,
           manualUniqueId: manualUniqueId?.trim() || null,
-          userId: req.user?.id,
+          createdBy: req.user?.id,
         }
       });
     });
@@ -78,7 +78,7 @@ router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(lead);
   } catch (error) {
-    res.status(400).json({ error: 'Failed to create lead' });
+    return errorResponse(res, error);
   }
 });
 
@@ -86,7 +86,7 @@ router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
 router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
-    
+
     if (!lead) {
       return res.status(404).json({ error: 'Lead not found' });
     }
@@ -173,9 +173,8 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
     });
   } catch (error: any) {
     logger.error('Convert lead to client error:', error);
-    res.status(500).json({ 
+    return errorResponse(res, error, 500, {
       error: 'Failed to convert lead to client',
-      message: error.message || 'Unknown error',
     });
   }
 });
@@ -203,8 +202,8 @@ router.put('/leads/:id', authenticate, async (req: AuthRequest, res: Response) =
     });
 
     res.json(lead);
-  } catch {
-    res.status(400).json({ error: 'Failed to update lead' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -213,8 +212,8 @@ router.get('/leads/:id', authenticate, async (req: AuthRequest, res: Response) =
     const lead = await prisma.lead.findUnique({ where: { id: req.params.id } });
     if (!lead) return res.status(404).json({ error: 'Lead not found' });
     res.json(lead);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch lead' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -253,7 +252,7 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response
     res.status(204).end();
   } catch (error: any) {
     logger.error('Failed to delete lead:', error);
-    res.status(400).json({ error: 'Failed to delete lead' });
+    return errorResponse(res, error);
   }
 });
 
@@ -264,23 +263,21 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    // Filter out soft-deleted records and scope to user
-    const where: any = { isDeleted: false, userId: req.user?.id };
+    // Filter out soft-deleted records
+    const where: any = { isDeleted: false };
 
     if (search) {
-      where.AND = {
-        OR: [
-          { name: { contains: search as string, mode: 'insensitive' } },
-          { email: { contains: search as string, mode: 'insensitive' } },
-          { phone: { contains: search as string, mode: 'insensitive' } },
-          { clientCode: { contains: search as string, mode: 'insensitive' } },
-          { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-          { clientNo: { contains: search as string, mode: 'insensitive' } },
-          { cnic: { contains: search as string, mode: 'insensitive' } },
-        ],
-      };
+      where.OR = [
+        { name: { contains: search as string, mode: 'insensitive' } },
+        { email: { contains: search as string, mode: 'insensitive' } },
+        { phone: { contains: search as string, mode: 'insensitive' } },
+        { clientCode: { contains: search as string, mode: 'insensitive' } },
+        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+        { clientNo: { contains: search as string, mode: 'insensitive' } },
+        { cnic: { contains: search as string, mode: 'insensitive' } },
+      ];
     }
-    
+
     const [clients, total] = await Promise.all([
       prisma.client.findMany({
         where,
@@ -301,7 +298,14 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
       stack: error?.stack,
       query: req.query,
     });
-    return errorResponse(res, error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+      stack: error.stack,
+      details: error,
+      code: error.code,
+      meta: error.meta
+    });
   }
 });
 
@@ -329,7 +333,7 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
     res.json(client);
   } catch (error) {
     logger.error('Failed to fetch client by id:', error);
-    res.status(500).json({ error: 'Failed to fetch client' });
+    return errorResponse(res, error);
   }
 });
 
@@ -344,14 +348,14 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
-    
+
     // Get next srNo and clientNo
     const lastClient = await prisma.client.findFirst({
       orderBy: { createdAt: 'desc' },
     });
     const nextSrNo = lastClient?.srNo ? (lastClient.srNo + 1) : 1;
     const nextClientNo = `CL-${String(nextSrNo).padStart(4, '0')}`;
-    
+
     const client = await prisma.$transaction(async (tx) => {
       return await tx.client.create({
         data: {
@@ -383,8 +387,8 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
     });
 
     res.status(201).json(client);
-  } catch {
-    res.status(400).json({ error: 'Failed to create client' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -393,7 +397,7 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
     const oldClient = await prisma.client.findUnique({
       where: { id: req.params.id },
     });
-    
+
     if (!oldClient) {
       return res.status(404).json({ error: 'Client not found' });
     }
@@ -425,8 +429,8 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
     });
 
     res.json(client);
-  } catch {
-    res.status(400).json({ error: 'Failed to update client' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -465,7 +469,7 @@ router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Respon
     res.status(204).end();
   } catch (error: any) {
     logger.error('Failed to delete client:', error);
-    res.status(400).json({ error: 'Failed to delete client' });
+    return errorResponse(res, error);
   }
 });
 
@@ -476,8 +480,9 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    // Filter out soft-deleted records and scope to user
-    const where: any = { isDeleted: false, userId: req.user?.id };
+    // Filter out soft-deleted records
+    // Note: Removed userId filter as it does not exist on Dealer model and causes 400 error
+    const where: any = { isDeleted: false };
 
     if (search) {
       where.OR = [
@@ -504,8 +509,16 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
 
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, dealers, 200, pagination);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch dealers' });
+  } catch (error: any) {
+    logger.error('Failed to fetch dealers:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Internal server error',
+      stack: error.stack,
+      details: error,
+      code: error.code,
+      meta: error.meta
+    });
   }
 });
 
@@ -514,8 +527,8 @@ router.get('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
     const dealer = await prisma.dealer.findUnique({ where: { id: req.params.id } });
     if (!dealer) return res.status(404).json({ error: 'Dealer not found' });
     res.json(dealer);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch dealer' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -530,14 +543,14 @@ router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) =>
 
     // Generate system ID: deal-YY-####
     const dealerCode = await generateSystemId('deal');
-    
+
     const dealer = await prisma.$transaction(async (tx) => {
       return await tx.dealer.create({
         data: {
           ...dealerData,
           dealerCode,
           manualUniqueId: manualUniqueId?.trim() || null,
-          userId: req.user?.id,
+          createdBy: req.user?.id,
         }
       });
     });
@@ -560,8 +573,8 @@ router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) =>
     });
 
     res.status(201).json(dealer);
-  } catch {
-    res.status(400).json({ error: 'Failed to create dealer' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -588,8 +601,8 @@ router.put('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
     });
 
     res.json(dealer);
-  } catch {
-    res.status(400).json({ error: 'Failed to update dealer' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -628,7 +641,7 @@ router.delete('/dealers/:id', authenticate, async (req: AuthRequest, res: Respon
     res.status(204).end();
   } catch (error: any) {
     logger.error('Failed to delete dealer:', error);
-    res.status(400).json({ error: 'Failed to delete dealer' });
+    return errorResponse(res, error);
   }
 });
 
@@ -666,6 +679,14 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
               isActive: true,
             },
           },
+          property: {
+            select: {
+              id: true,
+              name: true,
+              tid: true,
+              propertyCode: true,
+            },
+          },
         },
         skip,
         take: limit,
@@ -683,16 +704,7 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
       meta: error?.meta,
       stack: error?.stack,
     });
-    res.status(500).json({ 
-      error: 'Failed to fetch deals',
-      message: error?.message || 'Unknown error',
-      details: process.env.NODE_ENV === 'development' ? {
-        message: error?.message,
-        code: error?.code,
-        meta: error?.meta,
-        stack: error?.stack,
-      } : undefined
-    });
+    return errorResponse(res, error);
   }
 });
 
@@ -846,7 +858,7 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
     res.json(deal);
   } catch (error: any) {
     logger.error('Get deal error:', error);
-    res.status(500).json({ error: 'Failed to fetch deal' });
+    return errorResponse(res, error);
   }
 });
 
@@ -856,7 +868,7 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
 router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const dealId = req.params.id;
-    
+
     // Load deal with all necessary data
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
@@ -887,7 +899,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
     const plan = await PaymentPlanService.getPaymentPlanByDealId(dealId);
 
     const dealAmount = deal.dealAmount || 0;
-    
+
     // Calculate summary from installments (not from Payment table)
     // Downpayment is NOT auto-paid - only count if finance entry exists
     let paidAmount = 0;
@@ -895,7 +907,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
     let progress = 0;
     let downPayment = 0;
     let downPaymentPaid = 0;
-    
+
     if (plan && plan.installments && plan.installments.length > 0) {
       // Get down payment amount from payment plan
       const paymentPlan = await prisma.paymentPlan.findUnique({
@@ -903,12 +915,12 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
         select: { downPayment: true },
       });
       downPayment = paymentPlan?.downPayment || 0;
-      
+
       // Calculate paid amount from installments only (exclude down payment installment)
       const installmentPaidAmount = plan.installments
         .filter((inst: any) => inst.type !== 'down_payment')
         .reduce((sum: number, inst: any) => sum + (inst.paidAmount || 0), 0);
-      
+
       // Check if down payment has been paid via finance entry (receipt or payment record)
       if (downPayment > 0) {
         // Check for receipts linked to this deal with allocations to down payment installment
@@ -926,7 +938,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
               },
             },
           });
-          
+
           // Calculate down payment paid from receipt allocations
           const receiptDownPaymentPaid = receipts.reduce((sum: number, receipt) => {
             const allocatedToDownPayment = receipt.allocations.reduce(
@@ -935,7 +947,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
             );
             return sum + allocatedToDownPayment;
           }, 0);
-          
+
           // Also check payment records for down payment
           const payments = await prisma.payment.findMany({
             where: {
@@ -943,7 +955,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
               deletedAt: null,
             },
           });
-          
+
           const paymentDownPaymentPaid = payments.reduce((sum: number, payment) => {
             // Check if payment is allocated to down payment installment
             if (payment.installmentId === downPaymentInstallment.id) {
@@ -956,14 +968,14 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
             }
             return sum;
           }, 0);
-          
+
           downPaymentPaid = receiptDownPaymentPaid + paymentDownPaymentPaid;
         }
       }
-      
+
       // Total paid = installments paid + down payment paid (only if finance entry exists)
       paidAmount = installmentPaidAmount + downPaymentPaid;
-      
+
       remainingAmount = Math.max(0, dealAmount - paidAmount);
       progress = dealAmount > 0 ? (paidAmount / dealAmount) * 100 : 0;
     }
@@ -974,7 +986,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
       const installments = plan.installments || [];
       const installmentTotal = installments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
       const installmentPaid = installments.reduce((sum: number, inst: any) => sum + (inst.paidAmount || 0), 0);
-      
+
       installmentSummary = {
         totalInstallments: installments.length,
         paidInstallments: installments.filter((inst: any) => inst.status === 'paid').length,
@@ -1020,7 +1032,7 @@ router.get('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res
     res.json({ success: true, data: response });
   } catch (error: any) {
     logger.error('Get payment plan error:', error);
-    res.status(500).json({
+    return errorResponse(res, error, 500, {
       success: false,
       error: error.message || 'Failed to get payment plan',
     });
@@ -1032,9 +1044,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
   try {
     const dealId = req.params.id;
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1022',message:'PDF endpoint entry',data:{dealId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1022', message: 'PDF endpoint entry', data: { dealId }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
-    
+
     // Load deal with all necessary data
     const deal = await prisma.deal.findUnique({
       where: { id: dealId },
@@ -1056,7 +1068,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       },
     });
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1044',message:'After deal query',data:{dealFound:!!deal,dealId:deal?.id,dealTitle:deal?.title,hasClient:!!deal?.client,hasDealer:!!deal?.dealer,hasProperty:!!deal?.property},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1044', message: 'After deal query', data: { dealFound: !!deal, dealId: deal?.id, dealTitle: deal?.title, hasClient: !!deal?.client, hasDealer: !!deal?.dealer, hasProperty: !!deal?.property }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
     // #endregion
 
     if (!deal) {
@@ -1067,7 +1079,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     const { PaymentPlanService } = await import('../services/payment-plan-service');
     const plan = await PaymentPlanService.getPaymentPlanByDealId(dealId);
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1051',message:'After payment plan query',data:{planFound:!!plan,planId:plan?.id,installmentsCount:plan?.installments?.length||0,installmentsType:typeof plan?.installments},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1051', message: 'After payment plan query', data: { planFound: !!plan, planId: plan?.id, installmentsCount: plan?.installments?.length || 0, installmentsType: typeof plan?.installments }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'B' }) }).catch(() => { });
     // #endregion
 
     // Calculate paid amount from installments only (down payment is NOT auto-paid)
@@ -1075,7 +1087,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     let totalPaid = 0;
     let downPayment = 0;
     let downPaymentPaid = 0;
-    
+
     if (plan) {
       // Get down payment from payment plan
       const paymentPlan = await prisma.paymentPlan.findUnique({
@@ -1084,14 +1096,14 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       });
       downPayment = paymentPlan?.downPayment || 0;
       // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1065',message:'After paymentPlan query',data:{planId:plan.id,downPayment,paymentPlanFound:!!paymentPlan},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+      fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1065', message: 'After paymentPlan query', data: { planId: plan.id, downPayment, paymentPlanFound: !!paymentPlan }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
       // #endregion
-      
+
       // Calculate paid amount from installments only (exclude down payment installment)
       const installmentPaidAmount = (plan.installments || [])
         .filter((inst: any) => inst.type !== 'down_payment') // Exclude down payment installment
         .reduce((sum: number, inst: any) => sum + (inst.paidAmount || 0), 0);
-      
+
       // Check if down payment has been paid via finance entry (receipt or payment record)
       // Down payment is only considered paid if there's an actual finance entry
       if (downPayment > 0) {
@@ -1099,7 +1111,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
         const downPaymentInstallmentIds = (plan.installments || [])
           .filter((inst: any) => inst.type === 'down_payment')
           .map((inst: any) => inst.id);
-        
+
         // Check for receipts linked to this deal
         const receipts = await prisma.dealReceipt.findMany({
           where: {
@@ -1116,9 +1128,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
           },
         });
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1091',message:'After receipts query',data:{receiptsCount:receipts.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1091', message: 'After receipts query', data: { receiptsCount: receipts.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
         // #endregion
-        
+
         // Check for payment records linked to this deal
         const payments = await prisma.payment.findMany({
           where: {
@@ -1127,9 +1139,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
           },
         });
         // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1099',message:'After payments query',data:{paymentsCount:payments.length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1099', message: 'After payments query', data: { paymentsCount: payments.length }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'C' }) }).catch(() => { });
         // #endregion
-        
+
         // Calculate down payment paid amount from actual finance entries
         const receiptDownPaymentPaid = receipts.reduce((sum: number, receipt) => {
           const allocatedToDownPayment = receipt.allocations.reduce(
@@ -1138,7 +1150,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
           );
           return sum + allocatedToDownPayment;
         }, 0);
-        
+
         // Also check if any payment record is specifically for down payment
         const paymentDownPaymentPaid = payments.reduce((sum: number, payment) => {
           // If payment remarks or description mentions down payment, include it
@@ -1148,10 +1160,10 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
           }
           return sum;
         }, 0);
-        
+
         downPaymentPaid = receiptDownPaymentPaid + paymentDownPaymentPaid;
       }
-      
+
       // Total paid = installments paid + down payment paid (only if finance entry exists)
       totalPaid = installmentPaidAmount + downPaymentPaid;
     } else {
@@ -1168,9 +1180,9 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       totalPaid = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
     }
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1137',message:'After payment calculations',data:{totalPaid,downPayment,downPaymentPaid,dealAmount},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1137', message: 'After payment calculations', data: { totalPaid, downPayment, downPaymentPaid, dealAmount }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
     // #endregion
-    
+
     const remainingAmount = Math.max(0, dealAmount - totalPaid);
     const progress = dealAmount > 0 ? (totalPaid / dealAmount) * 100 : 0;
 
@@ -1214,13 +1226,13 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
       generatedAt: new Date(),
     };
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1180',message:'Before PDF generation',data:{pdfDataDealTitle:pdfData.deal.title,installmentsCount:pdfData.installments.length,hasSummary:!!pdfData.summary,summaryStatus:pdfData.summary.status},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1180', message: 'Before PDF generation', data: { pdfDataDealTitle: pdfData.deal.title, installmentsCount: pdfData.installments.length, hasSummary: !!pdfData.summary, summaryStatus: pdfData.summary.status }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'D' }) }).catch(() => { });
     // #endregion
 
     // Generate PDF
     const { generatePaymentPlanPDF } = await import('../utils/pdf-generator');
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1184',message:'Calling generatePaymentPlanPDF',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1184', message: 'Calling generatePaymentPlanPDF', data: { headersSent: res.headersSent }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'E' }) }).catch(() => { });
     // #endregion
     try {
       generatePaymentPlanPDF(pdfData, res);
@@ -1230,12 +1242,12 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
     }
   } catch (error: any) {
     // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'crm.ts:1186',message:'Error caught',data:{errorMessage:error?.message,errorStack:error?.stack?.substring(0,500),errorName:error?.name,headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'F'})}).catch(()=>{});
+    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'crm.ts:1186', message: 'Error caught', data: { errorMessage: error?.message, errorStack: error?.stack?.substring(0, 500), errorName: error?.name, headersSent: res.headersSent }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'F' }) }).catch(() => { });
     // #endregion
     console.error('Generate PDF error:', error);
     logger.error('Generate PDF error:', error);
     if (!res.headersSent) {
-      res.status(500).json({
+      return errorResponse(res, error, 500, {
         success: false,
         error: error.message || 'Failed to generate PDF',
       });
@@ -1247,7 +1259,7 @@ router.get('/deals/:id/payment-plan/pdf', authenticate, async (req: AuthRequest,
 router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     // Get deal to extract clientId and dealAmount
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
@@ -1290,7 +1302,7 @@ router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, re
     res.json({ success: true, data: plan });
   } catch (error: any) {
     logger.error('Create payment plan error:', error);
-    res.status(400).json({
+    return errorResponse(res, error, 400, {
       success: false,
       error: error.message || 'Failed to create payment plan',
     });
@@ -1301,7 +1313,7 @@ router.post('/deals/:id/payment-plan', authenticate, async (req: AuthRequest, re
 router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     // Get payment plan to find dealId
     const plan = await prisma.paymentPlan.findUnique({
       where: { id: req.params.id },
@@ -1331,7 +1343,7 @@ router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res: Resp
     res.json({ success: true, data: updatedPlan });
   } catch (error: any) {
     logger.error('Update payment plan error:', error);
-    res.status(400).json({
+    return errorResponse(res, error, 400, {
       success: false,
       error: error.message || 'Failed to update payment plan',
     });
@@ -1343,7 +1355,7 @@ router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res: R
   try {
     const { PaymentService } = await import('../services/payment-service');
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const deal = await prisma.deal.findUnique({
       where: { id: req.params.id },
     });
@@ -1381,7 +1393,7 @@ router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res: R
     res.json({ success: true, data: payment });
   } catch (error: any) {
     logger.error('Create payment error:', error);
-    res.status(400).json({
+    return errorResponse(res, error, 400, {
       success: false,
       error: error.message || 'Failed to create payment',
     });
@@ -1409,7 +1421,7 @@ router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req:
     }
 
     const { PaymentPlanService } = await import('../services/payment-plan-service');
-    
+
     const result = await PaymentPlanService.smartAllocatePayment(
       dealId,
       amount,
@@ -1438,13 +1450,13 @@ router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req:
       updatedInstallments: result.updatedInstallments,
       summary: result.summary,
       dealClosed: result.dealClosed,
-      message: result.excessIgnored > 0 
+      message: result.excessIgnored > 0
         ? `Payment applied: ${result.paymentApplied}. Excess amount (${result.excessIgnored}) ignored.`
         : `Payment of ${result.paymentApplied} successfully allocated across installments.`,
     });
   } catch (error: any) {
     logger.error('Smart allocation error:', error);
-    res.status(400).json({
+    return errorResponse(res, error, 400, {
       success: false,
       error: error.message || 'Failed to allocate payment',
     });
@@ -1454,7 +1466,7 @@ router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req:
 router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealService } = await import('../services/deal-service');
-    
+
     const deal = await DealService.createDeal({
       ...req.body,
       createdBy: req.user?.id || '',
@@ -1478,14 +1490,14 @@ router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
     res.status(201).json(deal);
   } catch (error: any) {
     logger.error('Create deal error:', error);
-    res.status(400).json({ error: error.message || 'Failed to create deal' });
+    return errorResponse(res, error, 400, { error: error.message || 'Failed to create deal' });
   }
 });
 
 router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { DealService } = await import('../services/deal-service');
-    
+
     const deal = await DealService.updateDeal(req.params.id, {
       ...req.body,
       updatedBy: req.user?.id || '',
@@ -1502,6 +1514,9 @@ router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
             phone: true,
             clientCode: true,
             status: true,
+            // #region agent log
+            // clientCode and status added for frontend compatibility
+            // #endregion
           },
         },
         dealer: true,
@@ -1524,8 +1539,8 @@ router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
     });
 
     res.json(updatedDeal || deal);
-  } catch {
-    res.status(400).json({ error: 'Failed to update deal' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -1548,7 +1563,7 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
         dealer: true,
       },
     });
-    
+
     if (!deal) {
       return res.status(404).json({ error: 'Deal not found' });
     }
@@ -1580,7 +1595,7 @@ router.delete('/deals/:id', authenticate, async (req: AuthRequest, res: Response
     res.status(204).end();
   } catch (error: any) {
     logger.error('Failed to delete deal:', error);
-    res.status(400).json({ error: 'Failed to delete deal' });
+    return errorResponse(res, error);
   }
 });
 
@@ -1616,8 +1631,8 @@ router.get('/communications', authenticate, async (req: AuthRequest, res: Respon
 
     const pagination = calculatePagination(page, limit, total);
     return successResponse(res, communications, 200, pagination);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch communications' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -1626,8 +1641,8 @@ router.get('/communications/:id', authenticate, async (req: AuthRequest, res: Re
     const item = await prisma.communication.findUnique({ where: { id: req.params.id } });
     if (!item) return res.status(404).json({ error: 'Communication not found' });
     res.json(item);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch communication' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -1665,8 +1680,8 @@ router.post('/communications', authenticate, async (req: AuthRequest, res: Respo
     });
 
     res.status(201).json(item);
-  } catch {
-    res.status(400).json({ error: 'Failed to create communication' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -1705,8 +1720,8 @@ router.put('/communications/:id', authenticate, async (req: AuthRequest, res: Re
     });
 
     res.json(item);
-  } catch {
-    res.status(400).json({ error: 'Failed to update communication' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 
@@ -1744,8 +1759,8 @@ router.delete('/communications/:id', authenticate, async (req: AuthRequest, res:
     });
 
     res.status(204).end();
-  } catch {
-    res.status(400).json({ error: 'Failed to delete communication' });
+  } catch (error) {
+    return errorResponse(res, error);
   }
 });
 

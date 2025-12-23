@@ -302,7 +302,15 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     const unit = await prisma.unit.create({
       data,
       include: {
-        property: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            address: true,
+            status: true,
+          },
+        },
         block: true,
         floor: {
           select: {
@@ -428,7 +436,15 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       where: { id },
       data,
       include: {
-        property: true,
+        property: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            address: true,
+            status: true,
+          },
+        },
         block: true,
         floor: {
           select: {
@@ -449,7 +465,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       // But we can trigger a recalculation
       const property = await prisma.property.findUnique({
         where: { id: unit.propertyId },
-        include: {
+        select: {
+          id: true,
           units: { where: { isDeleted: false } },
         },
       });

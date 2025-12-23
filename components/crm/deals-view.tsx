@@ -79,7 +79,7 @@ export function DealsView() {
   const filteredDeals = useMemo(() => {
     const query = searchQuery.toLowerCase()
     return deals.filter((deal) =>
-      (deal.trackingId || "").toLowerCase().includes(query) ||
+      (deal.property?.tid || "").toLowerCase().includes(query) ||
       (deal.title || "").toLowerCase().includes(query) ||
       (deal.clientName || "").toLowerCase().includes(query) ||
       (typeof deal.client === "string" ? deal.client.toLowerCase().includes(query) : false) ||
@@ -202,7 +202,7 @@ export function DealsView() {
               {deals.length === 0 ? "No deals yet" : "No deals match your search"}
             </p>
             <p className="text-sm text-muted-foreground mb-6 max-w-md">
-              {deals.length === 0 
+              {deals.length === 0
                 ? "Create deals to track sales opportunities. Link deals to clients and dealers, and manage the sales pipeline."
                 : "Try adjusting your search criteria"}
             </p>
@@ -226,7 +226,7 @@ export function DealsView() {
                       onClick={() => router.push(`/details/deals/${deal.id}`)}
                       role="button"
                     >
-                      <h3 className="font-semibold text-foreground text-lg">{deal.trackingId || deal.title}</h3>
+                      <h3 className="font-semibold text-foreground text-lg">{deal.property?.tid || deal.title || "Untitled Deal"}</h3>
                       <Badge
                         variant={
                           normalizeStage(deal.stage) === "closing"
@@ -339,13 +339,12 @@ export function DealsView() {
         initialData={
           editingDeal
             ? {
-                id: editingDeal.id,
-                title: editingDeal.title,
-                trackingId: editingDeal.trackingId,
-                clientId: editingDeal.clientId || editingDeal.client?.id || null,
-                dealAmount: editingDeal.dealAmount ?? editingDeal.value ?? null,
-                stage: editingDeal.stage,
-              }
+              id: editingDeal.id,
+              title: editingDeal.title,
+              clientId: editingDeal.clientId || editingDeal.client?.id || null,
+              dealAmount: editingDeal.dealAmount ?? editingDeal.value ?? null,
+              stage: editingDeal.stage,
+            }
             : null
         }
         mode={editingDeal ? "edit" : "create"}
@@ -356,7 +355,7 @@ export function DealsView() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Deal</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete {deleteTarget?.trackingId || deleteTarget?.title}? This action cannot be undone.
+              Are you sure you want to delete {deleteTarget?.property?.tid || deleteTarget?.title}? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

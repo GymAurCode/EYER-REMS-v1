@@ -59,6 +59,7 @@ const DEAL_ROLE_OPTIONS = ['buyer', 'seller', 'tenant', 'landlord', 'investor', 
 const DEAL_STATUS_OPTIONS = ['open', 'in_progress', 'won', 'lost', 'cancelled'] as const;
 
 const createDealSchema = z.object({
+  manualUniqueId: z.string().optional(),
   tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
   title: z.string().min(1),
   clientId: z.string().uuid(),
@@ -616,6 +617,16 @@ router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async 
     const parsedData = createDealSchema.parse(req.body);
     const { manualUniqueId, tid, ...data } = parsedData as any;
     
+    // Validate TID - must be unique across Property, Deal, and Client
+    if (tid) {
+      await validateTID(tid.trim());
+    }
+
+    // Validate manual unique ID if provided
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'dl');
+    }
+
     const { DealService } = await import('../services/deal-service');
     
     const deal = await DealService.createDeal({

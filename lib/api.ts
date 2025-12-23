@@ -486,14 +486,14 @@ api.interceptors.response.use(
 export const apiService = {
   // Properties
   properties: {
-    getAll: (params?: { search?: string; locationId?: string; page?: number; limit?: number }) => {
+    getAll: (params?: { search?: string; locationId?: string; page?: number; limit?: number }, config?: any) => {
       const queryParams = new URLSearchParams()
       if (params?.search) queryParams.append('search', params.search)
       if (params?.locationId) queryParams.append('locationId', params.locationId)
       if (params?.page) queryParams.append('page', params.page.toString())
       if (params?.limit) queryParams.append('limit', params.limit.toString())
       const queryString = queryParams.toString()
-      return api.get(`/properties${queryString ? `?${queryString}` : ''}`)
+      return api.get(`/properties${queryString ? `?${queryString}` : ''}`, config)
     },
     getById: (id: string) => api.get(`/properties/${id}`),
     getReport: (id: string) => api.get(`/properties/${id}/report`, { responseType: 'blob' }),
@@ -656,7 +656,7 @@ export const apiService = {
 
   // CRM - Leads
   leads: {
-    getAll: () => api.get('/crm/leads'),
+    getAll: (config?: any) => api.get('/crm/leads', config),
     getById: (id: string | number) => api.get(`/crm/leads/${id}`),
     create: (data: any) => api.post('/crm/leads', data),
     update: (id: string | number, data: any) => api.put(`/crm/leads/${id}`, data),
@@ -666,7 +666,14 @@ export const apiService = {
 
   // CRM - Clients
   clients: {
-    getAll: () => api.get('/crm/clients'),
+    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+      const queryParams = new URLSearchParams()
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      const queryString = queryParams.toString()
+      return api.get(`/crm/clients${queryString ? `?${queryString}` : ''}`, config)
+    },
     getById: (id: string) => api.get(`/crm/clients/${id}`),
     create: (data: any) => api.post('/crm/clients', data),
     update: (id: string, data: any) => api.put(`/crm/clients/${id}`, data),
@@ -676,7 +683,7 @@ export const apiService = {
   // CRM - Deals
   deals: {
     getLedger: (dealId: string) => api.get(`/crm/deals/${dealId}/ledger`),
-    getAll: () => api.get('/crm/deals'),
+    getAll: (config?: any) => api.get('/crm/deals', config),
     getById: (id: string) => api.get(`/crm/deals/${id}`),
     searchByTID: (tid: string) => api.get(`/crm/search/tid/${tid}`),
     create: (data: any) => api.post('/crm/deals', data),
@@ -694,7 +701,14 @@ export const apiService = {
 
   // CRM - Dealers
   dealers: {
-    getAll: () => api.get('/crm/dealers'),
+    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+      const queryParams = new URLSearchParams()
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      const queryString = queryParams.toString()
+      return api.get(`/crm/dealers${queryString ? `?${queryString}` : ''}`, config)
+    },
     getById: (id: string) => api.get(`/crm/dealers/${id}`),
     create: (data: any) => api.post('/crm/dealers', data),
     update: (id: string, data: any) => api.put(`/crm/dealers/${id}`, data),
@@ -792,7 +806,7 @@ export const apiService = {
 
   // Finance - Commissions
   commissions: {
-    getAll: () => api.get('/finance/commissions'),
+    getAll: (config?: any) => api.get('/finance/commissions', config),
     getById: (id: string) => api.get(`/finance/commissions/${id}`),
     create: (data: any) => api.post('/finance/commissions', data),
     update: (id: string, data: any) => api.put(`/finance/commissions/${id}`, data),

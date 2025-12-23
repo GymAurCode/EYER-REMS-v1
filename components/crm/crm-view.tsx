@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from "react"
+import axios from "axios"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -98,31 +99,36 @@ export function CRMView() {
   )
 
   useEffect(() => {
-    fetchCRMStats()
+    const controller = new AbortController()
+    fetchCRMStats(controller.signal)
+    return () => controller.abort()
   }, [])
 
-  const fetchCRMStats = async () => {
+  const fetchCRMStats = async (signal?: AbortSignal) => {
     try {
       setStatsLoading(true)
+      const config = { signal }
 
       const [leadsRes, clientsRes, dealsRes, dealersRes, commissionsRes] = await Promise.all([
-        apiService.leads.getAll().catch((error) => {
+        apiService.leads.getAll(config).catch((error) => {
           console.error("Failed to fetch leads:", error)
           return { data: [] }
         }),
-        apiService.clients.getAll().catch((error) => {
+        apiService.clients.getAll(undefined, config).catch((error) => {
           console.error("Failed to fetch clients:", error)
           return { data: [] }
         }),
-        apiService.deals.getAll().catch((error) => {
+        apiService.deals.getAll(config).catch((error) => {
           console.error("Failed to fetch deals:", error)
           return { data: [] }
         }),
-        apiService.dealers.getAll().catch((error) => {
+        apiService.dealers.getAll(config).catch((error) => {
           console.error("Failed to fetch dealers:", error)
           return { data: [] }
         }),
-        apiService.commissions.getAll().catch(() => ({ data: [] })), // commissions may not be enabled yet
+        apiService.commissions.getAll(config).catch((error) => {
+          return { data: [] }
+        }),
       ])
 
       // Handle nested response structures: { success: true, data: [...] } or { data: [...] } or axios wrapped
@@ -304,11 +310,16 @@ export function CRMView() {
           href: "/details/dealers",
         },
       ])
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return
+      }
       console.error("Failed to fetch CRM stats:", err)
       setCrmStats([])
     } finally {
-      setStatsLoading(false)
+      if (!signal?.aborted) {
+        setStatsLoading(false)
+      }
     }
   }
 

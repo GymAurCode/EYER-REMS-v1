@@ -43,6 +43,7 @@ import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
 import { errorResponse } from './utils/error-handler';
+import prisma from './prisma/client';
 
 dotenv.config();
 
@@ -57,7 +58,7 @@ try {
 
 const app = express() as any as Express;
 const env = validateEnv();
-const PORT = process.env.PORT || 3000; // fallback for local development
+const PORT = process.env.PORT || 3001; // default to 3001 to match frontend api.ts
 
 // Trust proxy - Required for Railway, Vercel, and other cloud platforms
 // This allows Express to correctly identify client IPs behind reverse proxies
@@ -229,9 +230,25 @@ app.use('/api/bulk', bulkRoutes);
 app.use('/api/bulk/excel', excelBulkRoutes);
 app.use('/api/recycle-bin', recycleBinRoutes);
 
-// Health check
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({ status: 'ok', message: 'REMS Backend is running' });
+// Health check with DB connection test
+app.get('/api/health', async (req: Request, res: Response) => {
+  try {
+    // Check DB connection
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({ 
+      status: 'ok', 
+      message: 'REMS Backend is running',
+      database: 'connected'
+    });
+  } catch (error: any) {
+    logger.error('Health check failed - Database connection error:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Database connection failed',
+      error: error.message,
+      stack: error.stack
+    });
+  }
 });
 
 // 404 handler

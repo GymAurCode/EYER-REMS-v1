@@ -26,27 +26,62 @@ export default function ClientsPage() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    const controller = new AbortController()
     const fetchData = async () => {
       try {
         setLoading(true)
         setError(null)
         const [clientsRes, dealsRes] = await Promise.all([
-          apiService.clients.getAll(),
-          apiService.deals.getAll(),
+          apiService.clients.getAll(undefined, { signal: controller.signal }),
+          apiService.deals.getAll({ signal: controller.signal }),
         ])
 
-        setClients(Array.isArray(clientsRes.data) ? clientsRes.data : [])
-        setDeals(Array.isArray(dealsRes.data) ? dealsRes.data : [])
+        // Robust data extraction for clients
+        let clientsData: any[] = []
+        const clientsBody = clientsRes.data as any
+        if (clientsBody?.success && Array.isArray(clientsBody?.data)) {
+            clientsData = clientsBody.data
+        } else if (Array.isArray(clientsBody?.data)) {
+            clientsData = clientsBody.data
+        } else if (Array.isArray(clientsBody)) {
+            clientsData = clientsBody
+        }
+
+        // Robust data extraction for deals
+        let dealsData: any[] = []
+        const dealsBody = dealsRes.data as any
+        if (dealsBody?.success && Array.isArray(dealsBody?.data)) {
+            dealsData = dealsBody.data
+        } else if (Array.isArray(dealsBody?.data)) {
+            dealsData = dealsBody.data
+        } else if (Array.isArray(dealsBody)) {
+            dealsData = dealsBody
+        }
+
+        if (!controller.signal.aborted) {
+          setClients(clientsData)
+          setDeals(dealsData)
+        }
       } catch (err: any) {
-        setError(err.response?.data?.message || "Failed to fetch clients")
-        setClients([])
-        setDeals([])
+        if (controller.signal.aborted) return
+
+        console.error("Failed to fetch clients page data:", err)
+        const errorMessage = err.response?.data?.message || "Failed to fetch data"
+        
+        if (!controller.signal.aborted) {
+          setError(errorMessage)
+          setClients([])
+          setDeals([])
+        }
       } finally {
-        setLoading(false)
+        if (!controller.signal.aborted) {
+          setLoading(false)
+        }
       }
     }
 
     fetchData()
+    return () => controller.abort()
   }, [])
 
   const dealStatsByClient = useMemo(() => {

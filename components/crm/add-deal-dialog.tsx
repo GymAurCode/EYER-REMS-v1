@@ -14,6 +14,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -25,7 +33,6 @@ import { Loader2, Paperclip, Upload, File, Trash2 } from "lucide-react"
 interface DealFormData {
   id?: string
   title?: string
-  trackingId?: string
   clientId?: string | null
   propertyId?: string | null
   role?: string | null
@@ -54,8 +61,10 @@ type ClientOption = {
 type PropertyOption = {
   id: string
   name: string
+
   tid?: string
   propertyCode?: string
+  status?: string
   salePrice?: number
 }
 
@@ -88,7 +97,6 @@ const FALLBACK_STATUS_OPTIONS = [
 
 const defaultFormState = {
   title: "",
-  trackingId: "",
   clientId: "",
   propertyId: "",
   role: "buyer",
@@ -126,57 +134,75 @@ export function AddDealDialog({
 
   useEffect(() => {
     if (!open) return
+    const controller = new AbortController()
 
     const loadClients = async () => {
       try {
         setLoadingClients(true)
-        const response = await apiService.clients.getAll()
+        const response = await apiService.clients.getAll(undefined, { signal: controller.signal })
         const responseData = response.data as any
         // Handle nested data structure: response.data.data or response.data
         const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-        setClients(
-          data
-            .map((client: any) => ({
-              id: String(client.id || ''),
-              name: String(client.name || client.id || ''),
-            }))
-            .filter((client: { id: string, name: string }) => client.id && client.name) // Filter out invalid clients
-        )
+
+        if (!controller.signal.aborted) {
+          setClients(
+            data
+              .map((client: any) => ({
+                id: String(client.id || ''),
+                name: String(client.name || client.id || ''),
+              }))
+              .filter((client: { id: string, name: string }) => client.id && client.name) // Filter out invalid clients
+          )
+        }
       } catch (error) {
+
+        if (controller.signal.aborted) return
         console.error("Failed to load clients", error)
         toast({ title: "Failed to load clients", variant: "destructive" })
       } finally {
-        setLoadingClients(false)
+        if (!controller.signal.aborted) {
+          setLoadingClients(false)
+        }
       }
     }
 
     const loadProperties = async () => {
       try {
         setLoadingProperties(true)
-        const response = await apiService.properties.getAll()
+        const response = await apiService.properties.getAll(undefined, { signal: controller.signal })
         const responseData = response.data as any
         const payload = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-        setProperties(
-          payload
-            .map((property: any) => ({
-              id: String(property.id || ''),
-              tid: property.tid ? String(property.tid) : undefined,
-              name: String(property.name || property.id || ''),
-              propertyCode: property.propertyCode ? String(property.propertyCode) : undefined,
-              salePrice: property.salePrice ? Number(property.salePrice) : undefined,
-            }))
-            .filter((property: { id: string, name: string }) => property.id && property.name) // Filter out invalid properties
-        )
+
+        if (!controller.signal.aborted) {
+          setProperties(
+            payload
+              .map((property: any) => ({
+                id: String(property.id || ''),
+                tid: property.tid ? String(property.tid) : undefined,
+                name: String(property.name || property.id || ''),
+                propertyCode: property.propertyCode ? String(property.propertyCode) : undefined,
+                status: property.status ? String(property.status) : undefined,
+                salePrice: property.salePrice ? Number(property.salePrice) : undefined,
+              }))
+              .filter((property: { id: string, name: string }) => property.id && property.name) // Filter out invalid properties
+          )
+        }
       } catch (error) {
+
+        if (controller.signal.aborted) return
         console.error("Failed to load properties", error)
         toast({ title: "Failed to load properties", variant: "destructive" })
       } finally {
-        setLoadingProperties(false)
+        if (!controller.signal.aborted) {
+          setLoadingProperties(false)
+        }
       }
     }
 
     loadClients()
     loadProperties()
+
+    return () => controller.abort()
   }, [open])
 
   useEffect(() => {
@@ -202,7 +228,6 @@ export function AddDealDialog({
 
         setFormData({
           title: initialData.title || "",
-          trackingId: initialData.trackingId || "",
           clientId: existingClientId,
           propertyId:
             initialData.propertyId !== undefined && initialData.propertyId !== null
@@ -309,9 +334,7 @@ export function AddDealDialog({
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
-    if (!formData.trackingId || formData.trackingId.trim() === "") {
-      newErrors.trackingId = "Tracking ID is required"
-    }
+
 
     // Title is optional now, will be auto-generated if missing
     // if (!formData.title || formData.title.trim() === "") {
@@ -360,12 +383,11 @@ export function AddDealDialog({
       setSubmitting(true)
       setErrors({})
 
-      const dealAmount = Number.parseFloat(formData.dealAmount || "0")
-      const autoTitle = formData.title?.trim() || `Deal ${formData.trackingId}`
+      const autoTitle = formData.title?.trim() || (selectedProperty?.tid ? `Deal for ${selectedProperty.tid}` : (selectedProperty?.name ? `Deal for ${selectedProperty.name}` : "New Deal"))
 
+      const dealAmount = Number.parseFloat(formData.dealAmount?.toString() || "0")
       const payload = {
         title: autoTitle,
-        trackingId: formData.trackingId.trim(),
         clientId: formData.clientId,
         propertyId: formData.propertyId,
         role: formData.role || "buyer",
@@ -457,21 +479,7 @@ export function AddDealDialog({
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
             <div className="grid gap-2">
-              <Label htmlFor="trackingId">Tracking ID *</Label>
-              <Input
-                id="trackingId"
-                placeholder="Enter unique tracking ID"
-                value={formData.trackingId}
-                onChange={(e) => {
-                  setFormData({ ...formData, trackingId: e.target.value.toUpperCase().trim() })
-                  if (errors.trackingId) setErrors({ ...errors, trackingId: "" })
-                }}
-                required
-                className={errors.trackingId ? "border-destructive" : ""}
-              />
-              {errors.trackingId && <p className="text-sm text-destructive">{errors.trackingId}</p>}
-            </div>
-            <div className="grid gap-2">
+
               <Label htmlFor="title">Deal Title</Label>
               <Input
                 id="title"
@@ -514,43 +522,53 @@ export function AddDealDialog({
               </Select>
               {errors.clientId && <p className="text-sm text-destructive">{errors.clientId}</p>}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="propertyId">Property</Label>
-              <Select
-                value={formData.propertyId}
-                onValueChange={(value) => {
-                  if (value === "no-properties") return // Don't allow selection of "no properties" option
 
-                  const property = properties.find((p) => p.id === value)
-                  const salePrice = property?.salePrice
-                  setFormData({
-                    ...formData,
-                    propertyId: value,
-                    dealAmount: salePrice !== undefined && salePrice !== null ? salePrice.toString() : formData.dealAmount,
-                  })
-                  if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
-                }}
-                disabled={loadingProperties}
-              >
-                <SelectTrigger className={errors.propertyId ? "border-destructive" : ""}>
-                  <SelectValue placeholder={loadingProperties ? "Loading properties..." : "Select property"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties.length === 0 && !loadingProperties ? (
-                    <SelectItem value="no-properties" disabled>
-                      No properties available
-                    </SelectItem>
-                  ) : (
-                    properties.map((property) => (
-                      <SelectItem key={property.id} value={property.id}>
-                        {property.name || property.id} {property.propertyCode ? `(${property.propertyCode})` : ""}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+
+
+            <div className="grid gap-2">
+              <Label htmlFor="propertyId">Property *</Label>
+              <Command className="border rounded-md">
+                <CommandInput placeholder="Search by TID or Name..." />
+                <CommandList>
+                  <CommandEmpty>No properties found.</CommandEmpty>
+                  <CommandGroup>
+                    {properties.map((property) => (
+                      <CommandItem
+                        key={property.id}
+                        value={`${property.tid || ''} ${property.name}`}
+                        onSelect={() => {
+                          const value = property.id;
+                          if (value === "no-properties") return
+
+                          const salePrice = property?.salePrice
+                          setFormData({
+                            ...formData,
+                            propertyId: value,
+                            dealAmount: salePrice !== undefined && salePrice !== null ? salePrice.toString() : formData.dealAmount,
+                          })
+                          if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
+                        }}
+                      >
+                        <div className="flex flex-col">
+                          <span className="font-medium">{property.tid || "No TID"} - {property.name}</span>
+                          <span className="text-xs text-muted-foreground">{property.status || "Unknown Status"}</span>
+                        </div>
+                        {formData.propertyId === property.id && (
+                          <span className="ml-auto text-primary">✓</span>
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
               {errors.propertyId && <p className="text-sm text-destructive">{errors.propertyId}</p>}
+              {selectedProperty && (
+                <p className="text-sm text-muted-foreground">
+                  Selected: {selectedProperty.tid || "No TID"} - {selectedProperty.name}
+                </p>
+              )}
             </div>
+
             <div className="grid gap-2">
               <Label htmlFor="role">Client Role</Label>
               <Select value={formData.role ?? "buyer"} onValueChange={(value) => setFormData({ ...formData, role: value })}>
@@ -711,8 +729,8 @@ export function AddDealDialog({
               {submitting ? "Saving..." : isEdit ? "Save Changes" : "Add Deal"}
             </Button>
           </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+        </form >
+      </DialogContent >
+    </Dialog >
   )
 }

@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url = env("DATABASE_URL")
 }
 
 model User {
@@ -979,8 +979,9 @@ model Deal {
   unitId              String?
   deletedAt           DateTime?
   deletedBy           String?
-  manualUniqueId      String?           @unique
+  manualUniqueId      String?   @unique
   tid                 String?
+
   locationId          String?
   subsidiaryOptionId  String?
   activities          CRMActivity[]
@@ -1004,8 +1005,7 @@ model Deal {
   vouchers            Voucher[]         @relation("VoucherDeal")
 
   @@index([dealCode])
-  @@index([manualUniqueId])
-  @@index([tid])
+
   @@index([clientId])
   @@index([dealerId])
   @@index([propertyId])

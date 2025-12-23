@@ -6,7 +6,7 @@
 import prisma from '../prisma/client';
 import { Prisma } from '@prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
-import { generateSystemId, validateManualUniqueId, validateTID } from './id-generation-service';
+import { generateSystemId } from './id-generation-service';
 
 export interface CreateDealPayload {
   title: string;
@@ -34,8 +34,9 @@ export interface CreateDealPayload {
   expectedClosingDate?: Date;
   notes?: string;
   createdBy: string;
-  manualUniqueId?: string; // User-provided manual unique ID
-  tid?: string; // Transaction ID - unique across Property, Deal, Client
+  tid?: string;
+  manualUniqueId?: string;
+
 }
 
 export interface UpdateDealPayload {
@@ -102,7 +103,7 @@ export class DealService {
     if (!payload.title?.trim()) {
       throw new Error('Deal title is required');
     }
-    
+
     if (!payload.clientId?.trim()) {
       throw new Error('Client ID is required');
     }
@@ -178,14 +179,21 @@ export class DealService {
       }
     }
 
-    // Validate TID - must be unique across Property, Deal, and Client
-    if (payload.tid) {
-      await validateTID(payload.tid.trim());
-    }
+    // Check for existing active deal for this property
+    if (payload.propertyId) {
+      const activeDeal = await prisma.deal.findFirst({
+        where: {
+          propertyId: payload.propertyId,
+          status: {
+            notIn: ['closed', 'closed-won', 'closed-lost', 'cancelled']
+          },
+          isDeleted: false
+        }
+      });
 
-    // Validate manual unique ID if provided
-    if (payload.manualUniqueId) {
-      await validateManualUniqueId(payload.manualUniqueId, 'dl');
+      if (activeDeal) {
+        throw new Error(`Property already has an active deal (ID: ${activeDeal.dealCode || activeDeal.id})`);
+      }
     }
 
     // Generate deal code: dl-YY-####
@@ -264,8 +272,9 @@ export class DealService {
           expectedClosingDate: payload.expectedClosingDate,
           notes: payload.notes,
           createdBy: payload.createdBy,
-          manualUniqueId: payload.manualUniqueId?.trim() || null,
-          tid: payload.tid?.trim() || null,
+          tid: payload.tid,
+          manualUniqueId: payload.manualUniqueId,
+
           isDeleted: false,
         },
       });
@@ -382,7 +391,7 @@ export class DealService {
       // Trigger revenue recognition if deal is being closed
       if (willBeClosed && !wasClosed) {
         await this.recognizeRevenueForDeal(dealId, tx);
-        
+
         // Mark property/unit as Sold
         const dealWithRelations = await tx.deal.findUnique({
           where: { id: dealId },

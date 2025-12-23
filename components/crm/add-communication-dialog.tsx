@@ -76,27 +76,36 @@ export function AddCommunicationDialog({
   const parsedInitialContent = useMemo(() => parseContent(initialData?.content), [initialData?.content])
 
   useEffect(() => {
+    if (!open) return
+    const controller = new AbortController()
+
     const loadClients = async () => {
-      if (!open) return
       try {
         setLoadingClients(true)
-        const response: any = await apiService.clients.getAll()
+        const response: any = await apiService.clients.getAll(undefined, { signal: controller.signal })
         const responseData = response.data as any
         const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
         const options = Array.isArray(data) ? data.map((client: any) => ({
           id: client.id,
           name: client.name,
         })) : []
-        setClients(options)
+        
+        if (!controller.signal.aborted) {
+            setClients(options)
+        }
       } catch (error) {
+        if (controller.signal.aborted) return
         console.error("Failed to load clients", error)
         toast({ title: "Failed to load clients", variant: "destructive" })
       } finally {
-        setLoadingClients(false)
+        if (!controller.signal.aborted) {
+            setLoadingClients(false)
+        }
       }
     }
 
     loadClients()
+    return () => controller.abort()
   }, [open, toast])
 
   useEffect(() => {

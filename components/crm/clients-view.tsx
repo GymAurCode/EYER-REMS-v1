@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import axios from "axios"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -35,14 +36,17 @@ export function ClientsView() {
   const { toast } = useToast()
 
   useEffect(() => {
-    fetchClients()
+    const controller = new AbortController()
+    fetchClients(controller.signal)
+    return () => controller.abort()
   }, [])
 
-  const fetchClients = async () => {
+  const fetchClients = async (signal?: AbortSignal) => {
     try {
       setLoading(true)
       setError(null)
-      const response: any = await apiService.clients.getAll()
+      const config = { signal }
+      const response: any = await apiService.clients.getAll(undefined, config)
       const responseData = response.data as any
 
       // Handle different response formats
@@ -68,20 +72,31 @@ export function ClientsView() {
       })) : []
       setClients(mapped)
     } catch (err: any) {
+      if (err.name === 'AbortError') return
       console.error("Failed to fetch clients:", err)
       const errorMessage = err.response?.data?.error ||
         err.response?.data?.message ||
         err.message ||
         "Failed to fetch clients"
-      setError(errorMessage)
+      
+      // Log detailed error for debugging
+      console.log("Error details:", {
+        status: err.response?.status,
+        statusText: err.response?.statusText,
+        data: err.response?.data
+      })
+
+      setError(`${errorMessage} ${err.response?.status ? `(${err.response.status})` : ''}`)
       setClients([])
       toast({
-        title: "Error",
+        title: "Error fetching clients",
         description: errorMessage,
         variant: "destructive"
       })
     } finally {
-      setLoading(false)
+      if (!signal?.aborted) {
+        setLoading(false)
+      }
     }
   }
 
