@@ -123,7 +123,6 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
           clientType: 'individual',
           clientCategory: 'regular',
           status: 'active',
-          manualUniqueId: null, // Can be set later if needed
         },
       });
     });
@@ -272,7 +271,6 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
         { email: { contains: search as string, mode: 'insensitive' } },
         { phone: { contains: search as string, mode: 'insensitive' } },
         { clientCode: { contains: search as string, mode: 'insensitive' } },
-        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
         { clientNo: { contains: search as string, mode: 'insensitive' } },
         { cnic: { contains: search as string, mode: 'insensitive' } },
       ];
@@ -298,14 +296,7 @@ router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => 
       stack: error?.stack,
       query: req.query,
     });
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-      stack: error.stack,
-      details: error,
-      code: error.code,
-      meta: error.meta
-    });
+    return errorResponse(res, error);
   }
 });
 
@@ -339,12 +330,7 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
 
 router.post('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { manualUniqueId, ...clientData } = req.body;
-
-    // Validate manual unique ID if provided
-    if (manualUniqueId) {
-      await validateManualUniqueId(manualUniqueId, 'cli');
-    }
+    const clientData = req.body;
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
@@ -361,12 +347,11 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
         data: {
           ...clientData,
           clientCode,
-          manualUniqueId: manualUniqueId?.trim() || null,
           srNo: nextSrNo,
           clientNo: nextClientNo,
           status: clientData.status || 'active',
           isDeleted: false,
-          userId: req.user?.id,
+          createdBy: req.user?.id,
         }
       });
     });
@@ -511,14 +496,7 @@ router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => 
     return successResponse(res, dealers, 200, pagination);
   } catch (error: any) {
     logger.error('Failed to fetch dealers:', error);
-    return res.status(500).json({
-      success: false,
-      error: error.message || 'Internal server error',
-      stack: error.stack,
-      details: error,
-      code: error.code,
-      meta: error.meta
-    });
+    return errorResponse(res, error);
   }
 });
 

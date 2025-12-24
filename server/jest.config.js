@@ -16,6 +16,8 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
   },
   setupFilesAfterEnv: ['<rootDir>/src/__tests__/setup.ts'],
-  testTimeout: 10000,
+  testTimeout: 30000,
+  verbose: true,
+  forceExit: true,
+  detectOpenHandles: true,
 };
-

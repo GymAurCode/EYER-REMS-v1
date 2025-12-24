@@ -130,6 +130,7 @@ model Property {
   propertySubsidiary       String?
   tid                      String?
   subsidiaryOptionId       String?
+  salePrice                Float?
   attachments              Attachment[]         @relation("PropertyAttachments")
   blocks                   Block[]
   buyers                   Buyer[]
@@ -257,6 +258,10 @@ model Unit {
   updatedAt          DateTime @updatedAt
   floorId            String?
   maintenanceHistory Json?
+  unitType           String?
+  sizeSqFt           Float?
+  securityDeposit    Float?
+  utilitiesIncluded  String[]
   deals              Deal[]   @relation("DealUnit")
   leases             Lease[]
   tenant             Tenant?

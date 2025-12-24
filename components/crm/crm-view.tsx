@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react"
-import axios from "axios"
+import { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -11,15 +10,19 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { apiService } from "@/lib/api"
-import { LeadsView } from "./leads-view"
-import { ClientsView } from "./clients-view"
-import { DealsView } from "./deals-view"
-import { CommunicationsView } from "./communications-view"
-import { DealersView } from "./dealers-view"
-import { AddLeadDialog } from "./add-lead-dialog"
-import { AddDealerDialog } from "./add-dealer-dialog"
-import { AddClientDialog } from "./add-client-dialog"
-import { ReportGenerator } from "@/components/shared/report-generator"
+
+// Lazy load heavy components to reduce initial chunk size
+const LeadsView = lazy(() => import("./leads-view").then(m => ({ default: m.LeadsView })))
+const ClientsView = lazy(() => import("./clients-view").then(m => ({ default: m.ClientsView })))
+const DealsView = lazy(() => import("./deals-view").then(m => ({ default: m.DealsView })))
+const CommunicationsView = lazy(() => import("./communications-view").then(m => ({ default: m.CommunicationsView })))
+const DealersView = lazy(() => import("./dealers-view").then(m => ({ default: m.DealersView })))
+
+// Lazy load dialog components to reduce initial chunk size
+const AddLeadDialog = lazy(() => import("./add-lead-dialog").then(m => ({ default: m.AddLeadDialog })))
+const AddDealerDialog = lazy(() => import("./add-dealer-dialog").then(m => ({ default: m.AddDealerDialog })))
+const AddClientDialog = lazy(() => import("./add-client-dialog").then(m => ({ default: m.AddClientDialog })))
+const ReportGenerator = lazy(() => import("@/components/shared/report-generator").then(m => ({ default: m.ReportGenerator })))
 
 export function CRMView() {
   const router = useRouter()
@@ -442,11 +445,13 @@ export function CRMView() {
           <p className="text-muted-foreground mt-1">Manage leads, clients, deals, dealers, and communications</p>
         </div>
         <div className="flex gap-2">
-          <ReportGenerator
-            moduleName={reportConfig.moduleName}
-            availableFields={reportConfig.fields}
-            getData={reportConfig.getData}
-          />
+          <Suspense fallback={<Button disabled><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</Button>}>
+            <ReportGenerator
+              moduleName={reportConfig.moduleName}
+              availableFields={reportConfig.fields}
+              getData={reportConfig.getData}
+            />
+          </Suspense>
           {activeTab === "dealers" ? (
             <Button onClick={() => setShowAddDealerDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -593,34 +598,50 @@ export function CRMView() {
         </TabsList>
 
         <TabsContent value="leads">
-          <LeadsView />
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <LeadsView />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="clients">
-          <ClientsView />
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <ClientsView />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="deals">
-          <DealsView />
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <DealsView />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="dealers">
-          <DealersView refreshKey={dealersRefreshKey} />
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <DealersView refreshKey={dealersRefreshKey} />
+          </Suspense>
         </TabsContent>
 
         <TabsContent value="communications">
-          <CommunicationsView />
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Loader2 className="h-6 w-6 animate-spin" /></div>}>
+            <CommunicationsView />
+          </Suspense>
         </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
-      <AddLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
-      <AddDealerDialog
-        open={showAddDealerDialog}
-        onOpenChange={setShowAddDealerDialog}
-        onSuccess={() => setDealersRefreshKey((key) => key + 1)}
-      />
-      <AddClientDialog open={showAddClientDialog} onOpenChange={setShowAddClientDialog} />
+      <Suspense fallback={null}>
+        <AddLeadDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AddDealerDialog
+          open={showAddDealerDialog}
+          onOpenChange={setShowAddDealerDialog}
+          onSuccess={() => setDealersRefreshKey((key) => key + 1)}
+        />
+      </Suspense>
+      <Suspense fallback={null}>
+        <AddClientDialog open={showAddClientDialog} onOpenChange={setShowAddClientDialog} />
+      </Suspense>
     </div>
   )
 }

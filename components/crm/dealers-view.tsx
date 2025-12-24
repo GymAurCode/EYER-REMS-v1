@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { apiService } from "@/lib/api"
+import axios from "axios"
 import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -59,12 +60,13 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       setLoading(true)
       setError(null)
       console.log("Fetching dealers...")
-      
+
       // Fetch dealers
       let dealersResp: any
       try {
         dealersResp = await apiService.dealers.getAll()
       } catch (err: any) {
+        if (axios.isCancel(err) || err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError') return
         console.error("Failed to fetch dealers API:", err)
         throw new Error(err.response?.data?.message || err.message || "Failed to fetch dealers list")
       }
@@ -97,7 +99,7 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       } else if (Array.isArray(dealsPayload)) {
         deals = dealsPayload
       }
-      
+
       console.log(`Fetched ${dealerList.length} dealers and ${deals.length} deals`)
 
       const dealsByDealer: Record<string, { count: number; totalValue: number; lastDealAt?: string }> = {}
@@ -214,7 +216,7 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
                       {dealers.length === 0 ? "No dealers yet" : "No dealers match your search"}
                     </p>
                     <p className="text-sm text-muted-foreground mb-4 max-w-md">
-                      {dealers.length === 0 
+                      {dealers.length === 0
                         ? "Add dealers to track commissions and manage sales relationships"
                         : "Try adjusting your search criteria"}
                     </p>

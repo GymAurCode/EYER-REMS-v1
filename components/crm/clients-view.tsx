@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
+
 import { AddClientDialog } from "./add-client-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -72,13 +73,13 @@ export function ClientsView() {
       })) : []
       setClients(mapped)
     } catch (err: any) {
-      if (err.name === 'AbortError') return
+      if (axios.isCancel(err) || err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError') return
       console.error("Failed to fetch clients:", err)
       const errorMessage = err.response?.data?.error ||
         err.response?.data?.message ||
         err.message ||
         "Failed to fetch clients"
-      
+
       // Log detailed error for debugging
       console.log("Error details:", {
         status: err.response?.status,

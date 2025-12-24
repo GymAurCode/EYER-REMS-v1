@@ -45,7 +45,6 @@ interface ClientFormData {
   assignedAgentId?: string
   assignedDealerId?: string
   clientCode?: string
-  manualUniqueId?: string
 }
 
 interface AddClientDialogProps {
@@ -106,7 +105,6 @@ const defaultFormState: FormState = {
   assignedAgentId: "",
   assignedDealerId: "",
   systemId: "",
-  manualUniqueId: "",
   attachments: [] as { name: string; url: string; type: string; size: number }[],
 }
 
@@ -155,11 +153,19 @@ export function AddClientDialog({
           assignedAgentId: initialData.assignedAgentId || "",
           assignedDealerId: initialData.assignedDealerId || "",
           systemId: initialData.clientCode || "",
-          manualUniqueId: initialData.manualUniqueId || "",
+
           attachments: Array.isArray((initialData as any).attachments?.files) ? (initialData as any).attachments.files : [],
         })
       } else {
-        setFormData(defaultFormState)
+        // Generate a unique TID for new clients
+        const timestamp = Date.now().toString().slice(-6)
+        const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase()
+        const uniqueTid = `CL-${timestamp}-${randomSuffix}`
+        
+        setFormData({
+          ...defaultFormState,
+          tid: uniqueTid
+        })
       }
     }
   }, [open, isEdit, initialData])
@@ -280,11 +286,19 @@ export function AddClientDialog({
     try {
       setSubmitting(true)
 
-      const normalizedAssignedAgent = formData.assignedAgentId && formData.assignedAgentId !== "none" ? formData.assignedAgentId : null
-      const normalizedAssignedDealer = formData.assignedDealerId && formData.assignedDealerId !== "none" ? formData.assignedDealerId : null
+      // Debug authentication state
+      const token = localStorage.getItem('token')
+      const user = localStorage.getItem('erp-user')
+      console.log('Auth Debug (Frontend):', {
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        tokenPreview: token ? `${token.substring(0, 20)}...` : 'No token',
+        hasUser: !!user,
+        userInfo: user ? JSON.parse(user) : null
+      })
 
-      // Normalize email - if empty string, set to null (not undefined) to avoid validation issues
-      const normalizedEmail = formData.email?.trim() || null
+      // Normalize email - if empty string, don't include it in payload to avoid validation issues
+      const normalizedEmail = formData.email?.trim()
       // Validate email format if provided
       if (normalizedEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
         toast({
@@ -295,7 +309,7 @@ export function AddClientDialog({
         return
       }
 
-      // Build payload - only include fields that have values or are explicitly set
+      // Build payload - include all fields that match the updated schema
       const payload: any = {
         name: formData.name.trim(),
       }
@@ -306,15 +320,24 @@ export function AddClientDialog({
       if (formData.phone?.trim()) payload.phone = formData.phone.trim()
       if (formData.company?.trim()) payload.company = formData.company.trim()
       if (formData.status) payload.status = formData.status
-      if (formData.cnic?.trim()) payload.cnic = formData.cnic.trim()
       if (formData.address?.trim()) payload.address = formData.address.trim()
+      if (formData.cnic?.trim()) payload.cnic = formData.cnic.trim()
+      if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
       if (formData.city?.trim()) payload.city = formData.city.trim()
       if (formData.country?.trim()) payload.country = formData.country.trim()
       if (formData.postalCode?.trim()) payload.postalCode = formData.postalCode.trim()
       if (formData.clientType) payload.clientType = formData.clientType
       if (formData.clientCategory) payload.clientCategory = formData.clientCategory
       if (formData.propertyInterest) payload.propertyInterest = formData.propertyInterest
-      if (formData.billingAddress?.trim()) payload.billingAddress = formData.billingAddress.trim()
+
+      
+      // Handle assignments - only include if they have valid UUID values
+      const normalizedAssignedAgent = formData.assignedAgentId && formData.assignedAgentId !== "none" ? formData.assignedAgentId : null
+      const normalizedAssignedDealer = formData.assignedDealerId && formData.assignedDealerId !== "none" ? formData.assignedDealerId : null
+      
+      if (normalizedAssignedAgent) payload.assignedAgentId = normalizedAssignedAgent
+      if (normalizedAssignedDealer) payload.assignedDealerId = normalizedAssignedDealer
+      
       // Store notes and file attachments in attachments JSON field
       const attachmentsData: any = {}
       if (formData.notes?.trim()) {
@@ -326,10 +349,10 @@ export function AddClientDialog({
       if (Object.keys(attachmentsData).length > 0) {
         payload.attachments = attachmentsData
       }
+      
+      // Add tags if present
       if (formData.tags && formData.tags.length > 0) payload.tags = formData.tags
-      if (normalizedAssignedAgent) payload.assignedAgentId = normalizedAssignedAgent
-      if (normalizedAssignedDealer) payload.assignedDealerId = normalizedAssignedDealer
-      if (formData.manualUniqueId?.trim()) payload.manualUniqueId = formData.manualUniqueId.trim()
+      console.log("Sending client payload:", JSON.stringify(payload, null, 2))
 
       if (isEdit) {
         await apiService.clients.update(initialData!.id as any, payload)
@@ -344,30 +367,67 @@ export function AddClientDialog({
       onSuccess?.()
     } catch (error: any) {
       console.error("Failed to save client", error)
-      console.error("Error response:", error.response?.data)
+      console.error("Error response (stringified):", JSON.stringify(error.response?.data, null, 2))
+      console.error("Error status:", error.response?.status)
 
-      // Handle Zod validation errors
+      // Handle different error types with specific messages
       let errorMessage = "An error occurred"
-      if (error.response?.data?.error) {
-        if (Array.isArray(error.response.data.error)) {
+      let errorTitle = `Failed to ${isEdit ? "update" : "add"} client`
+
+      if (error.response?.status === 401) {
+        errorTitle = "Authentication Required"
+        if (error.response.data?.code === 'MISSING_AUTH_HEADER') {
+          errorMessage = "You are not logged in. Please log in and try again."
+        } else if (error.response.data?.code === 'INVALID_TOKEN') {
+          errorMessage = "Your session has expired. Please log in again."
+        } else if (error.response.data?.code === 'USER_NOT_FOUND') {
+          errorMessage = "Your account no longer exists. Please contact support."
+        } else {
+          errorMessage = error.response.data?.message || "Authentication failed. Please log in again."
+        }
+        
+        // Redirect to login after showing error
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 3000)
+      } else if (error.response?.status === 403) {
+        errorTitle = "Access Denied"
+        if (error.response.data?.code === 'INSUFFICIENT_PERMISSIONS') {
+          errorMessage = `You don't have permission to create clients. Required permission: ${error.response.data?.required}`
+        } else if (error.response.data?.code === 'NO_ROLE_OR_PERMISSIONS') {
+          errorMessage = "Your account has no permissions assigned. Please contact an administrator."
+        } else {
+          errorMessage = error.response.data?.message || "You don't have permission to perform this action."
+        }
+      } else if (error.response?.status === 400) {
+        errorTitle = "Validation Error"
+        if (error.response.data?.code === 'VALIDATION_ERROR') {
+          const validationErrors = error.response.data?.validationErrors || []
+          errorMessage = validationErrors.length > 0 
+            ? `Validation failed: ${validationErrors.map((err: any) => `${err.field}: ${err.message}`).join(', ')}`
+            : "Please check your input and try again."
+        } else if (error.response.data?.code === 'TID_VALIDATION_ERROR') {
+          errorMessage = `Transaction ID error: ${error.response.data?.message}`
+        } else if (error.response.data?.code === 'DUPLICATE_ENTRY') {
+          errorMessage = "A client with this information already exists."
+        } else if (Array.isArray(error.response.data?.error)) {
           // Zod validation errors
           const validationErrors = error.response.data.error
             .map((err: any) => `${err.path?.join('.') || 'field'}: ${err.message}`)
             .join(', ')
           errorMessage = `Validation errors: ${validationErrors}`
-        } else if (typeof error.response.data.error === 'string') {
-          errorMessage = error.response.data.error
-        } else if (typeof error.response.data.error === 'object') {
-          errorMessage = error.response.data.error.message || JSON.stringify(error.response.data.error)
+        } else {
+          errorMessage = error.response.data?.message || error.response.data?.error || "Invalid data provided."
         }
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message
+      } else if (error.response?.status === 500) {
+        errorTitle = "Server Error"
+        errorMessage = "An internal server error occurred. Please try again later."
       } else if (error.message) {
         errorMessage = error.message
       }
 
       toast({
-        title: `Failed to ${isEdit ? "update" : "add"} client`,
+        title: errorTitle,
         description: errorMessage,
         variant: "destructive"
       })
@@ -415,16 +475,7 @@ export function AddClientDialog({
                   />
                   <p className="text-xs text-muted-foreground">This ID is automatically generated by the system</p>
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="manualUniqueId">Manual Unique ID (Optional)</Label>
-                  <Input
-                    id="manualUniqueId"
-                    value={formData.manualUniqueId}
-                    onChange={(event) => setFormData({ ...formData, manualUniqueId: event.target.value })}
-                    placeholder="Enter custom unique ID (optional)"
-                  />
-                  <p className="text-xs text-muted-foreground">Optional: Enter a custom unique identifier</p>
-                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="client-name">Client Name <span className="text-destructive">*</span></Label>
                   <Input
@@ -439,11 +490,11 @@ export function AddClientDialog({
                   <Label htmlFor="client-tid">TID (Transaction ID)</Label>
                   <Input
                     id="client-tid"
-                    placeholder="Enter TID (optional)"
+                    placeholder="Auto-generated unique ID"
                     value={formData.tid}
                     onChange={(event) => setFormData({ ...formData, tid: event.target.value })}
                   />
-                  <p className="text-xs text-muted-foreground">Optional: Transaction ID for this client</p>
+                  <p className="text-xs text-muted-foreground">Auto-generated unique transaction ID (can be modified)</p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="client-email">Email</Label>

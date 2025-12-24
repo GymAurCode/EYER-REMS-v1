@@ -17,6 +17,45 @@ const nextConfig = {
       config.optimization = {
         ...config.optimization,
         moduleIds: 'deterministic',
+        splitChunks: {
+          ...config.optimization.splitChunks,
+          chunks: 'all',
+          cacheGroups: {
+            ...config.optimization.splitChunks.cacheGroups,
+            // Separate chunk for CRM dialogs to reduce main chunk size
+            crmDialogs: {
+              test: /[\\/]components[\\/]crm[\\/](add-.*-dialog)/,
+              name: 'crm-dialogs',
+              priority: 20,
+              reuseExistingChunk: true,
+              chunks: 'all',
+            },
+            // Separate chunk for CRM views
+            crmViews: {
+              test: /[\\/]components[\\/]crm[\\/](.*-view)/,
+              name: 'crm-views',
+              priority: 15,
+              reuseExistingChunk: true,
+              chunks: 'all',
+            },
+            // Separate chunk for chart libraries
+            charts: {
+              test: /[\\/]node_modules[\\/](recharts|d3-.*)/,
+              name: 'charts',
+              priority: 25,
+              reuseExistingChunk: true,
+              chunks: 'all',
+            },
+            // Separate chunk for UI components
+            ui: {
+              test: /[\\/]components[\\/]ui[\\/]/,
+              name: 'ui-components',
+              priority: 10,
+              reuseExistingChunk: true,
+              chunks: 'all',
+            },
+          },
+        },
       };
     }
     

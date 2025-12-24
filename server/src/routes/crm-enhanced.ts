@@ -43,16 +43,25 @@ const createLeadSchema = z.object({
 const createClientSchema = z.object({
   tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
   name: z.string().min(1),
-  email: z.string().email().optional(),
+  email: z.string().optional(),
   phone: z.string().optional(),
+  company: z.string().optional(),
+  status: z.string().optional(),
+  address: z.string().optional(),
+  cnic: z.string().optional(),
+  billingAddress: z.string().optional(),
+  city: z.string().optional(),
+  country: z.string().optional(),
+  postalCode: z.string().optional(),
   clientType: z.enum(['individual', 'corporate', 'government']).optional(),
   clientCategory: z.enum(['vip', 'regular', 'corporate', 'premium']).optional(),
-  cnic: z.string().optional(),
-  address: z.string().optional(),
   propertyInterest: z.string().optional(),
   locationId: z.string().uuid().nullable().optional(),
   assignedDealerId: z.string().uuid().optional(),
   assignedAgentId: z.string().uuid().optional(),
+  manualUniqueId: z.string().optional(),
+  attachments: z.any().optional(), // JSON field for notes and file attachments
+  tags: z.array(z.string()).optional(), // JSON field for tags
 });
 
 const DEAL_ROLE_OPTIONS = ['buyer', 'seller', 'tenant', 'landlord', 'investor', 'partner'] as const;
@@ -107,6 +116,21 @@ async function generateDealerCode(): Promise<string> {
 async function generateDealCode(): Promise<string> {
   return await generateSystemId('dl');
 }
+
+// Debug endpoint to test auth/permissions (remove in production)
+router.get('/debug/auth', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res: Response) => {
+  res.json({
+    success: true,
+    message: 'Authentication and permissions working correctly',
+    user: {
+      id: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role?.name,
+      permissions: req.user?.role?.permissions
+    },
+    timestamp: new Date().toISOString()
+  });
+});
 
 // ==================== LEADS ====================
 
@@ -388,8 +412,18 @@ router.get('/clients', requireAuth, requirePermission('crm.clients.view'), async
 // Create client
 router.post('/clients', requireAuth, requirePermission('crm.clients.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
+    // Log request details for debugging
+    console.log('Client Creation Request:', {
+      userId: req.user?.id,
+      username: req.user?.username,
+      role: req.user?.role?.name,
+      payloadKeys: Object.keys(req.body),
+      hasName: !!req.body.name,
+      hasTid: !!req.body.tid
+    });
+
     const parsedData = createClientSchema.parse(req.body);
-    const { manualUniqueId, tid, ...data } = parsedData as any;
+    const { manualUniqueId, tid, attachments, ...data } = parsedData as any;
 
     // Validate TID - must be unique across Property, Deal, and Client
     if (tid) {
@@ -437,12 +471,78 @@ router.post('/clients', requireAuth, requirePermission('crm.clients.create'), as
       req,
     });
 
+    console.log('✅ Client created successfully:', {
+      clientId: client.id,
+      clientCode: client.clientCode,
+      name: client.name
+    });
+
     res.status(201).json(client);
   } catch (error: any) {
+    console.error('❌ Client creation failed:', {
+      error: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      userId: req.user?.id,
+      payloadKeys: Object.keys(req.body || {})
+    });
+
+    // Handle Zod validation errors (400)
     if (error instanceof z.ZodError) {
-      return res.status(400).json({ error: error.errors });
+      const validationErrors = error.errors.map(err => ({
+        field: err.path.join('.'),
+        message: err.message,
+        code: err.code,
+        received: (err as any).received
+      }));
+      
+      return res.status(400).json({ 
+        success: false,
+        error: 'Validation failed',
+        message: 'The provided data does not meet the required format.',
+        code: 'VALIDATION_ERROR',
+        validationErrors
+      });
     }
-    res.status(500).json({ error: error.message });
+    
+    // Handle TID validation errors specifically (400)
+    if (error.message && error.message.includes('TID')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'TID validation failed',
+        message: error.message,
+        code: 'TID_VALIDATION_ERROR'
+      });
+    }
+    
+    // Handle manual unique ID validation errors (400)
+    if (error.message && error.message.includes('Manual unique ID')) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Manual ID validation failed',
+        message: error.message,
+        code: 'MANUAL_ID_VALIDATION_ERROR'
+      });
+    }
+
+    // Handle database constraint errors (400)
+    if (error.code === 'P2002') {
+      return res.status(400).json({
+        success: false,
+        error: 'Duplicate entry',
+        message: 'A client with this information already exists.',
+        code: 'DUPLICATE_ENTRY',
+        constraint: error.meta?.target
+      });
+    }
+    
+    // Handle all other errors as 500 Internal Server Error
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error',
+      message: 'An unexpected error occurred while creating the client.',
+      code: 'INTERNAL_ERROR',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 });
 

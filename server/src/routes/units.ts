@@ -15,6 +15,10 @@ const createUnitSchema = z.object({
   status: z.enum(['Occupied', 'Vacant', 'Under Maintenance']).optional(),
   monthlyRent: z.number().positive().optional(),
   description: z.string().optional(),
+  unitType: z.string().optional(),
+  sizeSqFt: z.number().positive().optional(),
+  securityDeposit: z.number().nonnegative().optional(),
+  utilitiesIncluded: z.array(z.string()).optional().default([]),
 });
 
 const updateUnitSchema = createUnitSchema.partial();
@@ -151,7 +155,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { floorId } = req.params;
-    const { unitName, unitType, status, monthlyRent, description } = req.body;
+    const { unitName, unitType, status, monthlyRent, description, sizeSqFt, securityDeposit, utilitiesIncluded } = req.body;
 
     if (!unitName || typeof unitName !== 'string' || unitName.trim().length === 0) {
       return res.status(400).json({
@@ -203,7 +207,11 @@ router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res
         floorId: floorId,
         status: status || 'Vacant',
         monthlyRent: monthlyRent ? parseFloat(monthlyRent) : null,
-        description: unitType || description || null, // Store unitType in description field
+        description: description || null,
+        unitType: unitType || null,
+        sizeSqFt: sizeSqFt ? parseFloat(sizeSqFt) : null,
+        securityDeposit: securityDeposit ? parseFloat(securityDeposit) : null,
+        utilitiesIncluded: Array.isArray(utilitiesIncluded) ? utilitiesIncluded : [],
       },
       include: {
         property: {
@@ -300,7 +308,13 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     const unit = await prisma.unit.create({
-      data,
+      data: {
+        ...data,
+        unitType: data.unitType,
+        sizeSqFt: data.sizeSqFt,
+        securityDeposit: data.securityDeposit,
+        utilitiesIncluded: data.utilitiesIncluded || [],
+      },
       include: {
         property: {
           select: {
@@ -434,7 +448,13 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     const updatedUnit = await prisma.unit.update({
       where: { id },
-      data,
+      data: {
+        ...data,
+        unitType: data.unitType,
+        sizeSqFt: data.sizeSqFt,
+        securityDeposit: data.securityDeposit,
+        utilitiesIncluded: data.utilitiesIncluded,
+      },
       include: {
         property: {
           select: {

@@ -15,11 +15,6 @@ const prisma = new PrismaClient({
   log: ['error', 'warn'], // Only log errors and warnings, not queries
   // Connection pool is configured via DATABASE_URL query parameters
   // Example: ?connection_limit=10&pool_timeout=20
-  datasources: {
-    db: {
-      url: process.env.DATABASE_URL,
-    },
-  },
 });
 
 // Graceful shutdown

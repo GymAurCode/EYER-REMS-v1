@@ -46,6 +46,7 @@ export default function RootLayout({
       <head>
         <title>Real Estate ERP - Property Management System</title>
         <meta name="description" content="Comprehensive enterprise resource planning for real estate management" />
+        <script src="/clear-cache.js" defer></script>
       </head>
       <body className={inter.className} suppressHydrationWarning>
         <SWRConfig

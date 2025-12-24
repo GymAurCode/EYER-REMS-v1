@@ -80,7 +80,7 @@ const createPropertySchema = z.object({
     z.string().uuid().optional()
   ),
   salePrice: z.number().nonnegative().optional(),
-  amenities: z.array(z.string()).optional(), // Array of amenity strings
+  amenities: z.array(z.string()).optional().default([]),
 });
 
 const updatePropertySchema = createPropertySchema.partial();
@@ -1662,13 +1662,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     }
 
     // Store extra attributes in documents field (keeps schema unchanged)
-    let documentsData: { amenities?: string[]; salePrice?: number } | null = null;
-    if (data.amenities && Array.isArray(data.amenities) && data.amenities.length > 0) {
-      documentsData = { ...(documentsData || {}), amenities: data.amenities };
-    }
-    if (typeof data.salePrice === 'number') {
-      documentsData = { ...(documentsData || {}), salePrice: data.salePrice };
-    }
+    let documentsData: { [key: string]: any } | null = null;
+    
+    // Only store non-schema fields in documents now
+    // salePrice and amenities are now direct fields
 
     // Check if columns exist before including them
     const tidColumnExists = await columnExists('Property', 'tid');
@@ -1692,6 +1689,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       totalUnits: data.totalUnits || 0,
       dealerId: data.dealerId || undefined,
       locationId: data.locationId ?? null,
+      salePrice: data.salePrice || undefined,
+      amenities: data.amenities || [],
     };
 
     // Only include columns that exist in the database
@@ -1704,7 +1703,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (propertyCode) {
       createData.propertyCode = propertyCode;
     }
-    if (documentsData) {
+    if (documentsData && Object.keys(documentsData).length > 0) {
       createData.documents = documentsData;
     }
     // Note: Property model does NOT have propertySubsidiaryId column
@@ -1789,7 +1788,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         if (tidColumnExists && data.tid) minimalData.tid = data.tid.trim();
         if (subsidiaryOptionIdExists && data.subsidiaryOptionId) minimalData.subsidiaryOptionId = data.subsidiaryOptionId;
         if (propertyCode) minimalData.propertyCode = propertyCode;
-        if (documentsData) minimalData.documents = documentsData;
+        if (data.salePrice) minimalData.salePrice = data.salePrice;
+        if (data.amenities) minimalData.amenities = data.amenities;
+        if (documentsData && Object.keys(documentsData).length > 0) minimalData.documents = documentsData;
         // Note: propertySubsidiaryId does not exist on Property model - it's on SubsidiaryOption model
 
         property = await prisma.property.create({
@@ -1811,6 +1812,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
             createdAt: true,
             updatedAt: true,
             propertyCode: true,
+            salePrice: true,
+            amenities: true,
             ...(tidColumnExists && { tid: true }),
             ...(subsidiaryOptionIdExists && { subsidiaryOptionId: true }),
             units: {
@@ -1848,9 +1851,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Attach salePrice on response for client convenience
-    const salePrice = typeof documentsData?.salePrice === 'number' ? documentsData.salePrice : undefined;
-    return successResponse(res, salePrice !== undefined ? { ...property, salePrice } : property, 201);
+    // Attach salePrice and amenities on response for client convenience
+    return successResponse(res, property, 201);
   } catch (error: any) {
     logger.error('Create property error:', {
       error: error?.message || error,
@@ -1892,26 +1894,12 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return errorResponse(res, 'Property not found', 404);
     }
 
-    // Handle amenities and sale price in update without schema change
-    const updateData: Prisma.PropertyUpdateInput = { ...data };
-    if (data.amenities || typeof data.salePrice === 'number') {
-      let documentsData: { amenities?: string[]; salePrice?: number } = {};
-      if (existingProperty.documents && typeof existingProperty.documents === 'object') {
-        documentsData = { ...(existingProperty.documents as { amenities?: string[]; salePrice?: number }) };
-      }
-
-      if (data.amenities && Array.isArray(data.amenities)) {
-        documentsData.amenities = data.amenities;
-        delete (updateData as { amenities?: unknown }).amenities;
-      }
-
-      if (typeof data.salePrice === 'number') {
-        documentsData.salePrice = data.salePrice;
-        delete (updateData as { salePrice?: unknown }).salePrice;
-      }
-
-      updateData.documents = documentsData;
-    }
+    // Handle amenities and sale price in update - now direct fields
+    const updateData: Prisma.PropertyUpdateInput = { 
+      ...data,
+      salePrice: data.salePrice,
+      amenities: data.amenities,
+    };
 
     // Check if columns exist before including them in update
     const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
@@ -1972,19 +1960,8 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    // Extract amenities from documents field if stored there
-    let amenities: string[] = [];
-    if (property.documents && typeof property.documents === 'object') {
-      const docs = property.documents as { amenities?: string[] };
-      if (Array.isArray(docs.amenities)) {
-        amenities = docs.amenities;
-      }
-    }
-
-    return successResponse(res, {
-      ...property,
-      amenities, // Add amenities to response
-    });
+    // Extract amenities and salePrice from response (now direct fields)
+    return successResponse(res, property);
   } catch (error) {
     logger.error('Update property error:', error);
     return errorResponse(res, error);

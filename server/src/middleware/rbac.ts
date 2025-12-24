@@ -67,16 +67,45 @@ export async function requireAuth(
   next: NextFunction
 ) {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace('Bearer ', '');
 
-    if (!token) {
-      return res.status(401).json({ error: 'Authentication required' });
+    // Log auth details for debugging
+    console.log('Auth Debug:', {
+      endpoint: `${req.method} ${req.path}`,
+      hasAuthHeader: !!authHeader,
+      hasToken: !!token,
+      tokenLength: token?.length || 0,
+      userAgent: req.headers['user-agent']?.substring(0, 50)
+    });
+
+    if (!authHeader) {
+      console.log('❌ Auth failed: No Authorization header');
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Missing Authorization header. Please include "Authorization: Bearer <token>" in your request.',
+        code: 'MISSING_AUTH_HEADER'
+      });
+    }
+
+    if (!token || token.trim() === '') {
+      console.log('❌ Auth failed: Empty token');
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Authorization header is malformed. Expected format: "Bearer <token>"',
+        code: 'MALFORMED_AUTH_HEADER'
+      });
     }
 
     const decoded = verifyToken(token) as any;
     
     if (!decoded || !decoded.userId) {
-      return res.status(401).json({ error: 'Invalid token' });
+      console.log('❌ Auth failed: Invalid token decode');
+      return res.status(401).json({ 
+        error: 'Invalid token',
+        message: 'The provided token is invalid, expired, or malformed. Please log in again.',
+        code: 'INVALID_TOKEN'
+      });
     }
 
     // Get user with role
@@ -86,7 +115,12 @@ export async function requireAuth(
     });
 
     if (!user) {
-      return res.status(401).json({ error: 'User not found' });
+      console.log('❌ Auth failed: User not found for ID:', decoded.userId);
+      return res.status(401).json({ 
+        error: 'User not found',
+        message: 'The user associated with this token no longer exists. Please log in again.',
+        code: 'USER_NOT_FOUND'
+      });
     }
 
     // Attach user to request
@@ -102,9 +136,22 @@ export async function requireAuth(
       } : undefined,
     };
 
+    console.log('✅ Auth success:', {
+      userId: user.id,
+      username: user.username,
+      role: user.role?.name,
+      permissionCount: (user.role?.permissions as string[])?.length || 0
+    });
+
     next();
-  } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
+  } catch (error: any) {
+    console.log('❌ Auth error:', error.message);
+    return res.status(401).json({ 
+      error: 'Invalid token',
+      message: 'Token verification failed. Please log in again.',
+      code: 'TOKEN_VERIFICATION_FAILED',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
   }
 }
 
@@ -117,21 +164,67 @@ export function requirePermission(permission: string) {
     res: Response,
     next: NextFunction
   ) => {
+    // Log permission check details
+    console.log('Permission Debug:', {
+      endpoint: `${req.method} ${req.path}`,
+      requiredPermission: permission,
+      hasUser: !!req.user,
+      userId: req.user?.id,
+      userRole: req.user?.role?.name,
+      userPermissions: req.user?.role?.permissions || []
+    });
+
     if (!req.user) {
-      return res.status(401).json({ error: 'Authentication required' });
+      console.log('❌ Permission failed: No user in request (auth middleware not run?)');
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'User authentication is required to access this resource.',
+        code: 'NO_USER_CONTEXT'
+      });
     }
 
     if (!req.user.role || !req.user.role.permissions) {
-      return res.status(403).json({ error: 'No permissions assigned' });
-    }
-
-    if (!hasPermission(req.user.role.permissions, permission)) {
-      return res.status(403).json({
-        error: 'Insufficient permissions',
-        required: permission,
-        userPermissions: req.user.role.permissions,
+      console.log('❌ Permission failed: User has no role or permissions');
+      return res.status(403).json({ 
+        error: 'No permissions assigned',
+        message: `Your account (${req.user.username}) has no role or permissions assigned. Please contact an administrator.`,
+        code: 'NO_ROLE_OR_PERMISSIONS',
+        user: {
+          id: req.user.id,
+          username: req.user.username,
+          role: req.user.role?.name || 'No role assigned'
+        }
       });
     }
+
+    const hasRequiredPermission = hasPermission(req.user.role.permissions, permission);
+    
+    if (!hasRequiredPermission) {
+      console.log('❌ Permission denied:', {
+        user: req.user.username,
+        role: req.user.role.name,
+        required: permission,
+        available: req.user.role.permissions
+      });
+      
+      return res.status(403).json({
+        error: 'Insufficient permissions',
+        message: `Access denied. Your role (${req.user.role.name}) does not have the required permission: ${permission}`,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        required: permission,
+        user: {
+          id: req.user.id,
+          username: req.user.username,
+          role: req.user.role.name,
+          permissions: req.user.role.permissions
+        }
+      });
+    }
+
+    console.log('✅ Permission granted:', {
+      user: req.user.username,
+      permission: permission
+    });
 
     next();
   };
