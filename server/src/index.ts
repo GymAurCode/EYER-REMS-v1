@@ -69,7 +69,7 @@ app.set('trust proxy', 1);
 // Allow the deployed frontend plus common local dev origins
 const allowedOrigins = [
   process.env.FRONTEND_ORIGIN,
-  'https://frontend-production-4fdd.up.railway.app',
+  'https://eyer-rems-v1-p3c3.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ].filter(Boolean) as string[];

@@ -2,28 +2,27 @@ import axios from 'axios'
 
 /**
  * API Base URL Configuration
- * 
+ *
  * For Next.js projects, use NEXT_PUBLIC_API_URL environment variable
  * This variable is accessible in the browser (prefixed with NEXT_PUBLIC_)
- * 
+ *
  * Example .env.local:
  * NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api
- * 
+ *
  * For development:
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
 const isDevelopment = process.env.NODE_ENV === 'development';
-let normalizedBaseUrl = 'http://localhost:3001/api'
+let normalizedBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
 export const API_BASE_URL = normalizedBaseUrl
 
-// Log API configuration in development (disabled)
-// if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-//   console.log('🔧 API Configuration:', {
-//     rawBaseUrl,
-//     normalizedBaseUrl,
-//     envVar: process.env.NEXT_PUBLIC_API_URL || 'not set (using default)',
-//   })
-// }
+// Log API configuration in development
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('🔧 API Configuration:', {
+    normalizedBaseUrl,
+    envVar: process.env.NEXT_PUBLIC_API_URL || 'not set (using default)',
+  })
+}
 
 // Request throttling and deduplication
 let lastRequestTime = 0
