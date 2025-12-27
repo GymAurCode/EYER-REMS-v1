@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "prisma generate && tsc",
+    "build": "tsc",
     "start": "node dist/index.js",
     "postinstall": "prisma generate",
     "railway:deploy": "prisma generate && prisma migrate deploy && npm run build && npm start",
@@ -57,7 +57,6 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.19",
     "@types/express": "^4.17.21",
-    "@types/express-serve-static-core": "^4.17.43",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/multer": "^1.4.13",
