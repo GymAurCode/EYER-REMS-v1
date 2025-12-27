@@ -5,8 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
-    "start": "node dist/index.js",
+    "build": "prisma generate && tsc",
+    "start": "npx prisma migrate deploy && node dist/index.js",
     "postinstall": "prisma generate",
     "railway:deploy": "prisma generate && prisma migrate deploy && npm run build && npm start",
     "test": "jest",
