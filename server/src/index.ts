@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction, Express } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
@@ -55,7 +55,7 @@ try {
   process.exit(1);
 }
 
-const app = express() as any as Express;
+const app: any = express();
 const env = validateEnv();
 const PORT = parseInt(process.env.PORT || '3001', 10); // default to 3001 to match frontend api.ts
 
