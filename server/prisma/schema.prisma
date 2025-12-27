@@ -1025,6 +1025,7 @@ model Deal {
   @@index([deletedAt])
   @@index([clientId, status])
   @@index([propertyId, status])
+  @@index([tid])
 }
 
 model DealAgent {

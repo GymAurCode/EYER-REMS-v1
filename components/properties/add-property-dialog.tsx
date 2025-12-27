@@ -572,48 +572,65 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     // Remove category and size from payload as they're not supported by server
     const { category, size, ...formWithoutCategorySize } = form
 
-    const payload: any = {
-      type: formWithoutCategorySize.type,
-      status: formWithoutCategorySize.status || "Active",
-      address: formWithoutCategorySize.address,
-      location: formWithoutCategorySize.location || undefined,
-      locationId: formWithoutCategorySize.locationId || undefined,
-      subsidiaryOptionId: formWithoutCategorySize.subsidiaryOptionId || undefined,
-      description: formWithoutCategorySize.description || undefined,
-      totalArea: formWithoutCategorySize.totalArea ? Number(formWithoutCategorySize.totalArea) : undefined,
-      totalUnits: formWithoutCategorySize.totalUnits ? Number(formWithoutCategorySize.totalUnits) : undefined,
-      yearBuilt: formWithoutCategorySize.yearBuilt ? Number(formWithoutCategorySize.yearBuilt) : undefined,
-      salePrice: formWithoutCategorySize.salePrice ? Number(formWithoutCategorySize.salePrice) : undefined,
-      dealerId: formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim() ? formWithoutCategorySize.dealerId.trim() : undefined,
-      amenities: formWithoutCategorySize.amenities,
-      imageUrl: formWithoutCategorySize.imageUrl && formWithoutCategorySize.imageUrl.trim() ? formWithoutCategorySize.imageUrl.trim() : undefined,
-    }
-
-    // Only include TID if it's not empty
-    if (formWithoutCategorySize.tid && formWithoutCategorySize.tid.trim()) {
-      payload.tid = formWithoutCategorySize.tid.trim()
-    }
-
-    // Auto-generate name if not present (required by backend)
-    // Priority: TID -> Type + Address -> "Unnamed Property"
-    const generatedName = payload.tid ||
-      (payload.type && payload.address ? `${payload.type} at ${payload.address}` : "Unnamed Property")
-
-    payload.name = generatedName
-
-    // Log payload for debugging
-    console.log("Property save payload:", { ...payload, imageUrl: payload.imageUrl ? `${payload.imageUrl.substring(0, 50)}...` : "none", dealerId: payload.dealerId || "none" })
+    setSaving(true)
 
     try {
-      setSaving(true)
+      const formData = new FormData()
+      
+      // Add all fields to FormData
+      formData.append('type', formWithoutCategorySize.type)
+      formData.append('status', formWithoutCategorySize.status || "Active")
+      formData.append('address', formWithoutCategorySize.address)
+      
+      if (formWithoutCategorySize.location) formData.append('location', formWithoutCategorySize.location)
+      if (formWithoutCategorySize.locationId) formData.append('locationId', formWithoutCategorySize.locationId)
+      if (formWithoutCategorySize.subsidiaryOptionId) formData.append('subsidiaryOptionId', formWithoutCategorySize.subsidiaryOptionId)
+      if (formWithoutCategorySize.description) formData.append('description', formWithoutCategorySize.description)
+      
+      // Handle numeric fields - send as strings, backend will coerce
+      if (formWithoutCategorySize.totalArea) formData.append('totalArea', formWithoutCategorySize.totalArea)
+      if (formWithoutCategorySize.totalUnits) formData.append('totalUnits', formWithoutCategorySize.totalUnits)
+      if (formWithoutCategorySize.yearBuilt) formData.append('yearBuilt', formWithoutCategorySize.yearBuilt)
+      if (formWithoutCategorySize.salePrice) formData.append('salePrice', formWithoutCategorySize.salePrice)
+      
+      if (formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim()) {
+        formData.append('dealerId', formWithoutCategorySize.dealerId.trim())
+      }
+      
+      // Handle amenities
+      if (formWithoutCategorySize.amenities && formWithoutCategorySize.amenities.length > 0) {
+        formData.append('amenities', JSON.stringify(formWithoutCategorySize.amenities))
+      }
+      
+      // Handle image - if it's a URL, send as imageUrl. If we had a file object, we would append it.
+      // Current implementation uploads image separately and gives us a URL.
+      if (formWithoutCategorySize.imageUrl) {
+        formData.append('imageUrl', formWithoutCategorySize.imageUrl)
+      }
+      
+      // Only include TID if it's not empty
+      if (formWithoutCategorySize.tid && formWithoutCategorySize.tid.trim()) {
+        formData.append('tid', formWithoutCategorySize.tid.trim())
+      }
+      
+      // Generate name
+      const generatedName = formWithoutCategorySize.tid || 
+        (formWithoutCategorySize.type && formWithoutCategorySize.address 
+          ? `${formWithoutCategorySize.type} at ${formWithoutCategorySize.address}` 
+          : "Unnamed Property")
+      formData.append('name', generatedName)
+
+      // Log payload for debugging
+      console.log("Property save payload (FormData entries):", Array.from(formData.entries()))
+
       let createdPropertyId: string | null = null
 
       if (isEdit) {
-        await apiService.properties.update(String(propertyId), payload)
+        await apiService.properties.update(String(propertyId), formData)
         toast({ title: "Property updated" })
         createdPropertyId = String(propertyId)
       } else {
-        const createResponse: any = await apiService.properties.create(payload)
+        const createResponse: any = await apiService.properties.create(formData)
         const createdData = createResponse?.data?.data || createResponse?.data || createResponse
         createdPropertyId = createdData?.id || createdData?.propertyId || null
         toast({ title: "Property created" })

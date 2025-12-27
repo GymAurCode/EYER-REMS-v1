@@ -13,22 +13,8 @@ import axios from 'axios'
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
 const isDevelopment = process.env.NODE_ENV === 'development';
-const defaultBaseUrl = isDevelopment ? 'http://localhost:3001/api' : 'https://eyer-rems-v1-production-f00e.up.railway.app/api';
-// In development, prioritize localhost to avoid accidental production hits, unless specifically overridden by a LOCAL_API_URL
-const rawBaseUrl = isDevelopment
-  ? (process.env.NEXT_PUBLIC_LOCAL_API_URL || 'http://localhost:3001/api')
-  : (process.env.NEXT_PUBLIC_BACKEND_URL ? `${process.env.NEXT_PUBLIC_BACKEND_URL}/api` : defaultBaseUrl);
-// Normalize the base URL: remove trailing slashes, ensure it ends with /api (no trailing slash)
-let normalizedBaseUrl = rawBaseUrl.replace(/\/+$/, '') // Remove trailing slashes
-// Ensure the base URL includes /api
-if (!normalizedBaseUrl.endsWith('/api')) {
-  // If it doesn't end with /api, check if it's just the domain
-  if (!normalizedBaseUrl.includes('/api')) {
-    normalizedBaseUrl = `${normalizedBaseUrl}/api`
-  }
-}
-// Don't add trailing slash - axios will handle URL combination correctly
-// baseURL: http://localhost:3001/api + URL: /auth/login = http://localhost:3001/api/auth/login
+let normalizedBaseUrl = 'http://localhost:3001/api'
+export const API_BASE_URL = normalizedBaseUrl
 
 // Log API configuration in development (disabled)
 // if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
@@ -63,9 +49,6 @@ const throttleRequest = async (): Promise<void> => {
 // Create axios instance with default config
 const api = axios.create({
   baseURL: normalizedBaseUrl,
-  headers: {
-    'Content-Type': 'application/json',
-  },
   timeout: 30000, // Increased to 30 seconds for slow queries
   withCredentials: true, // Required for CORS with credentials
 })
@@ -1045,4 +1028,3 @@ export const apiService = {
 }
 
 export default api
-

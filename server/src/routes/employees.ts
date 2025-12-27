@@ -186,6 +186,13 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         error: 'Employee with this email or employee ID already exists',
       });
     }
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Foreign key constraint failed. Please check if the department code or reporting manager ID exists.',
+        details: error.meta
+      });
+    }
     res.status(500).json({
       success: false,
       error: 'Failed to create employee',
@@ -301,6 +308,13 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Employee with this email already exists',
+      });
+    }
+    if (error.code === 'P2003') {
+      return res.status(400).json({
+        success: false,
+        error: 'Foreign key constraint failed. Please check if the department code or reporting manager ID exists.',
+        details: error.meta
       });
     }
     res.status(500).json({

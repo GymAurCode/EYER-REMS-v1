@@ -15,13 +15,13 @@ WHERE documents IS NOT NULL
   AND documents->>'salePrice' != '';
 
 -- Migrate existing amenities data from Property documents JSON to amenities array
-UPDATE "Property" 
+UPDATE "Property"
 SET "amenities" = ARRAY(
-  SELECT json_array_elements_text(documents->'amenities')
+  SELECT jsonb_array_elements_text(documents->'amenities')
 )
-WHERE documents IS NOT NULL 
-  AND documents->'amenities' IS NOT NULL 
-  AND json_typeof(documents->'amenities') = 'array';
+WHERE documents IS NOT NULL
+  AND documents->'amenities' IS NOT NULL
+  AND jsonb_typeof(documents->'amenities') = 'array';
 
 -- Set empty array for properties without amenities
 UPDATE "Property" 

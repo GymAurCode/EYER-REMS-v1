@@ -71,6 +71,24 @@ async function main() {
     },
   });
 
+  // Create default departments
+  const departments = [
+    { code: 'ENG', name: 'Engineering', description: 'Software Development and Engineering' },
+    { code: 'SAL', name: 'Sales', description: 'Sales and Business Development' },
+    { code: 'MKT', name: 'Marketing', description: 'Marketing and Public Relations' },
+    { code: 'HR', name: 'Human Resources', description: 'HR and Talent Acquisition' },
+    { code: 'FIN', name: 'Finance', description: 'Finance and Accounting' },
+    { code: 'OPS', name: 'Operations', description: 'Operations and Logistics' },
+  ];
+
+  for (const dept of departments) {
+    await prisma.department.upsert({
+      where: { code: dept.code },
+      update: {},
+      create: dept,
+    });
+  }
+
   console.log('✅ Seeding completed!');
   console.log('📧 Admin credentials:');
   console.log('   Email: admin@realestate.com');

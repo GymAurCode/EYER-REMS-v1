@@ -130,6 +130,7 @@ export function CRMView() {
           return { data: [] }
         }),
         apiService.commissions.getAll(config).catch((error) => {
+          console.error("Failed to fetch commissions:", error)
           return { data: [] }
         }),
       ])
@@ -174,7 +175,6 @@ export function CRMView() {
         clientsCount: clients.length,
         dealsCount: deals.length,
         dealersCount: dealers.length,
-        commissionsCount: commissions.length,
       })
 
       const now = new Date()

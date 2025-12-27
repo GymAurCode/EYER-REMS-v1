@@ -1,6 +1,7 @@
 import express, { Response } from 'express';
 import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
+import multer from 'multer';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
@@ -12,6 +13,9 @@ import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
 import { generatePropertyCode } from '../utils/code-generator';
+
+// Configure multer for form-data handling
+const upload = multer({ storage: multer.memoryStorage() });
 
 // Helper function to check if a column exists in a table
 const columnExists = async (tableName: string, columnName: string): Promise<boolean> => {
@@ -56,31 +60,56 @@ const createPropertySchema = z.object({
   address: z.string().min(1, 'Address is required'),
   location: z.string().optional(),
   locationId: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? null : val),
+    (val) => (val === '' || val === null || val === undefined || val === 'null' || val === 'undefined' ? null : val),
     z.string().uuid().nullable().optional()
   ),
   subsidiaryOptionId: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? null : val),
+    (val) => (val === '' || val === null || val === undefined || val === 'null' || val === 'undefined' ? null : val),
     z.string().uuid().nullable().optional()
   ),
   status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
   imageUrl: z.string().optional().refine(
     (val) => {
       if (!val || val === '') return true;
-      return val.startsWith('http') || val.startsWith('/');
+      return val.startsWith('http') || val.startsWith('/') || val.startsWith('data:');
     },
     { message: 'Image URL must be a valid URL or relative path starting with /' }
   ),
   description: z.string().optional(),
-  yearBuilt: z.number().int().positive().optional(),
-  totalArea: z.number().positive().optional(),
-  totalUnits: z.number().int().nonnegative().default(0),
+  yearBuilt: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().int().positive().optional()
+  ),
+  totalArea: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().positive().optional()
+  ),
+  totalUnits: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
+    z.number().int().nonnegative().default(0)
+  ),
   dealerId: z.preprocess(
     (val) => (val === '' || val === null || val === undefined ? undefined : val),
     z.string().uuid().optional()
   ),
-  salePrice: z.number().nonnegative().optional(),
-  amenities: z.array(z.string()).optional().default([]),
+  salePrice: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().nonnegative().optional()
+  ),
+  amenities: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [val];
+        } catch {
+          return [val];
+        }
+      }
+      return val;
+    },
+    z.array(z.string()).optional().default([])
+  ),
 });
 
 const updatePropertySchema = createPropertySchema.partial();
@@ -1587,9 +1616,12 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
  * @route POST /api/properties
  * @access Private
  */
-router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
+    if ((req as any).files) {
+      logger.debug('Create property request files:', (req as any).files);
+    }
 
     // Parse and validate request body
     let data;
@@ -1880,9 +1912,16 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
  * @route PUT /api/properties/:id
  * @access Private
  */
-router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    
+    // Log request for debugging
+    logger.debug(`Update property ${id} request body:`, {
+      ...req.body,
+      imageUrl: req.body.imageUrl ? (req.body.imageUrl.substring(0, 50) + '...') : undefined
+    });
+
     const data = updatePropertySchema.parse(req.body);
 
     // Check if property exists
@@ -1964,6 +2003,9 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     return successResponse(res, property);
   } catch (error) {
     logger.error('Update property error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });

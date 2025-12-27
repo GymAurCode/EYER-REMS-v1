@@ -1,4 +1,6 @@
 import express, { Response } from 'express';
+import multer from 'multer';
+import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
@@ -8,6 +10,84 @@ import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { successResponse, errorResponse } from '../utils/error-handler';
 
 const router = (express as any).Router();
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+// Validation Schemas
+const emptyToNull = (val: unknown) => (val === '' || val === 'null' || val === 'undefined' ? null : val);
+const stringToNumber = (val: unknown) => (val === '' || val === null || val === undefined ? undefined : Number(val));
+const stringToBoolean = (val: unknown) => (val === 'true' || val === true);
+
+const createClientSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email().optional().nullable().or(z.literal('')),
+  phone: z.string().optional().nullable(),
+  company: z.string().optional().nullable(),
+  status: z.string().default('active'),
+  address: z.string().optional().nullable(),
+  cnic: z.string().optional().nullable(),
+  assignedAgentId: z.preprocess(emptyToNull, z.string().uuid().nullable().optional()),
+  assignedDealerId: z.preprocess(emptyToNull, z.string().uuid().nullable().optional()),
+  billingAddress: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  clientCategory: z.string().optional().nullable(),
+  clientType: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  propertyInterest: z.string().optional().nullable(),
+  manualUniqueId: z.string().optional().nullable(),
+  propertySubsidiary: z.string().optional().nullable(),
+  tid: z.string().optional().nullable(),
+});
+
+const createDealerSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email().optional().nullable().or(z.literal('')),
+  phone: z.string().optional().nullable(),
+  company: z.string().optional().nullable(),
+  commissionRate: z.preprocess(stringToNumber, z.number().optional().default(0)),
+  address: z.string().optional().nullable(),
+  cnic: z.string().optional().nullable(),
+  assignedRegion: z.string().optional().nullable(),
+  bankAccountNumber: z.string().optional().nullable(),
+  bankBranch: z.string().optional().nullable(),
+  bankName: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  experienceYears: z.preprocess(stringToNumber, z.number().int().optional().default(0)),
+  iban: z.string().optional().nullable(),
+  isActive: z.preprocess(stringToBoolean, z.boolean().default(true)),
+  notes: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  qualifications: z.string().optional().nullable(),
+  manualUniqueId: z.string().optional().nullable(),
+});
+
+const createLeadSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email().optional().nullable().or(z.literal('')),
+  phone: z.string().optional().nullable(),
+  source: z.string().optional().nullable(),
+  leadSourceDetails: z.string().optional().nullable(),
+  priority: z.enum(['low', 'medium', 'high', 'urgent']).default('medium'),
+  score: z.preprocess(stringToNumber, z.number().int().min(0).max(100).optional()),
+  interest: z.string().optional().nullable(),
+  interestType: z.string().optional().nullable(),
+  budget: z.string().optional().nullable(),
+  budgetMin: z.preprocess(stringToNumber, z.number().optional()),
+  budgetMax: z.preprocess(stringToNumber, z.number().optional()),
+  expectedCloseDate: z.string().datetime().optional().nullable(),
+  followUpDate: z.string().datetime().optional().nullable(),
+  assignedToUserId: z.preprocess(emptyToNull, z.string().uuid().nullable().optional()),
+  assignedDealerId: z.preprocess(emptyToNull, z.string().uuid().nullable().optional()),
+  cnic: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  manualUniqueId: z.string().optional().nullable(),
+  status: z.string().optional().default('new'),
+  notes: z.string().optional().nullable(),
+  temperature: z.enum(['cold', 'warm', 'hot']).optional().default('cold'),
+});
 
 // Leads
 router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
@@ -36,9 +116,11 @@ router.get('/leads', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/leads', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
-    const { manualUniqueId, ...leadData } = req.body;
+    logger.debug('Create lead request body:', JSON.stringify(req.body, null, 2));
+    const parsedData = createLeadSchema.parse(req.body);
+    const { manualUniqueId, ...leadData } = parsedData;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
@@ -78,6 +160,10 @@ router.post('/leads', authenticate, async (req: AuthRequest, res: Response) => {
 
     res.status(201).json(lead);
   } catch (error) {
+    logger.error('Create lead error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });
@@ -178,11 +264,26 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
   }
 });
 
-router.put('/leads/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/leads/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
+    logger.debug(`Update lead ${req.params.id} request body:`, JSON.stringify(req.body, null, 2));
+    const parsedData = createLeadSchema.partial().parse(req.body);
+    const { manualUniqueId, ...updateData } = parsedData;
+
+    // Validate manual unique ID if provided and changed
+    if (manualUniqueId) {
+      const currentLead = await prisma.lead.findUnique({ where: { id: req.params.id } });
+      if (currentLead && currentLead.manualUniqueId !== manualUniqueId) {
+        await validateManualUniqueId(manualUniqueId, 'lead');
+      }
+    }
+
     const lead = await prisma.lead.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: {
+        ...updateData,
+        manualUniqueId: manualUniqueId === undefined ? undefined : (manualUniqueId?.trim() || null),
+      },
     });
 
     await createActivity({
@@ -202,6 +303,10 @@ router.put('/leads/:id', authenticate, async (req: AuthRequest, res: Response) =
 
     res.json(lead);
   } catch (error) {
+    logger.error('Update lead error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });
@@ -328,9 +433,16 @@ router.get('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
   }
 });
 
-router.post('/clients', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/clients', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
-    const clientData = req.body;
+    logger.debug('Create client request body:', JSON.stringify(req.body, null, 2));
+    const parsedData = createClientSchema.parse(req.body);
+    const { manualUniqueId, ...clientData } = parsedData;
+
+    // Validate manual unique ID if provided (optional, consistent with other routes)
+    if (manualUniqueId) {
+      await validateManualUniqueId(manualUniqueId, 'cli');
+    }
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
@@ -346,6 +458,7 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
       return await tx.client.create({
         data: {
           ...clientData,
+          manualUniqueId: manualUniqueId?.trim() || null,
           clientCode,
           srNo: nextSrNo,
           clientNo: nextClientNo,
@@ -373,12 +486,17 @@ router.post('/clients', authenticate, async (req: AuthRequest, res: Response) =>
 
     res.status(201).json(client);
   } catch (error) {
+    logger.error('Create client error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });
 
-router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/clients/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
+    logger.debug('Update client request body:', JSON.stringify(req.body, null, 2));
     const oldClient = await prisma.client.findUnique({
       where: { id: req.params.id },
     });
@@ -387,15 +505,28 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
       return res.status(404).json({ error: 'Client not found' });
     }
 
+    const parsedData = createClientSchema.partial().parse(req.body);
+
     // TID cannot be changed after creation
-    if (req.body.tid !== undefined && req.body.tid !== oldClient.tid) {
+    if (parsedData.tid !== undefined && parsedData.tid !== oldClient.tid) {
       return res.status(400).json({ error: 'TID cannot be changed after client creation' });
     }
-    const { tid, ...updateData } = req.body;
+    
+    const { tid, manualUniqueId, ...updateData } = parsedData;
+    
+    // Validate manual unique ID if changed
+    if (manualUniqueId !== undefined && manualUniqueId !== oldClient.manualUniqueId) {
+       if (manualUniqueId) {
+          await validateManualUniqueId(manualUniqueId, 'cli');
+       }
+    }
 
     const client = await prisma.client.update({
       where: { id: req.params.id },
-      data: updateData,
+      data: {
+        ...updateData,
+        manualUniqueId: manualUniqueId === undefined ? undefined : (manualUniqueId?.trim() || null),
+      },
     });
 
     await createActivity({
@@ -415,6 +546,10 @@ router.put('/clients/:id', authenticate, async (req: AuthRequest, res: Response)
 
     res.json(client);
   } catch (error) {
+    logger.error('Update client error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });
@@ -510,9 +645,11 @@ router.get('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
   }
 });
 
-router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
+router.post('/dealers', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
-    const { manualUniqueId, ...dealerData } = req.body;
+    logger.debug('Create dealer request body:', JSON.stringify(req.body, null, 2));
+    const parsedData = createDealerSchema.parse(req.body);
+    const { manualUniqueId, ...dealerData } = parsedData;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
@@ -552,15 +689,34 @@ router.post('/dealers', authenticate, async (req: AuthRequest, res: Response) =>
 
     res.status(201).json(dealer);
   } catch (error) {
+    logger.error('Create dealer error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });
 
-router.put('/dealers/:id', authenticate, async (req: AuthRequest, res: Response) => {
+router.put('/dealers/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
+    logger.debug('Update dealer request body:', JSON.stringify(req.body, null, 2));
+    const parsedData = createDealerSchema.partial().parse(req.body);
+    const { manualUniqueId, ...updateData } = parsedData;
+
+    // Validate manual unique ID if provided and changed
+    if (manualUniqueId) {
+      const currentDealer = await prisma.dealer.findUnique({ where: { id: req.params.id } });
+      if (currentDealer && currentDealer.manualUniqueId !== manualUniqueId) {
+        await validateManualUniqueId(manualUniqueId, 'deal');
+      }
+    }
+
     const dealer = await prisma.dealer.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: {
+        ...updateData,
+        manualUniqueId: manualUniqueId === undefined ? undefined : (manualUniqueId?.trim() || null),
+      },
     });
 
     await createActivity({
@@ -580,6 +736,10 @@ router.put('/dealers/:id', authenticate, async (req: AuthRequest, res: Response)
 
     res.json(dealer);
   } catch (error) {
+    logger.error('Update dealer error:', error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
     return errorResponse(res, error);
   }
 });

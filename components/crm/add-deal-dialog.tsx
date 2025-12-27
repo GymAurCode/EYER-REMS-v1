@@ -130,6 +130,7 @@ export function AddDealDialog({
   const { options: statusOverrides } = useDropdownOptions("deal.status")
   const stageOptions = stageOverrides.length ? stageOverrides : FALLBACK_STAGE_OPTIONS
   const statusOptions = statusOverrides.length ? statusOverrides : FALLBACK_STATUS_OPTIONS
+  const selectedClient = clients.find((c) => c.id === formData.clientId)
   const selectedProperty = properties.find((p) => p.id === formData.propertyId)
 
   useEffect(() => {
@@ -504,7 +505,7 @@ export function AddDealDialog({
                 disabled={loadingClients}
               >
                 <SelectTrigger className={errors.clientId ? "border-destructive" : ""}>
-                  <SelectValue placeholder={loadingClients ? "Loading clients..." : "Select client"} />
+                  <span>{selectedClient?.name || (loadingClients ? "Loading clients..." : "Select client")}</span>
                 </SelectTrigger>
                 <SelectContent>
                   {clients.length === 0 && !loadingClients ? (

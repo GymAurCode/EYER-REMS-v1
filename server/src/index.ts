@@ -122,7 +122,7 @@ const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NOD
 
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDevelopment ? 1000 : 100, // Higher limit in development (1000) vs production (100)
+  max: isDevelopment ? 5000 : 100, // Higher limit in development (5000) vs production (100)
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
@@ -144,8 +144,8 @@ app.use('/api/', limiter);
 
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({
-  windowMs: 5 * 60 * 1000,  // 5 minutes
-  max: isDevelopment ? 100 : 50,
+  windowMs: 10 * 60 * 1000,  // 10 minutes
+  max: isDevelopment ? 300 : 50,
   message: 'Too many authentication attempts, please try again later.',
   skipSuccessfulRequests: true,
   // Custom key generator that combines IP with user agent for better security
