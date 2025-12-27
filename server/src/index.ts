@@ -1,4 +1,5 @@
-import express, { Request, Response, NextFunction, Express } from 'express';
+import express, { Request, Response, NextFunction } from 'express';
+import type { Express } from 'express-serve-static-core';
 import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
