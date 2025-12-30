@@ -25,7 +25,7 @@ const upload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'), false);
+      cb(new Error('Only image files are allowed'));
     }
   },
 });
@@ -522,7 +522,7 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
     }
     
     const payload = updateSubsidiarySchema.parse(body);
-    let logoPath: string | null | undefined = undefined;
+    let logoPath: string | undefined = undefined;
 
     const existing = await prisma.propertySubsidiary.findUnique({
       where: { id },
@@ -621,7 +621,7 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
       entityType: 'property_subsidiary',
       entityId: id,
       action: 'update',
-      description: `Subsidiary updated with ${payload.options?.length ?? 0} options`,
+      description: `Subsidiary updated with ${payload.options.length} options`,
       oldValues: existing,
       newValues: result,
       userId: req.user?.id,

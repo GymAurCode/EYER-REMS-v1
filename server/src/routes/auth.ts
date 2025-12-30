@@ -534,27 +534,5 @@ router.post('/logout', authenticate, async (req: AuthRequest, res: Response) => 
   }
 });
 
-// GET /csrf-token - Generate a new CSRF token for the current session
-router.get('/csrf-token', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const deviceId = req.headers['x-device-id'] as string || 'unknown';
-    
-    // Use existing session ID from header/cookie if available, otherwise generate new
-    const sessionId = (req.headers['x-session-id'] as string) || 
-                      req.cookies?.sessionId || 
-                      crypto.randomBytes(16).toString('hex');
-
-    const csrfToken = await generateCsrfToken(sessionId, deviceId, req.user!.id);
-
-    return res.json({
-      csrfToken,
-      sessionId
-    });
-  } catch (error) {
-    logger.error('CSRF token generation error:', error);
-    res.status(500).json({ error: 'Failed to generate CSRF token' });
-  }
-});
-
 export default router;
 

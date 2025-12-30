@@ -183,10 +183,7 @@ export function SubsidiaryManager() {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'X-Session-Id': localStorage.getItem('sessionId') || '',
-            'x-csrf-token': localStorage.getItem('csrfToken') || '',
           },
-          credentials: 'include', // Ensure cookies are sent
           body: formData,
         })
 
@@ -276,10 +273,7 @@ export function SubsidiaryManager() {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
-            'X-Session-Id': localStorage.getItem('sessionId') || '',
-            'x-csrf-token': localStorage.getItem('csrfToken') || '',
           },
-          credentials: 'include', // Ensure cookies are sent
           body: formData,
         })
 

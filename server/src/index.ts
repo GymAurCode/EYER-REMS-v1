@@ -3,7 +3,6 @@ import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
-import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { validateEnv } from './utils/env-validation';
 import authRoutes from './routes/auth';
@@ -118,9 +117,6 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false, // Allow embedding for development
   crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
 }));
-
-// Cookie parser - Required for CSRF protection fallback
-app.use(cookieParser());
 
 // SECURITY: Rate limiting - More lenient in development
 const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
