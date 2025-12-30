@@ -1,13 +1,34 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
+import multer from 'multer';
+import fs from 'fs';
+import path from 'path';
 import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';
 import { errorResponse, successResponse } from '../utils/error-handler';
 import { getLocationTree } from '../services/location';
 import { LocationTreeNode } from '../services/location';
+import { saveFileSecurely, validateFileUpload, scanFileForViruses } from '../utils/file-security';
+import logger from '../utils/logger';
 
 const router = (express as any).Router();
+
+// Configure multer for logo uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+  },
+  fileFilter: (_req, file, cb) => {
+    // Accept only image files
+    if (file.mimetype.startsWith('image/')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only image files are allowed'), false);
+    }
+  },
+});
 
 // Helper function to build full path for a location
 const buildLocationPath = (nodes: LocationTreeNode[], targetId: string): string[] => {
@@ -343,12 +364,24 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 const createSubsidiarySchema = z.object({
   locationId: z.string().uuid('Location ID must be a valid UUID'),
   options: z.array(z.string().min(1, 'Option name cannot be empty')).min(1, 'At least one option is required'),
+  logoPath: z.string().optional(), // Optional logo path if uploaded via base64
 });
 
-// POST create subsidiary
-router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+// POST create subsidiary with logo upload support
+router.post('/', authenticate, requireAdmin, upload.single('logo'), async (req: AuthRequest, res: Response) => {
   try {
-    const payload = createSubsidiarySchema.parse(req.body);
+    // Parse JSON body if sent as form-data
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        // If parsing fails, use as is
+      }
+    }
+    
+    const payload = createSubsidiarySchema.parse(body);
+    let logoPath: string | null = null;
 
     // Check if location exists and is a leaf
     const location = await prisma.location.findUnique({
@@ -377,12 +410,57 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
       return errorResponse(res, 'Subsidiary already exists for this location. Please update the existing one instead.', 400);
     }
 
+    // Handle logo upload (from multer file or base64)
+    if (req.file) {
+      // Logo uploaded via multer (form-data)
+      const validation = await validateFileUpload(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname
+      );
+
+      if (!validation.valid) {
+        return errorResponse(res, validation.error || 'Invalid logo file', 400);
+      }
+
+      // Scan for viruses
+      const tempPath = path.join(process.cwd(), 'public', 'uploads', `temp-${Date.now()}-${req.file.originalname}`);
+      fs.writeFileSync(tempPath, req.file.buffer);
+      const scanResult = await scanFileForViruses(tempPath);
+      
+      if (!scanResult.clean) {
+        fs.unlinkSync(tempPath);
+        return errorResponse(res, 'Logo file failed virus scan', 400);
+      }
+
+      // Save file securely
+      const { relativePath } = await saveFileSecurely(
+        req.file.buffer,
+        req.file.originalname,
+        'logos',
+        req.user!.id
+      );
+      
+      logoPath = relativePath;
+      
+      // Clean up temp file
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    } else if (payload.logoPath) {
+      // Logo path provided directly (from base64 upload via /api/upload endpoint)
+      logoPath = payload.logoPath;
+    }
+
     // Create subsidiary with options in a transaction
     const result = await prisma.$transaction(async (tx) => {
       const subsidiary = await tx.propertySubsidiary.create({
         data: {
           locationId: payload.locationId,
           name: location.name, // Store location name for quick reference
+          logoPath: logoPath,
           isActive: true,
         },
       });
@@ -424,14 +502,27 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
 });
 
 const updateSubsidiarySchema = z.object({
-  options: z.array(z.string().min(1, 'Option name cannot be empty')).min(1, 'At least one option is required'),
+  options: z.array(z.string().min(1, 'Option name cannot be empty')).min(1, 'At least one option is required').optional(),
+  logoPath: z.string().optional(), // Optional logo path update
 });
 
-// PUT update subsidiary (only options can be updated)
-router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+// PUT update subsidiary (options and logo can be updated)
+router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const payload = updateSubsidiarySchema.parse(req.body);
+    
+    // Parse JSON body if sent as form-data
+    let body = req.body;
+    if (typeof body === 'string') {
+      try {
+        body = JSON.parse(body);
+      } catch {
+        // If parsing fails, use as is
+      }
+    }
+    
+    const payload = updateSubsidiarySchema.parse(body);
+    let logoPath: string | null | undefined = undefined;
 
     const existing = await prisma.propertySubsidiary.findUnique({
       where: { id },
@@ -442,34 +533,95 @@ router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Res
       return errorResponse(res, 'Subsidiary not found', 404);
     }
 
-    // Update in transaction
-    const result = await prisma.$transaction(async (tx) => {
-      // Delete existing options
-      await tx.subsidiaryOption.deleteMany({
-        where: { propertySubsidiaryId: id },
-      });
-
-      // Create new options
-      const options = await Promise.all(
-        payload.options.map((optionName, index) =>
-          tx.subsidiaryOption.create({
-            data: {
-              propertySubsidiaryId: id,
-              name: optionName.trim(),
-              sortOrder: index,
-            },
-          })
-        )
+    // Handle logo upload if provided
+    if (req.file) {
+      // Logo uploaded via multer (form-data)
+      const validation = await validateFileUpload(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname
       );
 
-      return { subsidiary: existing, options };
+      if (!validation.valid) {
+        return errorResponse(res, validation.error || 'Invalid logo file', 400);
+      }
+
+      // Scan for viruses
+      const tempPath = path.join(process.cwd(), 'public', 'uploads', `temp-${Date.now()}-${req.file.originalname}`);
+      fs.writeFileSync(tempPath, req.file.buffer);
+      const scanResult = await scanFileForViruses(tempPath);
+      
+      if (!scanResult.clean) {
+        fs.unlinkSync(tempPath);
+        return errorResponse(res, 'Logo file failed virus scan', 400);
+      }
+
+      // Save file securely
+      const { relativePath } = await saveFileSecurely(
+        req.file.buffer,
+        req.file.originalname,
+        'logos',
+        req.user!.id
+      );
+      
+      logoPath = relativePath;
+      
+      // Clean up temp file
+      try {
+        fs.unlinkSync(tempPath);
+      } catch {
+        // Ignore cleanup errors
+      }
+    } else if (payload.logoPath !== undefined) {
+      // Logo path provided directly (from base64 upload via /api/upload endpoint)
+      logoPath = payload.logoPath || null;
+    }
+
+    // Update in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Update logo if provided
+      const updateData: any = {};
+      if (logoPath !== undefined) {
+        updateData.logoPath = logoPath;
+      }
+
+      // Update options if provided
+      if (payload.options && payload.options.length > 0) {
+        // Delete existing options
+        await tx.subsidiaryOption.deleteMany({
+          where: { propertySubsidiaryId: id },
+        });
+
+        // Create new options
+        const options = await Promise.all(
+          payload.options.map((optionName, index) =>
+            tx.subsidiaryOption.create({
+              data: {
+                propertySubsidiaryId: id,
+                name: optionName.trim(),
+                sortOrder: index,
+              },
+            })
+          )
+        );
+        updateData.options = options;
+      }
+
+      // Update subsidiary
+      const updated = await tx.propertySubsidiary.update({
+        where: { id },
+        data: updateData,
+        include: { options: { orderBy: { sortOrder: 'asc' } } },
+      });
+
+      return { subsidiary: updated, options: updated.options };
     });
 
     await createAuditLog({
       entityType: 'property_subsidiary',
       entityId: id,
       action: 'update',
-      description: `Subsidiary updated with ${payload.options.length} options`,
+      description: `Subsidiary updated with ${payload.options?.length ?? 0} options`,
       oldValues: existing,
       newValues: result,
       userId: req.user?.id,

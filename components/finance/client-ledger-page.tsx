@@ -152,12 +152,12 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
             </div>
             <div>
               <Label>Filter by Property</Label>
-              <Select value={selectedPropertyId} onValueChange={setSelectedPropertyId}>
+              <Select value={selectedPropertyId || "all"} onValueChange={(val) => setSelectedPropertyId(val === "all" ? "" : val)}>
                 <SelectTrigger>
                   <SelectValue placeholder="All Properties" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Properties</SelectItem>
+                  <SelectItem value="all">All Properties</SelectItem>
                   {properties.map((prop) => (
                     <SelectItem key={prop.id} value={prop.id}>
                       {prop.name}

@@ -4,6 +4,7 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { syncInvoiceToFinanceLedger, updateTenantLedger, generateMonthlyInvoices, syncCommissionToFinanceLedger } from '../services/workflows';
 import { getOverdueRentAlerts } from '../services/tenant-alerts';
+import { AccountValidationService } from '../services/account-validation-service';
 import logger from '../utils/logger';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { successResponse } from '../utils/error-handler';
@@ -103,10 +104,17 @@ const sumLines = (lines: { debit?: number; credit?: number }[]): { debit: number
 // -------------------- Accounts (Chart of Accounts) --------------------
 router.get('/accounts', authenticate, async (_req: AuthRequest, res: Response) => {
   try {
-    // Fetch all accounts
+    // Fetch all accounts with parent and children relationships
     const accounts = await prisma.account.findMany({
       orderBy: { code: 'asc' },
-      where: { isActive: true }
+      where: { isActive: true },
+      include: {
+        parent: true,
+        children: {
+          where: { isActive: true },
+          orderBy: { code: 'asc' }
+        }
+      }
     });
 
     // Calculate balances for each account from ledger entries using aggregation for better performance
@@ -191,13 +199,56 @@ router.get('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
 
 router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { code, name, type, description } = req.body;
+    const { 
+      code, 
+      name, 
+      type, 
+      description, 
+      parentId, 
+      isPostable, 
+      cashFlowCategory 
+    } = req.body;
+    
     if (!code || !name || !type) {
       return res.status(400).json({ error: 'code, name and type are required' });
     }
+
+    // Validate parentId if provided
+    if (parentId) {
+      const parentAccount = await prisma.account.findUnique({
+        where: { id: parentId }
+      });
+      if (!parentAccount) {
+        return res.status(400).json({ error: 'Parent account not found' });
+      }
+      // Ensure child account type matches parent type
+      if (parentAccount.type !== type) {
+        return res.status(400).json({ 
+          error: 'Child account type must match parent account type' 
+        });
+      }
+    }
+
+    const accountData: any = {
+      code,
+      name,
+      type,
+      description: description || null,
+      isPostable: isPostable !== undefined ? Boolean(isPostable) : true,
+    };
+
+    if (parentId) {
+      accountData.parentId = parentId;
+    }
+
+    if (cashFlowCategory) {
+      accountData.cashFlowCategory = cashFlowCategory;
+    }
+
     const item = await prisma.account.create({
-      data: { code, name, type, description: description || null },
+      data: accountData,
     });
+    
     res.status(201).json(item);
   } catch (error) {
     logger.error('Create account error:', error);
@@ -491,6 +542,8 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
           debit: totalAmount,
           credit: 0,
           description: req.body.debitDescription || 'Debit',
+          propertyId: assignToPropertyId || propertyId || null,
+          unitId: req.body.unitId || null,
         });
       }
 
@@ -500,7 +553,14 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
           debit: 0,
           credit: totalAmount,
           description: req.body.creditDescription || 'Credit',
+          propertyId: assignToPropertyId || propertyId || null,
+          unitId: req.body.unitId || null,
         });
+      }
+
+      // Validate journal entry before creating
+      if (journalLines.length > 0) {
+        await AccountValidationService.validateJournalEntry(journalLines);
       }
 
       // Only create journal entry if we have at least one line
@@ -516,7 +576,7 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
             status: 'posted',
             preparedByUserId: req.user?.id || null,
             lines: {
-              create: journalLines,
+              create: journalLines.map(({ propertyId, unitId, ...line }) => line),
             },
           },
         });
@@ -1740,6 +1800,8 @@ router.post('/journals', authenticate, async (req: AuthRequest, res: Response) =
       debit: Number(line.debit || 0),
       credit: Number(line.credit || 0),
       description: line.description || null,
+      propertyId: line.propertyId || null,
+      unitId: line.unitId || null,
     }));
 
     if (normalizedLines.some((line) => !line.accountId)) {
@@ -1750,10 +1812,8 @@ router.post('/journals', authenticate, async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'Each line must include a debit or credit amount greater than zero' });
     }
 
-    const totals = sumLines(normalizedLines);
-    if (Number(totals.debit.toFixed(2)) !== Number(totals.credit.toFixed(2))) {
-      return res.status(400).json({ error: 'Journal entry must balance (total debit equals total credit)' });
-    }
+    // Validate journal entry using comprehensive validation service
+    await AccountValidationService.validateJournalEntry(normalizedLines);
 
     const entryNumber = generateDocumentCode('JV');
     const entry = await prisma.journalEntry.create({
@@ -1768,7 +1828,7 @@ router.post('/journals', authenticate, async (req: AuthRequest, res: Response) =
         preparedByUserId: preparedByUserId || req.user?.id || null,
         approvedByUserId: approvedByUserId || null,
         lines: {
-          create: normalizedLines,
+          create: normalizedLines.map(({ propertyId, unitId, ...line }) => line),
         },
       },
       include: { lines: true },

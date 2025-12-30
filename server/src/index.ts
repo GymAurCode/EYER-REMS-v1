@@ -3,6 +3,7 @@ import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
 import rateLimit from 'express-rate-limit';
 import { validateEnv } from './utils/env-validation';
 import authRoutes from './routes/auth';
@@ -33,11 +34,13 @@ import propertiesEnhancedRoutes from './routes/properties-enhanced';
 import financeEnhancedRoutes from './routes/finance-enhanced';
 import crmEnhancedRoutes from './routes/crm-enhanced';
 import financeReportsRoutes from './routes/finance-reports';
+import financialReportsRoutes from './routes/financial-reports';
 import locationRoutes from './routes/locations';
 import advancedOptionsRoutes from './routes/advanced-options';
 import secureFilesRoutes from './routes/secure-files';
 import recycleBinRoutes from './routes/recycle-bin';
 import subsidiariesRoutes from './routes/subsidiaries';
+import accountsRoutes from './routes/accounts';
 import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
@@ -115,6 +118,9 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false, // Allow embedding for development
   crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
 }));
+
+// Cookie parser - Required for CSRF protection fallback
+app.use(cookieParser());
 
 // SECURITY: Rate limiting - More lenient in development
 const isDevelopment = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
@@ -220,6 +226,8 @@ app.use('/api/crm', crmRoutes);
 app.use('/api/finance', financeRoutes);
 app.use('/api/finance-enhanced', financeEnhancedRoutes);
 app.use('/api/finance-reports', financeReportsRoutes);
+app.use('/api/financial-reports', financialReportsRoutes);
+app.use('/api/accounts', accountsRoutes);
 app.use('/api/properties-enhanced', propertiesEnhancedRoutes);
 app.use('/api/crm-enhanced', crmEnhancedRoutes);
 app.use('/api/advanced-options', advancedOptionsRoutes);

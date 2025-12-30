@@ -60,7 +60,7 @@ api.interceptors.request.use(
       config.url = `/${config.url}`
     }
 
-    // Only access sessionStorage on client-side to avoid hydration issues
+    // Only access localStorage on client-side to avoid hydration issues
     if (typeof window === 'undefined') {
       return config
     }
@@ -78,7 +78,7 @@ api.interceptors.request.use(
     }
 
     // Update last activity timestamp (for activity tracking)
-    sessionStorage.setItem('lastActivity', Date.now().toString())
+    localStorage.setItem('lastActivity', Date.now().toString())
 
     // Add auth token if available (from localStorage for persistence)
     const token = localStorage.getItem('token')
@@ -90,7 +90,7 @@ api.interceptors.request.use(
     }
 
     // Add deviceId header for session isolation
-    const deviceId = sessionStorage.getItem('deviceId')
+    const deviceId = localStorage.getItem('deviceId')
     if (deviceId && config.headers) {
       config.headers['X-Device-Id'] = deviceId
     }
@@ -98,8 +98,8 @@ api.interceptors.request.use(
     // Add CSRF token and session ID for state-changing requests
     const method = config.method?.toUpperCase()
     if (method && ['POST', 'PUT', 'DELETE', 'PATCH'].includes(method)) {
-      const csrfToken = sessionStorage.getItem('csrfToken')
-      const sessionId = sessionStorage.getItem('sessionId')
+      const csrfToken = localStorage.getItem('csrfToken')
+      const sessionId = localStorage.getItem('sessionId')
 
       if (csrfToken && config.headers) {
         config.headers['x-csrf-token'] = csrfToken
@@ -133,7 +133,7 @@ api.interceptors.response.use(
 
     // Update last activity on successful response
     if (typeof window !== 'undefined') {
-      sessionStorage.setItem('lastActivity', Date.now().toString())
+      localStorage.setItem('lastActivity', Date.now().toString())
 
       // Update CSRF token and session ID if provided in response
       const responseData = response.data as any
@@ -141,11 +141,11 @@ api.interceptors.response.use(
       const sessionId = response.headers['x-session-id'] || responseData?.sessionId
 
       if (csrfToken) {
-        sessionStorage.setItem('csrfToken', csrfToken)
+        localStorage.setItem('csrfToken', csrfToken)
       }
 
       if (sessionId) {
-        sessionStorage.setItem('sessionId', sessionId)
+        localStorage.setItem('sessionId', sessionId)
       }
 
       // Store refresh token from login responses
@@ -266,11 +266,11 @@ api.interceptors.response.use(
             }
 
             if (csrfToken) {
-              sessionStorage.setItem('csrfToken', csrfToken)
+              localStorage.setItem('csrfToken', csrfToken)
             }
 
             if (sessionId) {
-              sessionStorage.setItem('sessionId', sessionId)
+              localStorage.setItem('sessionId', sessionId)
             }
 
             // Retry the original request with new token
@@ -281,10 +281,10 @@ api.interceptors.response.use(
             localStorage.removeItem('refreshToken')
             localStorage.removeItem('erp-user')
             localStorage.removeItem('loginTime')
-            sessionStorage.removeItem('deviceId')
-            sessionStorage.removeItem('csrfToken')
-            sessionStorage.removeItem('sessionId')
-            sessionStorage.removeItem('lastActivity')
+            localStorage.removeItem('deviceId')
+            localStorage.removeItem('csrfToken')
+            localStorage.removeItem('sessionId')
+            localStorage.removeItem('lastActivity')
 
             // Don't redirect if already on a login page
             const currentPath = window.location.pathname
@@ -346,10 +346,10 @@ api.interceptors.response.use(
           localStorage.removeItem('refreshToken')
           localStorage.removeItem('erp-user')
           localStorage.removeItem('loginTime')
-          sessionStorage.removeItem('deviceId')
-          sessionStorage.removeItem('csrfToken')
-          sessionStorage.removeItem('sessionId')
-          sessionStorage.removeItem('lastActivity')
+          localStorage.removeItem('deviceId')
+          localStorage.removeItem('csrfToken')
+          localStorage.removeItem('sessionId')
+          localStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
 
@@ -371,8 +371,8 @@ api.interceptors.response.use(
               localStorage.removeItem('erp-user')
               localStorage.removeItem('loginTime')
               sessionStorage.removeItem('deviceId')
-              sessionStorage.removeItem('csrfToken')
-              sessionStorage.removeItem('sessionId')
+              localStorage.removeItem('csrfToken')
+              localStorage.removeItem('sessionId')
               sessionStorage.removeItem('lastActivity')
               window.location.href = '/roles/login'
               return Promise.reject(error)
@@ -387,8 +387,8 @@ api.interceptors.response.use(
         localStorage.removeItem('erp-user')
         localStorage.removeItem('loginTime')
         sessionStorage.removeItem('deviceId')
-        sessionStorage.removeItem('csrfToken')
-        sessionStorage.removeItem('sessionId')
+        localStorage.removeItem('csrfToken')
+        localStorage.removeItem('sessionId')
         sessionStorage.removeItem('lastActivity')
         window.location.href = '/login'
       }
@@ -399,8 +399,8 @@ api.interceptors.response.use(
         error.response?.data?.message?.includes('CSRF'))) {
       if (typeof window !== 'undefined') {
         // Clear CSRF token to force regeneration on next request
-        sessionStorage.removeItem('csrfToken')
-        sessionStorage.removeItem('sessionId')
+        localStorage.removeItem('csrfToken')
+        localStorage.removeItem('sessionId')
 
         // Don't redirect - let the user retry the action
         // The next request will get a new CSRF token from the server
@@ -421,8 +421,8 @@ api.interceptors.response.use(
           localStorage.removeItem('erp-user')
           localStorage.removeItem('loginTime')
           sessionStorage.removeItem('deviceId')
-          sessionStorage.removeItem('csrfToken')
-          sessionStorage.removeItem('sessionId')
+          localStorage.removeItem('csrfToken')
+          localStorage.removeItem('sessionId')
           sessionStorage.removeItem('lastActivity')
           return Promise.reject(error)
         }
@@ -437,10 +437,10 @@ api.interceptors.response.use(
               localStorage.removeItem('refreshToken')
               localStorage.removeItem('erp-user')
               localStorage.removeItem('loginTime')
-              sessionStorage.removeItem('deviceId')
-              sessionStorage.removeItem('csrfToken')
-              sessionStorage.removeItem('sessionId')
-              sessionStorage.removeItem('lastActivity')
+              localStorage.removeItem('deviceId')
+              localStorage.removeItem('csrfToken')
+              localStorage.removeItem('sessionId')
+              localStorage.removeItem('lastActivity')
               window.location.href = '/roles/login'
               return Promise.reject(error)
             }
@@ -453,10 +453,10 @@ api.interceptors.response.use(
         localStorage.removeItem('refreshToken')
         localStorage.removeItem('erp-user')
         localStorage.removeItem('loginTime')
-        sessionStorage.removeItem('deviceId')
-        sessionStorage.removeItem('csrfToken')
-        sessionStorage.removeItem('sessionId')
-        sessionStorage.removeItem('lastActivity')
+        localStorage.removeItem('deviceId')
+        localStorage.removeItem('csrfToken')
+        localStorage.removeItem('sessionId')
+        localStorage.removeItem('lastActivity')
         window.location.href = '/login'
       }
     }
@@ -797,11 +797,27 @@ export const apiService = {
 
   // Finance - Accounts (Chart of Accounts)
   accounts: {
-    getAll: () => api.get('/finance/accounts'),
-    getById: (id: string) => api.get(`/finance/accounts/${id}`),
-    create: (data: any) => api.post('/finance/accounts', data),
-    update: (id: string, data: any) => api.put(`/finance/accounts/${id}`, data),
-    delete: (id: string) => api.delete(`/finance/accounts/${id}`),
+    getAll: (params?: { tree?: string; search?: string; type?: string; level?: string; accountType?: string; postable?: string; trustOnly?: string }) => {
+      const queryParams = new URLSearchParams()
+      if (params?.tree) queryParams.append('tree', params.tree)
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.type) queryParams.append('type', params.type)
+      if (params?.level) queryParams.append('level', params.level)
+      if (params?.accountType) queryParams.append('accountType', params.accountType)
+      if (params?.postable) queryParams.append('postable', params.postable)
+      if (params?.trustOnly) queryParams.append('trustOnly', params.trustOnly)
+      const queryString = queryParams.toString()
+      return api.get(`/accounts${queryString ? `?${queryString}` : ''}`)
+    },
+    getById: (id: string) => api.get(`/accounts/${id}`),
+    create: (data: any) => api.post('/accounts', data),
+    update: (id: string, data: any) => api.put(`/accounts/${id}`, data),
+    delete: (id: string) => api.delete(`/accounts/${id}`),
+    search: (q: string, limit?: number) => {
+      const queryParams = new URLSearchParams({ q })
+      if (limit) queryParams.append('limit', limit.toString())
+      return api.get(`/accounts/search?${queryParams.toString()}`)
+    },
   },
 
   transactionCategories: {

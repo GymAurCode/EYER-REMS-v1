@@ -242,14 +242,14 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
               <div className="space-y-2">
                 <Label htmlFor="invoice">Invoice (Optional)</Label>
                 <Select
-                  value={paymentForm.invoiceId}
-                  onValueChange={(value) => setPaymentForm({ ...paymentForm, invoiceId: value })}
+                  value={paymentForm.invoiceId || "none"}
+                  onValueChange={(value) => setPaymentForm({ ...paymentForm, invoiceId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select invoice" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {invoices
                       .filter((inv: any) => inv.status !== "paid" && inv.status !== "Paid")
                       .map((inv: any) => (

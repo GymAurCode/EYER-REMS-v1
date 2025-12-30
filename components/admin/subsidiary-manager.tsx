@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Loader2, PlusCircle, Edit3, Trash2, RefreshCw, Building2, X } from "lucide-react"
+import { Loader2, PlusCircle, Edit3, Trash2, RefreshCw, Building2, X, Upload, Image as ImageIcon } from "lucide-react"
 
 type LocationOption = {
   id: string
@@ -26,6 +26,7 @@ type Subsidiary = {
   id: string
   locationId: string
   name: string
+  logoPath?: string | null
   locationPath: string
   location: {
     id: string
@@ -44,6 +45,10 @@ export function SubsidiaryManager() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editingOptions, setEditingOptions] = useState<string[]>([])
   const [busy, setBusy] = useState(false)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
+  const [editingLogoFile, setEditingLogoFile] = useState<File | null>(null)
+  const [editingLogoPreview, setEditingLogoPreview] = useState<string | null>(null)
 
   const loadData = async () => {
     setLoading(true)
@@ -110,6 +115,46 @@ export function SubsidiaryManager() {
     setSubsidiaryOptions(updated)
   }
 
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Logo file too large", description: "Maximum size is 5MB", variant: "destructive" })
+        return
+      }
+      if (!file.type.startsWith('image/')) {
+        toast({ title: "Invalid file type", description: "Please select an image file", variant: "destructive" })
+        return
+      }
+      setLogoFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
+  const handleEditingLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: "Logo file too large", description: "Maximum size is 5MB", variant: "destructive" })
+        return
+      }
+      if (!file.type.startsWith('image/')) {
+        toast({ title: "Invalid file type", description: "Please select an image file", variant: "destructive" })
+        return
+      }
+      setEditingLogoFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setEditingLogoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const handleAddSubsidiary = async () => {
     if (!selectedLocationId) {
       toast({ title: "Location is required", variant: "destructive" })
@@ -124,6 +169,43 @@ export function SubsidiaryManager() {
 
     setBusy(true)
     try {
+      let logoPath: string | undefined = undefined
+
+      // Upload logo if provided
+      if (logoFile) {
+        const formData = new FormData()
+        formData.append('logo', logoFile)
+        formData.append('locationId', selectedLocationId)
+        formData.append('options', JSON.stringify(validOptions))
+
+        // Use FormData for file upload
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'X-Session-Id': localStorage.getItem('sessionId') || '',
+            'x-csrf-token': localStorage.getItem('csrfToken') || '',
+          },
+          credentials: 'include', // Ensure cookies are sent
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to create subsidiary')
+        }
+
+        const result = await response.json()
+        toast({ title: "Subsidiary added successfully" })
+        setSelectedLocationId("")
+        setSubsidiaryOptions([])
+        setLogoFile(null)
+        setLogoPreview(null)
+        await loadData()
+        return
+      }
+
+      // Create without logo
       await apiService.subsidiaries.create({
         locationId: selectedLocationId,
         options: validOptions,
@@ -131,6 +213,8 @@ export function SubsidiaryManager() {
       toast({ title: "Subsidiary added successfully" })
       setSelectedLocationId("")
       setSubsidiaryOptions([])
+      setLogoFile(null)
+      setLogoPreview(null)
       await loadData()
     } catch (error: any) {
       toast({
@@ -146,11 +230,15 @@ export function SubsidiaryManager() {
   const startEditing = (subsidiary: Subsidiary) => {
     setEditingId(subsidiary.id)
     setEditingOptions(subsidiary.options.map((opt) => opt.name))
+    setEditingLogoPreview(subsidiary.logoPath ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}` : null)
+    setEditingLogoFile(null)
   }
 
   const handleCancelEdit = () => {
     setEditingId(null)
     setEditingOptions([])
+    setEditingLogoFile(null)
+    setEditingLogoPreview(null)
   }
 
   const handleEditOptionChange = (index: number, value: string) => {
@@ -178,12 +266,46 @@ export function SubsidiaryManager() {
 
     setBusy(true)
     try {
+      // Upload logo if new file provided
+      if (editingLogoFile) {
+        const formData = new FormData()
+        formData.append('logo', editingLogoFile)
+        formData.append('options', JSON.stringify(validOptions))
+
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries/${editingId}`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'X-Session-Id': localStorage.getItem('sessionId') || '',
+            'x-csrf-token': localStorage.getItem('csrfToken') || '',
+          },
+          credentials: 'include', // Ensure cookies are sent
+          body: formData,
+        })
+
+        if (!response.ok) {
+          const error = await response.json()
+          throw new Error(error.error || 'Failed to update subsidiary')
+        }
+
+        toast({ title: "Subsidiary updated successfully" })
+        setEditingId(null)
+        setEditingOptions([])
+        setEditingLogoFile(null)
+        setEditingLogoPreview(null)
+        await loadData()
+        return
+      }
+
+      // Update without logo change
       await apiService.subsidiaries.update(editingId, {
         options: validOptions,
       })
       toast({ title: "Subsidiary updated successfully" })
       setEditingId(null)
       setEditingOptions([])
+      setEditingLogoFile(null)
+      setEditingLogoPreview(null)
       await loadData()
     } catch (error: any) {
       toast({
@@ -273,6 +395,33 @@ export function SubsidiaryManager() {
                       </div>
                       {isEditing ? (
                         <div className="space-y-2">
+                          {/* Logo Upload for Editing */}
+                          <div className="space-y-2">
+                            <Label className="text-xs">Logo</Label>
+                            <div className="flex items-center gap-2">
+                              {editingLogoPreview && (
+                                <div className="relative w-16 h-16 border rounded-md overflow-hidden">
+                                  <img
+                                    src={editingLogoPreview}
+                                    alt="Logo preview"
+                                    className="w-full h-full object-contain"
+                                  />
+                                </div>
+                              )}
+                              <label className="flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted">
+                                <Upload className="h-4 w-4" />
+                                <span className="text-xs">Upload Logo</span>
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={handleEditingLogoChange}
+                                  disabled={busy}
+                                />
+                              </label>
+                            </div>
+                            <p className="text-xs text-muted-foreground">Max 5MB, PNG/JPG</p>
+                          </div>
                           {editingOptions.map((opt, idx) => (
                             <div key={idx} className="flex gap-2">
                               <Input
@@ -316,16 +465,27 @@ export function SubsidiaryManager() {
                           </div>
                         </div>
                       ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {subsidiary.options.map((opt) => (
-                            <span
-                              key={opt.id}
-                              className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground"
-                            >
-                              {opt.name}
-                            </span>
-                          ))}
-                        </div>
+                        <>
+                          {subsidiary.logoPath && (
+                            <div className="mb-2">
+                              <img
+                                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}`}
+                                alt="Subsidiary logo"
+                                className="w-16 h-16 object-contain border rounded-md"
+                              />
+                            </div>
+                          )}
+                          <div className="flex flex-wrap gap-1">
+                            {subsidiary.options.map((opt) => (
+                              <span
+                                key={opt.id}
+                                className="text-xs px-2 py-1 bg-muted rounded-md text-muted-foreground"
+                              >
+                                {opt.name}
+                              </span>
+                            ))}
+                          </div>
+                        </>
                       )}
                     </div>
                     {!isEditing && (
@@ -401,6 +561,34 @@ export function SubsidiaryManager() {
 
             {selectedLocationId && (
               <>
+                {/* Logo Upload */}
+                <div className="space-y-2 mt-4">
+                  <Label className="text-xs">Logo (Optional)</Label>
+                  <div className="flex items-center gap-2">
+                    {logoPreview && (
+                      <div className="relative w-16 h-16 border rounded-md overflow-hidden">
+                        <img
+                          src={logoPreview}
+                          alt="Logo preview"
+                          className="w-full h-full object-contain"
+                        />
+                      </div>
+                    )}
+                    <label className="flex items-center gap-2 px-3 py-2 border rounded-md cursor-pointer hover:bg-muted">
+                      <Upload className="h-4 w-4" />
+                      <span className="text-xs">Upload Logo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleLogoChange}
+                        disabled={busy}
+                      />
+                    </label>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Max 5MB, PNG/JPG. Will be used as watermark in reports.</p>
+                </div>
+
                 <div className="space-y-2 mt-4">
                   <Label className="text-xs">Subsidiary Options</Label>
                   {subsidiaryOptions.map((opt, idx) => (

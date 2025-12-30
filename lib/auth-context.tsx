@@ -20,11 +20,11 @@ type User = {
 const getOrCreateDeviceId = (): string => {
   if (typeof window === "undefined") return ""
   
-  let deviceId = sessionStorage.getItem("deviceId")
+  let deviceId = localStorage.getItem("deviceId")
   if (!deviceId) {
     // Generate a unique deviceId for this tab
-    deviceId = `tab_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
-    sessionStorage.setItem("deviceId", deviceId)
+    deviceId = `device_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    localStorage.setItem("deviceId", deviceId)
   }
   return deviceId
 }
@@ -76,6 +76,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("token")
           localStorage.removeItem("erp-user")
           localStorage.removeItem("loginTime")
+          localStorage.removeItem("csrfToken")
+          localStorage.removeItem("sessionId")
           sessionStorage.removeItem("deviceId")
           sessionStorage.removeItem("lastActivity")
         }
@@ -167,7 +169,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setUser(parsedUser)
         }
         // Update last activity on mount
-        sessionStorage.setItem("lastActivity", Date.now().toString())
+        localStorage.setItem("lastActivity", Date.now().toString())
         // Set loading to false immediately so components can render
         // Verify token is still valid in the background (non-blocking)
         setLoading(false)
@@ -182,8 +184,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("token")
           localStorage.removeItem("erp-user")
           localStorage.removeItem("loginTime")
-          sessionStorage.removeItem("deviceId")
-          sessionStorage.removeItem("lastActivity")
+          localStorage.removeItem("deviceId")
+          localStorage.removeItem("lastActivity")
         }
         setLoading(false)
       }
@@ -219,8 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           localStorage.removeItem("token")
           localStorage.removeItem("erp-user")
           localStorage.removeItem("loginTime")
-          sessionStorage.removeItem("deviceId")
-          sessionStorage.removeItem("lastActivity")
+          localStorage.removeItem("deviceId")
+          localStorage.removeItem("lastActivity")
           setUser(null)
           
           // Redirect based on user type
@@ -245,7 +247,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const login = async (email: string, password: string) => {
     try {
-      // Only access sessionStorage on client-side
+      // Only access localStorage on client-side
       if (typeof window === "undefined") {
         throw new Error("Login can only be performed on client-side")
       }
@@ -259,15 +261,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store deviceId if returned from server
       if (returnedDeviceId) {
-        sessionStorage.setItem("deviceId", returnedDeviceId)
+        localStorage.setItem("deviceId", returnedDeviceId)
       }
 
       // Store CSRF token and session ID for CSRF protection
       if (csrfToken) {
-        sessionStorage.setItem("csrfToken", csrfToken)
+        localStorage.setItem("csrfToken", csrfToken)
       }
       if (sessionId) {
-        sessionStorage.setItem("sessionId", sessionId)
+        localStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
@@ -277,7 +279,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("loginTime", Date.now().toString())
       
       // Store last activity timestamp (for activity tracking)
-      sessionStorage.setItem("lastActivity", Date.now().toString())
+      localStorage.setItem("lastActivity", Date.now().toString())
 
       // Store user data in localStorage for persistence
       const userObj: User = {
@@ -318,10 +320,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store CSRF token and session ID for CSRF protection
       if (csrfToken) {
-        sessionStorage.setItem("csrfToken", csrfToken)
+        localStorage.setItem("csrfToken", csrfToken)
       }
       if (sessionId) {
-        sessionStorage.setItem("sessionId", sessionId)
+        localStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
@@ -354,7 +356,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const roleLogin = async (username: string, password: string) => {
     try {
-      // Only access sessionStorage on client-side
+      // Only access localStorage on client-side
       if (typeof window === "undefined") {
         throw new Error("Role login can only be performed on client-side")
       }
@@ -368,15 +370,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Store deviceId if returned from server
       if (returnedDeviceId) {
-        sessionStorage.setItem("deviceId", returnedDeviceId)
+        localStorage.setItem("deviceId", returnedDeviceId)
       }
 
       // Store CSRF token and session ID for CSRF protection
       if (csrfToken) {
-        sessionStorage.setItem("csrfToken", csrfToken)
+        localStorage.setItem("csrfToken", csrfToken)
       }
       if (sessionId) {
-        sessionStorage.setItem("sessionId", sessionId)
+        localStorage.setItem("sessionId", sessionId)
       }
 
       // Store token in localStorage for persistence across reloads
@@ -386,7 +388,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("loginTime", Date.now().toString())
       
       // Store last activity timestamp (for activity tracking)
-      sessionStorage.setItem("lastActivity", Date.now().toString())
+      localStorage.setItem("lastActivity", Date.now().toString())
 
       // Store user data in localStorage for persistence
       const userObj: User = {
@@ -413,6 +415,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.removeItem("token")
       localStorage.removeItem("erp-user")
       localStorage.removeItem("loginTime")
+      localStorage.removeItem("csrfToken")
+      localStorage.removeItem("sessionId")
       sessionStorage.removeItem("deviceId")
       sessionStorage.removeItem("lastActivity")
       setUser(null)

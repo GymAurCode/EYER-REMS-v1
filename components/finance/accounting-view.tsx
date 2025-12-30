@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical } from "lucide-react"
+import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
-import { AddAccountDialog } from "./add-account-dialog"
 import { AddVoucherDialog } from "./add-voucher-dialog"
 import { AddGeneralVoucherDialog } from "./add-general-voucher-dialog"
 import { EditVoucherDialog } from "./edit-voucher-dialog"
@@ -25,8 +24,6 @@ import {
 
 export function AccountingView() {
   const { toast } = useToast()
-  const [searchQuery, setSearchQuery] = useState("")
-  const [showAddAccountDialog, setShowAddAccountDialog] = useState(false)
   const [showAddVoucherDialog, setShowAddVoucherDialog] = useState(false)
   const [showAddGeneralVoucherDialog, setShowAddGeneralVoucherDialog] = useState(false)
   const [voucherType, setVoucherType] = useState<"bank-payment" | "bank-receipt" | "cash-payment" | "cash-receipt">(
@@ -36,7 +33,6 @@ export function AccountingView() {
   const [transactions, setTransactions] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [vouchers, setVouchers] = useState<any[]>([])
-  const [accounts, setAccounts] = useState<any[]>([])
   const [viewingVoucherId, setViewingVoucherId] = useState<string | null>(null)
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null)
   const [showViewDialog, setShowViewDialog] = useState(false)
@@ -49,11 +45,10 @@ export function AccountingView() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [txRes, payRes, vouRes, accRes] = await Promise.all([
+      const [txRes, payRes, vouRes] = await Promise.all([
         apiService.transactions.getAll(),
         apiService.payments.getAll(),
         apiService.vouchers.getAll(),
-        apiService.accounts.getAll(),
       ])
       // Handle API response structure: could be { data: [...] } or { data: { data: [...] } }
       const txData = txRes.data as any
@@ -67,37 +62,15 @@ export function AccountingView() {
       const vouData = vouRes.data as any
       const vouchersData = Array.isArray(vouData?.data) ? vouData.data : Array.isArray(vouData) ? vouData : []
       setVouchers(vouchersData)
-      
-      // Accounts endpoint returns array of accounts
-      const accData = accRes.data as any
-      const accountsData = Array.isArray(accData?.data) ? accData.data : Array.isArray(accData) ? accData : []
-      setAccounts(accountsData)
     } catch {
       setTransactions([])
       setPayments([])
       setVouchers([])
-      setAccounts([])
     } finally {
       setLoading(false)
     }
   }
 
-  const chartOfAccounts = useMemo(() => {
-    // Accounts now include balance calculated from ledger entries
-    const list = Array.isArray(accounts) ? accounts : []
-    return list
-      .filter((a) =>
-        [a.code, a.name, a.type].join(" ").toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-      .map((a) => ({
-        code: a.code,
-        name: a.name,
-        type: a.type,
-        balance: typeof a.balance === 'number' 
-          ? `Rs ${a.balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-          : "Rs 0.00",
-      }))
-  }, [accounts, searchQuery])
 
   const bankPaymentVouchers = useMemo(() => {
     return transactions
@@ -215,10 +188,9 @@ export function AccountingView() {
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="chart-of-accounts" className="space-y-4">
+      <Tabs defaultValue="bank-payment" className="space-y-4">
         <div className="overflow-x-auto">
-          <TabsList className="inline-flex min-w-full sm:min-w-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 w-full sm:w-auto">
-            <TabsTrigger value="chart-of-accounts" className="text-xs sm:text-sm whitespace-nowrap">Chart of Accounts</TabsTrigger>
+          <TabsList className="inline-flex min-w-full sm:min-w-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 w-full sm:w-auto">
             <TabsTrigger value="bank-payment" className="text-xs sm:text-sm whitespace-nowrap">Bank Payment</TabsTrigger>
             <TabsTrigger value="bank-receipt" className="text-xs sm:text-sm whitespace-nowrap">Bank Receipt</TabsTrigger>
             <TabsTrigger value="cash-payment" className="text-xs sm:text-sm whitespace-nowrap">Cash Payment</TabsTrigger>
@@ -227,58 +199,6 @@ export function AccountingView() {
             <TabsTrigger value="ledgers" className="text-xs sm:text-sm whitespace-nowrap">Ledgers</TabsTrigger>
           </TabsList>
         </div>
-
-        {/* Chart of Accounts */}
-        <TabsContent value="chart-of-accounts" className="space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search accounts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Button onClick={() => setShowAddAccountDialog(true)} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4 mr-2" />
-              Add Account
-            </Button>
-          </div>
-
-          <Card>
-            <div className="overflow-x-auto">
-              <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Account Code</TableHead>
-                  <TableHead>Account Name</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Balance</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
-                  </TableRow>
-                ) : chartOfAccounts.map((account) => (
-                  <TableRow key={account.code}>
-                    <TableCell className="font-medium">{account.code}</TableCell>
-                    <TableCell>{account.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{account.type}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">{account.balance}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            </div>
-          </Card>
-        </TabsContent>
 
         {/* Bank Payment Vouchers */}
         <TabsContent value="bank-payment" className="space-y-4">
@@ -645,7 +565,6 @@ export function AccountingView() {
       </Tabs>
 
       {/* Add dialogs for accounting operations */}
-      <AddAccountDialog open={showAddAccountDialog} onOpenChange={setShowAddAccountDialog} />
       <AddVoucherDialog open={showAddVoucherDialog} onOpenChange={(open) => {
         setShowAddVoucherDialog(open)
         if (!open) fetchData()

@@ -10,7 +10,7 @@ import { getSubtreeIds } from '../services/location';
 import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
-import { generatePropertyReportPDF } from '../utils/pdf-generator';
+import { generatePropertyReportPDF, generatePropertiesReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
 import { generatePropertyCode } from '../utils/code-generator';
 
@@ -859,6 +859,13 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
             select: {
               id: true,
               name: true,
+              propertySubsidiary: {
+                select: {
+                  id: true,
+                  name: true,
+                  logoPath: true,
+                },
+              },
             },
           },
         },
@@ -907,6 +914,13 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             name: true,
+            propertySubsidiary: {
+              select: {
+                id: true,
+                name: true,
+                logoPath: true,
+              },
+            },
           },
         };
       }
@@ -2161,6 +2175,83 @@ router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res: R
   } catch (error) {
     logger.error('Get lease expiry alerts error:', error);
     return errorResponse(res, error);
+  }
+});
+
+// Generate Properties Report PDF with Subsidiary Logo Watermarks
+router.get('/report/pdf', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { propertyIds } = req.query;
+    
+    // Build where clause
+    const where: any = { isDeleted: false };
+    
+    // Filter by property IDs if provided
+    if (propertyIds) {
+      const ids = Array.isArray(propertyIds) ? propertyIds : [propertyIds];
+      where.id = { in: ids.map(id => String(id)) };
+    }
+
+    // Fetch properties with subsidiary information
+    const properties = await prisma.property.findMany({
+      where,
+      select: {
+        id: true,
+        name: true,
+        propertyCode: true,
+        type: true,
+        address: true,
+        salePrice: true,
+        subsidiaryOption: {
+          select: {
+            id: true,
+            name: true,
+            propertySubsidiary: {
+              select: {
+                id: true,
+                name: true,
+                logoPath: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (properties.length === 0) {
+      return errorResponse(res, 'No properties found', 404);
+    }
+
+    // Generate PDF report
+    generatePropertiesReportPDF(
+      {
+        properties: properties.map(p => ({
+          id: p.id,
+          name: p.name,
+          propertyCode: p.propertyCode,
+          type: p.type,
+          address: p.address,
+          salePrice: p.salePrice,
+          subsidiaryOption: p.subsidiaryOption ? {
+            id: p.subsidiaryOption.id,
+            name: p.subsidiaryOption.name,
+            propertySubsidiary: p.subsidiaryOption.propertySubsidiary ? {
+              id: p.subsidiaryOption.propertySubsidiary.id,
+              name: p.subsidiaryOption.propertySubsidiary.name,
+              logoPath: p.subsidiaryOption.propertySubsidiary.logoPath,
+            } : null,
+          } : null,
+        })),
+        generatedAt: new Date(),
+      },
+      res
+    );
+  } catch (error) {
+    logger.error('Generate properties report PDF error:', error);
+    if (!res.headersSent) {
+      return errorResponse(res, error);
+    }
   }
 });
 

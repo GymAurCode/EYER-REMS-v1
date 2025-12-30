@@ -13,6 +13,7 @@ import { PaymentsView } from "./payments-view"
 import { ReportsView } from "./reports-view"
 import { CommissionsView } from "./commissions-view"
 import { AccountingView } from "./accounting-view"
+import { ChartOfAccountsView } from "./chart-of-accounts-view"
 import { AddTransactionDialog } from "./add-transaction-dialog"
 import { ReportGenerator } from "@/components/shared/report-generator"
 import { cn } from "@/lib/utils"
@@ -272,6 +273,7 @@ export function FinanceView() {
             <TabsTrigger value="invoices" className="text-xs sm:text-sm">Invoices</TabsTrigger>
             <TabsTrigger value="payments" className="text-xs sm:text-sm">Payments</TabsTrigger>
             <TabsTrigger value="commissions" className="text-xs sm:text-sm">Commissions</TabsTrigger>
+            <TabsTrigger value="chart-of-accounts" className="text-xs sm:text-sm">Chart of Accounts</TabsTrigger>
             <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
             <TabsTrigger value="reports" className="text-xs sm:text-sm">Reports</TabsTrigger>
           </TabsList>
@@ -291,6 +293,10 @@ export function FinanceView() {
 
         <TabsContent value="commissions">
           <CommissionsView />
+        </TabsContent>
+
+        <TabsContent value="chart-of-accounts">
+          <ChartOfAccountsView />
         </TabsContent>
 
         <TabsContent value="accounting">

@@ -188,6 +188,7 @@ model PropertySubsidiary {
   id         String             @id @default(uuid())
   locationId String
   name       String
+  logoPath   String?            // Path to logo file in filesystem
   createdAt  DateTime           @default(now())
   updatedAt  DateTime           @default(now()) @updatedAt
   isActive   Boolean            @default(true)
@@ -1550,9 +1551,15 @@ model Account {
   id                        String                @id @default(uuid())
   code                      String                @unique
   name                      String
-  type                      String
+  type                      String                // Asset, Liability, Equity, Revenue, Expense
   description               String?
   isActive                  Boolean               @default(true)
+  isPostable                Boolean               @default(true)
+  cashFlowCategory          String?               // 'Operating', 'Investing', 'Financing', 'Escrow'
+  level                     Int                   @default(1) // 1-5: Level 1 = Root, Level 5 = Posting
+  accountType               String                @default("Posting") // Header, Control, Posting
+  normalBalance             String                @default("Debit") // Debit or Credit
+  trustFlag                 Boolean               @default(false) // True for trust/escrow accounts
   createdAt                 DateTime              @default(now())
   updatedAt                 DateTime              @updatedAt
   parentId                  String?

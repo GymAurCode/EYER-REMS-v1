@@ -307,14 +307,14 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
               <div className="grid gap-2">
                 <Label htmlFor="dealId">Deal (Optional)</Label>
                 <Select
-                  value={formData.dealId}
-                  onValueChange={(value) => setFormData({ ...formData, dealId: value })}
+                  value={formData.dealId || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, dealId: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select a deal" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {deals.map((deal) => (
                       <SelectItem key={deal.id} value={deal.id}>
                         {deal.title} - {deal.clientName}
