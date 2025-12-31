@@ -1,6 +1,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { generateSystemId, validateManualUniqueId } from './id-generation-service';
+import { AccountValidationService } from './account-validation-service';
 
 export interface CreateReceiptPayload {
   dealId: string;
@@ -14,6 +15,7 @@ export interface CreateReceiptPayload {
   existingPaymentId?: string; // If payment already exists, link to it instead of creating new one
   skipPaymentCreation?: boolean; // Skip creating Payment record if payment already exists
   manualUniqueId?: string; // User-provided manual unique ID
+  isAdvance?: boolean; // Treat receipt as client advance (credit liability)
 }
 
 export interface ReceiptAllocationResult {
@@ -74,6 +76,29 @@ export class ReceiptService {
         isActive: true,
       },
     });
+    // Trust cash/bank for advance receipts
+    const trustCashAccount = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }],
+        OR: [
+          { trustFlag: true, name: { contains: 'Cash', mode: 'insensitive' } },
+          { code: { startsWith: '1121' }, name: { contains: 'Cash', mode: 'insensitive' } },
+          { cashFlowCategory: 'Escrow' },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
+    const trustBankAccount = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }],
+        OR: [
+          { trustFlag: true, name: { contains: 'Bank', mode: 'insensitive' } },
+          { code: { startsWith: '1121' }, name: { contains: 'Bank', mode: 'insensitive' } },
+          { cashFlowCategory: 'Escrow' },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
     const installmentReceivableAccount = await prisma.account.findFirst({
       where: {
         OR: [
@@ -87,16 +112,39 @@ export class ReceiptService {
         isActive: true,
       },
     });
+    // Liability account for advances
+    const advanceLiabilityAccount = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }, { type: 'Liability' }],
+        OR: [
+          { code: { startsWith: '211' } },
+          { code: '211101' },
+          { code: '211102' },
+          { name: { contains: 'Advance', mode: 'insensitive' } },
+          { name: { contains: 'Deposit', mode: 'insensitive' } },
+          { name: { contains: 'Security', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
 
-    if (!cashAccount || !bankAccount || !installmentReceivableAccount) {
+    if (!cashAccount || !bankAccount || (!installmentReceivableAccount && !advanceLiabilityAccount)) {
       const missing = [];
       if (!cashAccount) missing.push('Cash');
       if (!bankAccount) missing.push('Bank');
-      if (!installmentReceivableAccount) missing.push('Accounts Receivable');
+      if (!installmentReceivableAccount && !advanceLiabilityAccount) missing.push('Accounts Receivable or Client Advances Payable');
       throw new Error(`Required accounts not found in Chart of Accounts: ${missing.join(', ')}. Please ensure these accounts exist and are active.`);
     }
 
-    const debitAccountId = payload.method === 'Cash' ? cashAccount.id : bankAccount.id;
+    const debitAccountId = payload.isAdvance
+      ? (payload.method === 'Cash' ? (trustCashAccount?.id || '') : (trustBankAccount?.id || ''))
+      : (payload.method === 'Cash' ? cashAccount.id : bankAccount.id);
+    if (payload.isAdvance && !debitAccountId) {
+      throw new Error('Trust Cash/Bank account not found. Please create 1121xx trust accounts or mark trustFlag=true.');
+    }
+    const creditAccountId = payload.isAdvance
+      ? advanceLiabilityAccount!.id
+      : installmentReceivableAccount!.id;
 
     return await prisma.$transaction(async (tx) => {
       // Create receipt
@@ -125,6 +173,28 @@ export class ReceiptService {
 
       // Create Journal Entry for double-entry bookkeeping
       const entryNumber = `JE-${new Date().getFullYear()}-${Date.now()}`;
+      const journalLines = [
+        {
+          accountId: debitAccountId,
+          debit: payload.amount,
+          credit: 0,
+          description: `Receipt ${receiptNo} - ${payload.method}`,
+        },
+        {
+          accountId: creditAccountId,
+          debit: 0,
+          credit: payload.amount,
+          description: payload.isAdvance ? `Receipt ${receiptNo} - Client Advance` : `Receipt ${receiptNo} - Installment Receivable`,
+        },
+      ];
+      // Validate journal lines against accounting rules
+      await AccountValidationService.validateJournalEntry(
+        journalLines.map((l) => ({
+          accountId: l.accountId,
+          debit: l.debit,
+          credit: l.credit,
+        }))
+      );
       const journalEntry = await tx.journalEntry.create({
         data: {
           entryNumber,
@@ -135,20 +205,7 @@ export class ReceiptService {
           status: 'posted',
           preparedByUserId: payload.receivedBy || null,
           lines: {
-            create: [
-              {
-                accountId: debitAccountId,
-                debit: payload.amount,
-                credit: 0,
-                description: `Receipt ${receiptNo} - ${payload.method}`,
-              },
-              {
-                accountId: installmentReceivableAccount.id,
-                debit: 0,
-                credit: payload.amount,
-                description: `Receipt ${receiptNo} - Installment Receivable`,
-              },
-            ],
+            create: journalLines,
           },
         },
       });

@@ -10,7 +10,7 @@ import { errorResponse, successResponse } from '../utils/error-handler';
 import { getLocationTree } from '../services/location';
 import { LocationTreeNode } from '../services/location';
 import { saveFileSecurely, validateFileUpload, scanFileForViruses } from '../utils/file-security';
-import logger from '../utils/logger';
+// logger import removed (unused)
 
 const router = (express as any).Router();
 
@@ -25,7 +25,7 @@ const upload = multer({
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      cb(new Error('Only image files are allowed'), false);
     }
   },
 });
@@ -522,7 +522,7 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
     }
     
     const payload = updateSubsidiarySchema.parse(body);
-    let logoPath: string | undefined = undefined;
+    let logoPath: string | null | undefined = undefined;
 
     const existing = await prisma.propertySubsidiary.findUnique({
       where: { id },
@@ -621,7 +621,9 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
       entityType: 'property_subsidiary',
       entityId: id,
       action: 'update',
-      description: `Subsidiary updated with ${payload.options.length} options`,
+      description: payload.options && payload.options.length > 0
+        ? `Subsidiary updated with ${payload.options.length} options`
+        : 'Subsidiary updated',
       oldValues: existing,
       newValues: result,
       userId: req.user?.id,

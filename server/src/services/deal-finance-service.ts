@@ -221,97 +221,45 @@ export class DealFinanceService {
     // Get account IDs
     const accounts = await this.getFinancialAccounts();
 
-    // Determine payment account based on payment mode or total paid
+    // Determine amounts paid (used for reporting only; revenue posts via receivable-first)
     const totalPaid = deal.payments.reduce((sum, p) => sum + p.amount, 0);
-    const isFullyPaid = totalPaid >= financialData.dealAmount;
-    const remainingAmount = financialData.dealAmount - totalPaid;
+    const remainingAmount = Math.max(0, financialData.dealAmount - totalPaid);
 
     const entryDate = deal.actualClosingDate || new Date();
 
     // Use transaction if provided, otherwise create one
     const executeInTransaction = async (client: Prisma.TransactionClient) => {
-      // 1. Revenue Recognition Entry
-      if (isFullyPaid) {
-        // Fully paid: Debit Cash/Bank, Credit Revenue
-        const paymentAccountId =
-          paymentMode === 'cash'
-            ? accounts.cashAccountId
-            : paymentMode === 'bank'
-            ? accounts.bankAccountId
-            : accounts.arAccountId;
+      // 1. Revenue Recognition Entry (Receivable-first)
+      // Validate journal lines prior to posting
+      const { AccountValidationService } = await import('./account-validation-service');
+      await AccountValidationService.validateJournalEntry([
+        { accountId: accounts.arAccountId, debit: financialData.dealAmount, credit: 0 },
+        { accountId: accounts.dealRevenueAccountId, debit: 0, credit: financialData.dealAmount },
+      ]);
 
-        // Debit: Cash/Bank Account
-        await LedgerService.createLedgerEntry(
-          {
-            dealId,
-            debitAccountId: paymentAccountId,
-            amount: financialData.dealAmount,
-            remarks: `Deal revenue recognition - ${deal.dealCode || dealId}`,
-            date: entryDate,
-          },
-          client
-        );
+      // Debit: Accounts Receivable (full amount)
+      await LedgerService.createLedgerEntry(
+        {
+          dealId,
+          debitAccountId: accounts.arAccountId,
+          amount: financialData.dealAmount,
+          remarks: `Deal revenue recognition (receivable-first) - ${deal.dealCode || dealId}`,
+          date: entryDate,
+        },
+        client
+      );
 
-        // Credit: Deal Revenue
-        await LedgerService.createLedgerEntry(
-          {
-            dealId,
-            creditAccountId: accounts.dealRevenueAccountId,
-            amount: financialData.dealAmount,
-            remarks: `Deal revenue recognition - ${deal.dealCode || dealId}`,
-            date: entryDate,
-          },
-          client
-        );
-      } else {
-        // Partially paid: Debit AR for remaining, Credit Revenue
-        if (totalPaid > 0) {
-          // Debit: Cash/Bank for paid amount
-          const paymentAccountId =
-            paymentMode === 'cash'
-              ? accounts.cashAccountId
-              : paymentMode === 'bank'
-              ? accounts.bankAccountId
-              : accounts.arAccountId;
-
-          await LedgerService.createLedgerEntry(
-            {
-              dealId,
-              debitAccountId: paymentAccountId,
-              amount: totalPaid,
-              remarks: `Deal revenue recognition (paid) - ${deal.dealCode || dealId}`,
-              date: entryDate,
-            },
-            client
-          );
-        }
-
-        // Debit: Accounts Receivable for remaining amount
-        if (remainingAmount > 0) {
-          await LedgerService.createLedgerEntry(
-            {
-              dealId,
-              debitAccountId: accounts.arAccountId,
-              amount: remainingAmount,
-              remarks: `Deal revenue recognition (receivable) - ${deal.dealCode || dealId}`,
-              date: entryDate,
-            },
-            client
-          );
-        }
-
-        // Credit: Deal Revenue (full amount)
-        await LedgerService.createLedgerEntry(
-          {
-            dealId,
-            creditAccountId: accounts.dealRevenueAccountId,
-            amount: financialData.dealAmount,
-            remarks: `Deal revenue recognition - ${deal.dealCode || dealId}`,
-            date: entryDate,
-          },
-          client
-        );
-      }
+      // Credit: Deal Revenue (full amount)
+      await LedgerService.createLedgerEntry(
+        {
+          dealId,
+          creditAccountId: accounts.dealRevenueAccountId,
+          amount: financialData.dealAmount,
+          remarks: `Deal revenue recognition (receivable-first) - ${deal.dealCode || dealId}`,
+          date: entryDate,
+        },
+        client
+      );
 
       // 2. Commission Expense Entry (if commission exists)
       if (commission.totalCommission > 0 && financialData.dealerId) {
@@ -351,14 +299,60 @@ export class DealFinanceService {
         );
       }
 
-      // 3. Cost of Goods Sold Entry (if cost price exists)
-      // Note: This is optional and depends on your inventory/asset tracking system
-      // For now, we'll skip COGS entries as they require proper inventory accounts
-      // You can add this later when you have a proper inventory/property cost account
-      // if (financialData.costPrice && financialData.costPrice > 0 && accounts.costOfGoodsSoldAccountId) {
-      //   // Debit: Cost of Goods Sold
-      //   // Credit: Inventory/Property Cost Account
-      // }
+      // 3. Cost of Goods Sold Entry (mandatory when cost price is provided)
+      if (financialData.costPrice && financialData.costPrice > 0) {
+        if (!accounts.costOfGoodsSoldAccountId) {
+          throw new Error('Cost of Goods Sold account not found. Please create COGS account (e.g., 5100) in Chart of Accounts.');
+        }
+        // Attempt to locate an inventory/property asset account
+        const inventoryAccount = await prismaClient.account.findFirst({
+          where: {
+            AND: [{ isActive: true }, { type: 'Asset' }],
+            OR: [
+              { name: { contains: 'Inventory', mode: 'insensitive' } },
+              { name: { contains: 'Property', mode: 'insensitive' } },
+              { name: { contains: 'Stock', mode: 'insensitive' } },
+              { code: { startsWith: '12' } },
+              { code: { startsWith: '13' } },
+              { code: { startsWith: '15' } },
+            ],
+          },
+          orderBy: { code: 'asc' },
+        });
+        if (!inventoryAccount) {
+          throw new Error('Inventory/Property asset account not found. Please configure an asset account for property cost.');
+        }
+
+        // Validate journal lines for COGS
+        const { AccountValidationService: AVS2 } = await import('./account-validation-service');
+        await AVS2.validateJournalEntry([
+          { accountId: accounts.costOfGoodsSoldAccountId, debit: financialData.costPrice, credit: 0 },
+          { accountId: inventoryAccount.id, debit: 0, credit: financialData.costPrice },
+        ]);
+
+        // Debit: Cost of Goods Sold
+        await LedgerService.createLedgerEntry(
+          {
+            dealId,
+            debitAccountId: accounts.costOfGoodsSoldAccountId,
+            amount: financialData.costPrice,
+            remarks: `COGS for deal ${deal.dealCode || dealId}`,
+            date: entryDate,
+          },
+          client
+        );
+        // Credit: Inventory/Property asset
+        await LedgerService.createLedgerEntry(
+          {
+            dealId,
+            creditAccountId: inventoryAccount.id,
+            amount: financialData.costPrice,
+            remarks: `Inventory relief for deal ${deal.dealCode || dealId}`,
+            date: entryDate,
+          },
+          client
+        );
+      }
     };
 
     if (tx) {

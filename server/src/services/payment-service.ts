@@ -90,6 +90,67 @@ export class PaymentService {
   }
 
   /**
+   * Get TRUST debit account for payment mode (token/booking/security deposit)
+   * Prioritizes accounts with trustFlag=true or codes starting with 1121
+   */
+  static async getTrustDebitAccount(paymentMode: string): Promise<string> {
+    // Find trust cash/bank accounts
+    const trustCash = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }],
+        OR: [
+          { trustFlag: true, name: { contains: 'Cash', mode: 'insensitive' } },
+          { code: { startsWith: '1121' }, name: { contains: 'Cash', mode: 'insensitive' } },
+          { cashFlowCategory: 'Escrow' },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const trustBank = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }],
+        OR: [
+          { trustFlag: true, name: { contains: 'Bank', mode: 'insensitive' } },
+          { code: { startsWith: '1121' }, name: { contains: 'Bank', mode: 'insensitive' } },
+          { cashFlowCategory: 'Escrow' },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
+
+    const selected = paymentMode === 'cash' ? trustCash : trustBank;
+    if (!selected) {
+      throw new Error('Trust Cash/Bank account not found. Please create 1121xx trust accounts or mark trustFlag=true.');
+    }
+    return selected.id;
+  }
+
+  /**
+   * Get liability account for client advances (trust/escrow payable)
+   */
+  static async getClientAdvanceLiabilityAccount(): Promise<string> {
+    const advanceLiability = await prisma.account.findFirst({
+      where: {
+        AND: [{ isActive: true }, { type: 'Liability' }],
+        OR: [
+          { code: { startsWith: '211' } },
+          { code: '211101' },
+          { code: '211102' },
+          { name: { contains: 'Advance', mode: 'insensitive' } },
+          { name: { contains: 'Deposit', mode: 'insensitive' } },
+          { name: { contains: 'Security', mode: 'insensitive' } },
+        ],
+      },
+      orderBy: { code: 'asc' },
+    });
+    if (!advanceLiability) {
+      throw new Error('Client Advances liability account not found. Please create a 2110xx advance payable account.');
+    }
+    return advanceLiability.id;
+  }
+
+  /**
    * Create payment with atomic transaction and double-entry bookkeeping
    */
   static async createPayment(payload: CreatePaymentPayload): Promise<any> {
@@ -116,8 +177,17 @@ export class PaymentService {
       throw new Error('Payment amount must be greater than zero');
     }
 
-    // Get account IDs for double-entry
-    const { debitAccountId, creditAccountId } = await this.getPaymentAccounts(payload.paymentMode);
+    // Determine if this is an advance (token/booking)
+    const isAdvance = payload.paymentType === 'token' || payload.paymentType === 'booking';
+    // Get debit account IDs for double-entry
+    const debitAccountId = isAdvance
+      ? await this.getTrustDebitAccount(payload.paymentMode === 'cash' ? 'cash' : 'bank')
+      : (await this.getPaymentAccounts(payload.paymentMode)).debitAccountId;
+    // Determine credit account based on payment type
+    // Advances (token/booking) must credit Client Advances Payable (liability), not AR
+    const creditAccountId = isAdvance
+      ? await this.getClientAdvanceLiabilityAccount()
+      : (await this.getPaymentAccounts(payload.paymentMode)).creditAccountId;
 
     const paymentDate = payload.date || new Date();
     
@@ -156,7 +226,15 @@ export class PaymentService {
       const debitAccount = await tx.account.findUnique({ where: { id: debitAccountId } });
       const creditAccount = await tx.account.findUnique({ where: { id: creditAccountId } });
 
-      // Debit: Cash/Bank Account
+      // Validate journal lines before posting
+      const journalLines = [
+        { accountId: debitAccountId, debit: payload.amount, credit: 0 },
+        { accountId: creditAccountId, debit: 0, credit: payload.amount },
+      ];
+      const { AccountValidationService } = await import('./account-validation-service');
+      await AccountValidationService.validateJournalEntry(journalLines);
+
+      // Debit: Cash/Bank (Operating) or Trust Cash/Bank (for advances)
       await tx.ledgerEntry.create({
         data: {
           dealId: payload.dealId,
@@ -171,7 +249,7 @@ export class PaymentService {
         },
       });
 
-      // Credit: Accounts Receivable
+      // Credit: Accounts Receivable OR Client Advances Payable (for token/booking)
       await tx.ledgerEntry.create({
         data: {
           dealId: payload.dealId,
@@ -250,6 +328,8 @@ export class PaymentService {
             receivedBy: payload.createdBy,
             existingPaymentId: paymentResult.id, // Link to existing payment
             skipPaymentCreation: true, // Don't create duplicate payment
+            // Treat token/booking as advance: credit liability instead of AR
+            isAdvance: isAdvance,
           });
         }
       } catch (receiptError: any) {
@@ -285,8 +365,20 @@ export class PaymentService {
       throw new Error('Refund amount cannot exceed original payment amount');
     }
 
-    // Get account IDs (same as original payment)
-    const { debitAccountId, creditAccountId } = await this.getPaymentAccounts(originalPayment.paymentMode);
+    // Determine original accounts from ledger to reverse accurately
+    const originalLedgerEntries = await prisma.ledgerEntry.findMany({
+      where: {
+        paymentId: originalPayment.id,
+        deletedAt: null,
+      },
+    });
+    const originalDebit = originalLedgerEntries.find((e) => !!e.debitAccountId);
+    const originalCredit = originalLedgerEntries.find((e) => !!e.creditAccountId);
+    if (!originalDebit || !originalCredit) {
+      throw new Error('Original ledger accounts not found for refund reversal');
+    }
+    const debitAccountId = originalDebit.debitAccountId!;
+    const creditAccountId = originalCredit.creditAccountId!;
 
     const refundDate = new Date();
     // Generate system ID for refund: pay-YY-####
