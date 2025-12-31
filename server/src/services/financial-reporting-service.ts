@@ -183,18 +183,41 @@ export class FinancialReportingService {
     const entries: TrialBalanceEntry[] = [];
 
     for (const account of accounts) {
-      const balances = await this.calculateAccountBalance(account.id, startDate, endDate);
+      let debitTotal = 0;
+      let creditTotal = 0;
+      let balance = 0;
 
-      if (balances.balance !== 0 || balances.debitTotal > 0 || balances.creditTotal > 0) {
+      if (startDate) {
+        const openingEnd = new Date(startDate);
+        openingEnd.setMilliseconds(openingEnd.getMilliseconds() - 1);
+
+        const opening = await this.calculateAccountBalance(account.id, undefined, openingEnd);
+        const movement = await this.calculateAccountBalance(account.id, startDate, endDate);
+
+        debitTotal = opening.debitTotal + movement.debitTotal;
+        creditTotal = opening.creditTotal + movement.creditTotal;
+      } else {
+        const totals = await this.calculateAccountBalance(account.id, undefined, endDate);
+        debitTotal = totals.debitTotal;
+        creditTotal = totals.creditTotal;
+      }
+
+      if (account.normalBalance === 'Debit') {
+        balance = debitTotal - creditTotal;
+      } else {
+        balance = creditTotal - debitTotal;
+      }
+
+      if (balance !== 0 || debitTotal > 0 || creditTotal > 0) {
         entries.push({
           accountId: account.id,
           accountCode: account.code,
           accountName: account.name,
           accountType: account.type,
           normalBalance: account.normalBalance,
-          debitTotal: balances.debitTotal,
-          creditTotal: balances.creditTotal,
-          balance: balances.balance,
+          debitTotal: Number(debitTotal.toFixed(2)),
+          creditTotal: Number(creditTotal.toFixed(2)),
+          balance: Number(balance.toFixed(2)),
         });
       }
     }
@@ -217,8 +240,8 @@ export class FinancialReportingService {
       orderBy: [{ code: 'asc' }],
     });
 
-    // Assets (1xxx)
-    const assetAccounts = allAccounts.filter(a => a.code.startsWith('1'));
+    // Assets (1xxx) excluding trust/escrow accounts
+    const assetAccounts = allAccounts.filter(a => a.code.startsWith('1') && !a.trustFlag);
     const currentAssetAccounts = assetAccounts.filter(a => 
       a.code.startsWith('11') || a.code.startsWith('11')
     );
@@ -412,6 +435,8 @@ export class FinancialReportingService {
 
     // Group by property
     const propertyMap = new Map<string, PropertyProfitability>();
+    let invalidCount = 0;
+    const invalidIds: string[] = [];
 
     for (const entry of ledgerEntries) {
       const propId = entry.deal?.propertyId || 'unassigned';
@@ -437,6 +462,10 @@ export class FinancialReportingService {
       // Process debit account (expense or asset)
       if (entry.debitAccount) {
         if (entry.debitAccount.type === 'Expense') {
+          if (!entry.deal?.propertyId) {
+            invalidCount += 1;
+            invalidIds.push(entry.id);
+          }
           profitability.expenses += entry.amount;
           const existing = profitability.expenseBreakdown.find(
             e => e.accountCode === entry.debitAccount!.code
@@ -456,6 +485,10 @@ export class FinancialReportingService {
       // Process credit account (revenue)
       if (entry.creditAccount) {
         if (entry.creditAccount.type === 'Revenue') {
+          if (!entry.deal?.propertyId) {
+            invalidCount += 1;
+            invalidIds.push(entry.id);
+          }
           profitability.revenue += entry.amount;
           const existing = profitability.revenueBreakdown.find(
             r => r.accountCode === entry.creditAccount!.code
@@ -471,6 +504,10 @@ export class FinancialReportingService {
           }
         }
       }
+    }
+
+    if (invalidCount > 0) {
+      throw new Error(`INVALID_PROPERTY_DIMENSION:${invalidCount}`);
     }
 
     // Calculate net profit and margins

@@ -33,10 +33,22 @@ router.get('/trial-balance', authenticate, async (req: AuthRequest, res: Respons
       { totalDebits: 0, totalCredits: 0 }
     );
 
+    const isBalanced = Math.abs(totals.totalDebits - totals.totalCredits) < 0.01;
+
+    if (!isBalanced) {
+      return res.status(422).json({
+        error: 'Trial balance mismatch: period closing blocked',
+        details: {
+          totals,
+          period: { startDate: start, endDate: end },
+        },
+      });
+    }
+
     return successResponse(res, {
       entries: trialBalance,
       totals,
-      isBalanced: Math.abs(totals.totalDebits - totals.totalCredits) < 0.01,
+      isBalanced,
       period: {
         startDate: start,
         endDate: end,
@@ -128,9 +140,18 @@ router.get('/property-profitability', authenticate, async (req: AuthRequest, res
     return successResponse(res, profitability);
   } catch (error) {
     logger.error('Generate property profitability error:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    if (typeof message === 'string' && message.startsWith('INVALID_PROPERTY_DIMENSION')) {
+      const parts = message.split(':');
+      const count = parts[1] ? Number(parts[1]) : undefined;
+      return res.status(422).json({
+        error: 'Invalid transactions: revenue/expense without property',
+        details: { count },
+      });
+    }
     res.status(500).json({
       error: 'Failed to generate property profitability report',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message,
     });
   }
 });
