@@ -8,6 +8,7 @@ import { updateTenantLedger } from '../services/workflows';
 import { getAllTenantAlerts, getOverdueRentAlerts, getTenantLeaseExpiryAlerts } from '../services/tenant-alerts';
 import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
+import { validateTID } from '../services/id-generation-service';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 
 const router = (express as any).Router();
@@ -31,11 +32,18 @@ async function generateTenantCode(): Promise<string> {
 router.post('/convert-from-client/:clientId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { clientId } = req.params;
-    const { unitId } = req.body;
+    const { unitId, tid } = req.body;
 
     if (!unitId) {
       return errorResponse(res, 'Unit ID is required', 400);
     }
+
+    if (!tid) {
+      return errorResponse(res, 'TID is required', 400);
+    }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Get client
     const client = await prisma.client.findFirst({
@@ -83,6 +91,7 @@ router.post('/convert-from-client/:clientId', authenticate, async (req: AuthRequ
         cnic: client.cnic || undefined,
         cnicDocumentUrl: client.cnicDocumentUrl || undefined,
         tenantCode,
+        tid,
         unitId,
         outstandingBalance: 0,
         advanceBalance: 0,
@@ -155,6 +164,7 @@ router.post('/convert-from-client/:clientId', authenticate, async (req: AuthRequ
 
 // Validation schemas
 const createTenantSchema = z.object({
+  tid: z.string().min(1, 'TID is required'),
   name: z.string().min(1, 'Tenant name is required'),
   email: z.preprocess(
     (val) => (val === '' || val === null || val === undefined ? undefined : val),
@@ -327,11 +337,16 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return errorResponse(res, 'Unit status indicates it is already occupied. Please verify the unit status before assigning a tenant.', 400);
     }
 
+    // Validate TID
+    await validateTID(data.tid);
+
     const tenantCode = await generateTenantCode();
+
     const tenant = await prisma.tenant.create({
       data: {
         ...data,
         tenantCode,
+        tid: data.tid,
         email: data.email || undefined,
       },
       include: {

@@ -89,6 +89,15 @@ async function main() {
     });
   }
 
+  // Seed Expanded Chart of Accounts (load compiled JS to satisfy tsconfig rootDir)
+  const path = await import('path');
+  const expandedSeedsPath = path.resolve(process.cwd(), 'prisma', 'seeds', 'chart-of-accounts.js');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const expandedSeeds: any = require(expandedSeedsPath);
+  if (expandedSeeds && typeof expandedSeeds.seedExpandedChartOfAccounts === 'function') {
+    await expandedSeeds.seedExpandedChartOfAccounts();
+  }
+
   console.log('✅ Seeding completed!');
   console.log('📧 Admin credentials:');
   console.log('   Email: admin@realestate.com');

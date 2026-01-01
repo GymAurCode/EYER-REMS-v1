@@ -1,6 +1,8 @@
 import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { generateSequenceNumber } from '../services/tid-service';
+import { validateTID } from '../services/id-generation-service';
 
 const router = (express as any).Router();
 
@@ -83,13 +85,13 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       bankAccountNumber, bankName, bankBranch, iban,
       insuranceEligible, benefitsEligible,
       probationPeriod, reportingManagerId, workLocation, shiftTimings,
-      education, experience
+      education, experience, tid
     } = req.body;
 
-    if (!name || !email || !position || !department || !salary || !joinDate) {
+    if (!name || !email || !position || !department || !salary || !joinDate || !tid) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: name, email, position, department, salary, and joinDate are required',
+        error: 'Missing required fields: name, email, position, department, salary, joinDate and TID are required',
       });
     }
 
@@ -102,24 +104,21 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Generate employee ID - find the highest existing number
-    const lastEmployee = await prisma.employee.findFirst({
-      where: {
-        employeeId: {
-          startsWith: 'EMP',
-        },
-      },
-      orderBy: {
-        employeeId: 'desc',
-      },
-    });
-
-    let employeeId = 'EMP0001';
-    if (lastEmployee) {
-      const lastNumber = parseInt(lastEmployee.employeeId.replace('EMP', ''));
-      employeeId = `EMP${String(lastNumber + 1).padStart(4, '0')}`;
+    // Validate TID
+    try {
+      await validateTID(tid);
+    } catch (error: any) {
+      return res.status(400).json({
+        success: false,
+        error: error.message,
+      });
     }
 
+    // Generate employee ID using atomic sequence
+    // Format: EMP0001
+    const empSeq = await generateSequenceNumber('EMP');
+    const employeeId = `EMP${empSeq.toString().padStart(4, '0')}`;
+    
     // Calculate probation end date if probation period is provided
     let probationEndDate = null;
     if (probationPeriod) {
@@ -131,6 +130,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     const employee = await prisma.employee.create({
       data: {
         employeeId,
+        tid,
         name,
         email,
         phone: phone || null,

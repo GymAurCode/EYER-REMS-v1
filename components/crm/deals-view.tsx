@@ -79,6 +79,7 @@ export function DealsView() {
   const filteredDeals = useMemo(() => {
     const query = searchQuery.toLowerCase()
     return deals.filter((deal) =>
+      (deal.tid || "").toLowerCase().includes(query) ||
       (deal.property?.tid || "").toLowerCase().includes(query) ||
       (deal.title || "").toLowerCase().includes(query) ||
       (deal.clientName || "").toLowerCase().includes(query) ||

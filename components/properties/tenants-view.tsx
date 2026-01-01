@@ -84,12 +84,14 @@ export function TenantsView() {
   }
 
   const filteredTenants = (tenants || []).filter((tenant) => {
+    const tid = tenant.tid || ""
     const name = tenant.name || ""
     const email = tenant.email || ""
     const unitName =
       typeof tenant.unit === "string" ? tenant.unit : tenant.unit?.unitName || tenant.unit?.unitNumber || ""
     const searchLower = searchQuery.toLowerCase()
     return (
+      tid.toLowerCase().includes(searchLower) ||
       name.toLowerCase().includes(searchLower) ||
       email.toLowerCase().includes(searchLower) ||
       unitName.toLowerCase().includes(searchLower)
@@ -150,7 +152,7 @@ export function TenantsView() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search tenants..."
+            placeholder="Search by TID, name, email, unit..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -209,6 +211,7 @@ export function TenantsView() {
                     <div className="space-y-3">
                       <div className="space-y-1">
                         <h3 className="font-semibold text-foreground text-lg">{tenant.name || "N/A"}</h3>
+                        <div className="text-sm text-muted-foreground font-mono">{tenant.tid || "No TID"}</div>
                         <p className="text-sm text-muted-foreground">
                           {unitDisplay}
                           {propertyDisplay ? ` · ${propertyDisplay}` : ""}
@@ -267,6 +270,9 @@ export function TenantsView() {
                       <h3 className="text-lg font-semibold text-foreground">
                         {selectedTenantDetails.name || "N/A"}
                       </h3>
+                      <p className="text-xs font-mono text-muted-foreground mb-1">
+                        {selectedTenantDetails.tid || "—"}
+                      </p>
                       <p className="text-sm text-muted-foreground">
                         {typeof selectedTenantDetails.unit === "string"
                           ? selectedTenantDetails.unit

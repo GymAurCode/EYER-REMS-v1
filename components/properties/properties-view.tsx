@@ -54,6 +54,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { apiService } from "@/lib/api"
 import { PropertyToasts, handleApiError } from "@/lib/toast-utils"
 import { formatCurrency } from "@/lib/utils"
+import { getPropertyImageSrc } from "@/lib/property-image-utils"
 
 export function PropertiesView() {
   const router = useRouter()
@@ -160,31 +161,39 @@ export function PropertiesView() {
     fetchProperties()
   }, [currentPage, itemsPerPage, searchQuery])
 
-  const fetchProperties = async () => {
+  const fetchProperties = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
-      const response: any = await apiService.properties.getAll({
+
+      const response = await apiService.properties.getAll({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchQuery
+        search: searchQuery,
+        status: filterStatus !== "all" ? filterStatus : undefined,
+        type: filterType !== "all" ? filterType : undefined,
       })
-      // Backend returns { success: true, data: [...] }
-      const responseData = response.data as any
-      const propertiesData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-      setProperties(propertiesData)
 
-      if (responseData?.pagination) {
-        setTotalPages(responseData.pagination.totalPages || 1)
-        setTotalItems(responseData.pagination.total || 0)
+      const responseData = response.data
+      if (responseData?.success || Array.isArray(responseData?.data) || Array.isArray(responseData)) {
+        const data = responseData?.data || responseData
+        setProperties(Array.isArray(data) ? data : [])
+        const pagination = responseData?.pagination || {}
+        setTotalPages(pagination.pages || 1)
+        setTotalItems(pagination.total || 0)
+      } else {
+        setProperties([])
+        setTotalPages(1)
+        setTotalItems(0)
       }
     } catch (err: any) {
-      setError(err.response?.data?.message || err.response?.data?.error || "Failed to fetch properties")
+      console.error("Failed to fetch properties:", err)
+      setError(err.message || "Failed to load properties")
       setProperties([])
     } finally {
       setLoading(false)
     }
-  }
+  }, [currentPage, itemsPerPage, searchQuery, filterStatus, filterType])
 
   const fetchStats = async () => {
     try {
@@ -509,14 +518,14 @@ export function PropertiesView() {
           {/* Search and Filter */}
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search properties..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by TID, title, location..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline">
@@ -613,8 +622,9 @@ export function PropertiesView() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>T.ID</TableHead>
-                    <TableHead>Code</TableHead>
+                    <TableHead>Property</TableHead>
+                    <TableHead>TID</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Type</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Address</TableHead>
@@ -630,6 +640,7 @@ export function PropertiesView() {
                     .filter((property) => {
                       // Search filter
                       const matchesSearch =
+                        (property.tid || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
                         property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -659,13 +670,7 @@ export function PropertiesView() {
                               {property.imageUrl ? (
                                 <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
                                   <img
-                                    src={
-                                      property.imageUrl.startsWith('http')
-                                        ? property.imageUrl
-                                        : property.imageUrl.startsWith('/')
-                                          ? `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`
-                                          : property.imageUrl
-                                    }
+                                    src={getPropertyImageSrc(property.id, property.imageUrl)}
                                     alt={property.tid || "Property"}
                                     className="h-full w-full object-cover"
                                     onError={(e) => {
@@ -698,17 +703,19 @@ export function PropertiesView() {
                                 </div>
                               )}
                               <div>
-                                <p className="font-semibold">{property.tid || "N/A"}</p>
+                                <div className="font-semibold">{property.name || "N/A"}</div>
+                                <div className="text-xs text-muted-foreground">{property.propertyCode || "No Code"}</div>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell>
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {property.propertyCode || "—"}
-                            </span>
+                            <span className="font-mono text-xs">{property.tid || "—"}</span>
                           </TableCell>
                           <TableCell>
-                            <Badge variant="secondary">{property.type || "—"}</Badge>
+                            <div className="flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-muted-foreground" />
+                              <span className="text-sm">{property.location || "—"}</span>
+                            </div>
                           </TableCell>
                           <TableCell>
                             <Badge

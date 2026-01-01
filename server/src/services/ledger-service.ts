@@ -6,6 +6,8 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 
+import { createAuditLog } from './audit-log';
+
 export interface CreateLedgerEntryPayload {
   dealId: string;
   paymentId?: string;
@@ -14,6 +16,8 @@ export interface CreateLedgerEntryPayload {
   amount: number;
   remarks?: string;
   date: Date;
+  userId?: string;
+  userName?: string;
 }
 
 export class LedgerService {
@@ -54,7 +58,7 @@ export class LedgerService {
     const accountName = account.name;
 
     // Create ledger entry
-    return await prismaClient.ledgerEntry.create({
+    const entry = await prismaClient.ledgerEntry.create({
       data: {
         dealId: payload.dealId,
         paymentId: payload.paymentId || null,
@@ -67,6 +71,21 @@ export class LedgerService {
         date: payload.date,
       },
     });
+
+    // Audit Log
+    if (payload.userId) {
+      await createAuditLog({
+        entityType: 'LedgerEntry',
+        entityId: entry.id,
+        action: 'create',
+        userId: payload.userId,
+        userName: payload.userName,
+        description: `Created ledger entry for ${accountName}: ${payload.amount}`,
+        newValues: entry,
+      });
+    }
+
+    return entry;
   }
 
   /**

@@ -27,7 +27,7 @@ async function checkColumnExists(tableName: string, columnName: string): Promise
 async function applyMigration() {
   console.log('🔍 Checking if TID columns exist...\n');
 
-  const tables = ['Property', 'Client', 'Deal'];
+  const tables = ['Property', 'Client', 'Deal', 'Unit', 'Lease', 'Sale'];
   const missingColumns: string[] = [];
 
   for (const table of tables) {
@@ -40,10 +40,19 @@ async function applyMigration() {
     }
   }
 
+  // Check indexes
+  const uniqueIndexes = await prisma.$queryRaw<Array<{ indexname: string, tablename: string }>>`
+    SELECT indexname, tablename 
+    FROM pg_indexes 
+    WHERE indexname LIKE '%_tid_key'
+  `;
+  console.log('\nExisting Unique TID Indexes:');
+  uniqueIndexes.forEach(idx => console.log(`- ${idx.tablename}: ${idx.indexname}`));
+
   if (missingColumns.length === 0) {
-    console.log('\n✅ All TID columns already exist. Migration not needed.');
-    await prisma.$disconnect();
-    return;
+    console.log('\n✅ All TID columns already exist. Migration might not be needed.');
+    // await prisma.$disconnect();
+    // return;
   }
 
   console.log(`\n⚠️  Missing columns in: ${missingColumns.join(', ')}`);

@@ -128,6 +128,48 @@ router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, r
 
 // GET dropdown by key - allow authenticated users (not just admin) since used in forms
 // Use regex to allow dots in the key parameter (e.g., "property.category")
+// Default dropdowns to serve when database is empty
+const DEFAULT_DROPDOWNS: Record<string, { name: string; options: { label: string; value: string }[] }> = {
+  'property.type': {
+    name: 'Property Type',
+    options: [
+      { label: 'Residential', value: 'residential' },
+      { label: 'Commercial', value: 'commercial' },
+      { label: 'Industrial', value: 'industrial' },
+      { label: 'Land', value: 'land' },
+    ],
+  },
+  'property.category': {
+    name: 'Property Category',
+    options: [
+      { label: 'Apartment', value: 'apartment' },
+      { label: 'House', value: 'house' },
+      { label: 'Villa', value: 'villa' },
+      { label: 'Plot', value: 'plot' },
+      { label: 'Shop', value: 'shop' },
+      { label: 'Office', value: 'office' },
+    ],
+  },
+  'property.status': {
+    name: 'Property Status',
+    options: [
+      { label: 'Active', value: 'Active' },
+      { label: 'Inactive', value: 'Inactive' },
+      { label: 'Maintenance', value: 'Maintenance' },
+      { label: 'Vacant', value: 'Vacant' },
+      { label: 'Sold', value: 'Sold' },
+    ],
+  },
+  'property.size': {
+    name: 'Property Size',
+    options: [
+      { label: 'Small', value: 'small' },
+      { label: 'Medium', value: 'medium' },
+      { label: 'Large', value: 'large' },
+    ],
+  },
+};
+
 router.get('/dropdowns/:key([^/]+)', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     // Decode the key in case it was URL encoded
@@ -140,10 +182,41 @@ router.get('/dropdowns/:key([^/]+)', authenticate, async (req: AuthRequest, res:
         },
       },
     });
-    if (!category) {
-      return res.status(404).json({ error: 'Category not found' });
+
+    if (category) {
+      return res.json({ data: category, options: category.options });
     }
-    res.json({ data: category, options: category.options });
+
+    // Fallback to default options if not found in database
+    const defaultData = DEFAULT_DROPDOWNS[key];
+    if (defaultData) {
+      const options = defaultData.options.map((opt, idx) => ({
+        id: `default-${key}-${idx}`,
+        label: opt.label,
+        value: opt.value,
+        sortOrder: idx,
+        isActive: true,
+        categoryId: 'default',
+        metadata: {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      const categoryData = {
+        id: 'default',
+        key,
+        name: defaultData.name,
+        description: 'Default system options',
+        createdBy: 'system',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        options,
+      };
+
+      return res.json({ data: categoryData, options });
+    }
+
+    return res.status(404).json({ error: 'Category not found' });
   } catch (error) {
     return errorResponse(res, error);
   }

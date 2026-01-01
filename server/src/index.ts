@@ -40,6 +40,7 @@ import secureFilesRoutes from './routes/secure-files';
 import recycleBinRoutes from './routes/recycle-bin';
 import subsidiariesRoutes from './routes/subsidiaries';
 import accountsRoutes from './routes/accounts';
+import fraudDetectionRoutes from './routes/fraud-detection';
 import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
@@ -193,6 +194,42 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
 // Serve secure files (authenticated endpoint)
 app.use('/api/secure-files', secureFilesRoutes);
 
+// Static route for secure file serving (public access for images/attachments)
+app.get('/api/secure-files/*', async (req: Request, res: Response) => {
+  try {
+    const filePath = (req.path || '').replace('/api/secure-files/', '');
+    const { getSecureUploadDir } = await import('./utils/file-security');
+    const uploadDir = await getSecureUploadDir();
+    const fullPath = path.join(uploadDir, filePath);
+
+    // Check if file exists
+    const fs = await import('fs/promises');
+    await fs.access(fullPath);
+
+    const stats = await fs.stat(fullPath);
+    const ext = path.extname(filePath).toLowerCase();
+    const contentTypes: Record<string, string> = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.webp': 'image/webp',
+      '.pdf': 'application/pdf',
+    };
+    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Length', stats.size);
+    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+
+    const fileBuffer = await fs.readFile(fullPath);
+    return res.send(fileBuffer);
+  } catch (error) {
+    logger.warn('Secure file not found:', req.path);
+    return res.status(404).json({ error: 'File not found' });
+  }
+});
+
 // Legacy static file serving (deprecated - use secure-files endpoint)
 // Keep for backward compatibility but files should be moved outside web root
 app.use('/uploads', (express as any).static(path.join(process.cwd(), 'public', 'uploads')));
@@ -223,6 +260,7 @@ app.use('/api/finance', financeRoutes);
 app.use('/api/finance-enhanced', financeEnhancedRoutes);
 app.use('/api/finance-reports', financeReportsRoutes);
 app.use('/api/financial-reports', financialReportsRoutes);
+app.use('/api/fraud-detection', fraudDetectionRoutes);
 app.use('/api/accounts', accountsRoutes);
 app.use('/api/properties-enhanced', propertiesEnhancedRoutes);
 app.use('/api/crm-enhanced', crmEnhancedRoutes);

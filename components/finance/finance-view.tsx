@@ -10,7 +10,7 @@ import { apiService } from "@/lib/api"
 import { TransactionsView } from "./transactions-view"
 import { InvoicesView } from "./invoices-view"
 import { PaymentsView } from "./payments-view"
-import { ReportsView } from "./reports-view"
+import { FinancialReportsView } from "./financial-reports-view"
 import { CommissionsView } from "./commissions-view"
 import { AccountingView } from "./accounting-view"
 import { ChartOfAccountsView } from "./chart-of-accounts-view"
@@ -304,7 +304,7 @@ export function FinanceView() {
         </TabsContent>
 
         <TabsContent value="reports">
-          <ReportsView />
+          <FinancialReportsView />
         </TabsContent>
       </Tabs>
 

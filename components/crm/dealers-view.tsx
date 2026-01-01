@@ -159,11 +159,20 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
 
   const filteredDealers = useMemo(() => {
     const query = searchQuery.toLowerCase()
-    return dealers.filter((dealer) =>
-      (dealer.name || "").toLowerCase().includes(query) ||
-      (dealer.email || "").toLowerCase().includes(query) ||
-      (dealer.company || "").toLowerCase().includes(query),
-    )
+    return dealers.filter((dealer) => {
+      const name = (dealer.name || "").toLowerCase()
+      const email = (dealer.email || "").toLowerCase()
+      const phone = (dealer.phone || "").toLowerCase()
+      const company = (dealer.company || "").toLowerCase()
+      const tid = (dealer.tid || "").toLowerCase()
+      return (
+        tid.includes(query) ||
+        name.includes(query) ||
+        email.includes(query) ||
+        phone.includes(query) ||
+        company.includes(query)
+      )
+    })
   }, [dealers, searchQuery])
 
   return (
@@ -173,7 +182,7 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search dealers by name, email, or company..."
+            placeholder="Search by TID, name, email, company..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-10"
@@ -187,7 +196,8 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
           <TableHeader>
             <TableRow>
               <TableHead>Dealer</TableHead>
-              <TableHead>Contact</TableHead>
+              <TableHead>TID</TableHead>
+              <TableHead>Contact Info</TableHead>
               <TableHead>Company</TableHead>
               <TableHead>Deals</TableHead>
               <TableHead>Total Deal Value</TableHead>
@@ -225,10 +235,23 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
               </TableRow>
             ) : (
               filteredDealers.map((dealer) => (
-                <TableRow key={dealer.id}>
+                <TableRow key={dealer.id} className="hover:bg-muted/50">
+                  <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase flex-shrink-0">
+                        {dealer.name
+                          ?.split(" ")
+                          .map((n: string) => n[0])
+                          .join("")
+                          .slice(0, 2) || "?"}
+                      </div>
+                      <div>
+                        <p className="font-semibold">{dealer.name || "N/A"}</p>
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell>
-                    <div className="font-semibold text-foreground">{dealer.name}</div>
-                    <div className="text-xs text-muted-foreground">ID: {dealer.id}</div>
+                    <span className="font-mono text-xs">{dealer.tid || "—"}</span>
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-1 text-sm">

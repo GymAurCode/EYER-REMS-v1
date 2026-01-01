@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
@@ -13,6 +13,7 @@ import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon, Refresh
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
+import { getPropertyImageSrc } from "@/lib/property-image-utils"
 
 type PropertyForm = {
   tid: string // Transaction ID - unique across Property, Deal, Client
@@ -339,7 +340,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
   const [form, setForm] = useState<PropertyForm>(DEFAULT_FORM)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [dealers, setDealers] = useState<{ id: string; name: string }[]>([])
+  const [dealers, setDealers] = useState<{ id: string; name: string; tid?: string }[]>([])
   const [amenities, setAmenities] = useState<{ id: string; name: string }[]>([])
   const [propertyData, setPropertyData] = useState<any>(null)
   const [accounts, setAccounts] = useState<any[]>([])
@@ -349,16 +350,14 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
     income: "",
     scrap: "",
   })
-  const [imagePreview, setImagePreview] = useState<string | null>(null)
-  const [uploadingImage, setUploadingImage] = useState(false)
+  const [photoFile, setPhotoFile] = useState<File | null>(null)
+  const [attachmentFiles, setAttachmentFiles] = useState<File[]>([])
   const [subsidiaryOptions, setSubsidiaryOptions] = useState<Array<{ id: string; name: string }>>([])
   const [loadingSubsidiaries, setLoadingSubsidiaries] = useState(false)
   const [leafLocations, setLeafLocations] = useState<Array<{ id: string; path: string }>>([])
   const [loadingLocations, setLoadingLocations] = useState(false)
   const [locationError, setLocationError] = useState<string | null>(null)
   const [locationLoadTimeout, setLocationLoadTimeout] = useState(false)
-  const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
-  const [uploadingAttachments, setUploadingAttachments] = useState(false)
   const isEdit = Boolean(propertyId)
 
   // Load leaf locations when dialog opens
@@ -408,8 +407,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         income: "",
         scrap: "",
       })
-      setImagePreview(null)
-      setAttachments([])
+      setPhotoFile(null)
+      setAttachmentFiles([])
       return
     }
 
@@ -428,7 +427,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
         setDealers(
           Array.isArray(dealerPayload?.data ?? dealerPayload)
-            ? (dealerPayload.data ?? dealerPayload).map((d: any) => ({ id: d.id, name: d.name }))
+            ? (dealerPayload.data ?? dealerPayload).map((d: any) => ({ id: d.id, name: d.name, tid: d.tid }))
             : [],
         )
         setAmenities(
@@ -470,7 +469,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             amenities: Array.isArray(payload.amenities) ? payload.amenities : documents.amenities || [],
             description: payload.description || "",
           })
-          setImagePreview(imageUrl || null)
 
           // Log for debugging
           console.log("Property loaded:", {
@@ -478,27 +476,11 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             dealer: payload.dealer,
             imageUrl: imageUrl ? `${imageUrl.substring(0, 50)}...` : "none"
           })
-
-          // Load existing attachments
-          try {
-            const attachmentsRes = await apiService.properties.getDocuments(String(propertyId))
-            const attachmentsData = (attachmentsRes.data as any)?.data || attachmentsRes.data || []
-            setAttachments(Array.isArray(attachmentsData) ? attachmentsData.map((a: any) => ({
-              id: a.id,
-              url: a.fileUrl,
-              name: a.fileName,
-              mimeType: a.fileType,
-            })) : [])
-          } catch (err) {
-            // Ignore if attachments endpoint fails
-            console.warn("Failed to load attachments", err)
-          }
-
         } else {
           setForm(DEFAULT_FORM)
           setPropertyData(null)
-          setImagePreview(null)
-          setAttachments([])
+          setPhotoFile(null)
+          setAttachmentFiles([])
         }
       } catch (error: any) {
         // Don't show toast for rate limit errors, just log
@@ -569,59 +551,62 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       return
     }
 
-    // Remove category and size from payload as they're not supported by server
-    const { category, size, ...formWithoutCategorySize } = form
+    // Do not remove category and size from payload
+    const formWithoutCategorySize = form
 
     setSaving(true)
 
     try {
       const formData = new FormData()
-      
+
       // Add all fields to FormData
+      if (formWithoutCategorySize.tid) formData.append('tid', formWithoutCategorySize.tid)
       formData.append('type', formWithoutCategorySize.type)
+      if (formWithoutCategorySize.category) formData.append('category', formWithoutCategorySize.category)
       formData.append('status', formWithoutCategorySize.status || "Active")
       formData.append('address', formWithoutCategorySize.address)
-      
+
       if (formWithoutCategorySize.location) formData.append('location', formWithoutCategorySize.location)
       if (formWithoutCategorySize.locationId) formData.append('locationId', formWithoutCategorySize.locationId)
       if (formWithoutCategorySize.subsidiaryOptionId) formData.append('subsidiaryOptionId', formWithoutCategorySize.subsidiaryOptionId)
       if (formWithoutCategorySize.description) formData.append('description', formWithoutCategorySize.description)
-      
+
       // Handle numeric fields - send as strings, backend will coerce
+      if (formWithoutCategorySize.size) formData.append('size', formWithoutCategorySize.size)
       if (formWithoutCategorySize.totalArea) formData.append('totalArea', formWithoutCategorySize.totalArea)
       if (formWithoutCategorySize.totalUnits) formData.append('totalUnits', formWithoutCategorySize.totalUnits)
       if (formWithoutCategorySize.yearBuilt) formData.append('yearBuilt', formWithoutCategorySize.yearBuilt)
       if (formWithoutCategorySize.salePrice) formData.append('salePrice', formWithoutCategorySize.salePrice)
-      
+
       if (formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim()) {
         formData.append('dealerId', formWithoutCategorySize.dealerId.trim())
       }
-      
+
       // Handle amenities
       if (formWithoutCategorySize.amenities && formWithoutCategorySize.amenities.length > 0) {
         formData.append('amenities', JSON.stringify(formWithoutCategorySize.amenities))
       }
-      
-      // Handle image - if it's a URL, send as imageUrl. If we had a file object, we would append it.
-      // Current implementation uploads image separately and gives us a URL.
-      if (formWithoutCategorySize.imageUrl) {
-        formData.append('imageUrl', formWithoutCategorySize.imageUrl)
-      }
-      
-      // Only include TID if it's not empty
-      if (formWithoutCategorySize.tid && formWithoutCategorySize.tid.trim()) {
-        formData.append('tid', formWithoutCategorySize.tid.trim())
-      }
-      
-      // Generate name
-      const generatedName = formWithoutCategorySize.tid || 
-        (formWithoutCategorySize.type && formWithoutCategorySize.address 
-          ? `${formWithoutCategorySize.type} at ${formWithoutCategorySize.address}` 
-          : "Unnamed Property")
-      formData.append('name', generatedName)
 
       // Log payload for debugging
       console.log("Property save payload (FormData entries):", Array.from(formData.entries()))
+
+      // Append files directly to FormData
+      if (photoFile) {
+        formData.append('photo', photoFile)
+      }
+
+      if (attachmentFiles.length > 0) {
+        attachmentFiles.forEach((file) => {
+          formData.append('attachments', file)
+        })
+      }
+
+      // Generate name
+      const generatedName = formWithoutCategorySize.tid ||
+        (formWithoutCategorySize.type && formWithoutCategorySize.address
+          ? `${formWithoutCategorySize.type} at ${formWithoutCategorySize.address}`
+          : "Unnamed Property")
+      formData.append('name', generatedName)
 
       let createdPropertyId: string | null = null
 
@@ -634,32 +619,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         const createdData = createResponse?.data?.data || createResponse?.data || createResponse
         createdPropertyId = createdData?.id || createdData?.propertyId || null
         toast({ title: "Property created" })
-      }
-
-      // Upload attachments that were added but not yet saved (for new properties)
-      if (createdPropertyId && attachments.length > 0) {
-        const unsavedAttachments = attachments.filter(a => !a.id) // Only upload attachments without IDs
-        if (unsavedAttachments.length > 0) {
-          try {
-            for (const attachment of unsavedAttachments) {
-              if (attachment.url.startsWith('data:')) {
-                // It's a base64 file, upload it
-                await apiService.properties.uploadDocument(createdPropertyId, {
-                  file: attachment.url,
-                  filename: attachment.name,
-                })
-              }
-            }
-            toast({ title: "Attachments uploaded successfully" })
-          } catch (attachError: any) {
-            console.warn("Failed to upload some attachments", attachError)
-            toast({
-              title: "Property saved",
-              description: "Some attachments failed to upload. You can add them later.",
-              variant: "default",
-            })
-          }
-        }
       }
 
       onSuccess?.()
@@ -716,164 +675,17 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   const amenitySelected = useMemo(() => new Set(form.amenities), [form.amenities])
 
-  const toBase64 = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.readAsDataURL(file)
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = (error) => reject(error)
-    })
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (!file) return
-
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      toast({
-        title: "Invalid file type",
-        description: "Please select an image file",
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Validate file size (max 10MB)
-    if (file.size > 10 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please select an image smaller than 10MB",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      setUploadingImage(true)
-      const base64 = await toBase64(file)
-      const response: any = await apiService.upload.image({
-        image: base64,
-        filename: file.name,
-      })
-
-      // Try multiple response paths to get the image URL
-      const responseData = response?.data || response
-      const imageUrl =
-        responseData?.data?.url ||
-        responseData?.data?.data?.url ||
-        responseData?.url ||
-        responseData?.imageUrl ||
-        (typeof responseData === 'string' ? responseData : null) ||
-        base64
-
-      if (!imageUrl || imageUrl === base64) {
-        console.warn("Image upload response structure unexpected:", response)
-        toast({
-          title: "Warning",
-          description: "Image uploaded but URL format may be incorrect. Please verify after saving.",
-          variant: "default",
-        })
-      }
-
-      setForm((p) => ({ ...p, imageUrl: imageUrl || "" }))
-      setImagePreview(imageUrl)
-      toast({ title: "Image uploaded successfully" })
-    } catch (error: any) {
-      console.error("Image upload error:", error)
-      toast({
-        title: "Failed to upload image",
-        description: error?.response?.data?.error || error?.response?.data?.message || error?.message || "Upload failed",
-        variant: "destructive",
-      })
-    } finally {
-      setUploadingImage(false)
+    if (file) {
+      setPhotoFile(file)
     }
   }
 
-  const handleRemoveImage = () => {
-    setForm((p) => ({ ...p, imageUrl: "" }))
-    setImagePreview(null)
-  }
-
-  const handleAttachmentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files
-    if (!files || !files.length) return
-
-    setUploadingAttachments(true)
-    try {
-      const uploads: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
-
-      for (const file of Array.from(files)) {
-        // Validate file type
-        const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
-        if (!allowedTypes.includes(file.type.toLowerCase())) {
-          toast({
-            title: "Invalid file type",
-            description: `File "${file.name}" is not supported. Only PDF, JPG, PNG, GIF, and WEBP files are allowed`,
-            variant: "destructive",
-          })
-          continue
-        }
-
-        // Validate file size (max 10MB)
-        if (file.size > 10 * 1024 * 1024) {
-          toast({
-            title: "File too large",
-            description: `File "${file.name}" exceeds 10MB limit`,
-            variant: "destructive",
-          })
-          continue
-        }
-
-        const base64 = await toBase64(file)
-
-        // If editing, upload to property
-        if (propertyId) {
-          const response: any = await apiService.properties.uploadDocument(String(propertyId), {
-            file: base64,
-            filename: file.name,
-          })
-          const responseData = response.data as any
-          const uploaded = responseData?.data || responseData
-          uploads.push({
-            id: uploaded?.id,
-            url: uploaded?.url || uploaded?.filename,
-            name: file.name,
-            mimeType: file.type,
-          })
-        } else {
-          // For new properties, store locally until property is created
-          uploads.push({
-            url: base64, // Store base64 temporarily
-            name: file.name,
-            mimeType: file.type,
-          })
-        }
-      }
-
-      if (uploads.length > 0) {
-        setAttachments((prev) => [...prev, ...uploads])
-        toast({ title: `${uploads.length} file(s) uploaded successfully` })
-      }
-    } catch (error: any) {
-      toast({
-        title: "Failed to upload attachment",
-        description: error?.response?.data?.error || error?.message || "Upload failed",
-        variant: "destructive",
-      })
-    } finally {
-      setUploadingAttachments(false)
-      // Reset input
-      if (e.target) {
-        e.target.value = ""
-      }
+  const handleAttachmentUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setAttachmentFiles(Array.from(e.target.files))
     }
-  }
-
-  const handleRemoveAttachment = async (index: number) => {
-    const attachment = attachments[index]
-    // If it has an ID, it's already saved - could delete from server, but for now just remove from list
-    setAttachments((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   // Filter accounts by type
@@ -885,8 +697,8 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[93vw]! w-[93vw]! max-h-[90vh] p-0 flex flex-col sm:w-[93vw]! sm:max-w-[93vw]!">
-        <DialogHeader className="px-6 py-4 border-b bg-muted/50">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[85vw] lg:w-[80vw] xl:w-[75vw] sm:max-w-[1400px] max-h-[90vh] p-0 flex flex-col z-50 bg-background">
+        <DialogHeader className="px-6 md:px-8 py-4 border-b bg-muted/50">
           <DialogTitle className="flex items-center justify-between text-lg font-semibold">
             <span>{isEdit ? "View / Edit Property" : "Add Property"}</span>
             {propertyData?.propertyCode && (
@@ -895,9 +707,9 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
               </Badge>
             )}
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <DialogDescription className="text-sm text-muted-foreground">
             {isEdit ? "View and edit property details" : "Fill in the details to add a new property"}
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -908,26 +720,79 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
               </div>
             ) : (
               <ScrollArea className="h-full">
-                <div className="px-6 pb-4">
-                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <div className="px-6 md:px-8 pb-4">
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
+                    <div className="md:col-span-4">
+                      <div className="w-full">
+                        {form.imageUrl ? (
+                          <div className="relative w-full h-48 md:h-56">
+                            <img
+                              src={isEdit && propertyId ? getPropertyImageSrc(propertyId, form.imageUrl) : form.imageUrl}
+                              alt="Property"
+                              className="w-full h-full object-cover rounded-lg border"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const fallback = target.nextElementSibling as HTMLElement;
+                                if (fallback) fallback.style.display = 'flex';
+                              }}
+                            />
+                            <div className="absolute inset-0 rounded-lg border-2 border-dashed flex items-center justify-center text-sm text-muted-foreground bg-muted/50 hidden">
+                              <div className="text-center">
+                                <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                                <p>Image failed to load</p>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="w-full h-48 md:h-56 rounded-lg border-2 border-dashed flex items-center justify-center text-sm text-muted-foreground">
+                            <div className="text-center">
+                              <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
+                              <p>No image selected</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="md:col-span-8">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-center gap-3">
+                          <h2 className="text-xl font-semibold text-foreground">{form.tid || "New Property"}</h2>
+                          {form.type && <Badge variant="secondary">{form.type}</Badge>}
+                          {form.status && (
+                            <Badge
+                              variant={
+                                form.status === "Active"
+                                  ? "default"
+                                  : form.status === "Maintenance"
+                                    ? "destructive"
+                                    : form.status === "For Sale"
+                                      ? "secondary"
+                                      : "outline"
+                              }
+                            >
+                              {form.status}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-sm text-muted-foreground">{form.address || "Enter address"}</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
                     <div className="lg:col-span-7 space-y-4">
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>TID (Transaction ID) *</Label>
+                          <Label htmlFor="tid">Tracking ID <span className="text-destructive">*</span></Label>
                           <Input
+                            id="tid"
                             value={form.tid}
-                            onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value.toUpperCase().trim() }))}
-                            placeholder="Enter unique TID"
-                            disabled={isEdit}
-                            className={isEdit ? "bg-muted" : ""}
+                            onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value }))}
+                            placeholder="PRO-XXXX"
                           />
-                          <p className="text-xs text-muted-foreground">
-                            {isEdit ? "TID cannot be changed after creation" : "Unique identifier across Property, Deal, and Client"}
-                          </p>
+                          <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
                         </div>
-
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Address *</Label>
                           <Input
@@ -992,7 +857,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                               <SelectItem value="none">None</SelectItem>
                               {dealers.map((d) => (
                                 <SelectItem key={d.id} value={d.id}>
-                                  {d.name}
+                                  {d.tid ? `[${d.tid}] ` : ""}{d.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -1037,54 +902,20 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                       </div>
 
                       <div className="space-y-2">
-                        <Label>Property Image</Label>
                         <div className="space-y-2">
-                          {imagePreview ? (
-                            <div className="relative">
-                              <img
-                                src={imagePreview}
-                                alt="Property preview"
-                                className="w-full h-48 object-cover rounded-lg border"
-                              />
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-2 right-2"
-                                onClick={handleRemoveImage}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div className="border-2 border-dashed rounded-lg p-6 text-center">
-                              <Upload className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
-                              <Label htmlFor="image-upload" className="cursor-pointer">
-                                <span className="text-sm text-muted-foreground">Click to upload or drag and drop</span>
-                                <Input
-                                  id="image-upload"
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleImageUpload}
-                                  disabled={uploadingImage}
-                                  className="hidden"
-                                />
-                              </Label>
-                              <p className="text-xs text-muted-foreground mt-2">PNG, JPG, GIF up to 10MB</p>
-                            </div>
-                          )}
-                          {uploadingImage && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Uploading image...
-                            </div>
-                          )}
+                          <Label>Property Image</Label>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                          />
+                          {photoFile && <p className="text-sm text-green-600">Selected: {photoFile.name}</p>}
                         </div>
                       </div>
 
                     </div>
 
-                    <div className="lg:col-span-5 space-y-4">
+                    <div className="lg:col-span-5 space-y-4 lg:pl-4">
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label>Location</Label>
@@ -1179,7 +1010,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                                 Loading locations...
                               </div>
                             ) : (
-                              leafLocations.map((loc) => (
+                              (leafLocations || []).map((loc) => (
                                 <SelectItem key={loc.id} value={loc.id}>
                                   {loc.path}
                                 </SelectItem>
@@ -1203,7 +1034,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                         <div className="space-y-2">
                           <Label>Property Subsidiary</Label>
                           <div className="text-xs text-muted-foreground mb-2 p-2 bg-muted rounded">
-                            Location: {leafLocations.find((loc) => loc.id === form.locationId)?.path || "N/A"}
+                            Location: {(leafLocations || []).find((loc) => loc.id === form.locationId)?.path || "N/A"}
                           </div>
                           <Select
                             value={form.subsidiaryOptionId || "none"}
@@ -1220,14 +1051,14 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
-                              {subsidiaryOptions.map((opt) => (
+                              {(subsidiaryOptions || []).map((opt) => (
                                 <SelectItem key={opt.id} value={opt.id}>
                                   {opt.name}
                                 </SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
-                          {subsidiaryOptions.length === 0 && !loadingSubsidiaries && (
+                          {(subsidiaryOptions || []).length === 0 && !loadingSubsidiaries && (
                             <p className="text-xs text-muted-foreground">
                               No subsidiaries available for this location. Add them in Advanced Options &gt; Location & Subsidiary.
                             </p>
@@ -1239,7 +1070,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                       <div className="space-y-2">
                         <Label>Amenities</Label>
                         <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto border rounded p-2">
-                          {amenities.map((a) => {
+                          {(amenities || []).map((a) => {
                             const active = amenitySelected.has(a.name)
                             return (
                               <Button
@@ -1283,7 +1114,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
-                              {assetAccounts.map((account) => (
+                              {(assetAccounts || []).map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.code} - {account.name}
                                 </SelectItem>
@@ -1307,7 +1138,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
-                              {expenseAccounts.map((account) => (
+                              {(expenseAccounts || []).map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.code} - {account.name}
                                 </SelectItem>
@@ -1334,7 +1165,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
-                              {incomeAccounts.map((account) => (
+                              {(incomeAccounts || []).map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.code} - {account.name}
                                 </SelectItem>
@@ -1358,7 +1189,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="none">None</SelectItem>
-                              {scrapAccounts.map((account) => (
+                              {(scrapAccounts || []).map((account) => (
                                 <SelectItem key={account.id} value={account.id}>
                                   {account.code} - {account.name}
                                 </SelectItem>
@@ -1370,58 +1201,21 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
                       <div className="space-y-2">
                         <Label>Attachments</Label>
-                        <div className="space-y-2">
-                          <div className="border-2 border-dashed rounded-lg p-4 text-center">
-                            <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
-                            <Label htmlFor="attachment-upload" className="cursor-pointer">
-                              <span className="text-sm text-muted-foreground">Click to upload documents</span>
-                              <Input
-                                id="attachment-upload"
-                                type="file"
-                                accept=".pdf,.jpg,.jpeg,.png,.gif,.webp"
-                                multiple
-                                onChange={handleAttachmentUpload}
-                                disabled={uploadingAttachments}
-                                className="hidden"
-                              />
-                            </Label>
-                            <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG, GIF, WEBP up to 10MB each</p>
+                        <Input
+                          type="file"
+                          multiple
+                          onChange={handleAttachmentUpload}
+                        />
+                        {attachmentFiles.length > 0 && (
+                          <div className="text-sm text-green-600">
+                            {attachmentFiles.length} file(s) selected
+                            <ul className="list-disc pl-4 text-xs mt-1 text-muted-foreground">
+                              {(attachmentFiles || []).map((f, i) => (
+                                <li key={i}>{f.name}</li>
+                              ))}
+                            </ul>
                           </div>
-                          {uploadingAttachments && (
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Uploading attachments...
-                            </div>
-                          )}
-                          {attachments.length > 0 && (
-                            <div className="space-y-2">
-                              {attachments.map((attachment, idx) => {
-                                const isImage = attachment.mimeType?.startsWith('image/') || attachment.url.startsWith('data:image')
-                                return (
-                                  <div key={idx} className="flex items-center justify-between p-2 border rounded-lg">
-                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                      {isImage ? (
-                                        <ImageIcon className="h-4 w-4 text-primary shrink-0" />
-                                      ) : (
-                                        <FileText className="h-4 w-4 text-primary shrink-0" />
-                                      )}
-                                      <span className="text-sm truncate">{attachment.name}</span>
-                                    </div>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => handleRemoveAttachment(idx)}
-                                      className="shrink-0"
-                                    >
-                                      <X className="h-4 w-4" />
-                                    </Button>
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1431,7 +1225,7 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
           </div>
         </div>
 
-        <DialogFooter className="px-6 py-2 border-t bg-muted/50 mt-0 gap-2">
+        <DialogFooter className="px-6 md:px-8 py-2 border-t bg-muted/50 mt-0 gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>

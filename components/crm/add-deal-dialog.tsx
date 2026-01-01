@@ -32,6 +32,7 @@ import { Loader2, Paperclip, Upload, File, Trash2 } from "lucide-react"
 
 interface DealFormData {
   id?: string
+  tid?: string
   title?: string
   clientId?: string | null
   propertyId?: string | null
@@ -56,6 +57,7 @@ interface AddDealDialogProps {
 type ClientOption = {
   id: string
   name: string
+  tid?: string
 }
 
 type PropertyOption = {
@@ -96,6 +98,7 @@ const FALLBACK_STATUS_OPTIONS = [
 ]
 
 const defaultFormState = {
+  tid: "",
   title: "",
   clientId: "",
   propertyId: "",
@@ -151,6 +154,7 @@ export function AddDealDialog({
               .map((client: any) => ({
                 id: String(client.id || ''),
                 name: String(client.name || client.id || ''),
+                tid: client.tid ? String(client.tid) : undefined,
               }))
               .filter((client: { id: string, name: string }) => client.id && client.name) // Filter out invalid clients
           )
@@ -228,7 +232,8 @@ export function AddDealDialog({
             : ""
 
         setFormData({
-          title: initialData.title || "",
+            tid: initialData.tid || "",
+            title: initialData.title || "",
           clientId: existingClientId,
           propertyId:
             initialData.propertyId !== undefined && initialData.propertyId !== null
@@ -296,51 +301,42 @@ export function AddDealDialog({
         })
       }
 
-      if (newAttachments.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          attachments: [...prev.attachments, ...newAttachments]
-        }))
-
-        toast({ title: `${newAttachments.length} file(s) added` })
-      } else {
-        toast({
-          title: "No files added",
-          description: "All selected files were too large",
-          variant: "destructive"
-        })
-      }
-    } catch (err) {
-      console.error("Failed to upload file:", err)
-      toast({ title: "Failed to upload file", variant: "destructive" })
+      setFormData((prev) => ({
+        ...prev,
+        attachments: [...prev.attachments, ...newAttachments],
+      }))
+    } catch (error) {
+      console.error("File upload error:", error)
+      toast({
+        title: "Upload Failed",
+        description: "Could not process the uploaded file(s).",
+        variant: "destructive",
+      })
     } finally {
       setUploading(false)
-      e.target.value = "" // Reset input
+      // Reset input
+      e.target.value = ""
     }
   }
 
   const removeAttachment = (index: number) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      attachments: prev.attachments.filter((_, i) => i !== index)
+      attachments: prev.attachments.filter((_, i) => i !== index),
     }))
-  }
-
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + " B"
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
-    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
   }
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {}
 
+    // Validate TID
+    if (!formData.tid || formData.tid.trim() === "") {
+      newErrors.tid = "Transaction ID is required"
+    }
 
-
-    // Title is optional now, will be auto-generated if missing
-    // if (!formData.title || formData.title.trim() === "") {
-    //   newErrors.title = "Deal title is required"
-    // }
+    if (!formData.title || formData.title.trim() === "") {
+      newErrors.title = "Deal title is required"
+    }
 
     if (!formData.clientId || formData.clientId.trim() === "") {
       newErrors.clientId = "Please select a client"
@@ -355,7 +351,6 @@ export function AddDealDialog({
       newErrors.dealAmount = "Deal amount must be a valid number greater than 0"
     }
 
-    // Validate against property sale price if available
     if (selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null) {
       const salePriceValue = Number(selectedProperty.salePrice)
       if (!Number.isNaN(salePriceValue) && Math.abs(dealAmount - salePriceValue) > 0.01) {
@@ -370,121 +365,90 @@ export function AddDealDialog({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Validate form before submitting
     if (!validateForm()) {
-      toast({
-        title: "Validation Error",
-        description: "Please fix the errors in the form",
-        variant: "destructive",
-      })
       return
     }
 
+    setSubmitting(true)
+
     try {
-      setSubmitting(true)
-      setErrors({})
-
-      const autoTitle = formData.title?.trim() || (selectedProperty?.tid ? `Deal for ${selectedProperty.tid}` : (selectedProperty?.name ? `Deal for ${selectedProperty.name}` : "New Deal"))
-
-      const dealAmount = Number.parseFloat(formData.dealAmount?.toString() || "0")
       const payload = {
-        title: autoTitle,
+        tid: formData.tid,
+        title: formData.title,
         clientId: formData.clientId,
         propertyId: formData.propertyId,
-        role: formData.role || "buyer",
-        dealAmount: dealAmount,
+        role: formData.role,
+        dealAmount: Number(formData.dealAmount),
         stage: formData.stage,
         status: formData.status,
-        dealDate: formData.dealDate ? new Date(formData.dealDate).toISOString() : undefined,
-        expectedClosingDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
-        notes: formData.description || undefined,
+        dealDate: new Date(formData.dealDate || new Date()).toISOString(),
+        description: formData.description,
+        dueDate: formData.dueDate ? new Date(formData.dueDate).toISOString() : undefined,
+        attachments: formData.attachments.length > 0 ? formData.attachments : undefined,
       }
 
-      // Add attachments if any
-      if (formData.attachments && formData.attachments.length > 0) {
-        ; (payload as any).attachments = {
-          files: formData.attachments
-        }
-      }
-
+      let response
       if (isEdit) {
-        const response: any = await apiService.deals.update(initialData!.id!, payload)
-        DealToasts.updated(formData.title || "Deal")
+        response = await apiService.deals.update(initialData!.id!, payload)
+        DealToasts.updateSuccess(toast)
       } else {
-        const response: any = await apiService.deals.create(payload)
-        DealToasts.created(formData.title || "Deal")
+        response = await apiService.deals.create(payload)
+        DealToasts.createSuccess(toast)
       }
+
+      if (onSuccess) onSuccess()
       onOpenChange(false)
       resetForm()
-      onSuccess?.()
-    } catch (err: any) {
-      console.error("Failed to save deal", err)
-
-      // Extract validation errors from API response
-      if (err.response?.data?.error) {
-        const apiError = err.response.data.error
-        if (Array.isArray(apiError)) {
-          // Zod validation errors
-          const validationErrors: Record<string, string> = {}
-          apiError.forEach((error: any) => {
-            const field = error.path?.[0] || "general"
-            validationErrors[field] = error.message || "Invalid value"
-          })
-          setErrors(validationErrors)
-          toast({
-            title: "Validation Error",
-            description: "Please check the form for errors",
-            variant: "destructive",
-          })
-        } else if (typeof apiError === "string") {
-          toast({
-            title: "Error",
-            description: apiError,
-            variant: "destructive",
-          })
-        } else if (typeof apiError === "object") {
-          // Handle error object - extract message
-          const errorMsg = (apiError as any)?.message || (apiError as any)?.error || JSON.stringify(apiError)
-          toast({
-            title: "Error",
-            description: String(errorMsg),
-            variant: "destructive",
-          })
-        } else {
-          DealToasts.error(`Failed to ${isEdit ? "update" : "create"} deal`)
-        }
+    } catch (error: any) {
+      console.error("Deal submission error:", error)
+      const errorMessage = error.response?.data?.error || error.message || "Failed to save deal"
+      
+      if (isEdit) {
+        DealToasts.updateError(toast, errorMessage)
       } else {
-        DealToasts.error(`Failed to ${isEdit ? "update" : "create"} deal`)
+        DealToasts.createError(toast, errorMessage)
       }
     } finally {
       setSubmitting(false)
     }
   }
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    if (!nextOpen) {
-      resetForm()
-    }
-    onOpenChange(nextOpen)
-  }
-
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[900px] max-w-[90vw]">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Deal" : "Add New Deal"}</DialogTitle>
           <DialogDescription>
-            {isEdit ? "Update the deal details" : "Create a new deal in the pipeline"}
+            {isEdit ? "Update deal details below." : "Enter the details for the new deal."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
 
-              <Label htmlFor="title">Deal Title</Label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+             {/* TID Field */}
+             <div className="grid gap-2">
+              <Label htmlFor="tid">Transaction ID <span className="text-destructive">*</span></Label>
+              <Input
+                id="tid"
+                placeholder="DL-XXXX"
+                value={formData.tid || ""}
+                onChange={(e) => {
+                  setFormData({ ...formData, tid: e.target.value })
+                  if (errors.tid) setErrors({ ...errors, tid: "" })
+                }}
+                className={errors.tid ? "border-destructive" : ""}
+                required
+                disabled={isEdit} // TID cannot be changed after creation
+              />
+              {errors.tid && <p className="text-sm text-destructive">{errors.tid}</p>}
+              <p className="text-xs text-muted-foreground">Enter unique transaction ID</p>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="title">Deal Title <span className="text-destructive">*</span></Label>
               <Input
                 id="title"
-                placeholder="e.g., Commercial Property Sale (Optional)"
+                placeholder="e.g. Downtown Apartment Sale"
                 value={formData.title}
                 onChange={(e) => {
                   setFormData({ ...formData, title: e.target.value })
@@ -494,87 +458,61 @@ export function AddDealDialog({
               />
               {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
             </div>
+
             <div className="grid gap-2">
-              <Label htmlFor="clientId">Client</Label>
+              <Label htmlFor="clientId">Client <span className="text-destructive">*</span></Label>
               <Select
-                value={formData.clientId}
+                value={formData.clientId || ""}
                 onValueChange={(value) => {
                   setFormData({ ...formData, clientId: value })
                   if (errors.clientId) setErrors({ ...errors, clientId: "" })
                 }}
-                disabled={loadingClients}
               >
                 <SelectTrigger className={errors.clientId ? "border-destructive" : ""}>
-                  <span>{selectedClient?.name || (loadingClients ? "Loading clients..." : "Select client")}</span>
+                  <SelectValue placeholder={loadingClients ? "Loading clients..." : "Select Client"} />
                 </SelectTrigger>
                 <SelectContent>
-                  {clients.length === 0 && !loadingClients ? (
-                    <SelectItem value="no-clients" disabled>
-                      No clients available
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.name} {client.tid ? `(${client.tid})` : ""}
                     </SelectItem>
-                  ) : (
-                    clients.map((client) => (
-                      <SelectItem key={client.id} value={client.id}>
-                        {client.name}
-                      </SelectItem>
-                    ))
-                  )}
+                  ))}
                 </SelectContent>
               </Select>
               {errors.clientId && <p className="text-sm text-destructive">{errors.clientId}</p>}
             </div>
 
-
-
             <div className="grid gap-2">
-              <Label htmlFor="propertyId">Property *</Label>
-              <Command className="border rounded-md">
-                <CommandInput placeholder="Search by TID or Name..." />
-                <CommandList>
-                  <CommandEmpty>No properties found.</CommandEmpty>
-                  <CommandGroup>
-                    {properties.map((property) => (
-                      <CommandItem
-                        key={property.id}
-                        value={`${property.tid || ''} ${property.name}`}
-                        onSelect={() => {
-                          const value = property.id;
-                          if (value === "no-properties") return
-
-                          const salePrice = property?.salePrice
-                          setFormData({
-                            ...formData,
-                            propertyId: value,
-                            dealAmount: salePrice !== undefined && salePrice !== null ? salePrice.toString() : formData.dealAmount,
-                          })
-                          if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
-                        }}
-                      >
-                        <div className="flex flex-col">
-                          <span className="font-medium">{property.tid || "No TID"} - {property.name}</span>
-                          <span className="text-xs text-muted-foreground">{property.status || "Unknown Status"}</span>
-                        </div>
-                        {formData.propertyId === property.id && (
-                          <span className="ml-auto text-primary">✓</span>
-                        )}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
+              <Label htmlFor="propertyId">Property <span className="text-destructive">*</span></Label>
+              <Select
+                value={formData.propertyId || ""}
+                onValueChange={(value) => {
+                  setFormData({ ...formData, propertyId: value })
+                  if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
+                }}
+              >
+                <SelectTrigger className={errors.propertyId ? "border-destructive" : ""}>
+                  <SelectValue placeholder={loadingProperties ? "Loading properties..." : "Select Property"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {properties.map((property) => (
+                    <SelectItem key={property.id} value={property.id}>
+                      {property.name} {property.tid ? `(${property.tid})` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               {errors.propertyId && <p className="text-sm text-destructive">{errors.propertyId}</p>}
-              {selectedProperty && (
-                <p className="text-sm text-muted-foreground">
-                  Selected: {selectedProperty.tid || "No TID"} - {selectedProperty.name}
-                </p>
-              )}
             </div>
 
             <div className="grid gap-2">
               <Label htmlFor="role">Client Role</Label>
-              <Select value={formData.role ?? "buyer"} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+              <Select
+                value={formData.role || ""}
+                onValueChange={(value) => setFormData({ ...formData, role: value })}
+              >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
                   {ROLE_OPTIONS.map((role) => (
@@ -585,136 +523,139 @@ export function AddDealDialog({
                 </SelectContent>
               </Select>
             </div>
+
             <div className="grid gap-2">
-              <Label htmlFor="dealAmount">Deal Amount</Label>
+              <Label htmlFor="dealAmount">Deal Amount <span className="text-destructive">*</span></Label>
               <Input
                 id="dealAmount"
                 type="number"
-                min="0.01"
-                step="0.01"
-                placeholder="500000"
-                value={formData.dealAmount}
+                placeholder="0.00"
+                value={formData.dealAmount || ""}
                 onChange={(e) => {
                   setFormData({ ...formData, dealAmount: e.target.value })
                   if (errors.dealAmount) setErrors({ ...errors, dealAmount: "" })
                 }}
-                required
-                readOnly={!!selectedProperty?.salePrice}
-                className={`${errors.dealAmount ? "border-destructive" : ""} ${selectedProperty?.salePrice ? "bg-muted" : ""}`}
+                className={errors.dealAmount ? "border-destructive" : ""}
               />
               {errors.dealAmount && <p className="text-sm text-destructive">{errors.dealAmount}</p>}
-              {selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null && (
+              {selectedProperty?.salePrice && (
                 <p className="text-xs text-muted-foreground">
-                  Sales Price: Rs {Number(selectedProperty.salePrice).toLocaleString("en-IN")} (locked)
+                  Suggested Price: {selectedProperty.salePrice.toLocaleString()}
                 </p>
               )}
             </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="stage">Stage</Label>
+              <Select
+                value={formData.stage || ""}
+                onValueChange={(value) => setFormData({ ...formData, stage: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Stage" />
+                </SelectTrigger>
+                <SelectContent>
+                  {stageOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status || ""}
+                onValueChange={(value) => setFormData({ ...formData, status: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  {statusOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="dealDate">Deal Date</Label>
               <Input
                 id="dealDate"
                 type="date"
-                value={formData.dealDate}
+                value={formData.dealDate || ""}
                 onChange={(e) => setFormData({ ...formData, dealDate: e.target.value })}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="stage">Stage</Label>
-              <Select value={formData.stage} onValueChange={(value) => setFormData({ ...formData, stage: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {stageOptions.map((stage) => (
-                    <SelectItem key={stage.value} value={stage.value}>
-                      {stage.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="status">Status</Label>
-              <Select value={formData.status ?? "open"} onValueChange={(value) => setFormData({ ...formData, status: value })}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map((status) => (
-                    <SelectItem key={status.value} value={status.value}>
-                      {status.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Deal details and notes"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="dueDate">Expected Closing Date</Label>
-              <Input
-                id="dueDate"
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
               />
             </div>
 
-            {/* Attachments Section */}
-            <div className="space-y-4">
-              <Label className="flex items-center gap-2">
-                <Paperclip className="h-4 w-4" />
-                Attachments
-              </Label>
-              <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+            <div className="grid gap-2">
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={formData.dueDate || ""}
+                onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Enter deal description..."
+              value={formData.description || ""}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="min-h-[100px]"
+            />
+          </div>
+
+          <div className="grid gap-2">
+            <Label>Attachments</Label>
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => document.getElementById("file-upload")?.click()}
+                  disabled={uploading}
+                >
+                  {uploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                  Upload Files
+                </Button>
                 <input
+                  id="file-upload"
                   type="file"
                   multiple
-                  onChange={handleFileUpload}
                   className="hidden"
-                  id="deal-attachments"
-                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+                  onChange={handleFileUpload}
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.xls,.xlsx"
                 />
-                <label
-                  htmlFor="deal-attachments"
-                  className="cursor-pointer flex flex-col items-center gap-2"
-                >
-                  <Upload className="h-8 w-8 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">
-                    {uploading ? "Uploading..." : "Click to upload files (PDF, DOC, Images, Excel)"}
-                  </span>
-                </label>
+                <span className="text-xs text-muted-foreground">Max 10MB per file</span>
               </div>
 
               {formData.attachments.length > 0 && (
                 <div className="space-y-2">
                   {formData.attachments.map((file, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
-                    >
-                      <div className="flex items-center gap-3">
-                        <File className="h-5 w-5 text-muted-foreground" />
-                        <div>
-                          <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                        </div>
+                    <div key={index} className="flex items-center justify-between p-2 border rounded bg-muted/20">
+                      <div className="flex items-center gap-2 overflow-hidden">
+                        <File className="h-4 w-4 flex-shrink-0 text-primary" />
+                        <span className="text-sm truncate max-w-[200px]">{file.name}</span>
+                        <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(1)} KB)</span>
                       </div>
                       <Button
                         type="button"
                         variant="ghost"
                         size="sm"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
                         onClick={() => removeAttachment(index)}
                       >
-                        <Trash2 className="h-4 w-4 text-destructive" />
+                        <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   ))}
@@ -722,16 +663,18 @@ export function AddDealDialog({
               )}
             </div>
           </div>
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting || (loadingClients && clients.length === 0)}>
-              {submitting ? "Saving..." : isEdit ? "Save Changes" : "Add Deal"}
+            <Button type="submit" disabled={submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isEdit ? "Update Deal" : "Create Deal"}
             </Button>
           </DialogFooter>
-        </form >
-      </DialogContent >
-    </Dialog >
+        </form>
+      </DialogContent>
+    </Dialog>
   )
 }

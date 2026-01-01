@@ -4,6 +4,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
+import { validateTID } from '../services/id-generation-service';
 import logger from '../utils/logger';
 import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
@@ -22,6 +23,7 @@ const createSaleSchema = z.object({
   profit: z.number().optional(),
   documents: z.array(z.string()).optional(), // Array of document URLs
   dealerId: z.string().uuid().optional(), // Optional dealer ID
+  tid: z.string().min(1, "TID is required"),
 });
 
 const updateSaleSchema = createSaleSchema.partial();
@@ -334,6 +336,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     logger.debug('Create sale request body:', JSON.stringify(req.body, null, 2));
     const data = createSaleSchema.parse(req.body);
 
+    // Validate TID
+    await validateTID(data.tid);
+
     // Verify property exists
     const property = await prisma.property.findFirst({
       where: { id: data.propertyId, isDeleted: false },
@@ -373,6 +378,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         profit: profit,
         documents: data.documents && Array.isArray(data.documents) && data.documents.length > 0 ? data.documents : undefined,
         dealerId: data.dealerId || null,
+        tid: data.tid,
       },
       include: {
         property: true,

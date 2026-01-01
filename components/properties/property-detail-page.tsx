@@ -23,9 +23,11 @@ import {
   Upload,
   Loader2,
   Eye,
+  Download,
 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
+import { getPropertyImageSrc } from "@/lib/property-image-utils"
 import { PropertyReportHTML } from "@/components/reports/property-report-html"
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ImageLightbox } from "@/components/shared/image-lightbox"
@@ -412,67 +414,81 @@ export function PropertyDetailPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Button variant="ghost" size="sm" onClick={() => router.push("/properties")}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to list
-            </Button>
-            {property.propertyCode && (
-              <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
-                Code: {property.propertyCode}
-              </span>
-            )}
-            {property.manualUniqueId && (
-              <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
-                Manual ID: {property.manualUniqueId}
-              </span>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-3xl font-bold text-foreground leading-tight">{property.tid || "Property Details"}</h1>
-            <Badge variant="secondary">{property.type || "N/A"}</Badge>
-            <Badge
-              variant={
-                property.status === "Active"
-                  ? "default"
-                  : property.status === "Maintenance"
-                    ? "destructive"
-                    : property.status === "For Sale"
-                      ? "secondary"
-                      : "outline"
-              }
-            >
-              {property.status || "N/A"}
-            </Badge>
-          </div>
-          <p className="text-muted-foreground">{property.location || property.address || "No location provided"}</p>
+      <div className="space-y-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Button variant="ghost" size="sm" onClick={() => router.push("/properties")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to list
+          </Button>
+          {property.propertyCode && (
+            <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
+              Code: {property.propertyCode}
+            </span>
+          )}
+          {property.manualUniqueId && (
+            <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-foreground">
+              Manual ID: {property.manualUniqueId}
+            </span>
+          )}
         </div>
-        <div className="flex flex-wrap gap-2">
-          <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="default">
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Report
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-[1000px] w-full max-h-[90vh] overflow-hidden p-0">
-              <DialogTitle className="sr-only">Property Report</DialogTitle>
-              <div className="h-[90vh] overflow-y-auto">
-                <PropertyReportHTML
-                  property={{
-                    ...property,
-                    totalArea: property.totalArea,
-                  }}
-                  financeSummary={financeSummary}
-                  paymentPlan={paymentPlan || undefined}
-                  deals={dealsForReport}
-                  hideActions={false}
-                />
-              </div>
-            </DialogContent>
-          </Dialog>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-4">
+            {property.imageUrl && (
+              <img
+                src={getPropertyImageSrc(propertyId, property.imageUrl)}
+                alt={property.tid || "Property image"}
+                className="w-full h-48 md:h-56 object-cover rounded-lg border"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = "none"
+                }}
+              />
+            )}
+          </div>
+          <div className="md:col-span-8">
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-3xl font-bold text-foreground leading-tight">{property.tid || "Property Details"}</h1>
+              <Badge variant="secondary">{property.type || "N/A"}</Badge>
+              <Badge
+                variant={
+                  property.status === "Active"
+                    ? "default"
+                    : property.status === "Maintenance"
+                      ? "destructive"
+                      : property.status === "For Sale"
+                        ? "secondary"
+                        : "outline"
+                }
+              >
+                {property.status || "N/A"}
+              </Badge>
+            </div>
+            <p className="text-muted-foreground mt-1">{property.location || property.address || "No location provided"}</p>
+            <div className="flex flex-wrap gap-2 mt-4">
+              <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="default">
+                    <FileText className="h-4 w-4 mr-2" />
+                    Generate Report
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[1000px] w-full max-h-[90vh] overflow-hidden p-0">
+                  <DialogTitle className="sr-only">Property Report</DialogTitle>
+                  <div className="h-[90vh] overflow-y-auto">
+                    <PropertyReportHTML
+                      property={{
+                        ...property,
+                        totalArea: property.totalArea,
+                      }}
+                      financeSummary={financeSummary}
+                      paymentPlan={paymentPlan || undefined}
+                      deals={dealsForReport}
+                      hideActions={false}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -508,18 +524,6 @@ export function PropertyDetailPage() {
             </Button>
           </div>
           <Separator className="my-4" />
-          {property.imageUrl && (
-            <div className="mb-4">
-              <img
-                src={property.imageUrl.startsWith('http') ? property.imageUrl : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${property.imageUrl}`}
-                alt={property.tid || "Property image"}
-                className="w-full h-64 object-cover rounded-lg border"
-                onError={(e) => {
-                  (e.target as HTMLImageElement).style.display = "none"
-                }}
-              />
-            </div>
-          )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <div className="grid grid-cols-[140px,1fr] gap-2 text-sm">
@@ -841,7 +845,7 @@ export function PropertyDetailPage() {
               const isImage = attachment.fileType?.startsWith('image/')
               const imageUrl = attachment.fileUrl.startsWith('http')
                 ? attachment.fileUrl
-                : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.fileUrl}`
+                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${attachment.fileUrl}`
 
               const handleViewDocument = () => {
                 setSelectedDocument({
@@ -916,6 +920,24 @@ export function PropertyDetailPage() {
                           <Eye className="h-4 w-4" />
                         </Button>
                       )}
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          const link = document.createElement('a')
+                          link.href = imageUrl
+                          link.download = attachment.fileName
+                          link.target = '_blank'
+                          link.rel = 'noopener noreferrer'
+                          document.body.appendChild(link)
+                          link.click()
+                          document.body.removeChild(link)
+                        }}
+                        className="bg-white/90 hover:bg-white text-gray-900"
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
 
@@ -943,7 +965,7 @@ export function PropertyDetailPage() {
             .map(a => ({
               url: a.fileUrl.startsWith('http')
                 ? a.fileUrl
-                : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${a.fileUrl}`,
+                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${a.fileUrl}`,
               name: a.fileName,
             }))}
           currentIndex={lightboxIndex}

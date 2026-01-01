@@ -102,17 +102,15 @@ export function ClientsView() {
   }
 
   const filteredClients = clients.filter((client) => {
-    const query = searchQuery.toLowerCase()
+    const searchLower = searchQuery.toLowerCase()
     const matchesSearch =
-      client.name?.toLowerCase().includes(query) ||
-      client.email?.toLowerCase().includes(query) ||
-      client.company?.toLowerCase().includes(query)
+      client.tid?.toLowerCase().includes(searchLower) ||
+      client.name?.toLowerCase().includes(searchLower) ||
+      client.email?.toLowerCase().includes(searchLower) ||
+      client.phone?.includes(searchQuery) ||
+      client.company?.toLowerCase().includes(searchLower)
 
-    const type = (client.type || "").toLowerCase()
-    const matchesType =
-      typeFilter === "all" ||
-      (typeFilter === "individual" && type === "individual") ||
-      (typeFilter === "corporate" && type === "corporate")
+    const matchesType = typeFilter === "all" || client.type?.toLowerCase() === typeFilter
 
     return matchesSearch && matchesType
   })
@@ -150,11 +148,11 @@ export function ClientsView() {
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search clients..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
+                placeholder="Search by TID, name, email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8"
+              />
         </div>
         <div className="flex gap-2">
           <Button
@@ -219,7 +217,7 @@ export function ClientsView() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>T.ID</TableHead>
+                <TableHead>TID</TableHead>
                 <TableHead>Client Name</TableHead>
                 <TableHead>Type</TableHead>
                 <TableHead>Company</TableHead>

@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import { z, ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
 import multer from 'multer';
+import path from 'path';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
@@ -12,6 +13,7 @@ import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF, generatePropertiesReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
+import { generateTrackingId } from '../services/tid-service';
 import { generatePropertyCode } from '../utils/code-generator';
 
 // Configure multer for form-data handling
@@ -54,9 +56,14 @@ const getExistingColumns = async (tableName: string): Promise<Set<string>> => {
 
 // Validation schemas
 const createPropertySchema = z.object({
-  tid: z.string().optional(),
+  tid: z.string().min(1, 'TID is required'),
   name: z.string().min(1, 'Property name is required'),
   type: z.string().min(1, 'Property type is required'),
+  category: z.string().optional(),
+  size: z.preprocess(
+    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
+    z.number().nonnegative().optional()
+  ),
   address: z.string().min(1, 'Address is required'),
   location: z.string().optional(),
   locationId: z.preprocess(
@@ -242,7 +249,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     const subsidiaryOptionIdExists = existingColumns.has('subsidiaryoptionid');
 
     const scalarFieldsCandidate = [
-      'id','name','type','address','location','status','imageurl','description','yearbuilt','totalarea','totalunits','dealerid','isdeleted','createdat','updatedat','propertycode','city','documents','ownername','ownerphone','previoustenants','rentamount','rentescalationpercentage','securitydeposit','size','title','locationid','manualuniqueid','tid','subsidiaryoptionid'
+      'id', 'name', 'type', 'address', 'location', 'status', 'imageurl', 'description', 'yearbuilt', 'totalarea', 'totalunits', 'dealerid', 'isdeleted', 'createdat', 'updatedat', 'propertycode', 'city', 'documents', 'ownername', 'ownerphone', 'previoustenants', 'rentamount', 'rentescalationpercentage', 'securitydeposit', 'size', 'title', 'locationid', 'manualuniqueid', 'tid', 'subsidiaryoptionid'
     ];
     const needsSelect = scalarFieldsCandidate.some(f => !existingColumns.has(f));
 
@@ -752,6 +759,158 @@ router.post('/:id/floors', authenticate, async (req: AuthRequest, res: Response)
   }
 });
 
+// Serve property image - MUST be before /:id route to avoid route conflicts
+// GET /api/properties/:id/image
+router.get('/:id/image', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    // Get property with imageUrl
+    const property = await prisma.property.findFirst({
+      where: {
+        id,
+        isDeleted: false,
+      },
+      select: {
+        id: true,
+        imageUrl: true,
+      },
+    });
+
+    if (!property || !property.imageUrl) {
+      return res.status(404).json({ error: 'Property image not found' });
+    }
+
+    const imageUrl = property.imageUrl;
+
+    // Handle different image URL formats
+    // 1. Full HTTP/HTTPS URLs - redirect or proxy
+    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+      // For external URLs, we could proxy them, but for now just return the URL
+      // In production, you might want to proxy to avoid CORS issues
+      return (res as any).redirect(imageUrl);
+    }
+
+    // 2. Secure files path (/secure-files/...)
+    if (imageUrl.startsWith('/secure-files/')) {
+      // Extract path components: /secure-files/entityType/entityId/filename
+      const pathParts = imageUrl.split('/').filter(Boolean);
+      if (pathParts.length >= 4) {
+        const [, entityType, entityId, ...filenameParts] = pathParts;
+        const filename = filenameParts.join('/');
+
+        // Use secure-files route logic
+        const { getSecureUploadDir } = await import('../utils/file-security');
+        const uploadDir = await getSecureUploadDir();
+        const filePath = path.join(uploadDir, entityType, entityId, filename);
+
+        // Check if file exists
+        try {
+          const fs = await import('fs/promises');
+          await fs.access(filePath);
+
+          // Get file stats and content type
+          const stats = await fs.stat(filePath);
+          const ext = path.extname(filename).toLowerCase();
+          const contentTypes: Record<string, string> = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+          };
+          const contentType = contentTypes[ext] || 'image/jpeg';
+
+          // Set headers
+          res.setHeader('Content-Type', contentType);
+          res.setHeader('Content-Length', stats.size);
+          res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
+          res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+
+          // Stream file
+          const fileBuffer = await fs.readFile(filePath);
+          return res.send(fileBuffer);
+        } catch (error) {
+          logger.warn(`Property image file not found: ${filePath}`);
+          return res.status(404).json({ error: 'Image file not found on server' });
+        }
+      }
+    }
+
+    // 3. Legacy /uploads path
+    if (imageUrl.startsWith('/uploads/')) {
+      const filePath = path.join(process.cwd(), 'public', imageUrl);
+      try {
+        const fs = await import('fs/promises');
+        await fs.access(filePath);
+
+        const stats = await fs.stat(filePath);
+        const ext = path.extname(imageUrl).toLowerCase();
+        const contentTypes: Record<string, string> = {
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.png': 'image/png',
+          '.gif': 'image/gif',
+          '.webp': 'image/webp',
+        };
+        const contentType = contentTypes[ext] || 'image/jpeg';
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', stats.size);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+
+        const fileBuffer = await fs.readFile(filePath);
+        return res.send(fileBuffer);
+      } catch (error) {
+        logger.warn(`Legacy property image file not found: ${filePath}`);
+        return res.status(404).json({ error: 'Image file not found' });
+      }
+    }
+
+    // 4. Base64 data URLs - decode and serve
+    if (imageUrl.startsWith('data:image/')) {
+      const matches = imageUrl.match(/^data:image\/([a-zA-Z]+);base64,(.+)$/);
+      if (matches) {
+        const [, imageType, base64Data] = matches;
+        const imageBuffer = Buffer.from(base64Data, 'base64');
+        const contentTypes: Record<string, string> = {
+          'jpeg': 'image/jpeg',
+          'jpg': 'image/jpeg',
+          'png': 'image/png',
+          'gif': 'image/gif',
+          'webp': 'image/webp',
+        };
+        const contentType = contentTypes[imageType.toLowerCase()] || 'image/jpeg';
+
+        res.setHeader('Content-Type', contentType);
+        res.setHeader('Content-Length', imageBuffer.length);
+        res.setHeader('Cache-Control', 'public, max-age=31536000');
+        return res.send(imageBuffer);
+      }
+    }
+
+    // 5. Relative path starting with / - try as secure-files or legacy uploads
+    if (imageUrl.startsWith('/')) {
+      // Try secure-files first
+      if (!imageUrl.startsWith('/secure-files/') && !imageUrl.startsWith('/uploads/')) {
+        // Assume it's a property-specific path like /property/{id}
+        // Try to find the image in secure-files/images/{userId} or similar
+        // For now, return 404 with helpful message
+        return res.status(404).json({
+          error: 'Image path format not recognized',
+          imageUrl: imageUrl,
+          hint: 'Image URL should be a full URL, /secure-files/... path, /uploads/... path, or base64 data URL'
+        });
+      }
+    }
+
+    return res.status(404).json({ error: 'Unsupported image URL format' });
+  } catch (error) {
+    logger.error('Property image serving error:', error);
+    return errorResponse(res, error);
+  }
+});
+
 // Get property by ID
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -761,7 +920,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const tidExists = existingColumns.has('tid');
     const subsidiaryOptionIdExists = existingColumns.has('subsidiaryoptionid');
     const scalarFieldsCandidate = [
-      'id','name','type','address','location','status','imageurl','description','yearbuilt','totalarea','totalunits','dealerid','isdeleted','createdat','updatedat','propertycode','city','documents','ownername','ownerphone','previoustenants','rentamount','rentescalationpercentage','securitydeposit','size','title','locationid','manualuniqueid','tid','subsidiaryoptionid'
+      'id', 'name', 'type', 'address', 'location', 'status', 'imageurl', 'description', 'yearbuilt', 'totalarea', 'totalunits', 'dealerid', 'isdeleted', 'createdat', 'updatedat', 'propertycode', 'city', 'documents', 'ownername', 'ownerphone', 'previoustenants', 'rentamount', 'rentescalationpercentage', 'securitydeposit', 'size', 'title', 'locationid', 'manualuniqueid', 'tid', 'subsidiaryoptionid'
     ];
     const allColumnsPresent = scalarFieldsCandidate.every(f => existingColumns.has(f));
 
@@ -1663,7 +1822,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
       throw validationError;
     }
 
-    // Validate TID if provided - must be unique across Property, Deal, and Client
+    // Validate TID - must be unique across Property, Deal, and Client
     if (data.tid) {
       // Only validate TID if the tid column exists
       const tidColumnExists = await columnExists('Property', 'tid');
@@ -1709,7 +1868,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
 
     // Store extra attributes in documents field (keeps schema unchanged)
     let documentsData: { [key: string]: any } | null = null;
-    
+
     // Only store non-schema fields in documents now
     // salePrice and amenities are now direct fields
 
@@ -1717,9 +1876,10 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
     const tidColumnExists = await columnExists('Property', 'tid');
     const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
 
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:createColumnCheck', message: 'Column existence check for create', data: { tidColumnExists, subsidiaryOptionIdExists }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
-    // #endregion
+    // Handle file uploads
+    const files = (req as any).files as Express.Multer.File[] || [];
+    const photoFile = files.find(f => f.fieldname === 'photo');
+    const attachmentFiles = files.filter(f => f.fieldname === 'attachments');
 
     // Build create data object, only including fields that exist in database
     const createData: any = {
@@ -1728,7 +1888,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
       address: data.address,
       location: data.location || undefined,
       status: data.status || 'Active',
-      imageUrl: data.imageUrl || undefined,
+      imageUrl: data.imageUrl || undefined, // Will be updated after creation if file exists
       description: data.description || undefined,
       yearBuilt: data.yearBuilt || undefined,
       totalArea: data.totalArea || undefined,
@@ -1744,7 +1904,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
       createData.subsidiaryOptionId = data.subsidiaryOptionId ?? null;
     }
     if (tidColumnExists) {
-      createData.tid = data.tid?.trim() || null;
+      createData.tid = data.tid.trim();
     }
     if (propertyCode) {
       createData.propertyCode = propertyCode;
@@ -1803,6 +1963,72 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
         data: createData,
         select: selectFields,
       });
+
+      // Handle file uploads (Video/Image/Attachments) using property.id
+      if (photoFile) {
+        try {
+          const { saveFileSecurely } = await import('../utils/file-security');
+          const path = await import('path');
+
+          const { relativePath } = await saveFileSecurely(
+            photoFile.buffer,
+            photoFile.originalname,
+            'properties',
+            property.id
+          );
+
+          // Use forward slashes and ensure /api prefix
+          const normalizedPath = relativePath.split(path.sep).join('/');
+          const publicUrl = normalizedPath.startsWith('/api') ? normalizedPath : `/api${normalizedPath}`;
+
+          // Update property with imageUrl
+          property = await prisma.property.update({
+            where: { id: property.id },
+            data: { imageUrl: publicUrl },
+            select: selectFields,
+          });
+        } catch (err) {
+          logger.error('Failed to save property photo:', err);
+        }
+      }
+
+      // Save attachments if any
+      if (attachmentFiles.length > 0) {
+        try {
+          const { saveFileSecurely } = await import('../utils/file-security');
+          const path = await import('path');
+
+          await Promise.all(attachmentFiles.map(async (file) => {
+            const { relativePath, filename: secureFilename } = await saveFileSecurely(
+              file.buffer,
+              file.originalname,
+              'properties',
+              property.id
+            );
+
+            // Use forward slashes and ensure /api prefix
+            const normalizedPath = relativePath.split(path.sep).join('/');
+            const publicUrl = normalizedPath.startsWith('/api') ? normalizedPath : `/api${normalizedPath}`;
+
+            await prisma.attachment.create({
+              data: {
+                fileName: secureFilename,
+                fileUrl: publicUrl,
+                fileType: file.mimetype,
+                fileSize: file.size,
+                entityType: 'property',
+                entityId: property.id,
+                propertyId: property.id,
+                uploadedBy: req.user!.id,
+                description: `Property document: ${file.originalname}`,
+              },
+            });
+          }));
+        } catch (attachErr) {
+          logger.error('Failed to save property attachments:', attachErr);
+          // Don't fail the request if attachments fail, but log it
+        }
+      }
     } catch (createError: any) {
       // #region agent log
       fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ location: 'properties.ts:createError', message: 'Property create error caught', data: { code: createError?.code, message: createError?.message, meta: createError?.meta, createDataKeys: Object.keys(createData) }, timestamp: Date.now(), sessionId: 'debug-session', runId: 'run1', hypothesisId: 'A' }) }).catch(() => { });
@@ -1929,7 +2155,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
 router.put('/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    
+
     // Log request for debugging
     logger.debug(`Update property ${id} request body:`, {
       ...req.body,
@@ -1948,7 +2174,7 @@ router.put('/:id', authenticate, upload.any(), async (req: AuthRequest, res: Res
     }
 
     // Handle amenities and sale price in update - now direct fields
-    const updateData: Prisma.PropertyUpdateInput = { 
+    const updateData: Prisma.PropertyUpdateInput = {
       ...data,
       salePrice: data.salePrice,
       amenities: data.amenities,
@@ -2182,10 +2408,10 @@ router.get('/alerts/lease-expiry', authenticate, async (req: AuthRequest, res: R
 router.get('/report/pdf', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyIds } = req.query;
-    
+
     // Build where clause
     const where: any = { isDeleted: false };
-    
+
     // Filter by property IDs if provided
     if (propertyIds) {
       const ids = Array.isArray(propertyIds) ? propertyIds : [propertyIds];

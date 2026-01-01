@@ -468,12 +468,14 @@ api.interceptors.response.use(
 export const apiService = {
   // Properties
   properties: {
-    getAll: (params?: { search?: string; locationId?: string; page?: number; limit?: number }, config?: any) => {
+    getAll: (params?: { search?: string; locationId?: string; page?: number; limit?: number; status?: string; type?: string }, config?: any) => {
       const queryParams = new URLSearchParams()
       if (params?.search) queryParams.append('search', params.search)
       if (params?.locationId) queryParams.append('locationId', params.locationId)
       if (params?.page) queryParams.append('page', params.page.toString())
       if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.status) queryParams.append('status', params.status)
+      if (params?.type) queryParams.append('type', params.type)
       const queryString = queryParams.toString()
       return api.get(`/properties${queryString ? `?${queryString}` : ''}`, config)
     },
@@ -900,6 +902,34 @@ export const apiService = {
     // Unified ledger endpoint
     getLedger: (type: 'client' | 'dealer' | 'property', id: string, params?: any) =>
       api.get(`/finance/ledger/${type}/${id}`, { params }),
+  },
+
+  // Financial Reports
+  financialReports: {
+    trialBalance: (params?: { startDate?: string; endDate?: string }) =>
+      api.get('/financial-reports/trial-balance', { params }),
+    balanceSheet: (params?: { asOfDate?: string }) =>
+      api.get('/financial-reports/balance-sheet', { params }),
+    profitLoss: (params: { startDate: string; endDate: string }) =>
+      api.get('/financial-reports/profit-loss', { params }),
+    propertyProfitability: (params?: { propertyId?: string; startDate?: string; endDate?: string }) =>
+      api.get('/financial-reports/property-profitability', { params }),
+    escrow: () => api.get('/financial-reports/escrow'),
+    aging: (params: { type: 'Receivable' | 'Payable'; asOfDate?: string }) =>
+      api.get('/financial-reports/aging', { params }),
+    // Export endpoints
+    exportTrialBalance: (params?: { startDate?: string; endDate?: string; format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/trial-balance/export', { params, responseType: 'blob' }),
+    exportBalanceSheet: (params?: { asOfDate?: string; format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/balance-sheet/export', { params, responseType: 'blob' }),
+    exportProfitLoss: (params: { startDate: string; endDate: string; format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/profit-loss/export', { params, responseType: 'blob' }),
+    exportPropertyProfitability: (params?: { propertyId?: string; startDate?: string; endDate?: string; format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/property-profitability/export', { params, responseType: 'blob' }),
+    exportEscrow: (params?: { format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/escrow/export', { params, responseType: 'blob' }),
+    exportAging: (params: { type: 'Receivable' | 'Payable'; asOfDate?: string; format?: 'pdf' | 'excel' }) =>
+      api.get('/financial-reports/aging/export', { params, responseType: 'blob' }),
   },
 
   // Stats (with longer timeout for slow queries)

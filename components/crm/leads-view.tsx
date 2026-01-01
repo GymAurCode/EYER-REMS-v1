@@ -105,13 +105,14 @@ export function LeadsView() {
   }
 
   const filteredLeads = leads.filter((lead) => {
+    const searchLower = searchQuery.toLowerCase()
     const matchesSearch =
-      lead.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      lead.email?.toLowerCase().includes(searchQuery.toLowerCase())
-
-    const normalizedStatus = (lead.status || "").toLowerCase()
-    const matchesStatus = statusFilter === "all" || normalizedStatus === statusFilter
-
+      (lead.tid || "").toLowerCase().includes(searchLower) ||
+      (lead.name || "").toLowerCase().includes(searchLower) ||
+      (lead.email || "").toLowerCase().includes(searchLower) ||
+      (lead.phone || "").includes(searchQuery) ||
+      (lead.company || "").toLowerCase().includes(searchLower)
+    const matchesStatus = statusFilter === "all" || lead.status === statusFilter
     return matchesSearch && matchesStatus
   })
 
@@ -119,15 +120,15 @@ export function LeadsView() {
     <div className="space-y-4">
       {/* Search and Filter */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search leads..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Search by TID, name, email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
         <div className="flex gap-2">
           {LEAD_FILTERS.map((filter) => (
             <Button
@@ -182,6 +183,7 @@ export function LeadsView() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>TID</TableHead>
                 <TableHead>Lead Name</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Source</TableHead>
@@ -197,6 +199,9 @@ export function LeadsView() {
             <TableBody>
               {filteredLeads.map((lead) => (
                 <TableRow key={lead.id} className="hover:bg-muted/50">
+                  <TableCell>
+                    <span className="font-mono text-xs">{lead.tid || "—"}</span>
+                  </TableCell>
                   <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-semibold uppercase flex-shrink-0">

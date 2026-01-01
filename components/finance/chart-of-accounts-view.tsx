@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { 
+import {
   ChevronRight, 
   ChevronDown, 
   Folder, 
@@ -18,8 +18,10 @@ import {
   Clock,
   Plus,
   Pencil,
-  Trash2
+  Trash2,
+  BarChart3
 } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -101,6 +103,7 @@ const getAccountTypeBorderColor = (type: string): string => {
 
 export function ChartOfAccountsView() {
   const { toast } = useToast()
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState("")
   const [loading, setLoading] = useState(true)
   const [accounts, setAccounts] = useState<Account[]>([])
@@ -367,10 +370,20 @@ export function ChartOfAccountsView() {
               className="pl-9"
             />
           </div>
-          <Button onClick={handleAddAccount}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Account
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => {
+              const params = new URLSearchParams()
+              params.set('tab', 'reports')
+              router.push(`/finance?${params.toString()}`)
+            }}>
+              <BarChart3 className="mr-2 h-4 w-4" />
+              Financial Reports
+            </Button>
+            <Button onClick={handleAddAccount}>
+              <Plus className="mr-2 h-4 w-4" />
+              Add Account
+            </Button>
+          </div>
         </div>
 
         {/* Main Content: Split Layout */}

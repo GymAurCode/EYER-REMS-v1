@@ -28,6 +28,7 @@ interface AddLeaseDialogProps {
 }
 
 const DEFAULT_FORM_STATE = {
+  tid: "",
   tenantId: "",
   propertyId: "",
   unitId: "",
@@ -61,6 +62,7 @@ export function AddLeaseDialog({ open, onOpenChange, onSuccess, lease, defaultPr
       const propertyId = lease.propertyId || lease.unit?.propertyId || lease.unit?.property?.id || ""
       const unitId = lease.unitId || lease.unit?.id || ""
       setFormData({
+        tid: lease.tid || "",
         tenantId,
         propertyId,
         unitId,
@@ -271,6 +273,7 @@ export function AddLeaseDialog({ open, onOpenChange, onSuccess, lease, defaultPr
       }
       
       const payload: any = {
+        tid: formData.tid,
         tenantId: formData.tenantId,
         unitId: formData.unitId,
         leaseStart: leaseStartDate.toISOString(),
@@ -319,6 +322,17 @@ export function AddLeaseDialog({ open, onOpenChange, onSuccess, lease, defaultPr
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2">
+              <Label htmlFor="tid">TID *</Label>
+              <Input
+                id="tid"
+                placeholder="LEA-XXXX"
+                value={formData.tid}
+                onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                required
+                disabled={isEditMode}
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="tenantId">Tenant *</Label>
               <Select 
@@ -409,7 +423,7 @@ export function AddLeaseDialog({ open, onOpenChange, onSuccess, lease, defaultPr
                     ) : (
                       units.map((unit) => (
                         <SelectItem key={unit.id} value={unit.id}>
-                          {unit.unitName} {unit.block?.name ? `(Block ${unit.block.name})` : ""}
+                          {unit.tid ? `[${unit.tid}] ` : ""}{unit.unitName} {unit.block?.name ? `(Block ${unit.block.name})` : ""}
                         </SelectItem>
                       ))
                     )}

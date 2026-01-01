@@ -30,6 +30,7 @@ interface AddTenantDialogProps {
 export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTenantCreated, defaultPropertyId }: AddTenantDialogProps) {
   const [formData, setFormData] = useState({
     name: "",
+    tid: "",
     email: "",
     phone: "",
     address: "",
@@ -218,6 +219,7 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
       onOpenChange(false)
       setFormData({
         name: "",
+        tid: "",
         email: "",
         phone: "",
         address: "",
@@ -260,6 +262,17 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 py-6 max-h-[60vh] overflow-y-auto">
+            <div className="space-y-2">
+              <Label htmlFor="tid">Tracking ID <span className="text-destructive">*</span></Label>
+              <Input
+                id="tid"
+                value={formData.tid}
+                onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                placeholder="TEN-XXXX"
+                required
+              />
+              <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -337,7 +350,7 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
                   ) : (
                     units.map((unit) => (
                       <SelectItem key={unit.id} value={unit.id}>
-                        {unit.unitName} - {unit.property?.name || ""} {unit.block?.name ? `(Block ${unit.block.name})` : ""}
+                        {unit.tid ? `[${unit.tid}] ` : ""}{unit.unitName} - {unit.property?.name || ""} {unit.block?.name ? `(Block ${unit.block.name})` : ""}
                       </SelectItem>
                     ))
                   )}

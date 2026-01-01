@@ -24,7 +24,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 // Validation schemas
 const createPropertySchema = z.object({
-  tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
+  tid: z.string().min(1, "TID is required"), // Transaction ID - unique across Property, Deal, Client
   name: z.string().min(1),
   title: z.string().optional(),
   type: z.string().min(1),
@@ -174,9 +174,7 @@ router.post(
       const { manualUniqueId, tid, ...propertyData } = data as any;
 
       // Validate TID - must be unique across Property, Deal, and Client
-      if (tid) {
-        await validateTID(tid.trim());
-      }
+      await validateTID(tid.trim());
 
       // Validate manual unique ID if provided
       if (manualUniqueId) {
@@ -191,7 +189,7 @@ router.post(
           data: {
             ...propertyData,
             propertyCode,
-            tid: tid?.trim() || null,
+            tid: tid.trim(),
             manualUniqueId: manualUniqueId?.trim() || null,
           },
         });

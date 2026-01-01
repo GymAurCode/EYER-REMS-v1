@@ -3,6 +3,7 @@ import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
+import { generateTrackingId } from '../services/tid-service';
 
 const router = (express as any).Router();
 
@@ -200,11 +201,13 @@ router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res
       });
     }
 
+    const tid = await generateTrackingId('UNT');
     const unit = await prisma.unit.create({
       data: {
         unitName: unitName.trim(),
         propertyId: floor.propertyId,
         floorId: floorId,
+        tid,
         status: status || 'Vacant',
         monthlyRent: monthlyRent ? parseFloat(monthlyRent) : null,
         description: description || null,
@@ -307,9 +310,11 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const tid = await generateTrackingId('UNT');
     const unit = await prisma.unit.create({
       data: {
         ...data,
+        tid,
         unitType: data.unitType,
         sizeSqFt: data.sizeSqFt,
         securityDeposit: data.securityDeposit,

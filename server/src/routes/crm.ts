@@ -5,7 +5,8 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
-import { generateSystemId, validateManualUniqueId } from '../services/id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
+import { generateSequenceNumber } from '../services/tid-service';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { successResponse, errorResponse } from '../utils/error-handler';
 
@@ -37,7 +38,7 @@ const createClientSchema = z.object({
   propertyInterest: z.string().optional().nullable(),
   manualUniqueId: z.string().optional().nullable(),
   propertySubsidiary: z.string().optional().nullable(),
-  tid: z.string().optional().nullable(),
+  tid: z.string().min(1, "TID is required"),
 });
 
 const createDealerSchema = z.object({
@@ -61,6 +62,7 @@ const createDealerSchema = z.object({
   postalCode: z.string().optional().nullable(),
   qualifications: z.string().optional().nullable(),
   manualUniqueId: z.string().optional().nullable(),
+  tid: z.string().min(1, "TID is required"),
 });
 
 const createLeadSchema = z.object({
@@ -84,6 +86,7 @@ const createLeadSchema = z.object({
   address: z.string().optional().nullable(),
   city: z.string().optional().nullable(),
   manualUniqueId: z.string().optional().nullable(),
+  tid: z.string().min(1, "TID is required"),
   status: z.string().optional().default('new'),
   notes: z.string().optional().nullable(),
   temperature: z.enum(['cold', 'warm', 'hot']).optional().default('cold'),
@@ -120,12 +123,15 @@ router.post('/leads', authenticate, upload.any(), async (req: AuthRequest, res: 
   try {
     logger.debug('Create lead request body:', JSON.stringify(req.body, null, 2));
     const parsedData = createLeadSchema.parse(req.body);
-    const { manualUniqueId, ...leadData } = parsedData;
+    const { manualUniqueId, tid, ...leadData } = parsedData;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
       await validateManualUniqueId(manualUniqueId, 'lead');
     }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Generate system ID: lead-YY-####
     const leadCode = await generateSystemId('lead');
@@ -135,6 +141,7 @@ router.post('/leads', authenticate, upload.any(), async (req: AuthRequest, res: 
         data: {
           ...leadData,
           leadCode,
+          tid,
           manualUniqueId: manualUniqueId?.trim() || null,
           createdBy: req.user?.id,
         }
@@ -181,15 +188,20 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: 'Lead has already been converted to a client' });
     }
 
+    const { tid } = req.body;
+    if (!tid) {
+      return res.status(400).json({ error: 'TID is required' });
+    }
+
+    // Validate TID
+    await validateTID(tid);
+
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
 
-    // Get next srNo and clientNo
-    const lastClient = await prisma.client.findFirst({
-      orderBy: { createdAt: 'desc' },
-    });
-    const nextSrNo = lastClient?.srNo ? (lastClient.srNo + 1) : 1;
-    const nextClientNo = `CL-${String(nextSrNo).padStart(4, '0')}`;
+    // Get next srNo and clientNo using sequence
+    const srNo = await generateSequenceNumber('CLI_SR');
+    const nextClientNo = `CL-${String(srNo).padStart(4, '0')}`;
 
     // Create client from lead
     const client = await prisma.$transaction(async (tx) => {
@@ -199,7 +211,8 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
           email: lead.email,
           phone: lead.phone,
           clientCode,
-          srNo: nextSrNo,
+          tid,
+          srNo,
           clientNo: nextClientNo,
           address: lead.address,
           city: lead.city,
@@ -437,12 +450,15 @@ router.post('/clients', authenticate, upload.any(), async (req: AuthRequest, res
   try {
     logger.debug('Create client request body:', JSON.stringify(req.body, null, 2));
     const parsedData = createClientSchema.parse(req.body);
-    const { manualUniqueId, ...clientData } = parsedData;
+    const { manualUniqueId, tid, ...clientData } = parsedData;
 
     // Validate manual unique ID if provided (optional, consistent with other routes)
     if (manualUniqueId) {
       await validateManualUniqueId(manualUniqueId, 'cli');
     }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
@@ -460,6 +476,7 @@ router.post('/clients', authenticate, upload.any(), async (req: AuthRequest, res
           ...clientData,
           manualUniqueId: manualUniqueId?.trim() || null,
           clientCode,
+          tid,
           srNo: nextSrNo,
           clientNo: nextClientNo,
           status: clientData.status || 'active',
@@ -649,12 +666,15 @@ router.post('/dealers', authenticate, upload.any(), async (req: AuthRequest, res
   try {
     logger.debug('Create dealer request body:', JSON.stringify(req.body, null, 2));
     const parsedData = createDealerSchema.parse(req.body);
-    const { manualUniqueId, ...dealerData } = parsedData;
+    const { manualUniqueId, tid, ...dealerData } = parsedData;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
       await validateManualUniqueId(manualUniqueId, 'deal');
     }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Generate system ID: deal-YY-####
     const dealerCode = await generateSystemId('deal');
@@ -664,6 +684,7 @@ router.post('/dealers', authenticate, upload.any(), async (req: AuthRequest, res
         data: {
           ...dealerData,
           dealerCode,
+          tid,
           manualUniqueId: manualUniqueId?.trim() || null,
           createdBy: req.user?.id,
         }

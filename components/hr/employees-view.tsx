@@ -73,6 +73,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
     let filtered = employees.filter((employee) => {
       // Search filter
       const matchesSearch = 
+        (employee?.tid || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         employee?.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -148,7 +149,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Search by name, email, position, employee ID, phone..."
+            placeholder="Search by TID, name, position..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="pl-9"
@@ -245,7 +246,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
                 <div>
                   <h3 className="font-semibold text-foreground">{employee.name}</h3>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
-                  <p className="text-xs text-muted-foreground">{employee.employeeId}</p>
+                  <p className="text-xs font-mono text-muted-foreground">{employee.tid || employee.employeeId}</p>
                 </div>
               </div>
               <Badge variant={employee.status === "active" ? "default" : "secondary"}>{employee.status}</Badge>

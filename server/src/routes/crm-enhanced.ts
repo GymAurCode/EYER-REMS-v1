@@ -38,10 +38,11 @@ const createLeadSchema = z.object({
   cnic: z.string().optional(),
   address: z.string().optional(),
   city: z.string().optional(),
+  tid: z.string().min(1, "TID is required"),
 });
 
 const createClientSchema = z.object({
-  tid: z.string().optional(), // Transaction ID - unique across Property, Deal, Client
+  tid: z.string().min(1, "TID is required"), // Transaction ID - unique across Property, Deal, Client
   name: z.string().min(1),
   email: z.string().optional(),
   phone: z.string().optional(),
@@ -180,12 +181,15 @@ router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (re
 router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const parsedData = createLeadSchema.parse(req.body);
-    const { manualUniqueId, ...data } = parsedData as any;
+    const { manualUniqueId, tid, ...data } = parsedData as any;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
       await validateManualUniqueId(manualUniqueId, 'lead');
     }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Generate system ID: lead-YY-####
     const leadCode = await generateLeadCode();
@@ -195,6 +199,7 @@ router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async 
         data: {
           ...data,
           leadCode,
+          tid,
           manualUniqueId: manualUniqueId?.trim() || null,
           followUpDate: data.followUpDate ? new Date(data.followUpDate) : undefined,
           expectedCloseDate: data.expectedCloseDate ? new Date(data.expectedCloseDate) : undefined,
@@ -304,6 +309,10 @@ router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.upda
       return res.status(404).json({ error: 'Lead not found' });
     }
 
+    const { tid } = req.body;
+    if (!tid) return res.status(400).json({ error: 'TID is required' });
+    await validateTID(tid);
+
     const clientCode = await generateClientCode();
     const lastClient = await prisma.client.findFirst({ orderBy: { createdAt: 'desc' } });
     const nextSrNo = (lastClient?.srNo || 0) + 1;
@@ -312,6 +321,7 @@ router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.upda
     const client = await prisma.client.create({
       data: {
         name: lead.name,
+        tid,
         email: lead.email,
         phone: lead.phone,
         clientCode,
@@ -423,17 +433,15 @@ router.post('/clients', requireAuth, requirePermission('crm.clients.create'), as
     });
 
     const parsedData = createClientSchema.parse(req.body);
-    const { manualUniqueId, tid, attachments, ...data } = parsedData as any;
-
-    // Validate TID - must be unique across Property, Deal, and Client
-    if (tid) {
-      await validateTID(tid.trim());
-    }
+    const { manualUniqueId, attachments, tid, ...data } = parsedData as any;
 
     // Validate manual unique ID if provided
     if (manualUniqueId) {
       await validateManualUniqueId(manualUniqueId, 'cli');
     }
+
+    // Validate TID
+    await validateTID(tid);
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateClientCode();
@@ -445,7 +453,7 @@ router.post('/clients', requireAuth, requirePermission('crm.clients.create'), as
         data: {
           ...data,
           clientCode,
-          tid: tid?.trim() || null,
+          tid,
           manualUniqueId: manualUniqueId?.trim() || null,
           srNo: nextSrNo,
           clientNo: `CL-${String(nextSrNo).padStart(4, '0')}`,

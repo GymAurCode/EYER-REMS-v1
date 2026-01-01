@@ -47,6 +47,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
   const [formData, setFormData] = useState({
     // Basic Information
     name: "",
+    tid: "",
     email: "",
     phone: "",
     dateOfBirth: "",
@@ -67,7 +68,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
     status: "active",
     joinDate: "",
     probationPeriod: "",
-    reportingManagerId: "",
     workLocation: "",
     shiftTimings: "",
     
@@ -108,6 +108,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
       // Reset form when dialog opens
       setFormData({
         name: "",
+        tid: "",
         email: "",
         phone: "",
         dateOfBirth: "",
@@ -126,7 +127,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
         status: "active",
         joinDate: "",
         probationPeriod: "",
-        reportingManagerId: "",
         workLocation: "",
         shiftTimings: "",
         salary: "",
@@ -238,7 +238,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
         status: formData.status,
         joinDate: formData.joinDate,
         probationPeriod: formData.probationPeriod ? parseInt(formData.probationPeriod) : null,
-        reportingManagerId: formData.reportingManagerId && formData.reportingManagerId !== "none" ? formData.reportingManagerId : null,
         workLocation: formData.workLocation || null,
         shiftTimings: formData.shiftTimings || null,
         salary: parseFloat(formData.salary),
@@ -309,6 +308,17 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
           <div className="flex-1 overflow-y-auto mt-4">
             <TabsContent value="basic" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="tid">Tracking ID <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="tid"
+                    value={formData.tid}
+                    onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                    placeholder="EMP-XXXX"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
                   <Input
@@ -512,25 +522,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
                     onChange={(e) => setFormData({ ...formData, probationPeriod: e.target.value })}
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="reportingManagerId">Reporting Manager</Label>
-                  <Select
-                    value={formData.reportingManagerId}
-                    onValueChange={(value) => setFormData({ ...formData, reportingManagerId: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select manager" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None</SelectItem>
-                      {employees.map((emp) => (
-                        <SelectItem key={emp.id} value={emp.id}>
-                          {emp.name} - {emp.position}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+
                 <div className="grid gap-2">
                   <Label htmlFor="workLocation">Work Location</Label>
                   <Input

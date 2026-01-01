@@ -384,7 +384,7 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
                   ) : (
                     properties.map((property) => (
                       <SelectItem key={property.id} value={property.id}>
-                        {property.name}
+                        {property.tid ? `[${property.tid}] ` : ""}{property.name}
                       </SelectItem>
                     ))
                   )}

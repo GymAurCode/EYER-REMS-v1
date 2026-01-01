@@ -22,6 +22,7 @@ interface AddSaleDialogProps {
 
 export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogProps) {
   const [formData, setFormData] = useState({
+    tid: "",
     propertyId: "",
     buyerId: "",
     dealer: "",
@@ -255,6 +256,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
       }
 
       const payload: any = {
+        tid: formData.tid,
         propertyId: formData.propertyId,
         saleValue: saleValue,
         commissionRate: commissionRate,
@@ -293,6 +295,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
       onSuccess?.()
       onOpenChange(false)
       setFormData({
+        tid: "",
         propertyId: "",
         buyerId: "",
         dealer: "",
@@ -333,6 +336,18 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
           <DialogDescription>Enter the details for the new property sale</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="tid">Tracking ID *</Label>
+            <Input
+              id="tid"
+              value={formData.tid}
+              onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+              placeholder="SLE-XXXX"
+              required
+            />
+            <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
+          </div>
+
           {/* Property Information */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground">Property Information</h3>
@@ -360,7 +375,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
                           value={property.id}
                           disabled={isSold}
                         >
-                          {property.name} - {property.type || "N/A"} {isSold ? "(Already Sold)" : ""}
+                          {property.tid ? `[${property.tid}] ` : ""}{property.name} - {property.type || "N/A"} {isSold ? "(Already Sold)" : ""}
                         </SelectItem>
                       )
                     })
@@ -427,7 +442,7 @@ export function AddSaleDialog({ open, onOpenChange, onSuccess }: AddSaleDialogPr
                   ) : (
                     dealers.map((dealer) => (
                       <SelectItem key={dealer.id} value={dealer.id}>
-                        {dealer.name} - {dealer.specialization} ({dealer.commissionRate || 0}%)
+                        {dealer.tid ? `[${dealer.tid}] ` : ""}{dealer.name} - {dealer.specialization} ({dealer.commissionRate || 0}%)
                       </SelectItem>
                     ))
                   )}

@@ -5,8 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Building2, MapPin, Home, Users, DollarSign, Loader2, FileText, Receipt, Eye } from "lucide-react"
+import { Building2, MapPin, Home, Users, DollarSign, Loader2, FileText, Receipt, Eye, Download } from "lucide-react"
 import { apiService } from "@/lib/api"
+import { getPropertyImageSrc } from "@/lib/property-image-utils"
 import { AddUnitDialog } from "./add-unit-dialog"
 import { AddTenantDialog } from "./add-tenant-dialog"
 import { AddLeaseDialog } from "./add-lease-dialog"
@@ -60,21 +61,21 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
       // Backend returns { success: true, data: {...} }
       const responseData = response.data as any
       const propertyData = responseData?.data || responseData
-      
+
       // Calculate units count from nested units array if _count is not available
       if (propertyData && !propertyData._count && propertyData.units) {
         propertyData.units = Array.isArray(propertyData.units) ? propertyData.units.length : 0
       }
-      
+
       // Ensure revenue is a number, not an object
       if (propertyData && typeof propertyData.revenue !== 'number' && typeof propertyData.revenue !== 'string') {
         propertyData.revenue = 0
       }
-      
+
       setProperty(propertyData)
       setFinanceSummary(propertyData.financeSummary || null)
       setFinanceRecords(Array.isArray(propertyData.financeRecords) ? propertyData.financeRecords : [])
-      
+
       // Load attachments
       await fetchAttachments()
     } catch (err: any) {
@@ -160,15 +161,11 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
             {property.imageUrl && (
               <div className="h-56 w-full overflow-hidden rounded-lg border border-border">
                 <img
-                  src={
-                    property.imageUrl.startsWith("http")
-                      ? property.imageUrl
-                      : `${(process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, '')}${property.imageUrl}`
-                  }
+                  src={getPropertyImageSrc(propertyId, property.imageUrl)}
                   alt={property.tid || "Property image"}
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    ;(e.target as HTMLImageElement).style.display = "none"
+                    ; (e.target as HTMLImageElement).style.display = "none"
                   }}
                 />
               </div>
@@ -290,7 +287,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                       {typeof property.units === "number"
                         ? property.units
                         : property._count?.units ??
-                          (Array.isArray(property.units) ? property.units.length : "N/A")}
+                        (Array.isArray(property.units) ? property.units.length : "N/A")}
                     </span>
                   </div>
                   <div className="grid grid-cols-[120px,1fr] gap-2">
@@ -317,7 +314,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                     typeof property.units === "number"
                       ? property.units
                       : property._count?.units ??
-                        (Array.isArray(property.units) ? property.units.length : 0)
+                      (Array.isArray(property.units) ? property.units.length : 0)
                   const occupiedUnits = property.occupied ?? property.occupiedUnits ?? 0
                   const vacantUnits = property.vacantUnits ?? Math.max(totalUnits - occupiedUnits, 0)
                   const upcomingVacantUnits = property.upcomingVacantUnits ?? 0
@@ -471,36 +468,36 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
             <Card className="space-y-3 p-4">
               <p className="text-sm font-semibold tracking-wide text-muted-foreground">Quick Actions</p>
               <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
+                <Button
+                  variant="outline"
+                  className="justify-start"
                   type="button"
                   onClick={() => setShowAddUnitDialog(true)}
                 >
                   <Home className="h-4 w-4 mr-2" />
                   Add Unit
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
+                <Button
+                  variant="outline"
+                  className="justify-start"
                   type="button"
                   onClick={() => setShowAddTenantDialog(true)}
                 >
                   <Users className="h-4 w-4 mr-2" />
                   Add Tenant
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
+                <Button
+                  variant="outline"
+                  className="justify-start"
                   type="button"
                   onClick={() => setShowAddLeaseDialog(true)}
                 >
                   <Building2 className="h-4 w-4 mr-2" />
                   Create Lease
                 </Button>
-                <Button 
-                  variant="outline" 
-                  className="justify-start" 
+                <Button
+                  variant="outline"
+                  className="justify-start"
                   type="button"
                   onClick={() => setShowAddPaymentDialog(true)}
                 >
@@ -548,7 +545,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                 </div>
               </Card>
             )}
-            
+
             {/* Attachments Section */}
             {attachments.length > 0 && (
               <Card className="space-y-3 p-4">
@@ -556,53 +553,41 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                   <p className="text-sm font-semibold tracking-wide text-muted-foreground">Attachments</p>
                   <span className="text-xs text-muted-foreground">{attachments.length} file(s)</span>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                <div className="space-y-2">
                   {attachments.map((attachment, idx) => {
-                    const isImage = attachment.fileType?.startsWith('image/')
-                    const imageUrl = attachment.fileUrl.startsWith('http')
+                    const fileUrl = attachment.fileUrl.startsWith('http')
                       ? attachment.fileUrl
-                      : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.fileUrl}`
-                    
-                    const handleViewDocument = () => {
-                      setSelectedDocument({
-                        id: attachment.id,
-                        url: attachment.fileUrl,
-                        name: attachment.fileName,
-                        fileType: attachment.fileType
-                      })
-                      setDocumentViewerOpen(true)
-                    }
-                    
+                      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${attachment.fileUrl}`
+
                     return (
-                      <div
-                        key={attachment.id || idx}
-                        className="relative group border rounded-lg overflow-hidden bg-muted"
-                      >
-                        {isImage ? (
-                          <div className="aspect-square cursor-pointer" onClick={handleViewDocument}>
-                            <img
-                              src={imageUrl}
-                              alt={attachment.fileName}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              onError={(e) => {
-                                ;(e.target as HTMLImageElement).style.display = "none"
-                              }}
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                              <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="aspect-square flex flex-col items-center justify-center p-3 cursor-pointer" onClick={handleViewDocument}>
-                            <FileText className="h-8 w-8 text-muted-foreground mb-2" />
-                            <p className="text-xs text-center text-muted-foreground truncate w-full px-1">
-                              {attachment.fileName}
-                            </p>
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-                              <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </div>
-                          </div>
-                        )}
+                      <div key={attachment.id || idx} className="flex items-center gap-2 p-2 border rounded-md hover:bg-muted/50 transition-colors">
+                        <FileText className="h-4 w-4 text-muted-foreground" />
+                        <a
+                          href={fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-primary hover:underline hover:text-blue-600 truncate flex-1"
+                        >
+                          {attachment.fileName}
+                        </a>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={(e) => {
+                            e.preventDefault()
+                            const link = document.createElement('a')
+                            link.href = fileUrl
+                            link.download = attachment.fileName
+                            link.target = '_blank'
+                            link.rel = 'noopener noreferrer'
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                          }}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </div>
                     )
                   })}
@@ -651,7 +636,7 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
           setShowAddPaymentDialog(false)
         }}
       />
-      
+
       {/* Document Viewer */}
       <DocumentViewer
         open={documentViewerOpen}

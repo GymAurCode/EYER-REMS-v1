@@ -4,7 +4,12 @@ import { Prisma } from '@prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
-import { createTenancyFromLease, syncInvoiceToFinanceLedger, updateTenantLedger } from '../services/workflows';
+import { validateTID } from '../services/id-generation-service';
+import {
+  createTenancyFromLease,
+  syncInvoiceToFinanceLedger,
+  updateTenantLedger,
+} from '../services/workflows';
 import { generateLeaseNumber, generateInvoiceNumber } from '../utils/code-generator';
 import { createLeaseHistory, getLeaseHistory, trackLeaseRenewal, trackLeaseStatusChange } from '../services/lease-history';
 import logger from '../utils/logger';
@@ -23,6 +28,7 @@ const createLeaseSchema = z.object({
   status: z.enum(['Active', 'Expired', 'Terminated']).optional(),
   notes: z.string().optional(),
   leaseNumber: z.string().optional(),
+  tid: z.string().min(1, "TID is required"),
 });
 
 const updateLeaseSchema = createLeaseSchema.partial();
@@ -202,11 +208,16 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Auto-generate lease number if not provided
     const leaseNumber = data.leaseNumber || await generateLeaseNumber();
+    const tid = data.tid;
+
+    // Validate TID
+    await validateTID(tid);
 
     const lease = await prisma.lease.create({
       data: {
         ...data,
         leaseNumber,
+        tid,
         leaseStart,
         leaseEnd,
         status: data.status || 'Active',

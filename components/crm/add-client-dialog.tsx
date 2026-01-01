@@ -157,14 +157,8 @@ export function AddClientDialog({
           attachments: Array.isArray((initialData as any).attachments?.files) ? (initialData as any).attachments.files : [],
         })
       } else {
-        // Generate a unique TID for new clients
-        const timestamp = Date.now().toString().slice(-6)
-        const randomSuffix = Math.random().toString(36).substring(2, 5).toUpperCase()
-        const uniqueTid = `CL-${timestamp}-${randomSuffix}`
-        
         setFormData({
           ...defaultFormState,
-          tid: uniqueTid
         })
       }
     }
@@ -487,14 +481,15 @@ export function AddClientDialog({
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="client-tid">TID (Transaction ID)</Label>
+                  <Label htmlFor="client-tid">TID (Transaction ID) <span className="text-destructive">*</span></Label>
                   <Input
                     id="client-tid"
-                    placeholder="Auto-generated unique ID"
+                    placeholder="CLI-XXXX"
                     value={formData.tid}
                     onChange={(event) => setFormData({ ...formData, tid: event.target.value })}
+                    required
                   />
-                  <p className="text-xs text-muted-foreground">Auto-generated unique transaction ID (can be modified)</p>
+                  <p className="text-xs text-muted-foreground">Enter unique transaction ID</p>
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="client-email">Email</Label>
@@ -664,7 +659,7 @@ export function AddClientDialog({
                       <SelectItem value="none">Unassigned</SelectItem>
                       {dealers.map((dealer) => (
                         <SelectItem key={dealer.id} value={dealer.id}>
-                          {dealer.name || dealer.company}
+                          {dealer.tid ? `${dealer.tid} - ${dealer.name || dealer.company}` : (dealer.name || dealer.company)}
                         </SelectItem>
                       ))}
                     </SelectContent>

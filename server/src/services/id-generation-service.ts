@@ -57,6 +57,194 @@ interface IdGenerationResult {
   counter: number;
 }
 
+import { generateSequenceNumber } from './tid-service';
+
+// Helper to find max ID from legacy tables
+async function findMaxSystemId(
+  modulePrefix: ModulePrefix, 
+  prefix: string, 
+  client: Prisma.TransactionClient
+): Promise<number> {
+  let maxCounter = 0;
+  
+  // Query based on module type
+  switch (modulePrefix) {
+    case 'prop':
+      const maxProp = await client.property.findFirst({
+        where: { propertyCode: { startsWith: prefix } },
+        orderBy: { propertyCode: 'desc' },
+        select: { propertyCode: true },
+      });
+      if (maxProp?.propertyCode) {
+        const counterStr = maxProp.propertyCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'pay':
+      const maxPay = await client.payment.findFirst({
+        where: { paymentId: { startsWith: prefix } },
+        orderBy: { paymentId: 'desc' },
+        select: { paymentId: true },
+      });
+      if (maxPay?.paymentId) {
+        const counterStr = maxPay.paymentId.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'cli':
+      const maxCli = await client.client.findFirst({
+        where: { clientCode: { startsWith: prefix } },
+        orderBy: { clientCode: 'desc' },
+        select: { clientCode: true },
+      });
+      if (maxCli?.clientCode) {
+        const counterStr = maxCli.clientCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'lead':
+      const maxLead = await client.lead.findFirst({
+        where: { leadCode: { startsWith: prefix } },
+        orderBy: { leadCode: 'desc' },
+        select: { leadCode: true },
+      });
+      if (maxLead?.leadCode) {
+        const counterStr = maxLead.leadCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'deal':
+      const maxDeal = await client.dealer.findFirst({
+        where: { dealerCode: { startsWith: prefix } },
+        orderBy: { dealerCode: 'desc' },
+        select: { dealerCode: true },
+      });
+      if (maxDeal?.dealerCode) {
+        const counterStr = maxDeal.dealerCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+      
+    case 'dl':
+      const maxDl = await client.deal.findFirst({
+        where: { dealCode: { startsWith: prefix } },
+        orderBy: { dealCode: 'desc' },
+        select: { dealCode: true },
+      });
+      if (maxDl?.dealCode) {
+        const counterStr = maxDl.dealCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'rcp':
+      const maxRcp = await client.dealReceipt.findFirst({
+        where: { receiptNo: { startsWith: prefix } },
+        orderBy: { receiptNo: 'desc' },
+        select: { receiptNo: true },
+      });
+      if (maxRcp?.receiptNo) {
+        const counterStr = maxRcp.receiptNo.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'inv':
+      const maxInv = await client.invoice.findFirst({
+        where: { invoiceNumber: { startsWith: prefix } },
+        orderBy: { invoiceNumber: 'desc' },
+        select: { invoiceNumber: true },
+      });
+      if (maxInv?.invoiceNumber) {
+        const counterStr = maxInv.invoiceNumber.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'txn':
+      const maxTxn = await client.transaction.findFirst({
+        where: { transactionCode: { startsWith: prefix } },
+        orderBy: { transactionCode: 'desc' },
+        select: { transactionCode: true },
+      });
+      if (maxTxn?.transactionCode) {
+        const counterStr = maxTxn.transactionCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'je':
+      const maxJe = await client.journalEntry.findFirst({
+        where: { entryNumber: { startsWith: prefix } },
+        orderBy: { entryNumber: 'desc' },
+        select: { entryNumber: true },
+      });
+      if (maxJe?.entryNumber) {
+        const counterStr = maxJe.entryNumber.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'vch':
+      const maxVch = await client.voucher.findFirst({
+        where: { voucherNumber: { startsWith: prefix } },
+        orderBy: { voucherNumber: 'desc' },
+        select: { voucherNumber: true },
+      });
+      if (maxVch?.voucherNumber) {
+        const counterStr = maxVch.voucherNumber.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'ten':
+      const maxTen = await client.tenant.findFirst({
+        where: { tenantCode: { startsWith: prefix } },
+        orderBy: { tenantCode: 'desc' },
+        select: { tenantCode: true },
+      });
+      if (maxTen?.tenantCode) {
+        const counterStr = maxTen.tenantCode.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'tkt':
+      const maxTkt = await client.maintenanceTicket.findFirst({
+        where: { ticketNumber: { startsWith: prefix } },
+        orderBy: { ticketNumber: 'desc' },
+        select: { ticketNumber: true },
+      });
+      if (maxTkt?.ticketNumber) {
+        const counterStr = maxTkt.ticketNumber.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
+    case 'ntc':
+      const maxNtc = await client.noticeToVacate.findFirst({
+        where: { noticeNumber: { startsWith: prefix } },
+        orderBy: { noticeNumber: 'desc' },
+        select: { noticeNumber: true },
+      });
+      if (maxNtc?.noticeNumber) {
+        const counterStr = maxNtc.noticeNumber.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+      
+    default:
+      // For unknown prefixes, start at 0
+      break;
+  }
+  
+  return maxCounter;
+}
+
 /**
  * Generate system ID for a module
  * Format: {prefix}-{YY}-{####}
@@ -69,171 +257,52 @@ export async function generateSystemId(
   modulePrefix: ModulePrefix,
   tx?: Prisma.TransactionClient
 ): Promise<string> {
-  const client = tx || prisma;
   const currentYear = new Date().getFullYear();
   const yearSuffix = String(currentYear).slice(-2); // Last 2 digits
-  const prefix = `${modulePrefix}-${yearSuffix}-`;
+  
+  // Create a prefix that includes the year to ensure year-based uniqueness in the sequence
+  // e.g. "lead-25"
+  const sequencePrefix = `${modulePrefix}-${yearSuffix}`;
+  const dbPrefix = `${modulePrefix}-${yearSuffix}-`;
+  
+  try {
+    // Optimistic: Try to increment sequence
+    // We use raw update to fail fast if not exists
+    // Note: 'tx' might not have 'sequence' if it's a restricted view, but standard Prisma tx does.
+    // If we are in a transaction, we should try to use it, but sequence operations 
+    // often need to be outside the main transaction to avoid locking unrelated rows if possible,
+    // OR inside to ensure atomicity with the main operation.
+    // Here we strictly follow the passed tx or global prisma.
+    const client = tx || prisma;
 
-  // Use a lock table approach for atomic counter increment
-  // First, try to find the highest existing ID for this prefix and year
-  let maxCounter = 0;
-
-  // Query based on module type
-  switch (modulePrefix) {
-    case 'prop':
-      const maxProp = await client.property.findFirst({
-        where: {
-          propertyCode: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          propertyCode: 'desc',
-        },
-        select: {
-          propertyCode: true,
-        },
+    const seq = await client.sequence.update({
+      where: { prefix: sequencePrefix },
+      data: { current: { increment: 1 } },
+    });
+    
+    return `${modulePrefix}-${yearSuffix}-${seq.current.toString().padStart(4, '0')}`;
+  } catch (error: any) {
+    // If sequence not found (P2025), initialize it
+    if (error.code === 'P2025') {
+      const client = tx || prisma;
+      
+      // Find max from legacy tables
+      const maxCounter = await findMaxSystemId(modulePrefix, dbPrefix, client);
+      const nextCounter = maxCounter + 1;
+      
+      // Create sequence starting at nextCounter
+      // We use upsert here just in case another concurrent request created it 
+      // between the update failure and now.
+      const seq = await client.sequence.upsert({
+        where: { prefix: sequencePrefix },
+        create: { prefix: sequencePrefix, current: nextCounter },
+        update: { current: { increment: 1 } },
       });
-      if (maxProp?.propertyCode) {
-        const counterStr = maxProp.propertyCode.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'pay':
-      const maxPay = await client.payment.findFirst({
-        where: {
-          paymentId: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          paymentId: 'desc',
-        },
-        select: {
-          paymentId: true,
-        },
-      });
-      if (maxPay?.paymentId) {
-        const counterStr = maxPay.paymentId.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'cli':
-      const maxCli = await client.client.findFirst({
-        where: {
-          clientCode: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          clientCode: 'desc',
-        },
-        select: {
-          clientCode: true,
-        },
-      });
-      if (maxCli?.clientCode) {
-        const counterStr = maxCli.clientCode.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'lead':
-      const maxLead = await client.lead.findFirst({
-        where: {
-          leadCode: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          leadCode: 'desc',
-        },
-        select: {
-          leadCode: true,
-        },
-      });
-      if (maxLead?.leadCode) {
-        const counterStr = maxLead.leadCode.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'deal':
-      // Dealers only
-      const maxDealer = await client.dealer.findFirst({
-        where: {
-          dealerCode: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          dealerCode: 'desc',
-        },
-        select: {
-          dealerCode: true,
-        },
-      });
-      if (maxDealer?.dealerCode) {
-        const counterStr = maxDealer.dealerCode.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'dl':
-      // Deals only
-      const maxDeal = await client.deal.findFirst({
-        where: {
-          dealCode: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          dealCode: 'desc',
-        },
-        select: {
-          dealCode: true,
-        },
-      });
-      if (maxDeal?.dealCode) {
-        const counterStr = maxDeal.dealCode.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    case 'rcp':
-      const maxRcp = await client.dealReceipt.findFirst({
-        where: {
-          receiptNo: {
-            startsWith: prefix,
-          },
-        },
-        orderBy: {
-          receiptNo: 'desc',
-        },
-        select: {
-          receiptNo: true,
-        },
-      });
-      if (maxRcp?.receiptNo) {
-        const counterStr = maxRcp.receiptNo.replace(prefix, '');
-        maxCounter = parseInt(counterStr, 10) || 0;
-      }
-      break;
-
-    default:
-      throw new Error(`Unsupported module prefix: ${modulePrefix}`);
+      
+      return `${modulePrefix}-${yearSuffix}-${seq.current.toString().padStart(4, '0')}`;
+    }
+    throw error;
   }
-
-  // Increment counter
-  const nextCounter = maxCounter + 1;
-
-  // Format: prefix-YY-#### (4 digits)
-  const counterStr = String(nextCounter).padStart(4, '0');
-  const systemId = `${prefix}${counterStr}`;
-
-  return systemId;
 }
 
 /**
@@ -368,12 +437,15 @@ export async function validateManualUniqueId(
 }
 
 /**
- * Validate TID (Transaction ID) - must be unique across Property, Deal, and Client
+ * Validate TID (Transaction ID) - must be unique across Property, Deal, Client, Lead, Employee, and Tenant
  * 
  * @param tid - Transaction ID to validate
  * @param excludePropertyId - Optional property ID to exclude from check (for updates)
  * @param excludeDealId - Optional deal ID to exclude from check (for updates)
  * @param excludeClientId - Optional client ID to exclude from check (for updates)
+ * @param excludeLeadId - Optional lead ID to exclude from check (for updates)
+ * @param excludeEmployeeId - Optional employee ID to exclude from check (for updates)
+ * @param excludeTenantId - Optional tenant ID to exclude from check (for updates)
  * @param tx - Optional transaction client
  * @returns true if valid, throws error if invalid
  */
@@ -382,6 +454,9 @@ export async function validateTID(
   excludePropertyId?: string,
   excludeDealId?: string,
   excludeClientId?: string,
+  excludeLeadId?: string,
+  excludeEmployeeId?: string,
+  excludeTenantId?: string,
   tx?: Prisma.TransactionClient
 ): Promise<boolean> {
   if (!tid || tid.trim() === '') {
@@ -392,13 +467,16 @@ export async function validateTID(
   const trimmedTid = tid.trim();
 
   // Check if tid column exists in each table before querying
-  const [propertyTidExists, dealTidExists, clientTidExists] = await Promise.all([
+  const [propertyTidExists, dealTidExists, clientTidExists, leadTidExists, employeeTidExists, tenantTidExists] = await Promise.all([
     columnExists('Property', 'tid'),
     columnExists('Deal', 'tid'),
     columnExists('Client', 'tid'),
+    columnExists('Lead', 'tid'),
+    columnExists('Employee', 'tid'),
+    columnExists('Tenant', 'tid'),
   ]);
 
-  // Check for conflicts across Property, Deal, and Client
+  // Check for conflicts across Property, Deal, Client, Lead, Employee, and Tenant
   // Only query tables where tid column exists
   const queries: Promise<any>[] = [];
   
@@ -409,10 +487,7 @@ export async function validateTID(
           tid: trimmedTid,
           ...(excludePropertyId ? { id: { not: excludePropertyId } } : {}),
         },
-        select: {
-          id: true,
-          tid: true,
-        },
+        select: { id: true, tid: true },
       })
     );
   } else {
@@ -428,10 +503,7 @@ export async function validateTID(
           deletedAt: null,
           ...(excludeDealId ? { id: { not: excludeDealId } } : {}),
         },
-        select: {
-          id: true,
-          tid: true,
-        },
+        select: { id: true, tid: true },
       })
     );
   } else {
@@ -446,17 +518,59 @@ export async function validateTID(
           isDeleted: false,
           ...(excludeClientId ? { id: { not: excludeClientId } } : {}),
         },
-        select: {
-          id: true,
-          tid: true,
-        },
+        select: { id: true, tid: true },
       })
     );
   } else {
     queries.push(Promise.resolve(null));
   }
 
-  const [existingProperty, existingDeal, existingClient] = await Promise.all(queries);
+  if (leadTidExists) {
+    queries.push(
+      client.lead.findFirst({
+        where: {
+          tid: trimmedTid,
+          isDeleted: false,
+          ...(excludeLeadId ? { id: { not: excludeLeadId } } : {}),
+        },
+        select: { id: true, tid: true },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  if (employeeTidExists) {
+    queries.push(
+      client.employee.findFirst({
+        where: {
+          tid: trimmedTid,
+          isDeleted: false,
+          ...(excludeEmployeeId ? { id: { not: excludeEmployeeId } } : {}),
+        },
+        select: { id: true, tid: true },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  if (tenantTidExists) {
+    queries.push(
+      client.tenant.findFirst({
+        where: {
+          tid: trimmedTid,
+          isDeleted: false,
+          ...(excludeTenantId ? { id: { not: excludeTenantId } } : {}),
+        },
+        select: { id: true, tid: true },
+      })
+    );
+  } else {
+    queries.push(Promise.resolve(null));
+  }
+
+  const [existingProperty, existingDeal, existingClient, existingLead, existingEmployee, existingTenant] = await Promise.all(queries);
 
   if (existingProperty) {
     throw new Error(`TID "${trimmedTid}" already exists for a property`);
@@ -466,6 +580,15 @@ export async function validateTID(
   }
   if (existingClient) {
     throw new Error(`TID "${trimmedTid}" already exists for a client`);
+  }
+  if (existingLead) {
+    throw new Error(`TID "${trimmedTid}" already exists for a lead`);
+  }
+  if (existingEmployee) {
+    throw new Error(`TID "${trimmedTid}" already exists for an employee`);
+  }
+  if (existingTenant) {
+    throw new Error(`TID "${trimmedTid}" already exists for a tenant`);
   }
 
   return true;
