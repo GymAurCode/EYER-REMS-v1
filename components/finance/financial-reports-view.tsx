@@ -699,7 +699,7 @@ export function FinancialReportsView() {
                       <div className="flex justify-between font-bold border-t pt-2 mt-2">
                         <span>Total Revenue</span>
                         <span className="text-green-600">
-                          {formatCurrency(propertyProfitability.revenue.reduce((sum: number, e: any) => sum + e.balance, 0))}
+                          {formatCurrency((propertyProfitability.revenue || []).reduce((sum: number, e: any) => sum + e.balance, 0))}
                         </span>
                       </div>
                     </div>
@@ -717,7 +717,7 @@ export function FinancialReportsView() {
                       <div className="flex justify-between font-bold border-t pt-2 mt-2">
                         <span>Total Expenses</span>
                         <span className="text-red-600">
-                          {formatCurrency(propertyProfitability.expenses.reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
+                          {formatCurrency((propertyProfitability.expenses || []).reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
                         </span>
                       </div>
                     </div>
@@ -731,7 +731,7 @@ export function FinancialReportsView() {
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground mt-2">
-                      Profit Margin: {propertyProfitability.profitMargin.toFixed(2)}%
+                      Profit Margin: {(propertyProfitability.profitMargin ?? 0).toFixed(2)}%
                     </div>
                   </div>
                 </div>
