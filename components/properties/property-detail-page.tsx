@@ -188,6 +188,10 @@ export function PropertyDetailPage() {
 
         const base64 = await toBase64(file)
 
+        // Upload using property-specific endpoint for now, but ensure the backend
+        // handles it by storing it in the centralized structure.
+        // Ideally we should switch to a generic file upload endpoint:
+        // apiService.files.upload(entity, entityId, file)
         const response: any = await apiService.properties.uploadDocument(String(propertyId), {
           file: base64,
           filename: file.name,
@@ -843,14 +847,20 @@ export function PropertyDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {attachments.map((attachment, idx) => {
               const isImage = attachment.fileType?.startsWith('image/')
-              const imageUrl = attachment.fileUrl.startsWith('http')
-                ? attachment.fileUrl
-                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${attachment.fileUrl}`
+              // Use generic centralized file routes
+              const trackingId = String(propertyId)
+              const entity = 'properties'
+              
+              // Only construct the URL if we have a valid filename
+              let imageUrl = ''
+              if (attachment.fileName) {
+                 imageUrl = apiService.files.getViewUrl(entity, trackingId, attachment.fileName)
+              }
 
               const handleViewDocument = () => {
                 setSelectedDocument({
                   id: attachment.id,
-                  url: attachment.fileUrl,
+                  url: imageUrl, // Pass the full generic URL
                   name: attachment.fileName,
                   fileType: attachment.fileType
                 })
@@ -925,8 +935,11 @@ export function PropertyDetailPage() {
                         size="sm"
                         onClick={(e) => {
                           e.stopPropagation()
+                          // Use generic download URL
+                          const downloadUrl = apiService.files.getDownloadUrl('properties', String(propertyId), attachment.fileName)
+                          
                           const link = document.createElement('a')
-                          link.href = imageUrl
+                          link.href = downloadUrl
                           link.download = attachment.fileName
                           link.target = '_blank'
                           link.rel = 'noopener noreferrer'
@@ -963,9 +976,7 @@ export function PropertyDetailPage() {
           images={attachments
             .filter(a => a.fileType?.startsWith('image/'))
             .map(a => ({
-              url: a.fileUrl.startsWith('http')
-                ? a.fileUrl
-                : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${a.fileUrl}`,
+              url: apiService.files.getViewUrl('properties', String(propertyId), a.fileName),
               name: a.fileName,
             }))}
           currentIndex={lightboxIndex}

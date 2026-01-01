@@ -199,16 +199,16 @@ router.get('/accounts/:id', authenticate, async (req: AuthRequest, res: Response
 
 router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { 
-      code, 
-      name, 
-      type, 
-      description, 
-      parentId, 
-      isPostable, 
-      cashFlowCategory 
+    const {
+      code,
+      name,
+      type,
+      description,
+      parentId,
+      isPostable,
+      cashFlowCategory
     } = req.body;
-    
+
     if (!code || !name || !type) {
       return res.status(400).json({ error: 'code, name and type are required' });
     }
@@ -223,8 +223,8 @@ router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) =
       }
       // Ensure child account type matches parent type
       if (parentAccount.type !== type) {
-        return res.status(400).json({ 
-          error: 'Child account type must match parent account type' 
+        return res.status(400).json({
+          error: 'Child account type must match parent account type'
         });
       }
     }
@@ -248,7 +248,7 @@ router.post('/accounts', authenticate, async (req: AuthRequest, res: Response) =
     const item = await prisma.account.create({
       data: accountData,
     });
-    
+
     res.status(201).json(item);
   } catch (error) {
     logger.error('Create account error:', error);
@@ -958,7 +958,7 @@ router.put('/payments/:id', authenticate, async (req: AuthRequest, res: Response
   try {
     const { PaymentService } = await import('../services/payment-service');
     const paymentId = req.params.id;
-    
+
     const payment = await PaymentService.updatePayment(paymentId, {
       amount: req.body.amount,
       paymentType: req.body.paymentType,
@@ -969,7 +969,7 @@ router.put('/payments/:id', authenticate, async (req: AuthRequest, res: Response
       remarks: req.body.remarks,
       installmentId: req.body.installmentId,
     });
-    
+
     res.json({ success: true, data: payment });
   } catch (error: any) {
     logger.error('Update payment error:', error);
@@ -985,9 +985,9 @@ router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Respo
     const userId = req.user?.id || '';
     const userName = req.user?.username || req.user?.email || undefined;
     const { PaymentService } = await import('../services/payment-service');
-    
+
     await PaymentService.deletePayment(req.params.id, userId, userName);
-    
+
     res.status(204).end();
   } catch (error: any) {
     logger.error('Delete payment error:', error);
@@ -999,7 +999,7 @@ router.delete('/payments/:id', authenticate, async (req: AuthRequest, res: Respo
 router.get('/payments/:id/receipt', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { generateReceiptPDF } = await import('../utils/pdf-generator');
-    
+
     const payment = await prisma.payment.findUnique({
       where: { id: req.params.id },
       include: {
@@ -1263,14 +1263,14 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
     const isReceipt = voucherType.includes('receipt');
     const isBankReceived = voucherType.toLowerCase().includes('bank') && isReceipt;
     const normalizedAttachments = normalizeAttachments(attachments);
-    
+
     // Bank Received Voucher requires mandatory attachment
     if (isBankReceived && (!normalizedAttachments || normalizedAttachments.length === 0)) {
-      return res.status(400).json({ 
-        error: 'Bank Received Voucher requires a mandatory voucher upload. Please attach the voucher file.' 
+      return res.status(400).json({
+        error: 'Bank Received Voucher requires a mandatory voucher upload. Please attach the voucher file.'
       });
     }
-    
+
     const categoryId = transactionCategoryId || expenseCategoryId || null;
     const category = categoryId
       ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
@@ -1376,8 +1376,8 @@ router.get('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response
         expenseCategory: true,
         preparedBy: true,
         approvedBy: true,
-        journalEntry: { 
-          include: { 
+        journalEntry: {
+          include: {
             lines: {
               include: {
                 account: true,
@@ -1446,7 +1446,7 @@ router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response
     const normalizedAttachments = normalizeAttachments(attachments);
     const voucherType = existingVoucher.type;
     const isReceipt = voucherType.includes('receipt');
-    
+
     const categoryId = transactionCategoryId || expenseCategoryId || existingVoucher.expenseCategoryId || null;
     const category = categoryId
       ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
@@ -1496,13 +1496,13 @@ router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response
       if (existingVoucher.journalEntryId) {
         const lines = isReceipt
           ? [
-              { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Receipt' },
-              { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Income' },
-            ]
+            { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Receipt' },
+            { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Income' },
+          ]
           : [
-              { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Expense' },
-              { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Cash/Bank' },
-            ];
+            { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Expense' },
+            { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Cash/Bank' },
+          ];
 
         // Delete old journal lines
         await tx.journalLine.deleteMany({
@@ -1545,8 +1545,8 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
         expenseCategory: true,
         preparedBy: true,
         approvedBy: true,
-        journalEntry: { 
-          include: { 
+        journalEntry: {
+          include: {
             lines: {
               include: {
                 account: true,
@@ -1569,7 +1569,7 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
 
     // Generate PDF using the pdf-generator utility
     const { generateReceiptPDF } = await import('../utils/pdf-generator');
-    
+
     // Transform voucher data to PDF format
     const pdfData = {
       receipt: {
@@ -1623,7 +1623,7 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
 router.get('/vouchers/export', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { type, startDate, endDate } = req.query;
-    
+
     const where: any = {};
     if (type) where.type = type;
     if (startDate || endDate) {
@@ -1857,11 +1857,11 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
     const clientId = req.query.clientId as string | undefined;
     const propertyId = req.query.propertyId as string | undefined;
     const period = req.query.period as 'thisMonth' | 'all' | undefined;
-    
+
     const filters: any = {};
     if (propertyId) filters.propertyId = propertyId;
     if (period) filters.period = period;
-    
+
     // Handle date range
     if (req.query.startDate) {
       filters.startDate = new Date(req.query.startDate as string);
@@ -1869,7 +1869,7 @@ router.get('/ledgers/clients', authenticate, async (req: AuthRequest, res: Respo
     if (req.query.endDate) {
       filters.endDate = new Date(req.query.endDate as string);
     }
-    
+
     // Handle "thisMonth" period
     if (period === 'thisMonth') {
       const now = new Date();
@@ -1890,9 +1890,9 @@ router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, re
   try {
     const { UnifiedLedgerService } = await import('../services/unified-ledger-service');
     const clientId = req.params.clientId;
-    
+
     const filters: any = {};
-    
+
     // Handle date range
     if (req.query.startDate) {
       filters.startDate = new Date(req.query.startDate as string);
@@ -1900,7 +1900,7 @@ router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, re
     if (req.query.endDate) {
       filters.endDate = new Date(req.query.endDate as string);
     }
-    
+
     // Handle "thisMonth" period
     const period = req.query.period as 'thisMonth' | 'all' | undefined;
     if (period === 'thisMonth') {
@@ -2923,6 +2923,221 @@ router.post('/installments/:id/payment', authenticate, async (req: AuthRequest, 
   }
 });
 
+// -------------------- Deal Receipts (Client Ledger) --------------------
+
+// Get receipts by deal ID
+router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { dealId } = req.params;
+
+    // Check if deal exists (optional, but good for error messages)
+    // const deal = await prisma.deal.findUnique({ where: { id: dealId } });
+    // if (!deal) return res.status(404).json({ error: 'Deal not found' });
+
+    const receipts = await prisma.dealReceipt.findMany({
+      where: { dealId },
+      include: {
+        allocations: {
+          include: {
+            installment: true,
+          },
+        },
+        receivedByUser: {
+          select: { username: true, email: true },
+        },
+      },
+      orderBy: { date: 'desc' },
+    });
+
+    res.json({ success: true, data: receipts });
+  } catch (error: any) {
+    logger.error('Get details receipts error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch receipts'
+    });
+  }
+});
+
+// Get receipt by ID
+router.get('/receipts/id/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const receipt = await prisma.dealReceipt.findUnique({
+      where: { id: req.params.id },
+      include: {
+        allocations: {
+          include: {
+            installment: true,
+          },
+        },
+        receivedByUser: {
+          select: { username: true, email: true },
+        },
+      },
+    });
+
+    if (!receipt) {
+      return res.status(404).json({ success: false, error: 'Receipt not found' });
+    }
+
+    res.json({ success: true, data: receipt });
+  } catch (error: any) {
+    logger.error('Get receipt details error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to fetch receipt details'
+    });
+  }
+});
+
+// Generate Receipt PDF
+router.get('/receipts/pdf/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const receipt = await prisma.dealReceipt.findUnique({
+      where: { id: req.params.id },
+      include: {
+        deal: {
+          include: {
+            client: true,
+            property: true,
+          },
+        },
+        client: true,
+        allocations: {
+          include: {
+            installment: true,
+          },
+        },
+        receivedByUser: true,
+      },
+    });
+
+    if (!receipt) {
+      if (!res.headersSent) {
+        return res.status(404).json({ success: false, error: 'Receipt not found' });
+      }
+      return;
+    }
+
+    // Import generator dynamically to simulate clean architecture
+    const { generateReceiptPDF } = await import('../utils/pdf-generator');
+
+    const pdfData: any = {
+      receipt: {
+        receiptNo: receipt.receiptNo,
+        amount: receipt.amount,
+        method: receipt.method,
+        date: receipt.date,
+        notes: receipt.notes || undefined,
+      },
+      deal: {
+        dealCode: receipt.deal.dealCode,
+        title: receipt.deal.title,
+        dealAmount: receipt.deal.dealAmount,
+      },
+      client: {
+        name: receipt.client.name,
+        email: receipt.client.email || undefined,
+        phone: receipt.client.phone || undefined,
+        address: receipt.client.address || undefined,
+      },
+      allocations: receipt.allocations.map(alloc => ({
+        installmentNumber: alloc.installment.installmentNumber,
+        amountAllocated: alloc.amountAllocated,
+        installmentAmount: alloc.installment.amount,
+        dueDate: alloc.installment.dueDate,
+      })),
+      receivedBy: receipt.receivedByUser ? {
+        username: receipt.receivedByUser.username,
+        email: receipt.receivedByUser.email,
+      } : undefined,
+    };
+
+    const pdfBuffer = await generateReceiptPDF(pdfData);
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="receipt-${receipt.receiptNo}.pdf"`
+    );
+    res.send(pdfBuffer);
+
+  } catch (error: any) {
+    logger.error('Generate receipt PDF error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message || 'Failed to generate PDF'
+      });
+    }
+  }
+});
+
+// Delete receipt
+router.delete('/receipts/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    // Logic to delete receipt and reverse allocations would go here
+    // For now, simple delete (cascades should handle allocations if configured, 
+    // but usually we need to update installment "paidAmount" too!)
+
+    // NOTE: This is a simplified delete. Real/Safe delete should revert installment.paidAmount.
+    // Assuming cascade delete on DealReceiptAllocation?
+    // DealReceiptAllocation has onDelete: Cascade for receipt.
+    // BUT we need to update installment.paidAmount manually or trigger.
+
+    // Let's implement safe delete logic:
+    const receipt = await prisma.dealReceipt.findUnique({
+      where: { id: req.params.id },
+      include: { allocations: true },
+    });
+
+    if (!receipt) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      // Revert paid amounts on installments
+      for (const alloc of receipt.allocations) {
+        await tx.dealInstallment.update({
+          where: { id: alloc.installmentId },
+          data: {
+            paidAmount: { decrement: alloc.amountAllocated },
+            status: 'Pending', // Revert to pending (or Partial if still has other payments)
+            // Logic for status update: check if paidAmount becomes 0 or < amount
+          }
+          // Note: Proper status recalculation is complex, assuming 'Pending' for safety or basic decrement
+        });
+
+        // Correct status logic
+        const installment = await tx.dealInstallment.findUnique({ where: { id: alloc.installmentId } });
+        if (installment) {
+          let newStatus = 'Pending';
+          if (installment.paidAmount >= installment.amount - 0.01) newStatus = 'Paid';
+          else if (installment.paidAmount > 0) newStatus = 'Partial';
+          else if (new Date() > installment.dueDate) newStatus = 'Overdue';
+
+          await tx.dealInstallment.update({
+            where: { id: installment.id },
+            data: { status: newStatus }
+          });
+        }
+      }
+
+      await tx.dealReceipt.delete({
+        where: { id: req.params.id },
+      });
+    });
+
+    res.json({ success: true, message: 'Receipt deleted successfully' });
+  } catch (error: any) {
+    logger.error('Delete receipt error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to delete receipt'
+    });
+  }
+});
+
 // Export receipts (Payments)
 router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -3035,7 +3250,7 @@ router.get('/dealer-ledger/:dealerId', authenticate, async (req: AuthRequest, re
     if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
     if (req.query.dealId) filters.dealId = req.query.dealId as string;
     if (req.query.period) filters.period = req.query.period as 'thisMonth' | 'all';
-    
+
     // Handle "thisMonth" period
     if (req.query.period === 'thisMonth') {
       const now = new Date();
@@ -3065,7 +3280,7 @@ router.get('/ledger/dealer/:dealerId', authenticate, async (req: AuthRequest, re
     if (req.query.endDate) filters.endDate = new Date(req.query.endDate as string);
     if (req.query.dealId) filters.dealId = req.query.dealId as string;
     if (req.query.period) filters.period = req.query.period as 'thisMonth' | 'all';
-    
+
     // Handle "thisMonth" period
     if (req.query.period === 'thisMonth') {
       const now = new Date();
@@ -3265,7 +3480,7 @@ router.get('/receipts/:dealId', authenticate, async (req: AuthRequest, res: Resp
 router.get('/receipts', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { type, startDate, endDate, dealId, clientId } = req.query;
-    
+
     const where: any = {};
     if (dealId) where.dealId = dealId;
     if (clientId) where.clientId = clientId;
@@ -3523,7 +3738,7 @@ router.delete('/receipts/:id', authenticate, async (req: AuthRequest, res: Respo
 router.get('/receipts/export', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { startDate, endDate, dealId, clientId } = req.query;
-    
+
     const where: any = {};
     if (dealId) where.dealId = dealId;
     if (clientId) where.clientId = clientId;

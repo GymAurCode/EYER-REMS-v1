@@ -13,7 +13,6 @@ import { successResponse, errorResponse } from '../utils/error-handler';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF, generatePropertiesReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
-import { generateTrackingId } from '../services/tid-service';
 import { generatePropertyCode } from '../utils/code-generator';
 
 // Configure multer for form-data handling

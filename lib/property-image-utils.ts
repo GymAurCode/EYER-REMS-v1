@@ -31,7 +31,17 @@ export function getPropertyImageUrl(propertyId: string | number, imageUrl?: stri
   // Use the property image endpoint for all other cases
   // This handles /secure-files/..., /uploads/..., /property/{id}, etc.
   const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '')
-  return `${baseUrl}/api/properties/${propertyId}/image`
+  let url = `${baseUrl}/api/properties/${propertyId}/image`
+
+  // Append token for authentication if available
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token')
+    if (token) {
+      url += `?token=${token}`
+    }
+  }
+
+  return url
 }
 
 /**
@@ -55,6 +65,16 @@ export function getPropertyImageSrc(propertyId: string | number, imageUrl?: stri
 
   // For all other paths, use the property image endpoint
   const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '')
-  return `${baseUrl}/api/properties/${propertyId}/image`
+  let url = `${baseUrl}/api/properties/${propertyId}/image`
+
+  // Append token for authentication if available
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('token')
+    if (token) {
+      url += `?token=${token}`
+    }
+  }
+
+  return url
 }
 

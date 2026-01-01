@@ -418,6 +418,7 @@ model Buyer {
   buyStatus   String    @default("Pending")
   buyValue    Float?
   notes       String?
+  tid         String?   @unique
   isDeleted   Boolean   @default(false)
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -429,6 +430,7 @@ model Buyer {
   @@index([saleId])
   @@index([buyStatus])
   @@index([isDeleted])
+  @@index([tid])
 }
 
 model Activity {

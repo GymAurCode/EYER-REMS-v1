@@ -34,7 +34,7 @@ const columnExists = async (tableName: string, columnName: string): Promise<bool
   }
 };
 
-export type ModulePrefix = 
+export type ModulePrefix =
   | 'prop'  // Properties
   | 'pay'   // Payments
   | 'cli'   // Clients
@@ -57,16 +57,37 @@ interface IdGenerationResult {
   counter: number;
 }
 
-import { generateSequenceNumber } from './tid-service';
+// Re-implementing generateSequenceNumber here since tid-service is missing
+export async function generateSequenceNumber(prefix: string): Promise<number> {
+  try {
+    const seq = await prisma.sequence.update({
+      where: { prefix },
+      data: { current: { increment: 1 } },
+    });
+    return seq.current;
+  } catch (error: any) {
+    // If sequence not found (P2025), initialize it
+    if (error.code === 'P2025') {
+      // Create sequence starting at 1
+      const seq = await prisma.sequence.upsert({
+        where: { prefix },
+        create: { prefix, current: 1 },
+        update: { current: { increment: 1 } },
+      });
+      return seq.current;
+    }
+    throw error;
+  }
+}
 
 // Helper to find max ID from legacy tables
 async function findMaxSystemId(
-  modulePrefix: ModulePrefix, 
-  prefix: string, 
+  modulePrefix: ModulePrefix,
+  prefix: string,
   client: Prisma.TransactionClient
 ): Promise<number> {
   let maxCounter = 0;
-  
+
   // Query based on module type
   switch (modulePrefix) {
     case 'prop':
@@ -128,7 +149,7 @@ async function findMaxSystemId(
         maxCounter = parseInt(counterStr, 10) || 0;
       }
       break;
-      
+
     case 'dl':
       const maxDl = await client.deal.findFirst({
         where: { dealCode: { startsWith: prefix } },
@@ -236,12 +257,12 @@ async function findMaxSystemId(
         maxCounter = parseInt(counterStr, 10) || 0;
       }
       break;
-      
+
     default:
       // For unknown prefixes, start at 0
       break;
   }
-  
+
   return maxCounter;
 }
 
@@ -259,12 +280,12 @@ export async function generateSystemId(
 ): Promise<string> {
   const currentYear = new Date().getFullYear();
   const yearSuffix = String(currentYear).slice(-2); // Last 2 digits
-  
+
   // Create a prefix that includes the year to ensure year-based uniqueness in the sequence
   // e.g. "lead-25"
   const sequencePrefix = `${modulePrefix}-${yearSuffix}`;
   const dbPrefix = `${modulePrefix}-${yearSuffix}-`;
-  
+
   try {
     // Optimistic: Try to increment sequence
     // We use raw update to fail fast if not exists
@@ -279,17 +300,17 @@ export async function generateSystemId(
       where: { prefix: sequencePrefix },
       data: { current: { increment: 1 } },
     });
-    
+
     return `${modulePrefix}-${yearSuffix}-${seq.current.toString().padStart(4, '0')}`;
   } catch (error: any) {
     // If sequence not found (P2025), initialize it
     if (error.code === 'P2025') {
       const client = tx || prisma;
-      
+
       // Find max from legacy tables
       const maxCounter = await findMaxSystemId(modulePrefix, dbPrefix, client);
       const nextCounter = maxCounter + 1;
-      
+
       // Create sequence starting at nextCounter
       // We use upsert here just in case another concurrent request created it 
       // between the update failure and now.
@@ -298,7 +319,7 @@ export async function generateSystemId(
         create: { prefix: sequencePrefix, current: nextCounter },
         update: { current: { increment: 1 } },
       });
-      
+
       return `${modulePrefix}-${yearSuffix}-${seq.current.toString().padStart(4, '0')}`;
     }
     throw error;
@@ -479,7 +500,7 @@ export async function validateTID(
   // Check for conflicts across Property, Deal, Client, Lead, Employee, and Tenant
   // Only query tables where tid column exists
   const queries: Promise<any>[] = [];
-  
+
   if (propertyTidExists) {
     queries.push(
       client.property.findFirst({

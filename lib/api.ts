@@ -587,6 +587,18 @@ export const apiService = {
     }),
   },
 
+  // Files (Centralized)
+  files: {
+    getViewUrl: (entity: string, trackingId: string, filename: string) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
+      return `${API_BASE_URL}/files/view/${entity}/${trackingId}/${filename}${token ? `?token=${token}` : ''}`
+    },
+    getDownloadUrl: (entity: string, trackingId: string, filename: string) => {
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
+      return `${API_BASE_URL}/files/download/${entity}/${trackingId}/${filename}${token ? `?token=${token}` : ''}`
+    },
+  },
+
   // Sales
   sales: {
     getAll: () => api.get('/sales'),

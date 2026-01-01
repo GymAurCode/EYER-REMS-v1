@@ -6,7 +6,7 @@ import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
 import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
-import { generateSequenceNumber } from '../services/tid-service';
+import { generateSequenceNumber } from '../services/id-generation-service';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { successResponse, errorResponse } from '../utils/error-handler';
 
@@ -528,14 +528,14 @@ router.put('/clients/:id', authenticate, upload.any(), async (req: AuthRequest, 
     if (parsedData.tid !== undefined && parsedData.tid !== oldClient.tid) {
       return res.status(400).json({ error: 'TID cannot be changed after client creation' });
     }
-    
+
     const { tid, manualUniqueId, ...updateData } = parsedData;
-    
+
     // Validate manual unique ID if changed
     if (manualUniqueId !== undefined && manualUniqueId !== oldClient.manualUniqueId) {
-       if (manualUniqueId) {
-          await validateManualUniqueId(manualUniqueId, 'cli');
-       }
+      if (manualUniqueId) {
+        await validateManualUniqueId(manualUniqueId, 'cli');
+      }
     }
 
     const client = await prisma.client.update({

@@ -25,6 +25,7 @@ interface AddBuyerDialogProps {
 
 export function AddBuyerDialog({ open, onOpenChange, onSuccess }: AddBuyerDialogProps) {
   const [formData, setFormData] = useState({
+    tid: "",
     name: "",
     email: "",
     phone: "",
@@ -100,6 +101,7 @@ export function AddBuyerDialog({ open, onOpenChange, onSuccess }: AddBuyerDialog
       onSuccess?.()
       onOpenChange(false)
       setFormData({
+        tid: "",
         name: "",
         email: "",
         phone: "",
@@ -130,6 +132,16 @@ export function AddBuyerDialog({ open, onOpenChange, onSuccess }: AddBuyerDialog
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
+            <div className="grid gap-2">
+              <Label htmlFor="tid">TID (Transaction ID)</Label>
+              <Input
+                id="tid"
+                placeholder="BUY-XXXX"
+                value={formData.tid}
+                onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                required
+              />
+            </div>
             <div className="grid gap-2">
               <Label htmlFor="name">Full Name</Label>
               <Input

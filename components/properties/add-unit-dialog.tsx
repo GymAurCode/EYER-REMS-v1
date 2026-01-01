@@ -40,6 +40,7 @@ const UTILITIES = ["Water", "Electricity", "Gas", "Internet"] as const
 type UnitStatus = "Vacant" | "Occupied" | "Under Maintenance"
 
 type AddUnitFormState = {
+  tid: string
   unitNumber: string
   propertyId: string
   blockId: string
@@ -54,6 +55,7 @@ type AddUnitFormState = {
 }
 
 const DEFAULT_FORM_STATE: AddUnitFormState = {
+  tid: "",
   unitNumber: "",
   propertyId: "",
   blockId: "",
@@ -97,6 +99,7 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
             : "Vacant"
 
       setFormData({
+        tid: unit.tid || "",
         unitNumber: unit.unitName || unit.unitNumber || "",
         propertyId,
         blockId,
@@ -228,6 +231,10 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
       nextErrors.unitNumber = "Unit number is required"
     }
 
+    if (!formData.tid.trim()) {
+      nextErrors.tid = "TID is required"
+    }
+
     if (!formData.propertyId) {
       nextErrors.propertyId = "Property is required"
     }
@@ -275,6 +282,7 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
       const size = formData.sizeSqFt ? parseFloat(formData.sizeSqFt) : NaN
 
       const payload: any = {
+        tid: formData.tid,
         unitName: formData.unitNumber.trim(),
         propertyId: formData.propertyId,
         status: formData.status,
@@ -351,17 +359,29 @@ export function AddUnitDialog({ open, onOpenChange, onSuccess, unit, defaultProp
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-6 py-6">
-            {/* Unit Number */}
-            <div className="space-y-2">
-              <Label htmlFor="unitNumber">Unit Number</Label>
-              <Input
-                id="unitNumber"
-                placeholder="e.g., A-101, Unit 1"
-                value={formData.unitNumber}
-                onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
-                className={errors.unitNumber ? "border-destructive" : ""}
-              />
-              {errors.unitNumber && <p className="text-xs text-destructive">{errors.unitNumber}</p>}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tid">TID (Transaction ID)</Label>
+                <Input
+                  id="tid"
+                  placeholder="UNT-XXXX"
+                  value={formData.tid}
+                 onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
+                 className={errors.tid ? "border-destructive" : ""}
+               />
+               {errors.tid && <p className="text-xs text-destructive">{errors.tid}</p>}
+             </div>
+             <div className="space-y-2">
+                <Label htmlFor="unitNumber">Unit Number</Label>
+                <Input
+                  id="unitNumber"
+                  placeholder="e.g., A-101, Unit 1"
+                  value={formData.unitNumber}
+                  onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
+                  className={errors.unitNumber ? "border-destructive" : ""}
+                />
+                {errors.unitNumber && <p className="text-xs text-destructive">{errors.unitNumber}</p>}
+              </div>
             </div>
 
             {/* Property */}

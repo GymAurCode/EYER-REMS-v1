@@ -2,6 +2,7 @@ import express, { Response } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
+import { validateTID } from '../services/id-generation-service';
 
 const router = (express as any).Router();
 
@@ -15,7 +16,9 @@ const createBuyerSchema = z.object({
   saleId: z.string().uuid().optional(),
   buyStatus: z.enum(['Pending', 'Completed', 'Cancelled']).optional(),
   buyValue: z.number().positive().optional(),
+
   notes: z.string().optional(),
+  tid: z.string().min(1, 'TID is required'),
 });
 
 const updateBuyerSchema = createBuyerSchema.partial();
@@ -133,6 +136,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createBuyerSchema.parse(req.body);
 
+    // Validate TID
+    await validateTID(data.tid);
+
     // Verify property exists if provided
     if (data.propertyId) {
       const property = await prisma.property.findFirst({
@@ -163,6 +169,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     const buyer = await prisma.buyer.create({
       data: {
+
         ...data,
         email: data.email || undefined,
         buyStatus: data.buyStatus || 'Pending',

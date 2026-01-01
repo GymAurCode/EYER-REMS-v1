@@ -29,8 +29,13 @@ export const authenticate = async (
 ): Promise<void> => {
   try {
     const authHeader = req.headers.authorization;
-    const token = authHeader?.replace('Bearer ', '') || authHeader?.replace('bearer ', '');
+    let token = authHeader?.replace('Bearer ', '') || authHeader?.replace('bearer ', '');
     const requestDeviceId = req.headers['x-device-id'] as string;
+
+    // Allow token via query parameter (for images/downloads)
+    if (!token && req.query.token) {
+      token = req.query.token as string;
+    }
 
     if (!token) {
       logger.warn('Authentication failed: No token provided', {
@@ -40,7 +45,7 @@ export const authenticate = async (
         authHeaderValue: authHeader ? 'present' : 'missing',
         allHeaders: Object.keys(req.headers),
       });
-      res.status(401).json({ 
+      res.status(401).json({
         error: 'Authentication required',
         message: 'No authorization token provided. Please log in again.',
       });
@@ -57,7 +62,7 @@ export const authenticate = async (
       }
       logger.warn('⚠️  WARNING: JWT_SECRET not set. Using default for development only.');
     }
-    
+
     let decoded: {
       userId: string;
       username: string;
@@ -65,7 +70,7 @@ export const authenticate = async (
       roleId: string;
       deviceId?: string;
     };
-    
+
     try {
       decoded = jwt.verify(token, jwtSecret || 'CHANGE-THIS-IN-PRODUCTION-DEVELOPMENT-ONLY') as {
         userId: string;

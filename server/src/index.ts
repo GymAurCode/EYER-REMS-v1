@@ -41,6 +41,7 @@ import recycleBinRoutes from './routes/recycle-bin';
 import subsidiariesRoutes from './routes/subsidiaries';
 import accountsRoutes from './routes/accounts';
 import fraudDetectionRoutes from './routes/fraud-detection';
+import filesRoutes from './routes/files';
 import { csrfProtection } from './middleware/csrf';
 import path from 'path';
 import logger from './utils/logger';
@@ -180,19 +181,22 @@ app.use('/api', (req: Request, res: Response, next: NextFunction) => {
     path.includes('/health')) {
     return next();
   }
-  
+
   // Log CSRF check for debugging
   logger.info('CSRF check for POST/PUT/DELETE', {
     method: req.method,
     path: path,
     url: req.url,
   });
-  
+
   return csrfProtection(req as any, res, next);
 });
 
 // Serve secure files (authenticated endpoint)
 app.use('/api/secure-files', secureFilesRoutes);
+
+// New centralized file handling routes
+app.use('/api/files', filesRoutes);
 
 // Static route for secure file serving (public access for images/attachments)
 app.get('/api/secure-files/*', async (req: Request, res: Response) => {
@@ -276,15 +280,15 @@ app.get('/api/health', async (req: Request, res: Response) => {
   try {
     // Check DB connection
     await prisma.$queryRaw`SELECT 1`;
-    res.json({ 
-      status: 'ok', 
+    res.json({
+      status: 'ok',
       message: 'REMS Backend is running',
       database: 'connected'
     });
   } catch (error: any) {
     logger.error('Health check failed - Database connection error:', error);
-    res.status(500).json({ 
-      status: 'error', 
+    res.status(500).json({
+      status: 'error',
       message: 'Database connection failed',
       error: error.message,
       stack: error.stack

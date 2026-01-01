@@ -3,12 +3,13 @@ import { z } from 'zod';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
-import { generateTrackingId } from '../services/tid-service';
+import { validateTID } from '../services/id-generation-service';
 
 const router = (express as any).Router();
 
 // Validation schemas
 const createUnitSchema = z.object({
+  tid: z.string().min(1, 'TID is required'),
   unitName: z.string().min(1, 'Unit name is required'),
   propertyId: z.string().uuid('Invalid property ID'),
   blockId: z.string().uuid().optional(),
@@ -156,7 +157,14 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { floorId } = req.params;
-    const { unitName, unitType, status, monthlyRent, description, sizeSqFt, securityDeposit, utilitiesIncluded } = req.body;
+    const { tid, unitName, unitType, status, monthlyRent, description, sizeSqFt, securityDeposit, utilitiesIncluded } = req.body;
+
+    if (!tid || typeof tid !== 'string' || tid.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'TID is required',
+      });
+    }
 
     if (!unitName || typeof unitName !== 'string' || unitName.trim().length === 0) {
       return res.status(400).json({
@@ -201,7 +209,9 @@ router.post('/floors/:floorId/units', authenticate, async (req: AuthRequest, res
       });
     }
 
-    const tid = await generateTrackingId('UNT');
+    // Validate TID
+    await validateTID(tid);
+
     const unit = await prisma.unit.create({
       data: {
         unitName: unitName.trim(),
@@ -263,6 +273,9 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const data = createUnitSchema.parse(req.body);
 
+    // Validate TID
+    await validateTID(data.tid);
+
     // Verify property exists
     const property = await prisma.property.findFirst({
       where: { id: data.propertyId, isDeleted: false },
@@ -310,11 +323,13 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       }
     }
 
-    const tid = await generateTrackingId('UNT');
+    // Validate TID
+    await validateTID(data.tid);
+
     const unit = await prisma.unit.create({
       data: {
         ...data,
-        tid,
+        tid: data.tid,
         unitType: data.unitType,
         sizeSqFt: data.sizeSqFt,
         securityDeposit: data.securityDeposit,

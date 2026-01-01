@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { generateSequenceNumber } from '../services/tid-service';
+import { generateSequenceNumber } from '../services/id-generation-service';
 import { validateTID } from '../services/id-generation-service';
 
 const router = (express as any).Router();
@@ -118,7 +118,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     // Format: EMP0001
     const empSeq = await generateSequenceNumber('EMP');
     const employeeId = `EMP${empSeq.toString().padStart(4, '0')}`;
-    
+
     // Calculate probation end date if probation period is provided
     let probationEndDate = null;
     if (probationPeriod) {

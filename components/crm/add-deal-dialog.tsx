@@ -128,7 +128,7 @@ export function AddDealDialog({
   const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
-  const isEdit = mode === "edit" && initialData?.id
+  const isEdit = mode === "edit" && !!initialData?.id
   const { options: stageOverrides } = useDropdownOptions("deal.stage")
   const { options: statusOverrides } = useDropdownOptions("deal.status")
   const stageOptions = stageOverrides.length ? stageOverrides : FALLBACK_STAGE_OPTIONS
@@ -232,8 +232,8 @@ export function AddDealDialog({
             : ""
 
         setFormData({
-            tid: initialData.tid || "",
-            title: initialData.title || "",
+          tid: initialData.tid || "",
+          title: initialData.title || "",
           clientId: existingClientId,
           propertyId:
             initialData.propertyId !== undefined && initialData.propertyId !== null
@@ -390,10 +390,10 @@ export function AddDealDialog({
       let response
       if (isEdit) {
         response = await apiService.deals.update(initialData!.id!, payload)
-        DealToasts.updateSuccess(toast)
+        DealToasts.updated(payload.title)
       } else {
         response = await apiService.deals.create(payload)
-        DealToasts.createSuccess(toast)
+        DealToasts.created(payload.title)
       }
 
       if (onSuccess) onSuccess()
@@ -402,12 +402,8 @@ export function AddDealDialog({
     } catch (error: any) {
       console.error("Deal submission error:", error)
       const errorMessage = error.response?.data?.error || error.message || "Failed to save deal"
-      
-      if (isEdit) {
-        DealToasts.updateError(toast, errorMessage)
-      } else {
-        DealToasts.createError(toast, errorMessage)
-      }
+
+      DealToasts.error(errorMessage)
     } finally {
       setSubmitting(false)
     }
@@ -425,8 +421,8 @@ export function AddDealDialog({
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-             {/* TID Field */}
-             <div className="grid gap-2">
+            {/* TID Field */}
+            <div className="grid gap-2">
               <Label htmlFor="tid">Transaction ID <span className="text-destructive">*</span></Label>
               <Input
                 id="tid"

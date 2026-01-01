@@ -6,8 +6,7 @@
 import prisma from '../prisma/client';
 import { Prisma } from '@prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
-import { generateSystemId } from './id-generation-service';
-import { generateTrackingId } from './tid-service';
+import { generateSystemId, validateTID } from './id-generation-service';
 
 export interface CreateDealPayload {
   title: string;
@@ -199,7 +198,13 @@ export class DealService {
 
     // Generate deal code: dl-YY-####
     const dealCode = await this.generateDealCode();
-    const tid = payload.tid || await generateTrackingId('DL');
+    
+    // Validate TID
+    if (!payload.tid) {
+      throw new Error('TID is required');
+    }
+    await validateTID(payload.tid);
+    const tid = payload.tid;
 
     // Validate dealer is required if commission is specified
     if ((payload.commissionType && payload.commissionType !== 'none') && !payload.dealerId) {

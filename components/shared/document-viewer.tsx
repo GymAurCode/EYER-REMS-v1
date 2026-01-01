@@ -33,7 +33,16 @@ export function DocumentViewer({ open, onClose, document: doc }: DocumentViewerP
   if (!doc) return null
 
   const getDocumentUrl = (url: string) => {
-    if (url.startsWith("http")) return url
+    // If it's already a full URL, return it
+    if (url.startsWith("http")) return url;
+    
+    // If it's a relative URL starting with /api/files, prepend the base URL if needed
+    // (though usually we expect full URLs passed from parent)
+    if (url.startsWith("/api/files")) {
+       return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${url.replace('/api', '')}`
+    }
+
+    // Legacy fallback
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, "")
     return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`
   }
@@ -42,8 +51,14 @@ export function DocumentViewer({ open, onClose, document: doc }: DocumentViewerP
   const isPDF = doc.fileType === 'application/pdf' || doc.name.toLowerCase().endsWith('.pdf')
 
   const handleDownload = () => {
+    // Check if we can construct a download URL from the view URL
+    let downloadUrl = getDocumentUrl(doc.url)
+    if (downloadUrl.includes('/view/')) {
+        downloadUrl = downloadUrl.replace('/view/', '/download/')
+    }
+    
     const link = document.createElement('a')
-    link.href = getDocumentUrl(doc.url)
+    link.href = downloadUrl
     link.download = doc.name
     link.target = '_blank'
     document.body.appendChild(link)
