@@ -40,7 +40,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
   const fetchPayments = async () => {
     try {
       setLoading(true)
-      
+
       // Get payments for this tenant
       const paymentsRes = await apiService.payments.getAll()
       const allPayments = Array.isArray((paymentsRes as any)?.data?.data)
@@ -48,8 +48,8 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
         : Array.isArray((paymentsRes as any)?.data)
           ? (paymentsRes as any).data
           : []
-      
-      const tenantPayments = tenantData?.id 
+
+      const tenantPayments = tenantData?.id
         ? allPayments.filter((p: any) => p.tenantId === tenantData.id)
         : []
       setPayments(tenantPayments)
@@ -61,7 +61,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
         : Array.isArray((invoicesRes as any)?.data)
           ? (invoicesRes as any).data
           : []
-      
+
       const tenantInvoices = tenantData?.id
         ? allInvoices.filter((inv: any) => inv.tenantId === tenantData.id)
         : []
@@ -75,7 +75,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
           return dueDate >= new Date() && !isPaid
         })
         .sort((a: any, b: any) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]
-      
+
       setNextPayment(upcomingInvoice)
 
       // Calculate summary
@@ -84,7 +84,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
         const paymentDate = new Date(p.date)
         return paymentDate.getFullYear() === currentYear
       })
-      
+
       const totalPaid = yearPayments.reduce((sum: number, p: any) => sum + (Number(p.amount) || 0), 0)
       const onTimePayments = yearPayments.filter((p: any) => {
         // Check if payment was on time (simplified - would need invoice comparison)
@@ -95,7 +95,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
       setSummary({
         totalPaid,
         onTimeRate,
-        nextDue: upcomingInvoice 
+        nextDue: upcomingInvoice
           ? new Date(upcomingInvoice.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
           : "N/A",
       })
@@ -108,7 +108,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
 
   const handleCreatePayment = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!paymentForm.amount || !paymentForm.method) {
       toast({
         title: "Validation Error",
@@ -130,21 +130,21 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
 
     try {
       setSubmitting(true)
-      
+
       await apiService.tenantPortal.pay(tenantData?.id, {
-        invoiceId: paymentForm.invoiceId || null,
+        invoiceId: (paymentForm.invoiceId && paymentForm.invoiceId !== 'none') ? paymentForm.invoiceId : null,
         amount,
         paymentMethod: paymentForm.method,
         date: new Date(paymentForm.date).toISOString(),
         notes: paymentForm.notes || undefined,
         status: "completed",
       })
-      
+
       toast({
         title: "Payment Recorded",
         description: "Your payment has been recorded successfully.",
       })
-      
+
       // Reset form
       setPaymentForm({
         invoiceId: "",
@@ -154,7 +154,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
         notes: "",
       })
       setShowPaymentForm(false)
-      
+
       // Refresh data
       await fetchPayments()
     } catch (error: any) {
@@ -177,7 +177,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
     )
   }
 
-  const daysRemaining = nextPayment 
+  const daysRemaining = nextPayment
     ? Math.ceil((new Date(nextPayment.dueDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     : 0
 
@@ -249,7 +249,7 @@ export function PaymentsView({ tenantData, leaseData }: { tenantData: any; lease
                     <SelectValue placeholder="Select invoice" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {invoices
                       .filter((inv: any) => inv.status !== "paid" && inv.status !== "Paid")
                       .map((inv: any) => (

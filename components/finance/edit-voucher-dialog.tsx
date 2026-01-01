@@ -59,7 +59,7 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
       const response = await apiService.vouchers.getById(voucherId) as any
       const voucherData = response.data || response
       setVoucher(voucherData)
-      
+
       setFormData({
         date: voucherData.date ? new Date(voucherData.date).toISOString().split('T')[0] : "",
         paymentMethod: voucherData.paymentMethod || "",
@@ -127,7 +127,7 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
     setUploadingAttachments(true)
     try {
       const uploads: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
-      
+
       for (const file of Array.from(files)) {
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
         if (!allowedTypes.includes(file.type.toLowerCase())) {
@@ -192,8 +192,10 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
         referenceNumber: formData.referenceNumber || null,
       }
 
-      if (formData.dealId) {
+      if (formData.dealId && formData.dealId !== 'none') {
         payload.dealId = formData.dealId
+      } else if (formData.dealId === 'none') {
+        payload.dealId = null
       }
 
       if (attachments.length > 0) {
@@ -205,15 +207,15 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
       }
 
       await apiService.vouchers.update(voucherId, payload)
-      
+
       toast({ title: "Voucher updated successfully" })
       onOpenChange(false)
       onSuccess?.()
     } catch (error: any) {
-      toast({ 
-        title: "Failed to update voucher", 
+      toast({
+        title: "Failed to update voucher",
         description: error?.response?.data?.error || error?.message || "Unknown error",
-        variant: "destructive" 
+        variant: "destructive"
       })
     } finally {
       setSaving(false)
@@ -314,7 +316,7 @@ export function EditVoucherDialog({ open, onOpenChange, voucherId, onSuccess }: 
                     <SelectValue placeholder="Select a deal" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="none">None</SelectItem>
                     {deals.map((deal) => (
                       <SelectItem key={deal.id} value={deal.id}>
                         {deal.title} - {deal.clientName}

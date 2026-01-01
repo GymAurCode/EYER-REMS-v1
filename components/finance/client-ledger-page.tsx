@@ -49,7 +49,7 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
     try {
       const response: any = await apiService.properties.getAll()
       const data = response?.data?.data || response?.data || []
-      const props = Array.isArray(data) 
+      const props = Array.isArray(data)
         ? data.map((p: any) => ({ id: p.id, name: p.name || p.address || 'Unnamed Property' }))
         : []
       setProperties(props)
@@ -64,7 +64,7 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
       const params: any = {
         period: filter,
       }
-      if (selectedPropertyId) {
+      if (selectedPropertyId && selectedPropertyId !== 'all') {
         params.propertyId = selectedPropertyId
       }
 
@@ -157,7 +157,7 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
                   <SelectValue placeholder="All Properties" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Properties</SelectItem>
+                  <SelectItem value="all">All Properties</SelectItem>
                   {properties.map((prop) => (
                     <SelectItem key={prop.id} value={prop.id}>
                       {prop.name}

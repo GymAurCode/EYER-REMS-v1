@@ -102,7 +102,7 @@ export function FinancialReportsView() {
           break
         case 'property-profitability':
           const ppRes = await apiService.financialReports.propertyProfitability({
-            propertyId: selectedPropertyId || undefined,
+            propertyId: (selectedPropertyId && selectedPropertyId !== 'all') ? selectedPropertyId : undefined,
             startDate,
             endDate,
           })
@@ -161,7 +161,7 @@ export function FinancialReportsView() {
           response = await apiService.financialReports.exportProfitLoss(params)
           break
         case 'property-profitability':
-          params.propertyId = selectedPropertyId || undefined
+          params.propertyId = (selectedPropertyId && selectedPropertyId !== 'all') ? selectedPropertyId : undefined
           params.startDate = startDate
           params.endDate = endDate
           params.format = format
@@ -435,7 +435,7 @@ export function FinancialReportsView() {
                           ))}
                           <div className="flex justify-between font-bold border-t pt-2">
                             <span>Total Current Assets</span>
-                            <span>{formatCurrency(balanceSheet.assets.current.reduce((sum: number, e: any) => sum + e.balance, 0))}</span>
+                            <span>{formatCurrency((balanceSheet.assets?.current || []).reduce((sum: number, e: any) => sum + e.balance, 0))}</span>
                           </div>
                         </div>
                       </div>
@@ -450,7 +450,7 @@ export function FinancialReportsView() {
                           ))}
                           <div className="flex justify-between font-bold border-t pt-2">
                             <span>Total Fixed Assets</span>
-                            <span>{formatCurrency(balanceSheet.assets.fixed.reduce((sum: number, e: any) => sum + e.balance, 0))}</span>
+                            <span>{formatCurrency((balanceSheet.assets?.fixed || []).reduce((sum: number, e: any) => sum + e.balance, 0))}</span>
                           </div>
                         </div>
                       </div>
@@ -470,7 +470,7 @@ export function FinancialReportsView() {
                           ))}
                           <div className="flex justify-between font-bold border-t pt-2">
                             <span>Total Liabilities</span>
-                            <span>{formatCurrency(balanceSheet.liabilities.current.reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}</span>
+                            <span>{formatCurrency((balanceSheet.liabilities?.current || []).reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}</span>
                           </div>
                         </div>
                       </div>
@@ -567,7 +567,7 @@ export function FinancialReportsView() {
                       <div className="flex justify-between font-bold border-t pt-2 mt-2">
                         <span>Total Revenue</span>
                         <span className="text-green-600">
-                          {formatCurrency(Object.values(profitLoss.revenue).flat().reduce((sum: number, e: any) => sum + e.balance, 0))}
+                          {formatCurrency((profitLoss.revenue ? Object.values(profitLoss.revenue).flat() : []).reduce((sum: number, e: any) => sum + e.balance, 0))}
                         </span>
                       </div>
                     </div>
@@ -586,7 +586,7 @@ export function FinancialReportsView() {
                       <div className="flex justify-between font-bold border-t pt-2 mt-2">
                         <span>Total Expenses</span>
                         <span className="text-red-600">
-                          {formatCurrency(Object.values(profitLoss.expenses).flat().reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
+                          {formatCurrency((profitLoss.expenses ? Object.values(profitLoss.expenses).flat() : []).reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
                         </span>
                       </div>
                     </div>
@@ -602,7 +602,7 @@ export function FinancialReportsView() {
                     </div>
                     {profitLoss.revenue && Object.values(profitLoss.revenue).flat().length > 0 && (
                       <div className="text-sm text-muted-foreground mt-2">
-                        Profit Margin: {((profitLoss.netProfit / Object.values(profitLoss.revenue).flat().reduce((sum: number, e: any) => sum + e.balance, 0)) * 100).toFixed(2)}%
+                        Profit Margin: {((profitLoss.netProfit / (profitLoss.revenue ? Object.values(profitLoss.revenue).flat() : []).reduce((sum: number, e: any) => sum + e.balance, 0)) * 100).toFixed(2)}%
                       </div>
                     )}
                   </div>
@@ -656,7 +656,7 @@ export function FinancialReportsView() {
                       <SelectValue placeholder="All Properties" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All Properties</SelectItem>
+                      <SelectItem value="all">All Properties</SelectItem>
                       {properties.map((p) => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
@@ -937,11 +937,11 @@ export function FinancialReportsView() {
                       ))}
                       <TableRow className="font-bold bg-muted">
                         <TableCell colSpan={2}>TOTALS</TableCell>
-                        <TableCell className="text-right">{formatCurrency(aging.totals.current)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(aging.totals.days31_60)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(aging.totals.days61_90)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(aging.totals.days91_plus)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(aging.totals.total)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(aging.totals?.current || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(aging.totals?.days31_60 || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(aging.totals?.days61_90 || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(aging.totals?.days91_plus || 0)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(aging.totals?.total || 0)}</TableCell>
                       </TableRow>
                     </TableBody>
                   </Table>

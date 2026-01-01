@@ -89,9 +89,9 @@ export function AddCommunicationDialog({
           id: client.id,
           name: client.name,
         })) : []
-        
+
         if (!controller.signal.aborted) {
-            setClients(options)
+          setClients(options)
         }
       } catch (error) {
         if (controller.signal.aborted) return
@@ -99,7 +99,7 @@ export function AddCommunicationDialog({
         toast({ title: "Failed to load clients", variant: "destructive" })
       } finally {
         if (!controller.signal.aborted) {
-            setLoadingClients(false)
+          setLoadingClients(false)
         }
       }
     }
@@ -192,7 +192,7 @@ export function AddCommunicationDialog({
                 </SelectTrigger>
                 <SelectContent>
                   {clients.length === 0 && !loadingClients ? (
-                    <SelectItem value="" disabled>
+                    <SelectItem value="none-available" disabled>
                       No clients available
                     </SelectItem>
                   ) : (
