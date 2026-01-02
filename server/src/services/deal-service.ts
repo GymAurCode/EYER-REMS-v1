@@ -125,7 +125,8 @@ export class DealService {
       throw new Error('Client not found or inactive');
     }
 
-    // Validate property(ies) exist
+    // Validate property(ies) exist and capture listing price snapshot
+    let listingPriceSnapshot: number | null = null;
     if (payload.propertyId) {
       const property = await prisma.property.findFirst({
         where: { id: payload.propertyId, isDeleted: false },
@@ -134,6 +135,9 @@ export class DealService {
       if (!property) {
         throw new Error('Property not found or inactive');
       }
+
+      // Capture listing price snapshot for variance calculation
+      listingPriceSnapshot = property.salePrice || null;
     }
 
     // Validate unit exists (if unit-level deal)
@@ -227,6 +231,24 @@ export class DealService {
 
     const commission = DealFinanceService.calculateCommission(payload.dealAmount, commissionConfig);
 
+    // Calculate variance from listing price
+    let varianceAmount: number | null = null;
+    let varianceType: string | null = null;
+    if (listingPriceSnapshot !== null && listingPriceSnapshot > 0) {
+      varianceAmount = payload.dealAmount - listingPriceSnapshot;
+      if (varianceAmount > 0) {
+        varianceType = 'GAIN';
+      } else if (varianceAmount < 0) {
+        varianceType = 'LOSS';
+      } else {
+        varianceType = null; // Exact match
+      }
+    } else if (listingPriceSnapshot === null && payload.propertyId) {
+      // Property exists but has no listing price - treat as discount if deal amount is positive
+      varianceType = 'DISCOUNT';
+      varianceAmount = payload.dealAmount; // Full amount is variance since no baseline
+    }
+
     // Calculate profit
     const profit = DealFinanceService.calculateProfit(
       payload.dealAmount,
@@ -268,6 +290,9 @@ export class DealService {
           role: payload.role || 'buyer',
           dealType: payload.dealType,
           dealAmount: payload.dealAmount,
+          listingPriceSnapshot,
+          varianceAmount,
+          varianceType,
           valueBreakdown: valueBreakdown as any,
           stage: payload.stage || 'prospecting',
           status: payload.status || 'open',

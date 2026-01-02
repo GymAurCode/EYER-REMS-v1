@@ -488,8 +488,8 @@ model Employee {
   phone                    String?
   position                 String
   department               String
-  salary                   Float
-  joinDate                 DateTime
+  salary                   Float              @default(0)
+  joinDate                 DateTime           @default(now())
   status                   String             @default("active")
   isDeleted                Boolean            @default(false)
   createdAt                DateTime           @default(now())
@@ -964,6 +964,9 @@ model Deal {
   id                  String            @id @default(uuid())
   title               String
   dealAmount          Float             @default(0) @map("deal_amount")
+  listingPriceSnapshot Float?          // Snapshot of property sale price at deal creation
+  varianceAmount      Float?           // Difference: dealAmount - listingPriceSnapshot
+  varianceType        String?          // 'GAIN' | 'LOSS' | 'DISCOUNT' | null
   stage               String            @default("prospecting")
   clientId            String?
   dealerId            String?

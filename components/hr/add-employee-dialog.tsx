@@ -47,7 +47,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
   const [formData, setFormData] = useState({
     // Basic Information
     name: "",
-    tid: "",
     email: "",
     phone: "",
     dateOfBirth: "",
@@ -58,7 +57,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
     cnic: "",
     cnicDocument: null as File | null,
     profilePhoto: null as File | null,
-    
+
     // Employment Details
     position: "",
     department: "",
@@ -70,32 +69,32 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
     probationPeriod: "",
     workLocation: "",
     shiftTimings: "",
-    
+
     // Salary Information
     salary: "",
     basicSalary: "",
-    
+
     // Address
     address: "",
     city: "",
     country: "",
     postalCode: "",
-    
+
     // Emergency Contact
     emergencyContactName: "",
     emergencyContactPhone: "",
     emergencyContactRelation: "",
-    
+
     // Bank Details
     bankAccountNumber: "",
     bankName: "",
     bankBranch: "",
     iban: "",
-    
+
     // Benefits
     insuranceEligible: false,
     benefitsEligible: true,
-    
+
     // Education & Experience (JSON arrays)
     education: [] as any[],
     experience: [] as any[],
@@ -108,7 +107,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
       // Reset form when dialog opens
       setFormData({
         name: "",
-        tid: "",
         email: "",
         phone: "",
         dateOfBirth: "",
@@ -156,11 +154,11 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
     try {
       const response = await apiService.employees.getAll()
       const responseData = response.data as any
-      const employeesData = Array.isArray(responseData?.data) 
-        ? responseData.data 
+      const employeesData = Array.isArray(responseData?.data)
+        ? responseData.data
         : Array.isArray(responseData)
-        ? responseData
-        : []
+          ? responseData
+          : []
       setEmployees(employeesData)
     } catch (err) {
       console.error("Failed to fetch employees:", err)
@@ -308,17 +306,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
           <div className="flex-1 overflow-y-auto mt-4">
             <TabsContent value="basic" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="grid gap-2">
-                  <Label htmlFor="tid">Tracking ID <span className="text-destructive">*</span></Label>
-                  <Input
-                    id="tid"
-                    value={formData.tid}
-                    onChange={(e) => setFormData({ ...formData, tid: e.target.value })}
-                    placeholder="EMP-XXXX"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
-                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
                   <Input

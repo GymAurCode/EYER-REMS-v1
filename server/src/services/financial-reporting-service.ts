@@ -399,29 +399,32 @@ export class FinancialReportingService {
   /**
    * Generate Property Profitability Report
    * Filtered by Property ID
+   * Uses both LedgerEntry (via deals) and FinanceLedger (direct property mapping)
    */
   static async generatePropertyProfitability(
     propertyId?: string,
     startDate?: Date,
     endDate?: Date
   ): Promise<PropertyProfitability[]> {
-    const where: any = {
+    // Build date filter
+    const dateFilter: any = {};
+    if (startDate) dateFilter.gte = startDate;
+    if (endDate) dateFilter.lte = endDate;
+
+    // Build property filter
+    const propertyFilter: any = {};
+    if (propertyId) {
+      propertyFilter.propertyId = propertyId;
+    }
+
+    // Get ledger entries from deals (revenue/expenses via deals)
+    const ledgerEntryWhere: any = {
       deletedAt: null,
+      ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
     };
 
-    if (propertyId) {
-      where.propertyId = propertyId;
-    }
-
-    if (startDate || endDate) {
-      where.date = {};
-      if (startDate) where.date.gte = startDate;
-      if (endDate) where.date.lte = endDate;
-    }
-
-    // Get all ledger entries with property association
     const ledgerEntries = await prisma.ledgerEntry.findMany({
-      where,
+      where: ledgerEntryWhere,
       include: {
         debitAccount: true,
         creditAccount: true,
@@ -433,21 +436,71 @@ export class FinancialReportingService {
       },
     });
 
+    // Get finance ledger entries (direct property mapping for expenses/income)
+    const financeLedgerWhere: any = {
+      isDeleted: false,
+      propertyId: propertyId ? propertyId : undefined,
+      ...(Object.keys(dateFilter).length > 0 && { date: dateFilter }),
+    };
+
+    const financeLedgerEntries = await prisma.financeLedger.findMany({
+      where: financeLedgerWhere,
+      include: {
+        Property: true,
+      },
+    });
+
+    // Get all properties for mapping
+    const properties = await prisma.property.findMany({
+      where: {
+        isDeleted: false,
+        ...propertyFilter,
+      },
+      select: {
+        id: true,
+        name: true,
+        propertyCode: true,
+      },
+    });
+
     // Group by property
     const propertyMap = new Map<string, PropertyProfitability>();
-    let invalidCount = 0;
-    const invalidIds: string[] = [];
 
+    // Initialize all properties (even if no transactions)
+    for (const property of properties) {
+      if (!propertyMap.has(property.id)) {
+        propertyMap.set(property.id, {
+          propertyId: property.id,
+          propertyName: property.name,
+          propertyCode: property.propertyCode || undefined,
+          revenue: 0,
+          expenses: 0,
+          netProfit: 0,
+          profitMargin: 0,
+          revenueBreakdown: [],
+          expenseBreakdown: [],
+        });
+      }
+    }
+
+    // Process LedgerEntry transactions (via deals)
     for (const entry of ledgerEntries) {
-      const propId = entry.deal?.propertyId || 'unassigned';
-      const propertyName = entry.deal?.property?.name || 'Unassigned Property';
-      const propertyCode = entry.deal?.property?.propertyCode || undefined;
+      const propId = entry.deal?.propertyId;
+      if (!propId) {
+        // Skip entries without property association (log but don't fail)
+        console.warn(`LedgerEntry ${entry.id} has no property association`);
+        continue;
+      }
 
       if (!propertyMap.has(propId)) {
+        const property = await prisma.property.findUnique({
+          where: { id: propId },
+          select: { name: true, propertyCode: true },
+        });
         propertyMap.set(propId, {
           propertyId: propId,
-          propertyName,
-          propertyCode,
+          propertyName: property?.name || 'Unknown Property',
+          propertyCode: property?.propertyCode || undefined,
           revenue: 0,
           expenses: 0,
           netProfit: 0,
@@ -459,64 +512,93 @@ export class FinancialReportingService {
 
       const profitability = propertyMap.get(propId)!;
 
-      // Process debit account (expense or asset)
-      if (entry.debitAccount) {
-        if (entry.debitAccount.type === 'Expense') {
-          if (!entry.deal?.propertyId) {
-            invalidCount += 1;
-            invalidIds.push(entry.id);
-          }
-          profitability.expenses += entry.amount;
-          const existing = profitability.expenseBreakdown.find(
-            e => e.accountCode === entry.debitAccount!.code
-          );
-          if (existing) {
-            existing.amount += entry.amount;
-          } else {
-            profitability.expenseBreakdown.push({
-              accountCode: entry.debitAccount.code,
-              accountName: entry.debitAccount.name,
-              amount: entry.amount,
-            });
-          }
+      // Process debit account (expense)
+      if (entry.debitAccount && entry.debitAccount.type === 'Expense') {
+        profitability.expenses += entry.amount;
+        const existing = profitability.expenseBreakdown.find(
+          e => e.accountCode === entry.debitAccount!.code
+        );
+        if (existing) {
+          existing.amount += entry.amount;
+        } else {
+          profitability.expenseBreakdown.push({
+            accountCode: entry.debitAccount.code,
+            accountName: entry.debitAccount.name,
+            amount: entry.amount,
+          });
         }
       }
 
       // Process credit account (revenue)
-      if (entry.creditAccount) {
-        if (entry.creditAccount.type === 'Revenue') {
-          if (!entry.deal?.propertyId) {
-            invalidCount += 1;
-            invalidIds.push(entry.id);
-          }
-          profitability.revenue += entry.amount;
-          const existing = profitability.revenueBreakdown.find(
-            r => r.accountCode === entry.creditAccount!.code
-          );
-          if (existing) {
-            existing.amount += entry.amount;
-          } else {
-            profitability.revenueBreakdown.push({
-              accountCode: entry.creditAccount.code,
-              accountName: entry.creditAccount.name,
-              amount: entry.amount,
-            });
-          }
+      if (entry.creditAccount && entry.creditAccount.type === 'Revenue') {
+        profitability.revenue += entry.amount;
+        const existing = profitability.revenueBreakdown.find(
+          r => r.accountCode === entry.creditAccount!.code
+        );
+        if (existing) {
+          existing.amount += entry.amount;
+        } else {
+          profitability.revenueBreakdown.push({
+            accountCode: entry.creditAccount.code,
+            accountName: entry.creditAccount.name,
+            amount: entry.amount,
+          });
         }
       }
     }
 
-    if (invalidCount > 0) {
-      throw new Error(`INVALID_PROPERTY_DIMENSION:${invalidCount}`);
+    // Process FinanceLedger entries (direct property expenses/income)
+    for (const entry of financeLedgerEntries) {
+      if (!entry.propertyId) continue;
+
+      if (!propertyMap.has(entry.propertyId)) {
+        propertyMap.set(entry.propertyId, {
+          propertyId: entry.propertyId,
+          propertyName: entry.Property?.name || 'Unknown Property',
+          propertyCode: entry.Property?.propertyCode || undefined,
+          revenue: 0,
+          expenses: 0,
+          netProfit: 0,
+          profitMargin: 0,
+          revenueBreakdown: [],
+          expenseBreakdown: [],
+        });
+      }
+
+      const profitability = propertyMap.get(entry.propertyId)!;
+
+      // Categorize by category field
+      if (entry.category === 'Income' || entry.category === 'Revenue') {
+        profitability.revenue += entry.amount;
+        profitability.revenueBreakdown.push({
+          accountCode: entry.category,
+          accountName: entry.description || entry.category,
+          amount: entry.amount,
+        });
+      } else if (entry.category === 'Expense' || entry.category === 'Maintenance' || entry.category === 'Utility') {
+        profitability.expenses += entry.amount;
+        const existing = profitability.expenseBreakdown.find(
+          e => e.accountCode === entry.category
+        );
+        if (existing) {
+          existing.amount += entry.amount;
+        } else {
+          profitability.expenseBreakdown.push({
+            accountCode: entry.category,
+            accountName: entry.description || entry.category,
+            amount: entry.amount,
+          });
+        }
+      }
     }
 
-    // Calculate net profit and margins
+    // Calculate net profit and margins (handle missing data gracefully)
     const results = Array.from(propertyMap.values()).map(p => ({
       ...p,
       netProfit: Number((p.revenue - p.expenses).toFixed(2)),
       profitMargin: p.revenue > 0 
         ? Number(((p.revenue - p.expenses) / p.revenue * 100).toFixed(2))
-        : 0,
+        : p.revenue === 0 && p.expenses > 0 ? -100 : 0,
       revenue: Number(p.revenue.toFixed(2)),
       expenses: Number(p.expenses.toFixed(2)),
     }));

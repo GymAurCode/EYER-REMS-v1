@@ -43,6 +43,7 @@ import accountsRoutes from './routes/accounts';
 import fraudDetectionRoutes from './routes/fraud-detection';
 import filesRoutes from './routes/files';
 import { csrfProtection } from './middleware/csrf';
+import { apiLoggingMiddleware } from './middleware/api-logging';
 import path from 'path';
 import logger from './utils/logger';
 import { errorResponse } from './utils/error-handler';
@@ -144,6 +145,9 @@ const limiter = rateLimit({
 
 // Apply rate limiting to all API routes
 app.use('/api/', limiter);
+
+// API Request/Response Logging (after rate limiting, before routes)
+app.use('/api/', apiLoggingMiddleware);
 
 // Stricter rate limiting for auth endpoints
 const authLimiter = rateLimit({

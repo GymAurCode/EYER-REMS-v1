@@ -93,9 +93,41 @@ export async function generateMonthlyInvoices() {
  * Finance entries for invoices should be created through Deal relationships if needed.
  */
 export async function syncInvoiceToFinanceLedger(invoiceId: string) {
-  // FinanceLedger requires a dealId, but invoices don't have Deals
-  // Skipping FinanceLedger creation for invoices
-  return null;
+  const invoice = await prisma.invoice.findUnique({
+    where: { id: invoiceId },
+    include: { tenant: true }, // Removed property include
+  });
+
+  if (!invoice) return null;
+
+  // Check if already synced
+  const existingLedger = await prisma.financeLedger.findFirst({
+    where: {
+      referenceType: 'invoice',
+      referenceId: invoiceId,
+      isDeleted: false,
+    },
+  });
+
+  if (existingLedger) return existingLedger;
+
+  // Create FinanceLedger entry
+  const ledger = await prisma.financeLedger.create({
+    data: {
+      category: 'credit', // Income
+      amount: invoice.totalAmount,
+      date: invoice.createdAt,
+      description: `Invoice generated: ${invoice.invoiceNumber}`,
+      notes: `Tenant: ${invoice.tenant?.name || 'Unknown'}`,
+      referenceType: 'invoice',
+      referenceId: invoiceId,
+      propertyId: invoice.propertyId,
+      tenantId: invoice.tenantId,
+      invoiceId: invoice.id,
+    },
+  });
+
+  return ledger;
 }
 
 /**
@@ -106,8 +138,8 @@ export async function syncInvoiceToFinanceLedger(invoiceId: string) {
 export async function syncPaymentToFinanceLedger(paymentId: string) {
   const payment = await prisma.tenantPayment.findUnique({
     where: { id: paymentId },
-    include: { 
-      tenant: true, 
+    include: {
+      tenant: true,
       invoice: { include: { property: true } },
     },
   });
@@ -126,9 +158,37 @@ export async function syncPaymentToFinanceLedger(paymentId: string) {
     });
   }
 
-  // FinanceLedger requires a dealId, but tenant payments don't have Deals
-  // Skipping FinanceLedger creation for tenant payments
-  return null;
+  // Check if already synced
+  const existingLedger = await prisma.financeLedger.findFirst({
+    where: {
+      referenceType: 'payment',
+      referenceId: paymentId,
+      isDeleted: false,
+    },
+  });
+
+  if (existingLedger) return existingLedger;
+
+  // Create FinanceLedger entry for payment (Cash Flow)
+  // Note: For Profitability (Accrual), we use Invoices. For Cash Flow, we use Payments.
+  // We track both but can filter by referenceType in reports.
+  const ledger = await prisma.financeLedger.create({
+    data: {
+      category: 'credit', // Cash In
+      amount: revenueAmount,
+      date: payment.date,
+      description: `Payment received: ${payment.paymentId}`,
+      notes: payment.method,
+      referenceType: 'payment',
+      referenceId: paymentId,
+      // If invoice exists, link property from it, otherwise from payment if available
+      propertyId: payment.invoice?.propertyId || (payment as any).propertyId || null,
+      tenantId: payment.tenantId,
+      paymentId: payment.id,
+    },
+  });
+
+  return ledger;
 }
 
 /**
@@ -139,19 +199,48 @@ export async function syncPaymentToFinanceLedger(paymentId: string) {
 export async function syncPropertyExpenseToFinanceLedger(expenseId: string) {
   const expense = await prisma.propertyExpense.findUnique({
     where: { id: expenseId },
-    include: { property: true },
+    include: {}, // Removed property include to avoid DB mismatch
   });
 
   if (!expense) return null;
 
-  // FinanceLedger requires a dealId, but property expenses don't have Deals
-  // Skipping FinanceLedger creation for property expenses
-  // The PropertyExpense model has a financeLedgerId field that can be set when a Deal is linked
-  
+  // Check if already synced
+  const existingLedger = await prisma.financeLedger.findFirst({
+    where: {
+      referenceType: 'expense',
+      referenceId: expenseId,
+      isDeleted: false,
+    },
+  });
+
+  if (existingLedger) {
+    return existingLedger;
+  }
+
+  // Create FinanceLedger entry
+  const ledger = await prisma.financeLedger.create({
+    data: {
+      category: 'debit', // Expense
+      amount: expense.amount,
+      date: expense.date,
+      description: `Property Expense: ${expense.category}`,
+      notes: expense.description,
+      referenceType: 'expense',
+      referenceId: expenseId,
+      propertyId: expense.propertyId,
+    },
+  });
+
+  // Update expense with ledger ID
+  await prisma.propertyExpense.update({
+    where: { id: expenseId },
+    data: { financeLedgerId: ledger.id },
+  });
+
   // Auto-sync: Update dashboard KPIs
   await updateDashboardKPIs(expense.propertyId);
 
-  return null;
+  return ledger;
 }
 
 /**
@@ -162,18 +251,46 @@ export async function syncPropertyExpenseToFinanceLedger(expenseId: string) {
 export async function syncMaintenanceToFinanceLedger(maintenanceId: string) {
   const maintenance = await prisma.maintenanceRequest.findUnique({
     where: { id: maintenanceId },
-    include: { property: true, tenant: true },
+    include: { tenant: true }, // Removed property include
   });
 
   if (!maintenance || !maintenance.actualCost || maintenance.actualCost <= 0) {
     return null;
   }
 
-  // FinanceLedger requires a dealId, but maintenance requests don't have Deals
-  // Skipping FinanceLedger creation for maintenance requests
-  // The MaintenanceRequest model has a financeLedgerId field that can be set when a Deal is linked
+  // Check if already synced
+  const existingLedger = await prisma.financeLedger.findFirst({
+    where: {
+      referenceType: 'maintenance',
+      referenceId: maintenanceId,
+      isDeleted: false,
+    },
+  });
 
-  return null;
+  if (existingLedger) return existingLedger;
+
+  // Create FinanceLedger entry
+  const ledger = await prisma.financeLedger.create({
+    data: {
+      category: 'debit', // Expense
+      amount: maintenance.actualCost,
+      date: maintenance.completedAt || new Date(),
+      description: `Maintenance: ${maintenance.issueTitle}`,
+      notes: `Priority: ${maintenance.priority}`,
+      referenceType: 'maintenance',
+      referenceId: maintenanceId,
+      propertyId: maintenance.propertyId,
+      tenantId: maintenance.tenantId,
+    },
+  });
+
+  // Update maintenance with ledger ID
+  await prisma.maintenanceRequest.update({
+    where: { id: maintenanceId },
+    data: { financeLedgerId: ledger.id },
+  });
+
+  return ledger;
 }
 
 /**
@@ -387,7 +504,8 @@ export async function updateDashboardKPIs(propertyId: string) {
   try {
     const property = await prisma.property.findUnique({
       where: { id: propertyId },
-      include: {
+      select: {
+        id: true,
         units: {
           where: { isDeleted: false },
           include: {

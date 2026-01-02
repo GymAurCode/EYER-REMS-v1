@@ -14,6 +14,8 @@ import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { generatePropertyReportPDF, generatePropertiesReportPDF } from '../utils/pdf-generator';
 import { validateTID } from '../services/id-generation-service';
 import { generatePropertyCode } from '../utils/code-generator';
+import { validateBody, validateQuery } from '../middleware/validation';
+import { createPropertySchema, updatePropertySchema, propertyQuerySchema } from '../schemas';
 
 // Configure multer for form-data handling
 const upload = multer({ storage: multer.memoryStorage() });
@@ -53,79 +55,16 @@ const getExistingColumns = async (tableName: string): Promise<Set<string>> => {
   }
 };
 
-// Validation schemas
-const createPropertySchema = z.object({
-  tid: z.string().min(1, 'TID is required'),
-  name: z.string().min(1, 'Property name is required'),
-  type: z.string().min(1, 'Property type is required'),
-  category: z.string().optional(),
-  size: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-    z.number().nonnegative().optional()
-  ),
-  address: z.string().min(1, 'Address is required'),
-  location: z.string().optional(),
-  locationId: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined || val === 'null' || val === 'undefined' ? null : val),
-    z.string().uuid().nullable().optional()
-  ),
-  subsidiaryOptionId: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined || val === 'null' || val === 'undefined' ? null : val),
-    z.string().uuid().nullable().optional()
-  ),
-  status: z.enum(['Active', 'Maintenance', 'Vacant', 'For Sale', 'For Rent', 'Sold']).optional(),
-  imageUrl: z.string().optional().refine(
-    (val) => {
-      if (!val || val === '') return true;
-      return val.startsWith('http') || val.startsWith('/') || val.startsWith('data:');
-    },
-    { message: 'Image URL must be a valid URL or relative path starting with /' }
-  ),
-  description: z.string().optional(),
-  yearBuilt: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-    z.number().int().positive().optional()
-  ),
-  totalArea: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-    z.number().positive().optional()
-  ),
-  totalUnits: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? 0 : Number(val)),
-    z.number().int().nonnegative().default(0)
-  ),
-  dealerId: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : val),
-    z.string().uuid().optional()
-  ),
-  salePrice: z.preprocess(
-    (val) => (val === '' || val === null || val === undefined ? undefined : Number(val)),
-    z.number().nonnegative().optional()
-  ),
-  amenities: z.preprocess(
-    (val) => {
-      if (typeof val === 'string') {
-        try {
-          const parsed = JSON.parse(val);
-          return Array.isArray(parsed) ? parsed : [val];
-        } catch {
-          return [val];
-        }
-      }
-      return val;
-    },
-    z.array(z.string()).optional().default([])
-  ),
-});
-
-const updatePropertySchema = createPropertySchema.partial();
+// Note: Validation schemas are now imported from '../schemas'
+// The old inline schemas have been moved to server/src/schemas/property.ts
+// This ensures validation logic exists in ONE place only.
 
 /**
  * Get all properties with pagination and filtering
  * @route GET /api/properties
  * @access Private
  */
-router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
+router.get('/', authenticate, validateQuery(propertyQuerySchema), async (req: AuthRequest, res: Response) => {
   try {
     const { status, type, location: locationQuery, locationId, search } = req.query;
 
@@ -1788,38 +1727,15 @@ router.get('/:id/ledger', authenticate, async (req: AuthRequest, res: Response) 
  * @route POST /api/properties
  * @access Private
  */
-router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
+router.post('/', authenticate, upload.any(), validateBody(createPropertySchema), async (req: AuthRequest, res: Response) => {
   try {
     logger.debug('Create property request body:', JSON.stringify(req.body, null, 2));
     if ((req as any).files) {
       logger.debug('Create property request files:', (req as any).files);
     }
 
-    // Parse and validate request body
-    let data;
-    try {
-      data = createPropertySchema.parse(req.body);
-    } catch (validationError: any) {
-      logger.error('Property validation error:', {
-        error: validationError,
-        errors: validationError.errors,
-        body: req.body,
-      });
-
-      if (validationError instanceof ZodError) {
-        return errorResponse(
-          res,
-          'Validation error',
-          400,
-          validationError.errors.map((e) => ({
-            path: e.path.join('.'),
-            message: e.message,
-            code: e.code,
-          }))
-        );
-      }
-      throw validationError;
-    }
+    // Request body is already validated by middleware
+    const data = req.body;
 
     // Validate TID - must be unique across Property, Deal, and Client
     if (data.tid) {
@@ -2151,7 +2067,7 @@ router.post('/', authenticate, upload.any(), async (req: AuthRequest, res: Respo
  * @route PUT /api/properties/:id
  * @access Private
  */
-router.put('/:id', authenticate, upload.any(), async (req: AuthRequest, res: Response) => {
+router.put('/:id', authenticate, upload.any(), validateBody(updatePropertySchema), async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
 
@@ -2161,7 +2077,8 @@ router.put('/:id', authenticate, upload.any(), async (req: AuthRequest, res: Res
       imageUrl: req.body.imageUrl ? (req.body.imageUrl.substring(0, 50) + '...') : undefined
     });
 
-    const data = updatePropertySchema.parse(req.body);
+    // Request body is already validated by middleware
+    const data = req.body;
 
     // Check if property exists
     const existingProperty = await prisma.property.findFirst({

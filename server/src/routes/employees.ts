@@ -1,8 +1,8 @@
 import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { generateSequenceNumber } from '../services/id-generation-service';
-import { validateTID } from '../services/id-generation-service';
+import { generateSequenceNumber, generateSystemId } from '../services/id-generation-service';
+import { z } from 'zod';
 
 const router = (express as any).Router();
 
@@ -74,56 +74,85 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Create employee schema
+const employeeSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  email: z.string().email("Invalid email format"),
+  phone: z.string().optional().nullable(),
+  position: z.string().min(1, "Position is required"),
+  department: z.string().min(1, "Department is required"),
+  departmentCode: z.string().optional().nullable(),
+  role: z.string().optional().nullable(),
+  employeeType: z.string().default('full-time'),
+  status: z.string().default('active'),
+  salary: z.union([z.string(), z.number()]).transform((val) => Number(val)),
+  basicSalary: z.union([z.string(), z.number()]).optional().nullable().transform((val) => val ? Number(val) : null),
+  joinDate: z.string().optional().nullable().transform((val) => val ? new Date(val) : undefined), // Will be auto-set on backend if missing
+  dateOfBirth: z.string().optional().nullable().transform((val) => val ? new Date(val) : null),
+  gender: z.string().optional().nullable(),
+  maritalStatus: z.string().optional().nullable(),
+  nationality: z.string().optional().nullable(),
+  bloodGroup: z.string().optional().nullable(),
+  cnic: z.string().optional().nullable(),
+  cnicDocumentUrl: z.string().optional().nullable(),
+  profilePhotoUrl: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  country: z.string().optional().nullable(),
+  postalCode: z.string().optional().nullable(),
+  emergencyContactName: z.string().optional().nullable(),
+  emergencyContactPhone: z.string().optional().nullable(),
+  emergencyContactRelation: z.string().optional().nullable(),
+  bankAccountNumber: z.string().optional().nullable(),
+  bankName: z.string().optional().nullable(),
+  bankBranch: z.string().optional().nullable(),
+  iban: z.string().optional().nullable(),
+  insuranceEligible: z.boolean().default(false),
+  benefitsEligible: z.boolean().default(true),
+  probationPeriod: z.union([z.string(), z.number()]).optional().nullable().transform((val) => val ? Number(val) : null),
+  reportingManagerId: z.string().optional().nullable(),
+  workLocation: z.string().optional().nullable(),
+  shiftTimings: z.string().optional().nullable(),
+  education: z.any().optional().nullable(),
+  experience: z.any().optional().nullable(),
+});
+
 // Create employee
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const {
-      name, email, phone, position, department, departmentCode, role, employeeType, status,
-      salary, basicSalary, joinDate, dateOfBirth, gender, maritalStatus, nationality, bloodGroup,
-      cnic, cnicDocumentUrl, profilePhotoUrl, address, city, country, postalCode,
-      emergencyContactName, emergencyContactPhone, emergencyContactRelation,
-      bankAccountNumber, bankName, bankBranch, iban,
-      insuranceEligible, benefitsEligible,
-      probationPeriod, reportingManagerId, workLocation, shiftTimings,
-      education, experience, tid
-    } = req.body;
+    // Validate request body
+    const validation = employeeSchema.safeParse(req.body);
 
-    if (!name || !email || !position || !department || !salary || !joinDate || !tid) {
+    if (!validation.success) {
+      const formattedErrors = validation.error.errors.map((err) => ({
+        path: err.path.join('.'),
+        message: err.message,
+      }));
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: name, email, position, department, salary, joinDate and TID are required',
+        error: 'Validation failed',
+        details: formattedErrors,
       });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid email format',
-      });
-    }
-
-    // Validate TID
-    try {
-      await validateTID(tid);
-    } catch (error: any) {
-      return res.status(400).json({
-        success: false,
-        error: error.message,
-      });
-    }
+    const data = validation.data;
 
     // Generate employee ID using atomic sequence
     // Format: EMP0001
     const empSeq = await generateSequenceNumber('EMP');
     const employeeId = `EMP${empSeq.toString().padStart(4, '0')}`;
 
+    // Generate TID on backend (never trust frontend for TID)
+    const tid = await generateSystemId('emp');
+
+    // Auto-set joinDate if missing (use Prisma default)
+    const joinDate = data.joinDate || new Date();
+
     // Calculate probation end date if probation period is provided
     let probationEndDate = null;
-    if (probationPeriod) {
+    if (data.probationPeriod) {
       const join = new Date(joinDate);
-      join.setDate(join.getDate() + parseInt(probationPeriod));
+      join.setDate(join.getDate() + data.probationPeriod);
       probationEndDate = join;
     }
 
@@ -131,46 +160,46 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       data: {
         employeeId,
         tid,
-        name,
-        email,
-        phone: phone || null,
-        position,
-        department,
-        departmentCode: departmentCode || null,
-        role: role || null,
-        employeeType: employeeType || 'full-time',
-        status: status || 'active',
-        salary: parseFloat(salary),
-        basicSalary: basicSalary ? parseFloat(basicSalary) : null,
-        joinDate: new Date(joinDate),
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-        gender: gender || null,
-        maritalStatus: maritalStatus || null,
-        nationality: nationality || null,
-        bloodGroup: bloodGroup || null,
-        cnic: cnic || null,
-        cnicDocumentUrl: cnicDocumentUrl || null,
-        profilePhotoUrl: profilePhotoUrl || null,
-        address: address || null,
-        city: city || null,
-        country: country || null,
-        postalCode: postalCode || null,
-        emergencyContactName: emergencyContactName || null,
-        emergencyContactPhone: emergencyContactPhone || null,
-        emergencyContactRelation: emergencyContactRelation || null,
-        bankAccountNumber: bankAccountNumber || null,
-        bankName: bankName || null,
-        bankBranch: bankBranch || null,
-        iban: iban || null,
-        insuranceEligible: insuranceEligible || false,
-        benefitsEligible: benefitsEligible !== undefined ? benefitsEligible : true,
-        probationPeriod: probationPeriod ? parseInt(probationPeriod) : null,
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        position: data.position,
+        department: data.department,
+        departmentCode: data.departmentCode,
+        role: data.role,
+        employeeType: data.employeeType,
+        status: data.status,
+        salary: data.salary,
+        basicSalary: data.basicSalary,
+        joinDate: joinDate,
+        dateOfBirth: data.dateOfBirth,
+        gender: data.gender,
+        maritalStatus: data.maritalStatus,
+        nationality: data.nationality,
+        bloodGroup: data.bloodGroup,
+        cnic: data.cnic,
+        cnicDocumentUrl: data.cnicDocumentUrl,
+        profilePhotoUrl: data.profilePhotoUrl,
+        address: data.address,
+        city: data.city,
+        country: data.country,
+        postalCode: data.postalCode,
+        emergencyContactName: data.emergencyContactName,
+        emergencyContactPhone: data.emergencyContactPhone,
+        emergencyContactRelation: data.emergencyContactRelation,
+        bankAccountNumber: data.bankAccountNumber,
+        bankName: data.bankName,
+        bankBranch: data.bankBranch,
+        iban: data.iban,
+        insuranceEligible: data.insuranceEligible,
+        benefitsEligible: data.benefitsEligible,
+        probationPeriod: data.probationPeriod,
         probationEndDate,
-        reportingManagerId: reportingManagerId || null,
-        workLocation: workLocation || null,
-        shiftTimings: shiftTimings || null,
-        education: education || null,
-        experience: experience || null,
+        reportingManagerId: data.reportingManagerId,
+        workLocation: data.workLocation,
+        shiftTimings: data.shiftTimings,
+        education: data.education,
+        experience: data.experience,
       },
     });
 
@@ -184,13 +213,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Employee with this email or employee ID already exists',
+        details: [{ path: 'email', message: 'Email already exists' }]
       });
     }
     if (error.code === 'P2003') {
       return res.status(400).json({
         success: false,
-        error: 'Foreign key constraint failed. Please check if the department code or reporting manager ID exists.',
-        details: error.meta
+        error: 'Foreign key constraint failed',
+        details: [{ path: 'unknown', message: 'Check department code or reporting manager ID' }]
       });
     }
     res.status(500).json({

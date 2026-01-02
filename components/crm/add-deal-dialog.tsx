@@ -351,12 +351,8 @@ export function AddDealDialog({
       newErrors.dealAmount = "Deal amount must be a valid number greater than 0"
     }
 
-    if (selectedProperty?.salePrice !== undefined && selectedProperty?.salePrice !== null) {
-      const salePriceValue = Number(selectedProperty.salePrice)
-      if (!Number.isNaN(salePriceValue) && Math.abs(dealAmount - salePriceValue) > 0.01) {
-        newErrors.dealAmount = "Deal amount must match the property's sales price"
-      }
-    }
+    // Note: Deal amount can differ from listing price (discounts, negotiations, etc.)
+    // Variance will be calculated and tracked on the backend
 
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0

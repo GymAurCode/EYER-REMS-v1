@@ -49,6 +49,7 @@ export type ModulePrefix =
   | 'ten'   // Tenants
   | 'tkt'   // Maintenance Tickets
   | 'ntc'   // Notices
+  | 'emp'   // Employees
   | 'ldg';  // Ledger
 
 interface IdGenerationResult {
@@ -258,6 +259,18 @@ async function findMaxSystemId(
       }
       break;
 
+    case 'emp':
+      const maxEmp = await client.employee.findFirst({
+        where: { tid: { startsWith: prefix } },
+        orderBy: { tid: 'desc' },
+        select: { tid: true },
+      });
+      if (maxEmp?.tid) {
+        const counterStr = maxEmp.tid.replace(prefix, '');
+        maxCounter = parseInt(counterStr, 10) || 0;
+      }
+      break;
+
     default:
       // For unknown prefixes, start at 0
       break;
@@ -447,6 +460,21 @@ export async function validateManualUniqueId(
       });
       if (existingDeal) {
         throw new Error('Manual ID already exists for a deal');
+      }
+      break;
+
+    case 'emp':
+      const existingEmp = await client.employee.findFirst({
+        where: {
+          OR: [
+            { tid: trimmedId },
+            { employeeId: trimmedId },
+          ],
+          ...(excludeId ? { id: { not: excludeId } } : {}),
+        },
+      });
+      if (existingEmp) {
+        throw new Error('Manual ID already exists for an employee');
       }
       break;
 

@@ -18,6 +18,7 @@ import {
   generateClosingBalance,
   calculateOverdueInvoices,
 } from '../services/reports';
+import { generatePropertyProfitabilityReport } from '../services/property-analytics-service';
 
 const router = (express as any).Router();
 
@@ -49,7 +50,7 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, propertyId } = reportPeriodSchema.parse(req.query);
-      
+
       const report = await generateIncomeStatement(
         new Date(startDate),
         new Date(endDate),
@@ -77,7 +78,7 @@ router.get(
   async (req: AuthenticatedRequest, res: Response) => {
     try {
       const { startDate, endDate, propertyId } = reportPeriodSchema.parse(req.query);
-      
+
       const report = await generateCashFlowStatement(
         new Date(startDate),
         new Date(endDate),
@@ -137,6 +138,34 @@ router.get(
       const overdue = await calculateOverdueInvoices();
       res.json(overdue);
     } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  }
+);
+
+/**
+ * GET /reports/property-profitability
+ * Get property profitability report
+ */
+router.get(
+  '/property-profitability',
+  requireAuth,
+  requirePermission('finance.view'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const { startDate, endDate, propertyId } = reportPeriodSchema.parse(req.query);
+
+      const report = await generatePropertyProfitabilityReport(
+        new Date(startDate),
+        new Date(endDate),
+        propertyId
+      );
+
+      res.json(report);
+    } catch (error: any) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
       res.status(500).json({ error: error.message });
     }
   }
