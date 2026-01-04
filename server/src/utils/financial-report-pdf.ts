@@ -311,60 +311,119 @@ function generateProfitLossPDF(doc: PDFKit.PDFDocument, data: any, formatCurrenc
 }
 
 function generatePropertyProfitabilityPDF(doc: PDFKit.PDFDocument, data: any, formatCurrency: (n: any) => string, formatDate: (d: any) => string): void {
-  if (data.period?.startDate || data.period?.endDate) {
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Period: ${formatDate(data.period.startDate)} to ${formatDate(data.period.endDate)}`);
-    doc.moveDown(0.5);
+  // Handle array of PropertyProfitability objects
+  const profitabilityData = Array.isArray(data) ? data : [data];
+  
+  if (profitabilityData.length === 0) {
+    doc.fontSize(12).font('Helvetica').text('No property profitability data available.', { align: 'center' });
+    return;
   }
 
-  if (data.propertyId) {
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Property ID: ${data.propertyId}`);
+  // Process each property
+  profitabilityData.forEach((property: any, index: number) => {
+    // Add page break for multiple properties (except first)
+    if (index > 0) {
+      doc.addPage();
+    }
+
+    // Property header
+    doc.fontSize(14).font('Helvetica-Bold').text(
+      property.propertyName || property.propertyId || 'Property Profitability',
+      { align: 'center' }
+    );
+    doc.moveDown(0.3);
+    
+    if (property.propertyCode) {
+      doc.fontSize(10).font('Helvetica').text(`Property Code: ${property.propertyCode}`, { align: 'center' });
+      doc.moveDown(0.3);
+    }
+
+    if (data.period?.startDate || data.period?.endDate) {
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Period: ${formatDate(data.period.startDate)} to ${formatDate(data.period.endDate)}`);
+      doc.moveDown(0.5);
+    }
+
+    // Validate and safely access revenue breakdown
+    const revenueBreakdown = Array.isArray(property.revenueBreakdown) ? property.revenueBreakdown : [];
+    const expenseBreakdown = Array.isArray(property.expenseBreakdown) ? property.expenseBreakdown : [];
+    
+    // Revenue
+    doc.fontSize(11).font('Helvetica-Bold').text('REVENUE', 50, doc.y);
+    doc.moveDown(0.3);
+    
+    if (revenueBreakdown.length > 0) {
+      revenueBreakdown.forEach((entry: any) => {
+        if (entry && entry.accountCode && entry.accountName) {
+          doc.fontSize(9).font('Helvetica');
+          const amount = typeof entry.amount === 'number' ? entry.amount : 0;
+          doc.text(`${entry.accountCode} - ${entry.accountName}`, 70, doc.y);
+          doc.text(formatCurrency(amount), 450, doc.y, { align: 'right' });
+          doc.moveDown(0.3);
+        }
+      });
+    } else {
+      doc.fontSize(9).font('Helvetica').text('No revenue entries', 70, doc.y);
+      doc.moveDown(0.3);
+    }
+    
+    const revenueTotal = typeof property.revenue === 'number' ? property.revenue : 0;
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Total Revenue:', 50, doc.y);
+    doc.text(formatCurrency(revenueTotal), 450, doc.y, { align: 'right' });
+    doc.moveDown(1);
+
+    // Expenses
+    doc.fontSize(11).font('Helvetica-Bold').text('EXPENSES', 50, doc.y);
+    doc.moveDown(0.3);
+    
+    if (expenseBreakdown.length > 0) {
+      expenseBreakdown.forEach((entry: any) => {
+        if (entry && entry.accountCode && entry.accountName) {
+          doc.fontSize(9).font('Helvetica');
+          const amount = typeof entry.amount === 'number' ? Math.abs(entry.amount) : 0;
+          doc.text(`${entry.accountCode} - ${entry.accountName}`, 70, doc.y);
+          doc.text(formatCurrency(amount), 450, doc.y, { align: 'right' });
+          doc.moveDown(0.3);
+        }
+      });
+    } else {
+      doc.fontSize(9).font('Helvetica').text('No expense entries', 70, doc.y);
+      doc.moveDown(0.3);
+    }
+    
+    const expensesTotal = typeof property.expenses === 'number' ? property.expenses : 0;
+    doc.fontSize(10).font('Helvetica-Bold');
+    doc.text('Total Expenses:', 50, doc.y);
+    doc.text(formatCurrency(expensesTotal), 450, doc.y, { align: 'right' });
+    doc.moveDown(1);
+
+    // Net Profit - use calculated value from service or calculate if missing
+    const netProfit = typeof property.netProfit === 'number' 
+      ? property.netProfit 
+      : revenueTotal - expensesTotal;
+    
+    doc.fontSize(11).font('Helvetica-Bold');
+    doc.text('Net Profit:', 50, doc.y);
+    doc.fillColor(netProfit >= 0 ? 'green' : 'red');
+    doc.text(formatCurrency(netProfit), 450, doc.y, { align: 'right' });
+    doc.fillColor('black');
     doc.moveDown(0.5);
-  }
-
-  // Revenue
-  doc.fontSize(11).font('Helvetica-Bold').text('REVENUE', 50, doc.y);
-  doc.moveDown(0.3);
-  let revenueTotal = 0;
-  data.revenue.forEach((entry: any) => {
-    doc.fontSize(9).font('Helvetica');
-    doc.text(`${entry.accountCode} - ${entry.accountName}`, 70, doc.y);
-    doc.text(formatCurrency(entry.balance), 450, doc.y, { align: 'right' });
-    revenueTotal += entry.balance;
-    doc.moveDown(0.3);
+    
+    // Profit Margin - use calculated value from service or calculate if missing
+    const profitMargin = typeof property.profitMargin === 'number'
+      ? property.profitMargin
+      : revenueTotal > 0 
+        ? ((netProfit / revenueTotal) * 100)
+        : (revenueTotal === 0 && expensesTotal > 0 ? -100 : 0);
+    
+    doc.fontSize(10).font('Helvetica');
+    const marginText = typeof profitMargin === 'number' && !Number.isNaN(profitMargin)
+      ? profitMargin.toFixed(2)
+      : '0.00';
+    doc.text(`Profit Margin: ${marginText}%`, 50, doc.y);
+    doc.moveDown(1);
   });
-  doc.fontSize(10).font('Helvetica-Bold');
-  doc.text('Total Revenue:', 50, doc.y);
-  doc.text(formatCurrency(revenueTotal), 450, doc.y, { align: 'right' });
-  doc.moveDown(1);
-
-  // Expenses
-  doc.fontSize(11).font('Helvetica-Bold').text('EXPENSES', 50, doc.y);
-  doc.moveDown(0.3);
-  let expensesTotal = 0;
-  data.expenses.forEach((entry: any) => {
-    doc.fontSize(9).font('Helvetica');
-    doc.text(`${entry.accountCode} - ${entry.accountName}`, 70, doc.y);
-    doc.text(formatCurrency(Math.abs(entry.balance)), 450, doc.y, { align: 'right' });
-    expensesTotal += Math.abs(entry.balance);
-    doc.moveDown(0.3);
-  });
-  doc.fontSize(10).font('Helvetica-Bold');
-  doc.text('Total Expenses:', 50, doc.y);
-  doc.text(formatCurrency(expensesTotal), 450, doc.y, { align: 'right' });
-  doc.moveDown(1);
-
-  // Net Profit
-  const netProfit = revenueTotal - expensesTotal;
-  doc.fontSize(11).font('Helvetica-Bold');
-  doc.text('Net Profit:', 50, doc.y);
-  doc.fillColor(netProfit >= 0 ? 'green' : 'red');
-  doc.text(formatCurrency(netProfit), 450, doc.y, { align: 'right' });
-  doc.fillColor('black');
-  doc.moveDown(0.5);
-  doc.fontSize(10).font('Helvetica');
-  doc.text(`Profit Margin: ${data.profitMargin.toFixed(2)}%`, 50, doc.y);
 }
 
 function generateEscrowPDF(doc: PDFKit.PDFDocument, data: any, formatCurrency: (n: any) => string, formatDate: (d: any) => string): void {

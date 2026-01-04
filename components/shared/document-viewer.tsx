@@ -34,15 +34,22 @@ export function DocumentViewer({ open, onClose, document: doc }: DocumentViewerP
 
   const getDocumentUrl = (url: string) => {
     // If it's already a full URL, return it
-    if (url.startsWith("http")) return url;
+    if (url.startsWith("http://") || url.startsWith("https://")) return url;
     
-    // If it's a relative URL starting with /api/files, prepend the base URL if needed
-    // (though usually we expect full URLs passed from parent)
+    // Handle secure-files paths: /secure-files/... or /api/secure-files/...
+    if (url.startsWith("/secure-files/") || url.startsWith("/api/secure-files/")) {
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, "")
+      const cleanPath = url.replace(/^\/api/, '')
+      return `${baseUrl}/api${cleanPath}`
+    }
+    
+    // Handle /api/files paths
     if (url.startsWith("/api/files")) {
-       return `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}${url.replace('/api', '')}`
+      const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, "")
+      return `${baseUrl}${url}`
     }
 
-    // Legacy fallback
+    // Legacy fallback for other relative paths
     const baseUrl = (process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001/api").replace(/\/api\/?$/, "")
     return url.startsWith("/") ? `${baseUrl}${url}` : `${baseUrl}/${url}`
   }

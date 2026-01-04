@@ -246,7 +246,11 @@ export default function DealsPage() {
               </TableHeader>
               <TableBody>
                 {filteredDeals.map((deal) => (
-                  <TableRow key={deal.id}>
+                  <TableRow 
+                    key={deal.id}
+                    className="cursor-pointer hover:bg-muted/50"
+                    onClick={() => router.push(`/details/deals/${deal.id}`)}
+                  >
                     <TableCell className="font-medium">{deal.title}</TableCell>
                     <TableCell>{deal.client?.name || "—"}</TableCell>
                     <TableCell>

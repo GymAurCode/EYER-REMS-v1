@@ -206,10 +206,11 @@ export async function saveFileSecurely(
     // Set restrictive permissions (owner read/write only)
     await fs.chmod(filePath, 0o600);
     
-    // Return paths
-    const relativePath = path.join('/secure-files', entityType, entityId, uniqueFilename);
+    // Return relative path (without /api prefix - frontend will add it)
+    // Format: /secure-files/entityType/entityId/filename
+    const relativePath = `/secure-files/${entityType}/${entityId}/${uniqueFilename}`;
     
-    logger.info(`File saved securely: ${filePath}`);
+    logger.info(`File saved securely: ${filePath} (relative: ${relativePath})`);
     
     return {
       filePath,

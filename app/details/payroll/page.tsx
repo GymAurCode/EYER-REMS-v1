@@ -15,12 +15,15 @@ interface PayrollRecord {
   id: string
   employee: string
   employeeId: string
+  tid?: string | null
   department?: string
   month: string
   baseSalary: number
   bonus: number
   deductions: number
   netPay: number
+  paidAmount?: number
+  remainingBalance?: number
   status: string
 }
 
@@ -90,10 +93,10 @@ export default function PayrollPage() {
     }
 
     const totalAmount = records.reduce((sum, record) => sum + (record.netPay || 0), 0)
-    const paidRecords = records.filter((record) => record.status === "paid")
-    const paidAmount = paidRecords.reduce((sum, record) => sum + (record.netPay || 0), 0)
-    const pendingRecords = records.filter((record) => record.status === "pending")
-    const pendingAmount = pendingRecords.reduce((sum, record) => sum + (record.netPay || 0), 0)
+    const paidAmount = records.reduce((sum, record) => sum + ((record as any).paidAmount || 0), 0)
+    const pendingRecords = records.filter((record) => record.status === "created" || record.status === "partially_paid")
+    const paidRecords = records.filter((record) => record.status === "paid" || record.status === "completed")
+    const pendingAmount = pendingRecords.reduce((sum, record) => sum + ((record as any).remainingBalance || record.netPay || 0), 0)
 
     return {
       totalAmount,
@@ -125,8 +128,9 @@ export default function PayrollPage() {
 
   const statusButtons: Array<{ label: string; value: string | null }> = [
     { label: "All", value: null },
-    { label: "Paid", value: "paid" },
-    { label: "Pending", value: "pending" },
+    { label: "Fully Paid", value: "fully_paid" },
+    { label: "Partially Paid", value: "partially_paid" },
+    { label: "Created", value: "created" },
   ]
 
   return (
@@ -241,9 +245,14 @@ export default function PayrollPage() {
             </TableHeader>
             <TableBody>
               {filteredRecords.map((record) => (
-                <TableRow key={record.id}>
+                <TableRow 
+                  key={record.id}
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => router.push(`/details/payroll/${record.id}`)}
+                >
                   <TableCell className="font-medium">{record.employee}</TableCell>
                     <TableCell>{record.employeeId}</TableCell>
+                    <TableCell className="font-mono text-xs">{record.tid || "-"}</TableCell>
                     <TableCell>{record.department || "-"}</TableCell>
                   <TableCell>{record.month}</TableCell>
                     <TableCell className="text-right">{formatCurrency(record.baseSalary)}</TableCell>
@@ -251,8 +260,17 @@ export default function PayrollPage() {
                     <TableCell className="text-right">{formatCurrency(record.deductions)}</TableCell>
                     <TableCell className="text-right font-semibold">{formatCurrency(record.netPay)}</TableCell>
                   <TableCell>
-                      <Badge variant={record.status === "paid" ? "default" : "secondary"} className="capitalize">
-                        {record.status}
+                      <Badge 
+                        variant={
+                          record.status === "fully_paid" 
+                            ? "default" 
+                            : record.status === "partially_paid"
+                              ? "secondary"
+                              : "outline"
+                        } 
+                        className="capitalize"
+                      >
+                        {record.status === "fully_paid" ? "Fully Paid" : record.status === "partially_paid" ? "Partially Paid" : "Created"}
                       </Badge>
                   </TableCell>
                 </TableRow>

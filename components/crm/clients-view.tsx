@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import axios from "axios"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -37,17 +36,14 @@ export function ClientsView() {
   const { toast } = useToast()
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetchClients(controller.signal)
-    return () => controller.abort()
+    fetchClients()
   }, [])
 
-  const fetchClients = async (signal?: AbortSignal) => {
+  const fetchClients = async () => {
     try {
       setLoading(true)
       setError(null)
-      const config = { signal }
-      const response: any = await apiService.clients.getAll(undefined, config)
+      const response: any = await apiService.clients.getAll()
       const responseData = response.data as any
 
       // Handle different response formats
@@ -73,7 +69,6 @@ export function ClientsView() {
       })) : []
       setClients(mapped)
     } catch (err: any) {
-      if (axios.isCancel(err) || err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError') return
       console.error("Failed to fetch clients:", err)
       const errorMessage = err.response?.data?.error ||
         err.response?.data?.message ||
@@ -95,9 +90,7 @@ export function ClientsView() {
         variant: "destructive"
       })
     } finally {
-      if (!signal?.aborted) {
-        setLoading(false)
-      }
+      setLoading(false)
     }
   }
 

@@ -178,8 +178,10 @@ api.interceptors.response.use(
     // }
 
     // Log failures for easier debugging in browser/console (skip 429 and timeout errors to reduce noise)
+    // Also skip 400 errors on /properties endpoint to reduce noise from query param validation
     const isTimeoutError = error.code === 'ECONNABORTED' || error.message?.includes('timeout')
-    if (error.response?.status !== 429 && !isTimeoutError) {
+    const isProperties400Error = error.response?.status === 400 && error.config?.url?.includes('/properties') && error.config?.method?.toLowerCase() === 'get'
+    if (error.response?.status !== 429 && !isTimeoutError && !isProperties400Error) {
       console.error('API request failed', {
         url: error.config?.url,
         baseURL: error.config?.baseURL,
@@ -470,12 +472,22 @@ export const apiService = {
   properties: {
     getAll: (params?: { search?: string; locationId?: string; page?: number; limit?: number; status?: string; type?: string }, config?: any) => {
       const queryParams = new URLSearchParams()
-      if (params?.search) queryParams.append('search', params.search)
-      if (params?.locationId) queryParams.append('locationId', params.locationId)
-      if (params?.page) queryParams.append('page', params.page.toString())
-      if (params?.limit) queryParams.append('limit', params.limit.toString())
-      if (params?.status) queryParams.append('status', params.status)
-      if (params?.type) queryParams.append('type', params.type)
+      // Safely handle all optional query params - only append if they have truthy values
+      if (params?.search && params.search.trim()) queryParams.append('search', params.search.trim())
+      if (params?.locationId && params.locationId.trim()) queryParams.append('locationId', params.locationId.trim())
+      // Page and limit are optional - backend has defaults (page=1, limit=10)
+      if (params?.page !== undefined && params.page !== null && params.page > 0) {
+        queryParams.append('page', params.page.toString())
+      }
+      if (params?.limit !== undefined && params.limit !== null && params.limit > 0) {
+        queryParams.append('limit', params.limit.toString())
+      }
+      if (params?.status && params.status !== 'all' && params.status.trim()) {
+        queryParams.append('status', params.status.trim())
+      }
+      if (params?.type && params.type !== 'all' && params.type.trim()) {
+        queryParams.append('type', params.type.trim())
+      }
       const queryString = queryParams.toString()
       return api.get(`/properties${queryString ? `?${queryString}` : ''}`, config)
     },

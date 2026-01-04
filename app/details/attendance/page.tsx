@@ -187,6 +187,7 @@ export default function AttendancePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Employee</TableHead>
+                  <TableHead>TID</TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
@@ -202,6 +203,7 @@ export default function AttendancePage() {
                     onClick={() => router.push(`/details/attendance/${record.id}`)}
                   >
                     <TableCell className="font-medium">{record.employee || "-"}</TableCell>
+                    <TableCell className="font-mono text-xs">{record.tid || "-"}</TableCell>
                     <TableCell>
                       {record.date ? new Date(record.date).toLocaleDateString() : "-"}
                     </TableCell>

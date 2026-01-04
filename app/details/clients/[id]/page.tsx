@@ -90,7 +90,9 @@ export default function ClientDetailPage() {
       setLoading(true)
       setError(null)
       const response = await apiService.clients.getById(clientId)
-      setClient(response.data as ClientResponse)
+      // Handle different response structures
+      const clientData = (response.data as any)?.data || response.data || response
+      setClient(clientData as ClientResponse)
     } catch (err: any) {
       const message = err?.response?.data?.error || err?.message || "Failed to fetch client"
       setError(message)
@@ -106,7 +108,15 @@ export default function ClientDetailPage() {
 
   const deals = useMemo(() => client?.deals ?? [], [client])
   const communications = useMemo(() => client?.communications ?? [], [client])
-  const attachments = useMemo(() => client?.attachments?.files ?? [], [client])
+  // Handle attachments - can be in client.attachments.files or client.attachments directly
+  const attachments = useMemo(() => {
+    if (!client) return []
+    if (Array.isArray(client.attachments)) return client.attachments
+    if (client.attachments?.files && Array.isArray(client.attachments.files)) {
+      return client.attachments.files
+    }
+    return []
+  }, [client])
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return bytes + " B"

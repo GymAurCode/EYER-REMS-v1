@@ -34,21 +34,74 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const { id } = req.params;
     const employee = await prisma.employee.findUnique({
       where: { id },
-      include: {
+      select: {
+        id: true,
+        employeeId: true,
+        tid: true,
+        name: true,
+        email: true,
+        phone: true,
+        department: true,
+        position: true,
+        joinDate: true,
+        status: true,
+        salary: true,
+        profilePhotoUrl: true,
+        cnicDocumentUrl: true,
+        cnic: true,
+        isDeleted: true,
         attendance: {
           where: { isDeleted: false },
           orderBy: { date: 'desc' },
           take: 10,
+          select: {
+            id: true,
+            date: true,
+            status: true,
+            checkIn: true,
+            checkOut: true,
+            hours: true,
+          },
         },
         payroll: {
           where: { isDeleted: false },
           orderBy: { month: 'desc' },
           take: 12,
+          select: {
+            id: true,
+            month: true,
+            baseSalary: true,
+            bonus: true,
+            deductions: true,
+            netPay: true,
+            paymentStatus: true,
+          },
         },
         leaveRequests: {
           where: { isDeleted: false },
           orderBy: { startDate: 'desc' },
           take: 10,
+          select: {
+            id: true,
+            type: true,
+            startDate: true,
+            endDate: true,
+            status: true,
+            days: true,
+            reason: true,
+          },
+        },
+        leaveBalances: {
+          where: { isDeleted: false },
+          select: {
+            id: true,
+            leaveType: true,
+            totalAllocated: true,
+            used: true,
+            pending: true,
+            available: true,
+            year: true,
+          },
         },
       },
     });
@@ -81,7 +134,7 @@ const employeeSchema = z.object({
   phone: z.string().optional().nullable(),
   position: z.string().min(1, "Position is required"),
   department: z.string().min(1, "Department is required"),
-  departmentCode: z.string().optional().nullable(),
+  departmentCode: z.string().optional().nullable().transform((val) => val && val.trim() ? val.trim() : null),
   role: z.string().optional().nullable(),
   employeeType: z.string().default('full-time'),
   status: z.string().default('active'),
@@ -110,7 +163,7 @@ const employeeSchema = z.object({
   insuranceEligible: z.boolean().default(false),
   benefitsEligible: z.boolean().default(true),
   probationPeriod: z.union([z.string(), z.number()]).optional().nullable().transform((val) => val ? Number(val) : null),
-  reportingManagerId: z.string().optional().nullable(),
+  reportingManagerId: z.string().optional().nullable().transform((val) => val && val.trim() ? val.trim() : null),
   workLocation: z.string().optional().nullable(),
   shiftTimings: z.string().optional().nullable(),
   education: z.any().optional().nullable(),
@@ -156,6 +209,91 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       probationEndDate = join;
     }
 
+    // Validate department against Advanced Options
+    // Department must exist in Advanced Options dropdown: employee.hr.department
+    let validDepartment: string | null = null;
+    let validDepartmentCode: string | null = null;
+    
+    if (data.department && data.department.trim()) {
+      try {
+        // Check if department exists in Advanced Options
+        const deptCategory = await prisma.dropdownCategory.findUnique({
+          where: { key: 'employee.hr.department' },
+          include: {
+            options: {
+              where: { isActive: true },
+            },
+          },
+        });
+
+        if (deptCategory) {
+          // Find matching department by label or value
+          const matchingOption = deptCategory.options.find(
+            (opt) => opt.label === data.department.trim() || opt.value === data.department.trim()
+          );
+
+          if (matchingOption) {
+            validDepartment = matchingOption.label;
+            validDepartmentCode = matchingOption.value;
+          } else {
+            return res.status(400).json({
+              success: false,
+              error: 'Invalid department',
+              details: [{
+                path: 'department',
+                message: `Department "${data.department}" is not valid. Please select from configured departments in Advanced Options.`,
+              }],
+              hint: 'Configure departments in Admin > Advanced Options > employee.hr.department',
+            });
+          }
+        } else {
+          // Fallback: Allow if Advanced Options not configured yet (for migration)
+          console.warn('Department dropdown category "employee.hr.department" not found in Advanced Options. Allowing department value as-is.');
+          validDepartment = data.department.trim();
+          validDepartmentCode = data.departmentCode?.trim() || null;
+        }
+      } catch (err) {
+        console.error('Error validating department:', err);
+        return res.status(400).json({
+          success: false,
+          error: 'Failed to validate department',
+          details: [{
+            path: 'department',
+            message: 'Unable to validate department. Please ensure departments are configured in Advanced Options.',
+          }],
+        });
+      }
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Department is required',
+        details: [{
+          path: 'department',
+          message: 'Department must be selected from the dropdown',
+        }],
+      });
+    }
+
+    let validReportingManagerId: string | null = null;
+    if (data.reportingManagerId && data.reportingManagerId.trim()) {
+      try {
+        // Check if manager exists and is not deleted
+        const manager = await prisma.employee.findFirst({
+          where: {
+            id: data.reportingManagerId.trim(),
+            isDeleted: false,
+          },
+        });
+        if (manager) {
+          validReportingManagerId = data.reportingManagerId.trim();
+        } else {
+          console.warn(`Reporting manager with ID "${data.reportingManagerId}" not found, setting to null`);
+        }
+      } catch (err) {
+        console.warn('Error validating reporting manager ID:', err);
+      }
+    }
+
     const employee = await prisma.employee.create({
       data: {
         employeeId,
@@ -164,8 +302,8 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         email: data.email,
         phone: data.phone,
         position: data.position,
-        department: data.department,
-        departmentCode: data.departmentCode,
+        department: validDepartment || data.department, // Use validated department
+        departmentCode: validDepartmentCode, // Use validated department code
         role: data.role,
         employeeType: data.employeeType,
         status: data.status,
@@ -195,7 +333,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         benefitsEligible: data.benefitsEligible,
         probationPeriod: data.probationPeriod,
         probationEndDate,
-        reportingManagerId: data.reportingManagerId,
+        reportingManagerId: validReportingManagerId, // Only set if valid, otherwise null
         workLocation: data.workLocation,
         shiftTimings: data.shiftTimings,
         education: data.education,
@@ -287,7 +425,21 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (phone !== undefined) updateData.phone = phone || null;
     if (position !== undefined) updateData.position = position;
     if (department !== undefined) updateData.department = department;
-    if (departmentCode !== undefined) updateData.departmentCode = departmentCode || null;
+    if (departmentCode !== undefined) {
+      // Validate department code if provided
+      if (departmentCode && departmentCode.trim()) {
+        try {
+          const dept = await prisma.department.findUnique({
+            where: { code: departmentCode.trim() },
+          });
+          updateData.departmentCode = dept ? departmentCode.trim() : null;
+        } catch {
+          updateData.departmentCode = null;
+        }
+      } else {
+        updateData.departmentCode = null;
+      }
+    }
     if (role !== undefined) updateData.role = role || null;
     if (employeeType !== undefined) updateData.employeeType = employeeType;
     if (status !== undefined) updateData.status = status;
@@ -317,7 +469,24 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (benefitsEligible !== undefined) updateData.benefitsEligible = benefitsEligible;
     if (probationPeriod !== undefined) updateData.probationPeriod = probationPeriod ? parseInt(probationPeriod) : null;
     if (probationEndDate !== undefined) updateData.probationEndDate = probationEndDate;
-    if (reportingManagerId !== undefined) updateData.reportingManagerId = reportingManagerId || null;
+    if (reportingManagerId !== undefined) {
+      // Validate reporting manager ID if provided
+      if (reportingManagerId && reportingManagerId.trim()) {
+        try {
+          const manager = await prisma.employee.findFirst({
+            where: {
+              id: reportingManagerId.trim(),
+              isDeleted: false,
+            },
+          });
+          updateData.reportingManagerId = manager ? reportingManagerId.trim() : null;
+        } catch {
+          updateData.reportingManagerId = null;
+        }
+      } else {
+        updateData.reportingManagerId = null;
+      }
+    }
     if (workLocation !== undefined) updateData.workLocation = workLocation || null;
     if (shiftTimings !== undefined) updateData.shiftTimings = shiftTimings || null;
     if (education !== undefined) updateData.education = education || null;

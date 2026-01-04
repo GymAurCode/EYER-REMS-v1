@@ -9,11 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Loader2, Plus, Trash2, Upload, X, FileText, Image as ImageIcon, RefreshCw } from "lucide-react"
+import { Loader2, Plus, Trash2, Upload, X, FileText, RefreshCw } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
-import { getPropertyImageSrc } from "@/lib/property-image-utils"
 
 type PropertyForm = {
   tid: string // Transaction ID - unique across Property, Deal, Client
@@ -538,53 +537,38 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
 
 
   const handleSave = async () => {
-    const errors: string[] = []
-    // TID is optional, so don't require it
-    if (!form.type.trim()) errors.push("Type")
-    if (!form.address.trim()) errors.push("Address")
-    if (errors.length) {
-      toast({
-        title: "Missing required fields",
-        description: errors.join(", "),
-        variant: "destructive",
-      })
-      return
-    }
-
-    // Do not remove category and size from payload
-    const formWithoutCategorySize = form
-
+    // No validation - accept any data
     setSaving(true)
 
     try {
       const formData = new FormData()
 
-      // Add all fields to FormData
-      if (formWithoutCategorySize.tid) formData.append('tid', formWithoutCategorySize.tid)
-      formData.append('type', formWithoutCategorySize.type)
-      if (formWithoutCategorySize.category) formData.append('category', formWithoutCategorySize.category)
-      formData.append('status', formWithoutCategorySize.status || "Active")
-      formData.append('address', formWithoutCategorySize.address)
+      // Add all fields to FormData (all optional - allow empty/partial data)
+      if (form.tid) formData.append('tid', form.tid)
+      if (form.type) formData.append('type', form.type)
+      if (form.category) formData.append('category', form.category)
+      if (form.status) formData.append('status', form.status)
+      if (form.address) formData.append('address', form.address)
 
-      if (formWithoutCategorySize.location) formData.append('location', formWithoutCategorySize.location)
-      if (formWithoutCategorySize.locationId) formData.append('locationId', formWithoutCategorySize.locationId)
-      if (formWithoutCategorySize.subsidiaryOptionId) formData.append('subsidiaryOptionId', formWithoutCategorySize.subsidiaryOptionId)
-      if (formWithoutCategorySize.description) formData.append('description', formWithoutCategorySize.description)
+      if (form.location) formData.append('location', form.location)
+      if (form.locationId) formData.append('locationId', form.locationId)
+      if (form.subsidiaryOptionId) formData.append('subsidiaryOptionId', form.subsidiaryOptionId)
+      if (form.description) formData.append('description', form.description)
 
       // Handle numeric fields - send as strings, backend will coerce
-      if (formWithoutCategorySize.size) formData.append('size', formWithoutCategorySize.size)
-      if (formWithoutCategorySize.totalArea) formData.append('totalArea', formWithoutCategorySize.totalArea)
-      if (formWithoutCategorySize.totalUnits) formData.append('totalUnits', formWithoutCategorySize.totalUnits)
-      if (formWithoutCategorySize.yearBuilt) formData.append('yearBuilt', formWithoutCategorySize.yearBuilt)
-      if (formWithoutCategorySize.salePrice) formData.append('salePrice', formWithoutCategorySize.salePrice)
+      if (form.size) formData.append('size', form.size)
+      if (form.totalArea) formData.append('totalArea', form.totalArea)
+      if (form.totalUnits) formData.append('totalUnits', form.totalUnits)
+      if (form.yearBuilt) formData.append('yearBuilt', form.yearBuilt)
+      if (form.salePrice) formData.append('salePrice', form.salePrice)
 
-      if (formWithoutCategorySize.dealerId && formWithoutCategorySize.dealerId.trim()) {
-        formData.append('dealerId', formWithoutCategorySize.dealerId.trim())
+      if (form.dealerId && form.dealerId.trim()) {
+        formData.append('dealerId', form.dealerId.trim())
       }
 
       // Handle amenities
-      if (formWithoutCategorySize.amenities && formWithoutCategorySize.amenities.length > 0) {
-        formData.append('amenities', JSON.stringify(formWithoutCategorySize.amenities))
+      if (form.amenities && form.amenities.length > 0) {
+        formData.append('amenities', JSON.stringify(form.amenities))
       }
 
       // Log payload for debugging
@@ -601,12 +585,13 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
         })
       }
 
-      // Generate name
-      const generatedName = formWithoutCategorySize.tid ||
-        (formWithoutCategorySize.type && formWithoutCategorySize.address
-          ? `${formWithoutCategorySize.type} at ${formWithoutCategorySize.address}`
-          : "Unnamed Property")
-      formData.append('name', generatedName)
+      // Generate name (use provided name or create default)
+      // Backend will use 'Unnamed Property' if name is empty, so always append
+      const generatedName = form.tid ||
+        (form.type && form.address
+          ? `${form.type} at ${form.address}`
+          : form.type || form.address || "Unnamed Property")
+      formData.append('name', generatedName || 'Unnamed Property')
 
       let createdPropertyId: string | null = null
 
@@ -625,33 +610,17 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
       onOpenChange(false)
     } catch (error: any) {
       console.error("Property save error:", error)
-      let errorMessage = "Unknown error"
-
-      if (error?.response?.data) {
-        const errorData = error.response.data
-        // Handle validation errors
-        if (errorData.error && Array.isArray(errorData.error)) {
-          errorMessage = errorData.error.map((e: any) =>
-            typeof e === 'string' ? e : `${e.path || ''}: ${e.message || ''}`
-          ).join(', ')
-        } else if (errorData.error && typeof errorData.error === 'string') {
-          errorMessage = errorData.error
-        } else if (errorData.message) {
-          errorMessage = errorData.message
-        } else if (errorData.details) {
-          errorMessage = Array.isArray(errorData.details)
-            ? errorData.details.map((e: any) => `${e.path || ''}: ${e.message || ''}`).join(', ')
-            : String(errorData.details)
-        }
-      } else if (error?.message) {
-        errorMessage = error.message
+      // Don't show validation error toasts - just log and show generic error
+      const errorMessage = error?.response?.data?.error || error?.response?.data?.message || error?.message || "Save failed"
+      
+      // Only show toast for non-validation errors (5xx server errors)
+      if (error?.response?.status >= 500 || !error?.response?.status) {
+        toast({
+          title: "Save failed",
+          description: errorMessage,
+          variant: "destructive",
+        })
       }
-
-      toast({
-        title: "Save failed",
-        description: errorMessage,
-        variant: "destructive",
-      })
     } finally {
       setSaving(false)
     }
@@ -721,83 +690,26 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
             ) : (
               <ScrollArea className="h-full">
                 <div className="px-6 md:px-8 pb-4">
-                  <div className="grid grid-cols-1 md:grid-cols-12 gap-6 mb-6">
-                    <div className="md:col-span-4">
-                      <div className="w-full">
-                        {form.imageUrl ? (
-                          <div className="relative w-full h-48 md:h-56">
-                            <img
-                              src={isEdit && propertyId ? getPropertyImageSrc(propertyId, form.imageUrl) : form.imageUrl}
-                              alt="Property"
-                              className="w-full h-full object-cover rounded-lg border"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const fallback = target.nextElementSibling as HTMLElement;
-                                if (fallback) fallback.style.display = 'flex';
-                              }}
-                            />
-                            <div className="absolute inset-0 rounded-lg border-2 border-dashed flex items-center justify-center text-sm text-muted-foreground bg-muted/50 hidden">
-                              <div className="text-center">
-                                <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                                <p>Image failed to load</p>
-                              </div>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="w-full h-48 md:h-56 rounded-lg border-2 border-dashed flex items-center justify-center text-sm text-muted-foreground">
-                            <div className="text-center">
-                              <ImageIcon className="h-8 w-8 mx-auto mb-2 text-muted-foreground/50" />
-                              <p>No image selected</p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="md:col-span-8">
-                      <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <h2 className="text-xl font-semibold text-foreground">{form.tid || "New Property"}</h2>
-                          {form.type && <Badge variant="secondary">{form.type}</Badge>}
-                          {form.status && (
-                            <Badge
-                              variant={
-                                form.status === "Active"
-                                  ? "default"
-                                  : form.status === "Maintenance"
-                                    ? "destructive"
-                                    : form.status === "For Sale"
-                                      ? "secondary"
-                                      : "outline"
-                              }
-                            >
-                              {form.status}
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-sm text-muted-foreground">{form.address || "Enter address"}</p>
-                      </div>
-                    </div>
-                  </div>
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
                     <div className="lg:col-span-7 space-y-4">
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="tid">Tracking ID <span className="text-destructive">*</span></Label>
+                          <Label htmlFor="tid">Tracking ID</Label>
                           <Input
                             id="tid"
                             value={form.tid}
                             onChange={(e) => setForm((p) => ({ ...p, tid: e.target.value }))}
-                            placeholder="PRO-XXXX"
+                            placeholder="PRO-XXXX (optional)"
                           />
-                          <p className="text-xs text-muted-foreground">Enter unique tracking ID</p>
+                          <p className="text-xs text-muted-foreground">Enter unique tracking ID (optional)</p>
                         </div>
                         <div className="space-y-2">
-                          <Label>Address *</Label>
+                          <Label>Address</Label>
                           <Input
                             value={form.address}
                             onChange={(e) => setForm((p) => ({ ...p, address: e.target.value }))}
+                            placeholder="Address (optional)"
                           />
                         </div>
                       </div>
@@ -807,13 +719,13 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                           dropdownKey="property.type"
                           value={form.type}
                           onChange={(val) => setForm((p) => ({ ...p, type: val }))}
-                          required
+                          required={false}
                         />
                         <ManagedDropdown
                           dropdownKey="property.status"
                           value={form.status}
                           onChange={(val) => setForm((p) => ({ ...p, status: val }))}
-                          required
+                          required={false}
                         />
                       </div>
 
@@ -902,15 +814,12 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                       </div>
 
                       <div className="space-y-2">
-                        <div className="space-y-2">
-                          <Label>Property Image</Label>
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={handlePhotoUpload}
-                          />
-                          {photoFile && <p className="text-sm text-green-600">Selected: {photoFile.name}</p>}
-                        </div>
+                        <Label>Property Image</Label>
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePhotoUpload}
+                        />
                       </div>
 
                     </div>
@@ -1206,16 +1115,6 @@ export function AddPropertyDialog({ open, onOpenChange, propertyId, onSuccess }:
                           multiple
                           onChange={handleAttachmentUpload}
                         />
-                        {attachmentFiles.length > 0 && (
-                          <div className="text-sm text-green-600">
-                            {attachmentFiles.length} file(s) selected
-                            <ul className="list-disc pl-4 text-xs mt-1 text-muted-foreground">
-                              {(attachmentFiles || []).map((f, i) => (
-                                <li key={i}>{f.name}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </div>

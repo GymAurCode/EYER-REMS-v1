@@ -66,26 +66,38 @@ const getExistingColumns = async (tableName: string): Promise<Set<string>> => {
  */
 router.get('/', authenticate, validateQuery(propertyQuerySchema), async (req: AuthRequest, res: Response) => {
   try {
-    const { status, type, location: locationQuery, locationId, search } = req.query;
+    const { status, type, location: locationQuery, locationId, search, page: pageParam, limit: limitParam } = req.query;
 
-    // Validate pagination parameters with better error handling
+    // Use validated query params from schema (already transformed to numbers) or parsePaginationQuery as fallback
+    // The schema validation ensures page and limit are valid numbers with defaults
     let page: number;
     let limit: number;
-    try {
-      const pagination = parsePaginationQuery(req.query);
-      page = pagination.page;
-      limit = pagination.limit;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        logger.warn('Invalid pagination parameters:', { query: req.query, errors: error.errors });
-        return errorResponse(
-          res,
-          'Invalid pagination parameters. Page and limit must be positive integers. Limit cannot exceed 100.',
-          400,
-          error.errors.map((e) => ({ path: e.path.join('.'), message: e.message }))
-        );
+    
+    // Prefer validated params from schema, fallback to parsePaginationQuery for additional validation
+    if (typeof pageParam === 'number' && typeof limitParam === 'number') {
+      page = pageParam;
+      limit = limitParam;
+      // Ensure limit doesn't exceed 100 (enforced by schema but double-check)
+      if (limit > 100) limit = 100;
+      if (page < 1) page = 1;
+    } else {
+      // Fallback to parsePaginationQuery if schema didn't transform them
+      try {
+        const pagination = parsePaginationQuery(req.query);
+        page = pagination.page;
+        limit = pagination.limit;
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          logger.warn('Invalid pagination parameters:', { query: req.query, errors: error.errors });
+          return errorResponse(
+            res,
+            'Invalid pagination parameters. Page and limit must be positive integers. Limit cannot exceed 100.',
+            400,
+            error.errors.map((e) => ({ path: e.path.join('.'), message: e.message }))
+          );
+        }
+        throw error;
       }
-      throw error;
     }
 
     const skip = (page - 1) * limit;
@@ -179,8 +191,8 @@ router.get('/', authenticate, validateQuery(propertyQuerySchema), async (req: Au
       },
     };
 
-    let properties: any[];
-    let total: number;
+    let properties: any[] = [];
+    let total: number = 0;
 
     const existingColumns = await getExistingColumns('Property');
     const tidColumnExists = existingColumns.has('tid');
@@ -729,10 +741,12 @@ router.get('/:id/image', authenticate, async (req: AuthRequest, res: Response) =
       return (res as any).redirect(imageUrl);
     }
 
-    // 2. Secure files path (/secure-files/...)
-    if (imageUrl.startsWith('/secure-files/')) {
+    // 2. Secure files path (/secure-files/... or /api/secure-files/...)
+    if (imageUrl.startsWith('/secure-files/') || imageUrl.startsWith('/api/secure-files/')) {
       // Extract path components: /secure-files/entityType/entityId/filename
-      const pathParts = imageUrl.split('/').filter(Boolean);
+      // Remove /api prefix if present
+      const cleanPath = imageUrl.replace(/^\/api/, '');
+      const pathParts = cleanPath.split('/').filter(Boolean);
       if (pathParts.length >= 4) {
         const [, entityType, entityId, ...filenameParts] = pathParts;
         const filename = filenameParts.join('/');
@@ -756,6 +770,7 @@ router.get('/:id/image', authenticate, async (req: AuthRequest, res: Response) =
             '.png': 'image/png',
             '.gif': 'image/gif',
             '.webp': 'image/webp',
+            '.svg': 'image/svg+xml',
           };
           const contentType = contentTypes[ext] || 'image/jpeg';
 
@@ -769,7 +784,7 @@ router.get('/:id/image', authenticate, async (req: AuthRequest, res: Response) =
           const fileBuffer = await fs.readFile(filePath);
           return res.send(fileBuffer);
         } catch (error) {
-          logger.warn(`Property image file not found: ${filePath}`);
+          logger.warn(`Property image file not found: ${filePath} (from imageUrl: ${imageUrl})`);
           return res.status(404).json({ error: 'Image file not found on server' });
         }
       }
@@ -1343,14 +1358,17 @@ router.post('/upload-document', authenticate, async (req: AuthRequest, res: Resp
       buffer,
       filename || `property-document-${Date.now()}.${mimeType.split('/')[1]}`,
       'properties',
-      req.user!.id
+      propertyId
     );
+
+    // Normalize path (ensure forward slashes, no /api prefix)
+    const normalizedPath = relativePath.replace(/\\/g, '/');
 
     // Store attachment metadata in database
     const attachment = await prisma.attachment.create({
       data: {
         fileName: secureFilename,
-        fileUrl: relativePath,
+        fileUrl: normalizedPath,
         fileType: mimeType,
         fileSize: buffer.length,
         entityType: 'property',
@@ -1365,7 +1383,7 @@ router.post('/upload-document', authenticate, async (req: AuthRequest, res: Resp
       success: true,
       data: {
         id: attachment.id,
-        url: relativePath,
+        url: normalizedPath,
         filename: secureFilename,
       },
     });
@@ -1734,38 +1752,23 @@ router.post('/', authenticate, upload.any(), validateBody(createPropertySchema),
       logger.debug('Create property request files:', (req as any).files);
     }
 
-    // Request body is already validated by middleware
+    // Request body is already validated by middleware (but now all fields are optional)
     const data = req.body;
 
-    // Validate TID - must be unique across Property, Deal, and Client
-    if (data.tid) {
-      // Only validate TID if the tid column exists
+    // TID validation is optional - only validate if provided, and don't block on errors
+    if (data.tid && data.tid.trim()) {
       const tidColumnExists = await columnExists('Property', 'tid');
       if (tidColumnExists) {
         try {
           await validateTID(data.tid.trim());
         } catch (tidError: any) {
-          logger.error('TID validation failed:', {
+          // Log but don't block - allow duplicate TIDs or other validation errors
+          logger.warn('TID validation failed (non-blocking):', {
             tid: data.tid,
             error: tidError?.message || tidError,
-            stack: tidError?.stack,
-            code: tidError?.code,
           });
-
-          // Check if it's a database column error
-          if (tidError?.code?.startsWith('P') || tidError?.message?.includes('column') || tidError?.message?.includes('does not exist')) {
-            logger.warn('TID column may not exist in all tables, skipping TID validation');
-            // Continue without TID validation if column doesn't exist
-          } else {
-            return errorResponse(
-              res,
-              tidError?.message || 'TID validation failed. This TID may already exist in Property, Deal, or Client.',
-              400
-            );
-          }
+          // Continue without TID validation - allow the property to be created anyway
         }
-      } else {
-        logger.debug('TID column does not exist, skipping TID validation');
       }
     }
 
@@ -1796,30 +1799,31 @@ router.post('/', authenticate, upload.any(), validateBody(createPropertySchema),
     const photoFile = files.find(f => f.fieldname === 'photo');
     const attachmentFiles = files.filter(f => f.fieldname === 'attachments');
 
-    // Build create data object, only including fields that exist in database
+    // Build create data object - all fields optional, use defaults for missing required DB fields
+    // Note: name, type, address, status, totalUnits are NOT NULL in database, so provide defaults
     const createData: any = {
-      name: data.name,
-      type: data.type,
-      address: data.address,
-      location: data.location || undefined,
+      name: data.name || 'Unnamed Property',
+      type: data.type || 'Unknown',
+      address: data.address || 'Not specified',
+      location: data.location || null,
       status: data.status || 'Active',
-      imageUrl: data.imageUrl || undefined, // Will be updated after creation if file exists
-      description: data.description || undefined,
-      yearBuilt: data.yearBuilt || undefined,
-      totalArea: data.totalArea || undefined,
-      totalUnits: data.totalUnits || 0,
-      dealerId: data.dealerId || undefined,
+      imageUrl: data.imageUrl || null, // Will be updated after creation if file exists
+      description: data.description || null,
+      yearBuilt: data.yearBuilt || null,
+      totalArea: data.totalArea || null,
+      totalUnits: data.totalUnits ?? 0,
+      dealerId: data.dealerId || null,
       locationId: data.locationId ?? null,
-      salePrice: data.salePrice || undefined,
-      amenities: data.amenities || [],
+      salePrice: data.salePrice || null,
+      amenities: Array.isArray(data.amenities) ? data.amenities : (data.amenities ? [data.amenities] : []),
     };
 
     // Only include columns that exist in the database
     if (subsidiaryOptionIdExists) {
       createData.subsidiaryOptionId = data.subsidiaryOptionId ?? null;
     }
-    if (tidColumnExists) {
-      createData.tid = data.tid.trim();
+    if (tidColumnExists && data.tid) {
+      createData.tid = (data.tid || '').trim() || null;
     }
     if (propertyCode) {
       createData.propertyCode = propertyCode;
@@ -1892,14 +1896,14 @@ router.post('/', authenticate, upload.any(), validateBody(createPropertySchema),
             property.id
           );
 
-          // Use forward slashes and ensure /api prefix
-          const normalizedPath = relativePath.split(path.sep).join('/');
-          const publicUrl = normalizedPath.startsWith('/api') ? normalizedPath : `/api${normalizedPath}`;
+          // Store relative path as-is (without /api prefix)
+          // Frontend will construct full URL: /api/secure-files/...
+          const normalizedPath = relativePath.replace(/\\/g, '/');
 
           // Update property with imageUrl
           property = await prisma.property.update({
             where: { id: property.id },
-            data: { imageUrl: publicUrl },
+            data: { imageUrl: normalizedPath },
             select: selectFields,
           });
         } catch (err) {
@@ -1921,14 +1925,14 @@ router.post('/', authenticate, upload.any(), validateBody(createPropertySchema),
               property.id
             );
 
-            // Use forward slashes and ensure /api prefix
-            const normalizedPath = relativePath.split(path.sep).join('/');
-            const publicUrl = normalizedPath.startsWith('/api') ? normalizedPath : `/api${normalizedPath}`;
+            // Store relative path as-is (without /api prefix)
+            // Format: /secure-files/properties/{entityId}/{filename}
+            const normalizedPath = relativePath.replace(/\\/g, '/');
 
             await prisma.attachment.create({
               data: {
                 fileName: secureFilename,
-                fileUrl: publicUrl,
+                fileUrl: normalizedPath,
                 fileType: file.mimetype,
                 fileSize: file.size,
                 entityType: 'property',

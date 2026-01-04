@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -107,6 +108,9 @@ app.use(cors(corsOptions));
 // Ensure preflight responds for all routes
 app.options('*', cors(corsOptions));
 
+// Cookie parser - MUST be before CSRF middleware to read cookies
+app.use(cookieParser());
+
 // SECURITY: Helmet for security headers
 app.use(helmet({
   contentSecurityPolicy: {
@@ -202,41 +206,9 @@ app.use('/api/secure-files', secureFilesRoutes);
 // New centralized file handling routes
 app.use('/api/files', filesRoutes);
 
-// Static route for secure file serving (public access for images/attachments)
-app.get('/api/secure-files/*', async (req: Request, res: Response) => {
-  try {
-    const filePath = (req.path || '').replace('/api/secure-files/', '');
-    const { getSecureUploadDir } = await import('./utils/file-security');
-    const uploadDir = await getSecureUploadDir();
-    const fullPath = path.join(uploadDir, filePath);
-
-    // Check if file exists
-    const fs = await import('fs/promises');
-    await fs.access(fullPath);
-
-    const stats = await fs.stat(fullPath);
-    const ext = path.extname(filePath).toLowerCase();
-    const contentTypes: Record<string, string> = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.gif': 'image/gif',
-      '.webp': 'image/webp',
-      '.pdf': 'application/pdf',
-    };
-    const contentType = contentTypes[ext] || 'application/octet-stream';
-
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Content-Length', stats.size);
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // Cache for 1 year
-
-    const fileBuffer = await fs.readFile(fullPath);
-    return res.send(fileBuffer);
-  } catch (error) {
-    logger.warn('Secure file not found:', req.path);
-    return res.status(404).json({ error: 'File not found' });
-  }
-});
+// Note: The /api/secure-files/:entityType/:entityId/:filename route is handled by secureFilesRoutes above
+// This wildcard route is kept for backward compatibility but should not be used for new uploads
+// All new files should use the structured route: /api/secure-files/:entityType/:entityId/:filename
 
 // Legacy static file serving (deprecated - use secure-files endpoint)
 // Keep for backward compatibility but files should be moved outside web root

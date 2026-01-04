@@ -102,36 +102,33 @@ export function CRMView() {
   )
 
   useEffect(() => {
-    const controller = new AbortController()
-    fetchCRMStats(controller.signal)
-    return () => controller.abort()
+    fetchCRMStats()
   }, [])
 
-  const fetchCRMStats = async (signal?: AbortSignal) => {
+  const fetchCRMStats = async () => {
     try {
       setStatsLoading(true)
-      const config = { signal }
 
       const [leadsRes, clientsRes, dealsRes, dealersRes, commissionsRes] = await Promise.all([
-        apiService.leads.getAll(config).catch((error) => {
+        apiService.leads.getAll().catch((error) => {
           console.error("Failed to fetch leads:", error)
-          return { data: [] }
+          return { data: { data: [] } }
         }),
-        apiService.clients.getAll(undefined, config).catch((error) => {
+        apiService.clients.getAll().catch((error) => {
           console.error("Failed to fetch clients:", error)
-          return { data: [] }
+          return { data: { data: [] } }
         }),
-        apiService.deals.getAll(config).catch((error) => {
+        apiService.deals.getAll().catch((error) => {
           console.error("Failed to fetch deals:", error)
-          return { data: [] }
+          return { data: { data: [] } }
         }),
-        apiService.dealers.getAll(undefined, config).catch((error) => {
+        apiService.dealers.getAll().catch((error) => {
           console.error("Failed to fetch dealers:", error)
-          return { data: [] }
+          return { data: { data: [] } }
         }),
-        apiService.commissions.getAll(config).catch((error) => {
+        apiService.commissions.getAll().catch((error) => {
           console.error("Failed to fetch commissions:", error)
-          return { data: [] }
+          return { data: { data: [] } }
         }),
       ])
 
@@ -320,9 +317,7 @@ export function CRMView() {
       console.error("Failed to fetch CRM stats:", err)
       setCrmStats([])
     } finally {
-      if (!signal?.aborted) {
-        setStatsLoading(false)
-      }
+      setStatsLoading(false)
     }
   }
 

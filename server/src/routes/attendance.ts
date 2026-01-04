@@ -34,6 +34,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             employeeId: true,
+            tid: true,
             name: true,
             department: true,
             email: true,
@@ -49,6 +50,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       employee: record.employee.name,
       employeeId: record.employee.id, // Database UUID for matching
       employeeIdString: record.employee.employeeId, // Employee ID string like "EMP0001"
+      tid: record.employee.tid, // Tracking ID
       department: record.employee.department,
       date: record.date,
       checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
@@ -78,7 +80,16 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const attendance = await prisma.attendance.findUnique({
       where: { id },
       include: {
-        employee: true,
+        employee: {
+          select: {
+            id: true,
+            employeeId: true,
+            tid: true,
+            name: true,
+            department: true,
+            email: true,
+          },
+        },
       },
     });
 

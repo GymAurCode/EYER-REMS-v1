@@ -75,23 +75,55 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
   const pageHeight = doc.page.height;
   const pageMargin = 50;
   
+  // Track pages that have footer added to prevent duplicates
+  const footerAddedToPages = new Set<number>();
+  
   // Footer function to add on all pages
+  // Uses absolute positioning to avoid triggering page creation
   const addFooter = () => {
-    const footerY = pageHeight - 30;
-    doc.fontSize(8).font('Helvetica');
-    doc.fillColor('#666666');
-    doc.text(
-      'This is a computer-generated document. No signature required. | Real Estate Management System',
-      pageWidth / 2,
-      footerY,
-      { align: 'center' }
-    );
+    // Check if footer already added to current page
+    // Use type assertion for internal PDFKit properties
+    const currentPage = (doc.page as any).pageNumber || 0;
+    if (footerAddedToPages.has(currentPage)) {
+      return;
+    }
+    
+    try {
+      // Check if stream is still writable
+      // Use type assertion for internal stream properties
+      const writableState = (doc as any)._writableState;
+      const readableState = (doc as any)._readableState;
+      if (writableState?.ended || readableState?.ended) {
+        return;
+      }
+      
+      footerAddedToPages.add(currentPage);
+      
+      // Use absolute positioning to avoid triggering page creation
+      const footerY = pageHeight - 30;
+      const savedY = doc.y;
+      const savedX = doc.x;
+      
+      doc.fontSize(8).font('Helvetica');
+      doc.fillColor('#666666');
+      
+      // Use absolute positioning with explicit width to prevent overflow
+      // This ensures text won't trigger page creation
+      doc.text(
+        'This is a computer-generated document. No signature required. | Real Estate Management System',
+        pageWidth / 2,
+        footerY,
+        { align: 'center', width: pageWidth - 100 }
+      );
+      
+      // Restore position
+      doc.x = savedX;
+      doc.y = savedY;
+    } catch (error) {
+      // Silently fail if footer can't be added (stream might be ending)
+      // Don't throw to avoid breaking PDF generation
+    }
   };
-
-  // Add footer when page is added (for subsequent pages)
-  doc.on('pageAdded', () => {
-    addFooter();
-  });
 
   // Helper function to format currency
   const formatCurrency = (amount: number): string => {
@@ -202,6 +234,11 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
     // Down Payment row
     if (downPayment > 0) {
       if (currentY > 720) {
+        // Add footer to current page before adding new page
+        const currentPage = (doc.page as any).pageNumber || 0;
+        if (!footerAddedToPages.has(currentPage)) {
+          addFooter();
+        }
         doc.addPage();
         currentY = 50;
       }
@@ -224,6 +261,11 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
     // Installments
     data.installments.forEach((inst) => {
       if (currentY > 720) {
+        // Add footer to current page before adding new page
+        const currentPage = (doc.page as any).pageNumber || 0;
+        if (!footerAddedToPages.has(currentPage)) {
+          addFooter();
+        }
         doc.addPage();
         currentY = 50;
       }
@@ -259,14 +301,38 @@ export function generatePaymentPlanPDF(data: PaymentPlanPDFData, res: Response):
     doc.moveDown(0.6);
   }
 
-  // Add footer to first page
-  addFooter();
+  // Add footer to current/last page if not already added
+  const lastPage = (doc.page as any).pageNumber || 0;
+  if (!footerAddedToPages.has(lastPage)) {
+    addFooter();
+  }
 
-  // Finalize PDF
+  // Finalize PDF - ensure stream is ready
   // #region agent log
   fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:241',message:'Before doc.end()',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
   // #endregion
-  doc.end();
+  
+  // End the PDF document stream
+  // Check if stream is still writable before ending
+  try {
+    const writableState = (doc as any)._writableState;
+    const readableState = (doc as any)._readableState;
+    if (!writableState?.ended && !readableState?.ended) {
+      doc.end();
+    }
+  } catch (error: any) {
+    // If stream already ended or error occurred, handle gracefully
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false,
+        error: error?.message || 'Failed to finalize PDF' 
+      });
+    } else {
+      // Headers already sent, just end the response
+      res.end();
+    }
+    throw error;
+  }
   // #region agent log
   fetch('http://127.0.0.1:7242/ingest/7293d0cd-bbb9-40ce-87ee-9763b81d9a43',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'pdf-generator.ts:243',message:'After doc.end()',data:{headersSent:res.headersSent},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
   // #endregion

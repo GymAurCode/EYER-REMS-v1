@@ -31,6 +31,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           select: {
             id: true,
             employeeId: true,
+            tid: true,
             name: true,
             department: true,
             email: true,
@@ -40,18 +41,55 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       orderBy: { month: 'desc' },
     });
 
-    // Format payroll data for frontend
-    const formattedPayroll = payroll.map((record) => ({
-      id: record.id,
-      employee: record.employee.name,
-      employeeId: record.employee.employeeId,
-      department: record.employee.department,
-      month: record.month,
-      baseSalary: record.baseSalary,
-      bonus: record.bonus,
-      deductions: record.deductions,
-      netPay: record.netPay,
-    }));
+    // Format payroll data for frontend with calculated payment info
+    const formattedPayroll = await Promise.all(
+      payroll.map(async (record) => {
+        // Calculate paid amount from payments
+        const payments = await prisma.payrollPayment.findMany({
+          where: { payrollId: record.id },
+        });
+        const paidAmount = payments.reduce((sum, p) => sum + p.amount, 0);
+        const remainingBalance = Math.max(0, record.netPay - paidAmount);
+        
+        // Determine status dynamically
+        let status = 'created';
+        if (paidAmount === 0) {
+          status = 'created';
+        } else if (paidAmount >= record.netPay) {
+          status = 'fully_paid';
+        } else {
+          status = 'partially_paid';
+        }
+
+        // Update payroll record if values changed
+        if (record.paidAmount !== paidAmount || record.paymentStatus !== status) {
+          await prisma.payroll.update({
+            where: { id: record.id },
+            data: {
+              paidAmount,
+              remainingBalance,
+              paymentStatus: status,
+            },
+          });
+        }
+
+        return {
+          id: record.id,
+          employee: record.employee.name,
+          employeeId: record.employee.employeeId,
+          tid: record.employee.tid, // Tracking ID
+          department: record.employee.department,
+          month: record.month,
+          baseSalary: record.baseSalary,
+          bonus: record.bonus,
+          deductions: record.deductions,
+          netPay: record.netPay,
+          paidAmount,
+          remainingBalance,
+          status,
+        };
+      })
+    );
 
     res.json({
       success: true,
@@ -67,14 +105,40 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
-// Get payroll by ID
+// Get payroll by ID with full details
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
     const payroll = await prisma.payroll.findUnique({
       where: { id },
       include: {
-        employee: true,
+        employee: {
+          select: {
+            id: true,
+            employeeId: true,
+            tid: true,
+            name: true,
+            email: true,
+            phone: true,
+            department: true,
+            position: true,
+            salary: true,
+          },
+        },
+        payrollAllowances: true,
+        payrollDeductions: true,
+        payments: {
+          orderBy: { paymentDate: 'desc' },
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -85,9 +149,106 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Calculate paid amount and remaining balance dynamically
+    const totalPaid = payroll.payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const remainingBalance = Math.max(0, payroll.netPay - totalPaid);
+    
+    // Determine payment status
+    let paymentStatus = 'created';
+    if (totalPaid === 0) {
+      paymentStatus = 'created';
+    } else if (totalPaid >= payroll.netPay) {
+      paymentStatus = 'fully_paid';
+    } else {
+      paymentStatus = 'partially_paid';
+    }
+
+    // Update payroll if status changed
+    if (payroll.paymentStatus !== paymentStatus || payroll.paidAmount !== totalPaid) {
+      await prisma.payroll.update({
+        where: { id },
+        data: {
+          paidAmount: totalPaid,
+          remainingBalance,
+          paymentStatus,
+        },
+      });
+    }
+
+    // Get attendance data for the month
+    const [year, monthNum] = payroll.month.split('-').map(Number);
+    const startDate = new Date(year, monthNum - 1, 1);
+    const endDate = new Date(year, monthNum, 0, 23, 59, 59);
+
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: {
+        employeeId: payroll.employeeId,
+        date: {
+          gte: startDate,
+          lte: endDate,
+        },
+        isDeleted: false,
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Calculate attendance summary
+    const attendanceSummary = {
+      totalDays: attendanceRecords.length,
+      presentDays: attendanceRecords.filter(a => a.status === 'present' || a.status === 'late').length,
+      absentDays: attendanceRecords.filter(a => a.status === 'absent').length,
+      leaveDays: attendanceRecords.filter(a => a.status === 'leave').length,
+      totalHours: attendanceRecords.reduce((sum, a) => sum + (a.hours || 0), 0),
+      overtimeHours: attendanceRecords.reduce((sum, a) => {
+        const hours = a.hours || 0;
+        return sum + Math.max(0, hours - 8); // Assuming 8 hours is standard
+      }, 0),
+    };
+
+    // Get leave requests for the month
+    const leaveRequests = await prisma.leaveRequest.findMany({
+      where: {
+        employeeId: payroll.employeeId,
+        startDate: {
+          lte: endDate,
+        },
+        endDate: {
+          gte: startDate,
+        },
+        isDeleted: false,
+      },
+      orderBy: { startDate: 'asc' },
+    });
+
+    // Calculate leave summary
+    const leaveSummary = {
+      totalRequests: leaveRequests.length,
+      approvedDays: leaveRequests
+        .filter(l => l.status === 'approved')
+        .reduce((sum, l) => sum + (l.days || 0), 0),
+      pendingDays: leaveRequests
+        .filter(l => l.status === 'pending')
+        .reduce((sum, l) => sum + (l.days || 0), 0),
+      leaveRequests: leaveRequests.map(l => ({
+        id: l.id,
+        type: l.type,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        days: l.days,
+        status: l.status,
+      })),
+    };
+
     res.json({
       success: true,
-      data: payroll,
+      data: {
+        ...payroll,
+        paidAmount: totalPaid,
+        remainingBalance,
+        paymentStatus,
+        attendanceSummary,
+        leaveSummary,
+      },
     });
   } catch (error) {
     console.error('Get payroll error:', error);
@@ -156,7 +317,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     const tax = taxAmount ? parseFloat(taxAmount) : (gross * taxPct / 100);
     const net = netPay ? parseFloat(netPay) : (gross - totalDeductions);
 
-    // Create payroll record
+    // Create payroll record with initial payment tracking
     const payroll = await prisma.payroll.create({
       data: {
         employeeId,
@@ -171,8 +332,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         taxAmount: tax,
         taxPercent: taxPct,
         netPay: net,
+        paidAmount: 0,
+        remainingBalance: net,
         paymentMethod: paymentMethod || null,
-        paymentStatus: paymentStatus || 'pending',
+        paymentStatus: paymentStatus || 'created',
         notes: notes || null,
       },
       include: {
@@ -429,6 +592,143 @@ router.post('/calculate-overtime', authenticate, async (req: AuthRequest, res: R
     res.status(500).json({
       success: false,
       error: 'Failed to calculate overtime',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Record payment for payroll
+router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { amount, paymentMethod, referenceNumber, transactionId, notes, paymentDate } = req.body;
+
+    if (!amount || amount <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment amount is required and must be greater than 0',
+      });
+    }
+
+    if (!paymentMethod) {
+      return res.status(400).json({
+        success: false,
+        error: 'Payment method is required',
+      });
+    }
+
+    // Get payroll record
+    const payroll = await prisma.payroll.findUnique({
+      where: { id },
+      include: {
+        payments: true,
+      },
+    });
+
+    if (!payroll || payroll.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'Payroll record not found',
+      });
+    }
+
+    // Calculate current paid amount
+    const currentPaid = payroll.payments.reduce((sum, p) => sum + p.amount, 0);
+    const paymentAmount = parseFloat(amount);
+    const newPaidAmount = currentPaid + paymentAmount;
+    const remainingBalance = Math.max(0, payroll.netPay - newPaidAmount);
+
+    // Validate payment doesn't exceed net pay
+    if (newPaidAmount > payroll.netPay) {
+      return res.status(400).json({
+        success: false,
+        error: `Payment amount exceeds remaining balance. Maximum payment: ${(payroll.netPay - currentPaid).toFixed(2)}`,
+      });
+    }
+
+    // Determine new payment status
+    let newPaymentStatus = 'created';
+    if (newPaidAmount === 0) {
+      newPaymentStatus = 'created';
+    } else if (newPaidAmount >= payroll.netPay) {
+      newPaymentStatus = 'fully_paid';
+    } else {
+      newPaymentStatus = 'partially_paid';
+    }
+
+    // Create payment record and update payroll in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create payment
+      const payment = await tx.payrollPayment.create({
+        data: {
+          payrollId: id,
+          amount: paymentAmount,
+          paymentMethod,
+          referenceNumber: referenceNumber || null,
+          transactionId: transactionId || null,
+          notes: notes || null,
+          paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+          createdByUserId: req.user?.id || null,
+        },
+        include: {
+          createdBy: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      });
+
+      // Update payroll
+      const updatedPayroll = await tx.payroll.update({
+        where: { id },
+        data: {
+          paidAmount: newPaidAmount,
+          remainingBalance,
+          paymentStatus: newPaymentStatus,
+          paymentDate: newPaymentStatus === 'fully_paid' ? new Date() : payroll.paymentDate,
+          paymentMethod: newPaymentStatus === 'fully_paid' ? paymentMethod : payroll.paymentMethod,
+        },
+        include: {
+          employee: {
+            select: {
+              id: true,
+              employeeId: true,
+              tid: true,
+              name: true,
+              department: true,
+            },
+          },
+          payments: {
+            orderBy: { paymentDate: 'desc' },
+            include: {
+              createdBy: {
+                select: {
+                  id: true,
+                  username: true,
+                  email: true,
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return { payment, payroll: updatedPayroll };
+    });
+
+    res.json({
+      success: true,
+      data: result.payment,
+      payroll: result.payroll,
+    });
+  } catch (error) {
+    console.error('Record payment error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to record payment',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

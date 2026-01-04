@@ -137,10 +137,17 @@ export const csrfProtection = async (
   }
 
   try {
-    // Get session ID from header or cookie
-    const sessionId = req.headers['x-session-id'] as string || req.cookies?.sessionId;
-    const deviceId = req.headers['x-device-id'] as string;
-    const csrfToken = req.headers['x-csrf-token'] as string;
+    // Get session ID from header or cookie (case-insensitive header check)
+    const sessionId = 
+      (req.headers['x-session-id'] as string) || 
+      (req.headers['X-Session-Id'] as string) ||
+      req.cookies?.sessionId;
+    const deviceId = 
+      (req.headers['x-device-id'] as string) || 
+      (req.headers['X-Device-Id'] as string);
+    const csrfToken = 
+      (req.headers['x-csrf-token'] as string) || 
+      (req.headers['X-CSRF-Token'] as string);
 
     logger.info('CSRF protection check', {
       method: req.method,

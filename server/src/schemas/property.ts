@@ -18,40 +18,60 @@ export const propertyStatusEnum = z.enum([
 ]);
 
 /**
- * Create Property Schema
+ * Create Property Schema - All fields optional for flexible data entry
  */
 export const createPropertySchema = z.object({
-  tid: commonFields.tid,
-  name: z.string().min(1, 'Property name is required'),
-  type: z.string().min(1, 'Property type is required'),
-  category: z.string().optional(),
+  tid: z.string().optional().nullable(),
+  name: z.string().optional().nullable(),
+  type: z.string().optional().nullable(),
+  category: z.string().optional().nullable(),
   size: z.preprocess(
-    preprocessors.stringToNumber,
-    z.number().nonnegative('Size must be zero or positive').optional()
+    (val) => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = preprocessors.stringToNumber(val);
+      return num !== undefined && !isNaN(num) ? num : undefined;
+    },
+    z.number().nonnegative().optional().nullable()
   ),
-  address: z.string().min(1, 'Address is required'),
-  location: z.string().optional(),
+  address: z.string().optional().nullable(),
+  location: z.string().optional().nullable(),
   locationId: commonFields.optionalUuid,
   subsidiaryOptionId: commonFields.optionalUuid,
-  status: propertyStatusEnum.optional(),
-  imageUrl: commonFields.imageUrl,
-  description: z.string().optional(),
+  status: z.string().optional().nullable(),
+  imageUrl: z.string().optional().nullable(),
+  description: z.string().optional().nullable(),
   yearBuilt: z.preprocess(
-    preprocessors.stringToNumber,
-    z.number().int('Year built must be an integer').positive('Year built must be positive').optional()
+    (val) => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = preprocessors.stringToNumber(val);
+      return num !== undefined && !isNaN(num) ? num : undefined;
+    },
+    z.number().int().optional().nullable()
   ),
   totalArea: z.preprocess(
-    preprocessors.stringToNumber,
-    z.number().positive('Total area must be positive').optional()
+    (val) => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = preprocessors.stringToNumber(val);
+      return num !== undefined && !isNaN(num) ? num : undefined;
+    },
+    z.number().optional().nullable()
   ),
   totalUnits: z.preprocess(
-    preprocessors.stringToNumber,
-    z.number().int('Total units must be an integer').nonnegative('Total units cannot be negative').default(0)
+    (val) => {
+      if (val === undefined || val === null || val === '') return 0;
+      const num = preprocessors.stringToNumber(val);
+      return num !== undefined && !isNaN(num) ? num : 0;
+    },
+    z.number().int().nonnegative().default(0)
   ),
   dealerId: commonFields.optionalUuid,
   salePrice: z.preprocess(
-    preprocessors.stringToNumber,
-    z.number().nonnegative('Sale price cannot be negative').optional()
+    (val) => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = preprocessors.stringToNumber(val);
+      return num !== undefined && !isNaN(num) ? num : undefined;
+    },
+    z.number().nonnegative().optional().nullable()
   ),
   amenities: z.preprocess(
     (val) => {
@@ -63,11 +83,11 @@ export const createPropertySchema = z.object({
           return [val];
         }
       }
-      return val;
+      return val || [];
     },
     z.array(z.string()).optional().default([])
   ),
-});
+}).passthrough(); // Allow additional fields without validation errors
 
 /**
  * Update Property Schema (all fields optional)
@@ -76,6 +96,8 @@ export const updatePropertySchema = createPropertySchema.partial();
 
 /**
  * Property Query Schema (for filtering)
+ * All fields are optional - returns empty array if no data matches
+ * Uses same pattern as paginationSchema for consistent handling
  */
 export const propertyQuerySchema = z.object({
   status: propertyStatusEnum.optional(),
@@ -83,9 +105,25 @@ export const propertyQuerySchema = z.object({
   location: z.string().optional(),
   locationId: commonFields.optionalUuid,
   search: z.string().optional(),
-  page: z.string().regex(/^\d+$/).transform(Number).default('1'),
-  limit: z.string().regex(/^\d+$/).transform(Number).default('10'),
-});
+  // Handle page - optional, defaults to 1 if missing or invalid
+  page: z
+    .string()
+    .optional()
+    .transform((val) => {
+      const parsed = val ? parseInt(val, 10) : 1;
+      return isNaN(parsed) || parsed < 1 ? 1 : parsed;
+    }),
+  // Handle limit - optional, defaults to 10 if missing or invalid, max 100
+  limit: z
+    .string()
+    .optional()
+    .transform((val) => {
+      const parsed = val ? parseInt(val, 10) : 10;
+      if (isNaN(parsed) || parsed < 1) return 10;
+      if (parsed > 100) return 100;
+      return parsed;
+    }),
+}).passthrough(); // Allow additional query params without validation errors
 
 /**
  * TypeScript types inferred from schemas

@@ -51,16 +51,33 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   }, [dealId])
 
   const loadAttachments = () => {
-    // Load attachments from deal data if available
-    const dealAttachments = deal?.attachments?.files || []
+    // Load attachments from deal data - backend returns them as an array from Attachment table
+    const dealAttachments = deal?.attachments || []
     if (Array.isArray(dealAttachments) && dealAttachments.length > 0) {
-      setAttachments(dealAttachments.map((file: any) => ({
-        id: file.id,
-        url: file.url || file.path,
-        name: file.name || file.filename,
-        fileType: file.type || file.mimeType || 'application/octet-stream',
-        size: file.size
-      })))
+      setAttachments(dealAttachments.map((file: any) => {
+        // Handle both new Attachment table format and legacy JSON format
+        const fileUrl = file.fileUrl || file.url || file.path
+        const fileName = file.fileName || file.name || file.filename
+        const fileType = file.fileType || file.type || file.mimeType || 'application/octet-stream'
+        
+        // Construct proper URL for viewing
+        let viewUrl = fileUrl
+        if (fileUrl && !fileUrl.startsWith('http://') && !fileUrl.startsWith('https://')) {
+          // If it's a relative path, construct full URL
+          // fileUrl format: /secure-files/deals/{entityId}/{filename}
+          const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+          const cleanPath = fileUrl.replace(/^\/api/, '')
+          viewUrl = `${baseUrl}/api${cleanPath}`
+        }
+        
+        return {
+          id: file.id,
+          url: viewUrl || '',
+          name: fileName || 'Unknown file',
+          fileType: fileType,
+          size: file.fileSize || file.size
+        }
+      }))
     } else {
       setAttachments([])
     }
@@ -69,11 +86,12 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   const loadDeal = async () => {
     try {
       setLoading(true)
-      const response: any = await apiService.deals?.getById?.(dealId) || await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'https://eyer-rems-v1-production-f00e.up.railway.app'}/api/crm/deals/${dealId}`).then(r => r.json())
-      setDeal(response?.data || response)
+      const response: any = await apiService.deals?.getById?.(dealId)
+      const dealData = response?.data || response
+      setDeal(dealData)
 
       // Load attachments after deal is loaded
-      setTimeout(loadAttachments, 100)
+      // Use useEffect dependency to trigger loadAttachments when deal changes
     } catch (error: any) {
       toast({
         title: "Error",
@@ -84,6 +102,13 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
       setLoading(false)
     }
   }
+
+  // Load attachments whenever deal data changes
+  useEffect(() => {
+    if (deal) {
+      loadAttachments()
+    }
+  }, [deal])
 
   if (loading) {
     return (
@@ -184,15 +209,69 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
         </CardContent>
       </Card>
 
+      {/* Financial Summary */}
+      {deal.financialSummary && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Financial Summary</CardTitle>
+            <CardDescription>Complete financial overview of the deal</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Deal Amount</p>
+                <p className="text-xl font-bold">{formatCurrency(deal.financialSummary.dealAmount || 0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Total Paid</p>
+                <p className="text-xl font-bold text-green-600">{formatCurrency(deal.financialSummary.totalPaid || 0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Remaining Balance</p>
+                <p className="text-xl font-bold text-orange-600">{formatCurrency(deal.financialSummary.remainingBalance || 0)}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground mb-1">Completion</p>
+                <p className="text-xl font-bold">{deal.financialSummary.completionPercentage?.toFixed(1) || 0}%</p>
+              </div>
+            </div>
+            {deal.financialSummary.commissionAmount > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Commission Rate</p>
+                    <p className="text-lg font-semibold">{deal.financialSummary.commissionRate || 0}%</p>
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">Commission Amount</p>
+                    <p className="text-lg font-semibold">{formatCurrency(deal.financialSummary.commissionAmount || 0)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            {deal.financialSummary.totalPayments > 0 && (
+              <div className="mt-4 pt-4 border-t">
+                <p className="text-sm text-muted-foreground">Total Payments: {deal.financialSummary.totalPayments}</p>
+                {deal.financialSummary.lastPaymentDate && (
+                  <p className="text-sm text-muted-foreground">
+                    Last Payment: {new Date(deal.financialSummary.lastPaymentDate).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {/* Payment Plan Summary */}
-      {paymentPlan && (
+      {paymentPlan && paymentPlanSummary && (
         <Card>
           <CardHeader>
             <CardTitle>Payment Plan Summary</CardTitle>
             <CardDescription>Installment-based payment schedule</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Total Expected</p>
                 <p className="text-xl font-bold">{formatCurrency(paymentPlanSummary.totalExpected)}</p>
@@ -212,6 +291,31 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
                 </Badge>
               </div>
             </div>
+            {paymentPlanSummary.downPayment > 0 && (
+              <div className="mb-4 p-3 bg-muted rounded-lg">
+                <p className="text-sm text-muted-foreground mb-1">Down Payment</p>
+                <p className="text-lg font-semibold">{formatCurrency(paymentPlanSummary.downPayment)}</p>
+              </div>
+            )}
+            {paymentPlanSummary.installments && paymentPlanSummary.installments.length > 0 && (
+              <div className="mt-4">
+                <p className="text-sm font-semibold mb-2">Installments ({paymentPlanSummary.numberOfInstallments})</p>
+                <div className="grid grid-cols-3 gap-2 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Paid: </span>
+                    <span className="font-semibold text-green-600">{paymentPlanSummary.paidInstallments}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Pending: </span>
+                    <span className="font-semibold">{paymentPlanSummary.pendingInstallments}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Overdue: </span>
+                    <span className="font-semibold text-red-600">{paymentPlanSummary.overdueInstallments}</span>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -303,9 +407,8 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
             <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
               {attachments.map((attachment, idx) => {
                 const isImage = attachment.fileType?.startsWith('image/')
-                const imageUrl = attachment.url.startsWith('http')
-                  ? attachment.url
-                  : `${(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')}${attachment.url}`
+                // URL is already constructed in loadAttachments
+                const imageUrl = attachment.url
 
                 const handleViewDocument = () => {
                   setSelectedDocument({

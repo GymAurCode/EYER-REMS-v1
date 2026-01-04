@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { Paperclip, Upload, File, Trash2, Loader2 } from "lucide-react"
 
 interface DealerFormData {
   id?: string
@@ -29,6 +30,7 @@ interface DealerFormData {
   cnic?: string
   address?: string
   tid?: string
+  attachments?: { name: string; url: string; type: string; size: number }[]
 }
 
 interface AddDealerDialogProps {
@@ -50,6 +52,7 @@ const defaultFormState = {
   address: "",
   systemId: "",
   tid: "",
+  attachments: [] as { name: string; url: string; type: string; size: number }[],
 }
 
 export function AddDealerDialog({
@@ -61,6 +64,7 @@ export function AddDealerDialog({
 }: AddDealerDialogProps) {
   const [formData, setFormData] = useState(defaultFormState)
   const [submitting, setSubmitting] = useState(false)
+  const [uploading, setUploading] = useState(false)
   const { toast } = useToast()
   const isEdit = mode === "edit" && !!initialData?.id
 
@@ -81,6 +85,7 @@ export function AddDealerDialog({
           address: initialData.address || "",
           systemId: (initialData as any).dealerCode || "",
           tid: initialData.tid || "",
+          attachments: (initialData as any)?.attachments?.files || [],
         })
       } else {
         setFormData(defaultFormState)
@@ -91,13 +96,78 @@ export function AddDealerDialog({
   const resetForm = () => {
     setFormData(defaultFormState)
     setSubmitting(false)
+    setUploading(false)
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0) return
+
+    setUploading(true)
+    try {
+      const newAttachments: { name: string; url: string; type: string; size: number }[] = []
+      const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+      for (const file of Array.from(files)) {
+        if (file.size > MAX_FILE_SIZE) {
+          toast({
+            title: "File too large",
+            description: `${file.name} exceeds the maximum size of 10MB`,
+            variant: "destructive"
+          })
+          continue
+        }
+
+        const reader = new FileReader()
+        const base64: string = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+
+        newAttachments.push({
+          name: file.name,
+          url: base64,
+          type: file.type,
+          size: file.size,
+        })
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        attachments: [...prev.attachments, ...newAttachments],
+      }))
+    } catch (error) {
+      console.error("File upload error:", error)
+      toast({
+        title: "Upload Failed",
+        description: "Could not process the uploaded file(s).",
+        variant: "destructive",
+      })
+    } finally {
+      setUploading(false)
+      e.target.value = ""
+    }
+  }
+
+  const removeAttachment = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index),
+    }))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
       setSubmitting(true)
-      const payload = {
+      const payload: any = {
         tid: formData.tid,
         name: formData.name,
         email: formData.email,
@@ -107,7 +177,17 @@ export function AddDealerDialog({
         cnic: formData.cnic || null,
         address: formData.address || null,
         isActive: true,
-      } as any
+      }
+
+      // Handle attachments
+      if (formData.attachments.length > 0) {
+        const attachmentsData: any = {}
+        if (formData.notes?.trim()) {
+          attachmentsData.notes = formData.notes.trim()
+        }
+        attachmentsData.files = formData.attachments
+        payload.attachments = attachmentsData
+      }
 
       if (isEdit) {
         await apiService.dealers.update(initialData!.id!, payload)
@@ -261,6 +341,60 @@ export function AddDealerDialog({
               placeholder="Additional notes about the dealer..."
               rows={3}
             />
+          </div>
+
+          {/* Attachments Section */}
+          <div className="space-y-4">
+            <Label className="flex items-center gap-2">
+              <Paperclip className="h-4 w-4" />
+              Attachments
+            </Label>
+            <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                id="dealer-attachments"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+              />
+              <label
+                htmlFor="dealer-attachments"
+                className="cursor-pointer flex flex-col items-center gap-2"
+              >
+                <Upload className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">
+                  {uploading ? "Uploading..." : "Click to upload files (PDF, DOC, Images, Excel)"}
+                </span>
+              </label>
+            </div>
+
+            {formData.attachments.length > 0 && (
+              <div className="space-y-2">
+                {formData.attachments.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 border rounded-lg bg-muted/50"
+                  >
+                    <div className="flex items-center gap-3">
+                      <File className="h-5 w-5 text-muted-foreground" />
+                      <div>
+                        <p className="text-sm font-medium truncate max-w-[200px]">{file.name}</p>
+                        <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeAttachment(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <DialogFooter className="pt-4">

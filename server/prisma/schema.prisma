@@ -27,6 +27,7 @@ model User {
   leadsAssigned          Lead[]           @relation("LeadAssignedTo")
   notifications          Notification[]
   paymentsCreated        Payment[]        @relation("UserPaymentsCreated")
+  payrollPaymentsCreated PayrollPayment[] @relation("PayrollPaymentCreatedBy")
   refreshTokens          RefreshToken[]
   transactionsCreated    Transaction[]    @relation("UserTransactionsCreated")
   role                   Role             @relation(fields: [roleId], references: [id])
@@ -615,6 +616,8 @@ model Payroll {
   bonus             Float              @default(0)
   deductions        Float              @default(0)
   netPay            Float
+  paidAmount        Float              @default(0)
+  remainingBalance  Float              @default(0)
   isDeleted         Boolean            @default(false)
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
@@ -631,7 +634,7 @@ model Payroll {
   overtimeAmount    Float              @default(0)
   paymentDate       DateTime?
   paymentMethod     String?
-  paymentStatus     String             @default("pending")
+  paymentStatus     String             @default("created")
   payslipUrl        String?
   taxAmount         Float              @default(0)
   taxPercent        Float              @default(0)
@@ -639,6 +642,7 @@ model Payroll {
   employee          Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   payrollAllowances PayrollAllowance[]
   payrollDeductions PayrollDeduction[]
+  payments          PayrollPayment[]
 
   @@unique([employeeId, month])
   @@index([employeeId])
@@ -675,6 +679,26 @@ model PayrollDeduction {
 
   @@index([payrollId])
   @@index([employeeId])
+}
+
+model PayrollPayment {
+  id              String   @id @default(uuid())
+  payrollId       String
+  amount          Float
+  paymentDate     DateTime @default(now())
+  paymentMethod   String
+  referenceNumber String?
+  transactionId   String?
+  notes           String?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  payroll         Payroll  @relation(fields: [payrollId], references: [id], onDelete: Cascade)
+  createdBy       User?    @relation("PayrollPaymentCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([payrollId])
+  @@index([paymentDate])
+  @@index([createdByUserId])
 }
 
 model SalaryHistory {
@@ -961,66 +985,66 @@ model DealerReview {
 }
 
 model Deal {
-  id                  String            @id @default(uuid())
-  title               String
-  dealAmount          Float             @default(0) @map("deal_amount")
-  listingPriceSnapshot Float?          // Snapshot of property sale price at deal creation
-  varianceAmount      Float?           // Difference: dealAmount - listingPriceSnapshot
-  varianceType        String?          // 'GAIN' | 'LOSS' | 'DISCOUNT' | null
-  stage               String            @default("prospecting")
-  clientId            String?
-  dealerId            String?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
-  actualClosingDate   DateTime?
-  approvedAt          DateTime?
-  approvedBy          String?
-  attachments         Json?
-  commissionAmount    Float             @default(0)
-  commissionRate      Float             @default(0)
-  createdBy           String?
-  dealCode            String?           @unique
-  dealType            String?
-  expectedClosingDate DateTime?
-  expectedRevenue     Float?
-  isDeleted           Boolean           @default(false)
-  notes               String?
-  probability         Int               @default(50)
-  propertyId          String?
-  requiresApproval    Boolean           @default(false)
-  tags                Json?
-  updatedBy           String?
-  valueBreakdown      Json?
-  role                String?
-  dealDate            DateTime          @default(now()) @map("deal_date")
-  status              String            @default("open")
-  totalPaid           Float             @default(0)
-  unitId              String?
-  deletedAt           DateTime?
-  deletedBy           String?
-  manualUniqueId      String?           @unique
-  locationId          String?
-  subsidiaryOptionId  String?
-  tid                 String?           @unique
-  activities          CRMActivity[]
-  communications      Communication[]
-  client              Client?           @relation(fields: [clientId], references: [id])
-  dealer              Dealer?           @relation(fields: [dealerId], references: [id])
-  location            Location?         @relation("DealLocation", fields: [locationId], references: [id])
-  property            Property?         @relation("DealProperty", fields: [propertyId], references: [id])
-  subsidiaryOption    SubsidiaryOption? @relation("DealSubsidiary", fields: [subsidiaryOptionId], references: [id])
-  unit                Unit?             @relation("DealUnit", fields: [unitId], references: [id])
-  dealAgents          DealAgent[]
-  installments        DealInstallment[]
-  dealProperties      DealProperty[]
-  dealReceipts        DealReceipt[]
-  dealerLedgers       DealerLedger[]
-  financeLedgers      FinanceLedger[]   @relation("FinanceLedgerDeal")
-  ledgerEntries       LedgerEntry[]
-  payments            Payment[]
-  paymentPlan         PaymentPlan?
-  stageHistory        StageHistory[]
-  vouchers            Voucher[]         @relation("VoucherDeal")
+  id                   String            @id @default(uuid())
+  title                String
+  dealAmount           Float             @default(0) @map("deal_amount")
+  listingPriceSnapshot Float? // Snapshot of property sale price at deal creation
+  varianceAmount       Float? // Difference: dealAmount - listingPriceSnapshot
+  varianceType         String? // 'GAIN' | 'LOSS' | 'DISCOUNT' | null
+  stage                String            @default("prospecting")
+  clientId             String?
+  dealerId             String?
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+  actualClosingDate    DateTime?
+  approvedAt           DateTime?
+  approvedBy           String?
+  attachments          Json?
+  commissionAmount     Float             @default(0)
+  commissionRate       Float             @default(0)
+  createdBy            String?
+  dealCode             String?           @unique
+  dealType             String?
+  expectedClosingDate  DateTime?
+  expectedRevenue      Float?
+  isDeleted            Boolean           @default(false)
+  notes                String?
+  probability          Int               @default(50)
+  propertyId           String?
+  requiresApproval     Boolean           @default(false)
+  tags                 Json?
+  updatedBy            String?
+  valueBreakdown       Json?
+  role                 String?
+  dealDate             DateTime          @default(now()) @map("deal_date")
+  status               String            @default("open")
+  totalPaid            Float             @default(0)
+  unitId               String?
+  deletedAt            DateTime?
+  deletedBy            String?
+  manualUniqueId       String?           @unique
+  locationId           String?
+  subsidiaryOptionId   String?
+  tid                  String?           @unique
+  activities           CRMActivity[]
+  communications       Communication[]
+  client               Client?           @relation(fields: [clientId], references: [id])
+  dealer               Dealer?           @relation(fields: [dealerId], references: [id])
+  location             Location?         @relation("DealLocation", fields: [locationId], references: [id])
+  property             Property?         @relation("DealProperty", fields: [propertyId], references: [id])
+  subsidiaryOption     SubsidiaryOption? @relation("DealSubsidiary", fields: [subsidiaryOptionId], references: [id])
+  unit                 Unit?             @relation("DealUnit", fields: [unitId], references: [id])
+  dealAgents           DealAgent[]
+  installments         DealInstallment[]
+  dealProperties       DealProperty[]
+  dealReceipts         DealReceipt[]
+  dealerLedgers        DealerLedger[]
+  financeLedgers       FinanceLedger[]   @relation("FinanceLedgerDeal")
+  ledgerEntries        LedgerEntry[]
+  payments             Payment[]
+  paymentPlan          PaymentPlan?
+  stageHistory         StageHistory[]
+  vouchers             Voucher[]         @relation("VoucherDeal")
 
   @@index([dealCode])
   @@index([clientId])

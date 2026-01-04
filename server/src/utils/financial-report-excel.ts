@@ -249,43 +249,98 @@ async function generateProfitLossExcel(worksheet: ExcelJS.Worksheet, data: any):
 }
 
 async function generatePropertyProfitabilityExcel(worksheet: ExcelJS.Worksheet, data: any): Promise<void> {
-  // Header
-  worksheet.addRow(['Property Profitability Report']);
-  worksheet.addRow([`Generated on: ${new Date().toLocaleString()}`]);
-  if (data.period?.startDate || data.period?.endDate) {
-    worksheet.addRow([
-      `Period: ${data.period.startDate ? new Date(data.period.startDate).toLocaleDateString() : ''} to ${data.period.endDate ? new Date(data.period.endDate).toLocaleDateString() : ''}`
-    ]);
+  // Handle array of PropertyProfitability objects
+  const profitabilityData = Array.isArray(data) ? data : [data];
+  
+  if (profitabilityData.length === 0) {
+    worksheet.addRow(['No property profitability data available.']);
+    return;
   }
-  if (data.propertyId) {
-    worksheet.addRow([`Property ID: ${data.propertyId}`]);
-  }
-  worksheet.addRow([]);
 
-  // Revenue
-  worksheet.addRow(['REVENUE']).font = { bold: true, size: 12 };
-  let revenueTotal = 0;
-  data.revenue.forEach((entry: any) => {
-    worksheet.addRow([entry.accountCode, entry.accountName, formatCurrency(entry.balance)]);
-    revenueTotal += entry.balance;
+  // Process each property
+  profitabilityData.forEach((property: any, index: number) => {
+    // Add spacing between properties (except first)
+    if (index > 0) {
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+    }
+
+    // Property header
+    worksheet.addRow([property.propertyName || property.propertyId || 'Property Profitability']).font = { bold: true, size: 14 };
+    worksheet.addRow([`Generated on: ${new Date().toLocaleString()}`]);
+    
+    if (property.propertyCode) {
+      worksheet.addRow([`Property Code: ${property.propertyCode}`]);
+    }
+    
+    if (data.period?.startDate || data.period?.endDate) {
+      worksheet.addRow([
+        `Period: ${data.period.startDate ? new Date(data.period.startDate).toLocaleDateString() : ''} to ${data.period.endDate ? new Date(data.period.endDate).toLocaleDateString() : ''}`
+      ]);
+    }
+    worksheet.addRow([]);
+
+    // Revenue
+    worksheet.addRow(['REVENUE']).font = { bold: true, size: 12 };
+    
+    const revenueBreakdown = Array.isArray(property.revenueBreakdown) ? property.revenueBreakdown : [];
+    if (revenueBreakdown.length > 0) {
+      revenueBreakdown.forEach((entry: any) => {
+        if (entry && entry.accountCode && entry.accountName) {
+          const amount = typeof entry.amount === 'number' ? entry.amount : 0;
+          worksheet.addRow([entry.accountCode, entry.accountName, formatCurrency(amount)]);
+        }
+      });
+    } else {
+      worksheet.addRow(['No revenue entries']);
+    }
+    
+    const revenueTotal = typeof property.revenue === 'number' ? property.revenue : 0;
+    worksheet.addRow(['Total Revenue', '', formatCurrency(revenueTotal)]).font = { bold: true };
+    worksheet.addRow([]);
+
+    // Expenses
+    worksheet.addRow(['EXPENSES']).font = { bold: true, size: 12 };
+    
+    const expenseBreakdown = Array.isArray(property.expenseBreakdown) ? property.expenseBreakdown : [];
+    if (expenseBreakdown.length > 0) {
+      expenseBreakdown.forEach((entry: any) => {
+        if (entry && entry.accountCode && entry.accountName) {
+          const amount = typeof entry.amount === 'number' ? Math.abs(entry.amount) : 0;
+          worksheet.addRow([entry.accountCode, entry.accountName, formatCurrency(amount)]);
+        }
+      });
+    } else {
+      worksheet.addRow(['No expense entries']);
+    }
+    
+    const expensesTotal = typeof property.expenses === 'number' ? property.expenses : 0;
+    worksheet.addRow(['Total Expenses', '', formatCurrency(expensesTotal)]).font = { bold: true };
+    worksheet.addRow([]);
+
+    // Net Profit - use calculated value from service or calculate if missing
+    const netProfit = typeof property.netProfit === 'number' 
+      ? property.netProfit 
+      : revenueTotal - expensesTotal;
+    
+    worksheet.addRow(['Net Profit', '', formatCurrency(netProfit)]).font = { 
+      bold: true, 
+      size: 12, 
+      color: { argb: netProfit >= 0 ? 'FF008000' : 'FFFF0000' } 
+    };
+    
+    // Profit Margin - use calculated value from service or calculate if missing
+    const profitMargin = typeof property.profitMargin === 'number'
+      ? property.profitMargin
+      : revenueTotal > 0 
+        ? ((netProfit / revenueTotal) * 100)
+        : (revenueTotal === 0 && expensesTotal > 0 ? -100 : 0);
+    
+    const marginText = typeof profitMargin === 'number' && !Number.isNaN(profitMargin)
+      ? profitMargin.toFixed(2)
+      : '0.00';
+    worksheet.addRow(['Profit Margin', '', `${marginText}%`]);
   });
-  worksheet.addRow(['Total Revenue', '', formatCurrency(revenueTotal)]).font = { bold: true };
-  worksheet.addRow([]);
-
-  // Expenses
-  worksheet.addRow(['EXPENSES']).font = { bold: true, size: 12 };
-  let expensesTotal = 0;
-  data.expenses.forEach((entry: any) => {
-    worksheet.addRow([entry.accountCode, entry.accountName, formatCurrency(Math.abs(entry.balance))]);
-    expensesTotal += Math.abs(entry.balance);
-  });
-  worksheet.addRow(['Total Expenses', '', formatCurrency(expensesTotal)]).font = { bold: true };
-  worksheet.addRow([]);
-
-  // Net Profit
-  const netProfit = revenueTotal - expensesTotal;
-  worksheet.addRow(['Net Profit', '', formatCurrency(netProfit)]).font = { bold: true, size: 12, color: { argb: netProfit >= 0 ? 'FF008000' : 'FFFF0000' } };
-  worksheet.addRow(['Profit Margin', '', `${data.profitMargin.toFixed(2)}%`]);
 
   worksheet.columns.forEach((column) => {
     column.width = 20;

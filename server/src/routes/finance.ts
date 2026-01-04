@@ -2492,12 +2492,75 @@ router.get('/bank-reconciliation', authenticate, async (req: AuthRequest, res: R
 // Create payment plan with multiple installment types (MUST BE BEFORE /payment-plans)
 router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { dealId, clientId, installments } = req.body;
+    const { dealId, clientId, installments, downPayment, notes, totalAmount } = req.body;
 
-    if (!dealId || !clientId || !Array.isArray(installments) || installments.length === 0) {
+    // Validate required fields
+    if (!dealId || typeof dealId !== 'string') {
       return res.status(400).json({
         success: false,
-        error: 'dealId, clientId, and installments array are required',
+        error: 'dealId is required and must be a string',
+        field: 'dealId',
+      });
+    }
+
+    if (!clientId || typeof clientId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'clientId is required and must be a string',
+        field: 'clientId',
+      });
+    }
+
+    if (!Array.isArray(installments) || installments.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'installments is required and must be a non-empty array',
+        field: 'installments',
+      });
+    }
+
+    // Validate each installment
+    const installmentErrors: string[] = [];
+    installments.forEach((inst: any, index: number) => {
+      if (typeof inst.amount !== 'number' || inst.amount <= 0) {
+        installmentErrors.push(`Installment ${index + 1}: amount must be a positive number`);
+      }
+      if (!inst.dueDate) {
+        installmentErrors.push(`Installment ${index + 1}: dueDate is required`);
+      } else {
+        const dueDate = new Date(inst.dueDate);
+        if (isNaN(dueDate.getTime())) {
+          installmentErrors.push(`Installment ${index + 1}: dueDate must be a valid date`);
+        }
+      }
+      // Optional fields validation
+      if (inst.type !== undefined && inst.type !== null && typeof inst.type !== 'string') {
+        installmentErrors.push(`Installment ${index + 1}: type must be a string or null`);
+      }
+      if (inst.paymentMode !== undefined && inst.paymentMode !== null && typeof inst.paymentMode !== 'string') {
+        installmentErrors.push(`Installment ${index + 1}: paymentMode must be a string or null`);
+      }
+      if (inst.notes !== undefined && inst.notes !== null && typeof inst.notes !== 'string') {
+        installmentErrors.push(`Installment ${index + 1}: notes must be a string or null`);
+      }
+    });
+
+    if (installmentErrors.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid installment data',
+        details: installmentErrors,
+        field: 'installments',
+      });
+    }
+
+    // Validate downPayment if provided
+    const downPaymentAmount = downPayment || 0;
+    if (typeof downPaymentAmount !== 'number' || downPaymentAmount < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'downPayment must be a non-negative number',
+        field: 'downPayment',
       });
     }
 
@@ -2524,17 +2587,24 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
       return res.status(400).json({ success: false, error: 'Payment plan already exists for this deal' });
     }
 
-    // Validate installments
-    const totalAmount = installments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
+    // Validate installments total matches deal amount
+    const installmentsTotal = installments.reduce((sum: number, inst: any) => sum + (inst.amount || 0), 0);
     const dealAmount = deal.dealAmount || 0;
-    const downPayment = req.body.downPayment || 0;
-    const expectedTotal = dealAmount - downPayment;
+    const expectedTotal = dealAmount - downPaymentAmount;
 
     // Installments total should equal deal amount minus down payment
-    if (Math.abs(totalAmount - expectedTotal) > 0.01) {
+    if (Math.abs(installmentsTotal - expectedTotal) > 0.01) {
       return res.status(400).json({
         success: false,
-        error: `Installments total (${totalAmount}) must equal deal amount (${dealAmount}) minus down payment (${downPayment}) = ${expectedTotal}`,
+        error: `Installments total (${installmentsTotal.toLocaleString()}) must equal deal amount (${dealAmount.toLocaleString()}) minus down payment (${downPaymentAmount.toLocaleString()}) = ${expectedTotal.toLocaleString()}`,
+        field: 'installments',
+        details: {
+          installmentsTotal,
+          dealAmount,
+          downPayment: downPaymentAmount,
+          expectedTotal,
+          difference: Math.abs(installmentsTotal - expectedTotal),
+        },
       });
     }
 
@@ -2544,14 +2614,14 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
         data: {
           dealId,
           clientId,
-          numberOfInstallments: installments.length + (downPayment > 0 ? 1 : 0), // Include down payment as installment
+          numberOfInstallments: installments.length + (downPaymentAmount > 0 ? 1 : 0), // Include down payment as installment
           totalAmount: dealAmount,
-          totalExpected: totalAmount + (downPayment || 0), // Include down payment in total
+          totalExpected: installmentsTotal + (downPaymentAmount || 0), // Include down payment in total
           startDate: installments[0]?.dueDate ? new Date(installments[0].dueDate) : new Date(),
-          notes: req.body.notes || null,
+          notes: notes || null,
           isActive: true,
           status: 'Pending', // Down payment is planned, not paid - always start as Pending
-          downPayment: downPayment || 0, // Save down payment amount (pending, not paid)
+          downPayment: downPaymentAmount || 0, // Save down payment amount (pending, not paid)
           totalPaid: 0, // Down payment is not paid yet - only count actual payments
           remaining: dealAmount, // Full amount remaining until payments are recorded
         },
@@ -2560,7 +2630,7 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
       const createdInstallments: any[] = [];
 
       // Create down payment as first installment (installmentNumber: 0) if down payment exists
-      if (downPayment > 0) {
+      if (downPaymentAmount > 0) {
         const downPaymentInstallment = await tx.dealInstallment.create({
           data: {
             paymentPlanId: plan.id,
@@ -2568,11 +2638,11 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
             clientId,
             installmentNumber: 0, // Down payment is installment 0
             type: 'down_payment', // Special type for down payment
-            amount: downPayment,
+            amount: downPaymentAmount,
             dueDate: new Date(), // Due date is today or can be set to start date
             status: 'Pending', // Down payment is pending until paid
             paidAmount: 0,
-            remaining: downPayment,
+            remaining: downPaymentAmount,
             paymentMode: null,
             notes: 'Down Payment',
           },
@@ -2582,8 +2652,14 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
 
       // Create regular installments (starting from installmentNumber: 1)
       const regularInstallments = await Promise.all(
-        installments.map((inst: any, index: number) =>
-          tx.dealInstallment.create({
+        installments.map((inst: any, index: number) => {
+          // Validate dueDate before creating
+          const dueDate = new Date(inst.dueDate);
+          if (isNaN(dueDate.getTime())) {
+            throw new Error(`Invalid due date for installment ${index + 1}: ${inst.dueDate}`);
+          }
+
+          return tx.dealInstallment.create({
             data: {
               paymentPlanId: plan.id,
               dealId,
@@ -2591,15 +2667,15 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
               installmentNumber: index + 1, // Start from 1 (0 is down payment)
               type: inst.type || null,
               amount: inst.amount,
-              dueDate: new Date(inst.dueDate),
+              dueDate: dueDate,
               status: 'Pending',
               paidAmount: 0,
               remaining: inst.amount,
               paymentMode: inst.paymentMode || null,
               notes: inst.notes || null,
             },
-          })
-        )
+          });
+        })
       );
 
       createdInstallments.push(...regularInstallments);
@@ -2616,7 +2692,8 @@ router.post('/payment-plans/create', authenticate, async (req: AuthRequest, res:
 
     // Ensure we always return JSON, even on unexpected errors
     if (!res.headersSent) {
-      res.status(500).json({
+      const statusCode = error?.statusCode || (error?.message?.includes('not found') ? 404 : 500);
+      res.status(statusCode).json({
         success: false,
         error: error?.message || 'Failed to create payment plan',
         details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
@@ -3387,31 +3464,118 @@ router.get('/dealer-ledger/:dealerId/balance', authenticate, async (req: AuthReq
 // -------------------- Enhanced Payment Plans (Multiple Types Support) --------------------
 // NOTE: The /payment-plans/create route has been moved above to fix route matching order
 
-// Update payment plan - DISABLED: Payment plans cannot be updated after creation
+// Update payment plan - Allows updating installments (amount, dueDate, paymentMode, notes)
 router.put('/payment-plans/update/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
+    const { installments, downPayment, notes } = req.body;
 
     const paymentPlan = await prisma.paymentPlan.findUnique({
       where: { id },
-      include: { installments: { where: { isDeleted: false } }, deal: true },
+      include: { 
+        installments: { where: { isDeleted: false }, orderBy: { installmentNumber: 'asc' } }, 
+        deal: true 
+      },
     });
 
     if (!paymentPlan) {
-      return res.status(404).json({ success: false, error: 'Payment plan not found' });
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Payment plan not found',
+        field: 'id',
+      });
     }
 
-    // Prevent updates after creation
-    return res.status(400).json({
-      success: false,
-      error: 'Payment plan cannot be updated after creation. Please create a new payment plan if changes are needed.'
+    // Validate installments if provided
+    if (installments && Array.isArray(installments)) {
+      const installmentErrors: string[] = [];
+      
+      installments.forEach((inst: any, index: number) => {
+        if (!inst.id) {
+          installmentErrors.push(`Installment ${index + 1}: id is required for updates`);
+        }
+        if (inst.amount !== undefined && (typeof inst.amount !== 'number' || inst.amount <= 0)) {
+          installmentErrors.push(`Installment ${index + 1}: amount must be a positive number`);
+        }
+        if (inst.dueDate !== undefined && inst.dueDate !== null) {
+          const dueDate = new Date(inst.dueDate);
+          if (isNaN(dueDate.getTime())) {
+            installmentErrors.push(`Installment ${index + 1}: dueDate must be a valid date`);
+          }
+        }
+        if (inst.paymentMode !== undefined && inst.paymentMode !== null && typeof inst.paymentMode !== 'string') {
+          installmentErrors.push(`Installment ${index + 1}: paymentMode must be a string or null`);
+        }
+        if (inst.notes !== undefined && inst.notes !== null && typeof inst.notes !== 'string') {
+          installmentErrors.push(`Installment ${index + 1}: notes must be a string or null`);
+        }
+      });
+
+      if (installmentErrors.length > 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid installment data',
+          details: installmentErrors,
+          field: 'installments',
+        });
+      }
+
+      // Update installments using PaymentPlanService
+      const { PaymentPlanService } = await import('../services/payment-plan-service');
+      
+      for (const inst of installments) {
+        if (inst.id) {
+          try {
+            await PaymentPlanService.updateInstallment(inst.id, {
+              amount: inst.amount,
+              dueDate: inst.dueDate ? new Date(inst.dueDate) : undefined,
+              paymentMode: inst.paymentMode,
+              notes: inst.notes,
+            });
+          } catch (instError: any) {
+            logger.error(`Failed to update installment ${inst.id}:`, instError);
+            return res.status(400).json({
+              success: false,
+              error: `Failed to update installment: ${instError.message}`,
+              installmentId: inst.id,
+            });
+          }
+        }
+      }
+
+      // Recalculate payment plan totals
+      await PaymentPlanService.recalculatePaymentPlan(paymentPlan.dealId);
+    }
+
+    // Update payment plan notes if provided
+    if (notes !== undefined) {
+      await prisma.paymentPlan.update({
+        where: { id },
+        data: { notes: notes || null },
+      });
+    }
+
+    // Fetch updated payment plan
+    const updatedPlan = await prisma.paymentPlan.findUnique({
+      where: { id },
+      include: { 
+        installments: { where: { isDeleted: false }, orderBy: { installmentNumber: 'asc' } },
+        deal: true,
+      },
     });
+
+    res.json({ success: true, data: updatedPlan });
   } catch (error: any) {
     logger.error('Update payment plan error:', error);
-    res.status(500).json({
-      success: false,
-      error: error.message || 'Failed to update payment plan',
-    });
+    
+    if (!res.headersSent) {
+      const statusCode = error?.statusCode || 500;
+      res.status(statusCode).json({
+        success: false,
+        error: error?.message || 'Failed to update payment plan',
+        details: process.env.NODE_ENV === 'development' ? error?.stack : undefined,
+      });
+    }
   }
 });
 

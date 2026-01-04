@@ -29,6 +29,21 @@ import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { formatCurrency } from "@/lib/utils"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+  LineChart,
+  Line,
+} from "recharts"
 
 type ReportType = 'trial-balance' | 'balance-sheet' | 'profit-loss' | 'property-profitability' | 'escrow' | 'aging'
 
@@ -310,6 +325,30 @@ export function FinancialReportsView() {
                     </Alert>
                   )}
 
+                  {/* Trial Balance Chart */}
+                  {trialBalance.entries && trialBalance.entries.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="text-md font-semibold mb-4">Debit vs Credit Overview</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          {
+                            name: 'Totals',
+                            Debits: trialBalance.totals?.totalDebits ?? 0,
+                            Credits: trialBalance.totals?.totalCredits ?? 0,
+                          }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="Debits" fill="#8884d8" />
+                          <Bar dataKey="Credits" fill="#82ca9d" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
                   <ScrollArea className="h-[600px]">
                     <Table>
                       <TableHeader>
@@ -418,6 +457,44 @@ export function FinancialReportsView() {
                         Balance sheet is not balanced. Please review the entries.
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {/* Balance Sheet Chart */}
+                  {balanceSheet && (
+                    <div className="mt-6 mb-6">
+                      <h4 className="text-md font-semibold mb-4">Balance Sheet Overview</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: 'Assets', value: balanceSheet.assets?.total ?? 0 },
+                              { name: 'Liabilities', value: balanceSheet.liabilities?.total ?? 0 },
+                              { name: 'Equity', value: balanceSheet.equity?.total ?? 0 },
+                            ]}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={(entry: any) => {
+                              const percent = entry.percent ?? 0;
+                              return `${entry.name}: ${(percent * 100).toFixed(1)}%`;
+                            }}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                          >
+                            {[
+                              { name: 'Assets', value: balanceSheet.assets?.total ?? 0 },
+                              { name: 'Liabilities', value: balanceSheet.liabilities?.total ?? 0 },
+                              { name: 'Equity', value: balanceSheet.equity?.total ?? 0 },
+                            ].map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={index === 0 ? '#8884d8' : index === 1 ? '#82ca9d' : '#ffc658'} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
 
                   <div className="grid gap-6 md:grid-cols-2">
@@ -554,6 +631,50 @@ export function FinancialReportsView() {
                 </div>
               ) : profitLoss ? (
                 <div className="space-y-6">
+                  {/* P&L Chart */}
+                  <div className="mt-4">
+                    <h4 className="text-md font-semibold mb-4">Profit & Loss Overview</h4>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart data={[
+                        {
+                          name: 'Revenue',
+                          Amount: profitLoss.revenue?.total ?? 0,
+                        },
+                        {
+                          name: 'Expenses',
+                          Amount: -(profitLoss.expenses?.total ?? 0),
+                        },
+                        {
+                          name: 'Net Profit',
+                          Amount: profitLoss.netProfit ?? 0,
+                        },
+                      ]}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="name" />
+                        <YAxis />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Bar dataKey="Amount">
+                          {[
+                            {
+                              name: 'Revenue',
+                              Amount: profitLoss.revenue?.total ?? 0,
+                            },
+                            {
+                              name: 'Expenses',
+                              Amount: -(profitLoss.expenses?.total ?? 0),
+                            },
+                            {
+                              name: 'Net Profit',
+                              Amount: profitLoss.netProfit ?? 0,
+                            },
+                          ].map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.Amount >= 0 ? '#82ca9d' : '#ff7c7c'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+
                   {/* Revenue */}
                   <div>
                     <h3 className="text-lg font-semibold mb-3">REVENUE</h3>
@@ -687,53 +808,131 @@ export function FinancialReportsView() {
                 </div>
               ) : propertyProfitability ? (
                 <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">REVENUE</h3>
-                    <div className="space-y-2">
-                      {(propertyProfitability.revenue || []).map((entry: any, idx: number) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span>{entry.accountCode} - {entry.accountName}</span>
-                          <span className="font-medium">{formatCurrency(entry.balance)}</span>
+                  {/* Property Profitability Chart */}
+                  {Array.isArray(propertyProfitability) && propertyProfitability.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-md font-semibold mb-4">Property Profitability Comparison</h4>
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={propertyProfitability.map((p: any) => ({
+                          name: p.propertyName?.substring(0, 20) || 'Unknown',
+                          Revenue: p.revenue ?? 0,
+                          Expenses: p.expenses ?? 0,
+                          'Net Profit': p.netProfit ?? 0,
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                          <YAxis />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="Revenue" fill="#82ca9d" />
+                          <Bar dataKey="Expenses" fill="#ff7c7c" />
+                          <Bar dataKey="Net Profit" fill="#8884d8" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  
+                  {/* Property Details - show first property or all if array */}
+                  {Array.isArray(propertyProfitability) ? (
+                    propertyProfitability.map((profit: any, idx: number) => (
+                      <div key={idx} className="border rounded-lg p-4">
+                        <h3 className="text-lg font-semibold mb-3">{profit.propertyName}</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <h4 className="font-medium mb-2">Revenue Breakdown</h4>
+                            <div className="space-y-1">
+                              {(profit.revenueBreakdown || []).map((entry: any, eIdx: number) => (
+                                <div key={eIdx} className="flex justify-between text-sm">
+                                  <span>{entry.accountCode} - {entry.accountName}</span>
+                                  <span className="font-medium">{formatCurrency(entry.amount)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-bold border-t pt-1 mt-1">
+                                <span>Total Revenue</span>
+                                <span className="text-green-600">{formatCurrency(profit.revenue ?? 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div>
+                            <h4 className="font-medium mb-2">Expense Breakdown</h4>
+                            <div className="space-y-1">
+                              {(profit.expenseBreakdown || []).map((entry: any, eIdx: number) => (
+                                <div key={eIdx} className="flex justify-between text-sm">
+                                  <span>{entry.accountCode} - {entry.accountName}</span>
+                                  <span className="font-medium">{formatCurrency(entry.amount)}</span>
+                                </div>
+                              ))}
+                              <div className="flex justify-between font-bold border-t pt-1 mt-1">
+                                <span>Total Expenses</span>
+                                <span className="text-red-600">{formatCurrency(profit.expenses ?? 0)}</span>
+                              </div>
+                            </div>
+                          </div>
+                          <div className="border-t pt-2">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold">Net Profit</span>
+                              <span className={`text-lg font-bold ${profit.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {formatCurrency(profit.netProfit ?? 0)}
+                              </span>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              Profit Margin: {(profit.profitMargin ?? 0).toFixed(2)}%
+                            </div>
+                          </div>
                         </div>
-                      ))}
-                      <div className="flex justify-between font-bold border-t pt-2 mt-2">
-                        <span>Total Revenue</span>
-                        <span className="text-green-600">
-                          {formatCurrency((propertyProfitability.revenue || []).reduce((sum: number, e: any) => sum + e.balance, 0))}
-                        </span>
                       </div>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-3">EXPENSES</h3>
-                    <div className="space-y-2">
-                      {(propertyProfitability.expenses || []).map((entry: any, idx: number) => (
-                        <div key={idx} className="flex justify-between text-sm">
-                          <span>{entry.accountCode} - {entry.accountName}</span>
-                          <span className="font-medium">{formatCurrency(Math.abs(entry.balance))}</span>
+                    ))
+                  ) : (
+                    <>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">REVENUE</h3>
+                        <div className="space-y-2">
+                          {(propertyProfitability.revenue || []).map((entry: any, idx: number) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span>{entry.accountCode} - {entry.accountName}</span>
+                              <span className="font-medium">{formatCurrency(entry.balance)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between font-bold border-t pt-2 mt-2">
+                            <span>Total Revenue</span>
+                            <span className="text-green-600">
+                              {formatCurrency((propertyProfitability.revenue || []).reduce((sum: number, e: any) => sum + e.balance, 0))}
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                      <div className="flex justify-between font-bold border-t pt-2 mt-2">
-                        <span>Total Expenses</span>
-                        <span className="text-red-600">
-                          {formatCurrency((propertyProfitability.expenses || []).reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
-                        </span>
                       </div>
-                    </div>
-                  </div>
 
-                  <div className="border-t pt-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg font-bold">Net Profit</span>
-                      <span className={`text-xl font-bold ${propertyProfitability.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {formatCurrency(propertyProfitability.netProfit)}
-                      </span>
-                    </div>
-                    <div className="text-sm text-muted-foreground mt-2">
-                      Profit Margin: {(propertyProfitability.profitMargin ?? 0).toFixed(2)}%
-                    </div>
-                  </div>
+                      <div>
+                        <h3 className="text-lg font-semibold mb-3">EXPENSES</h3>
+                        <div className="space-y-2">
+                          {(propertyProfitability.expenses || []).map((entry: any, idx: number) => (
+                            <div key={idx} className="flex justify-between text-sm">
+                              <span>{entry.accountCode} - {entry.accountName}</span>
+                              <span className="font-medium">{formatCurrency(Math.abs(entry.balance))}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between font-bold border-t pt-2 mt-2">
+                            <span>Total Expenses</span>
+                            <span className="text-red-600">
+                              {formatCurrency((propertyProfitability.expenses || []).reduce((sum: number, e: any) => sum + Math.abs(e.balance), 0))}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="border-t pt-4">
+                        <div className="flex justify-between items-center">
+                          <span className="text-lg font-bold">Net Profit</span>
+                          <span className={`text-xl font-bold ${propertyProfitability.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {formatCurrency(propertyProfitability.netProfit)}
+                          </span>
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-2">
+                          Profit Margin: {(propertyProfitability.profitMargin ?? 0).toFixed(2)}%
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
@@ -805,6 +1004,30 @@ export function FinancialReportsView() {
                         )}
                       </AlertDescription>
                     </Alert>
+                  )}
+
+                  {/* Escrow Chart */}
+                  {escrow && (
+                    <div className="mt-4 mb-6">
+                      <h4 className="text-md font-semibold mb-4">Escrow Balance Comparison</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          {
+                            name: 'Escrow Balance',
+                            'Trust Assets': escrow.totalTrustAssets ?? 0,
+                            'Client Liabilities': escrow.totalClientLiabilities ?? 0,
+                          }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="Trust Assets" fill="#8884d8" />
+                          <Bar dataKey="Client Liabilities" fill="#82ca9d" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
                   )}
 
                   <div className="grid gap-6 md:grid-cols-2">
@@ -910,8 +1133,63 @@ export function FinancialReportsView() {
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               ) : aging ? (
-                <ScrollArea className="h-[600px]">
-                  <Table>
+                <>
+                  {/* Aging Chart */}
+                  {aging.entries && aging.entries.length > 0 && (
+                    <div className="mt-4 mb-6">
+                      <h4 className="text-md font-semibold mb-4">Aging Buckets Visualization</h4>
+                      <ResponsiveContainer width="100%" height={400}>
+                        <BarChart data={aging.entries.map((entry: any) => ({
+                          name: entry.accountName?.substring(0, 20) || entry.accountCode,
+                          '0-30 Days': entry.current ?? 0,
+                          '31-60 Days': entry.days31_60 ?? 0,
+                          '61-90 Days': entry.days61_90 ?? 0,
+                          '91+ Days': entry.days91_plus ?? 0,
+                        }))}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" angle={-45} textAnchor="end" height={100} />
+                          <YAxis />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="0-30 Days" stackId="a" fill="#82ca9d" />
+                          <Bar dataKey="31-60 Days" stackId="a" fill="#ffc658" />
+                          <Bar dataKey="61-90 Days" stackId="a" fill="#ff7c7c" />
+                          <Bar dataKey="91+ Days" stackId="a" fill="#d73027" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+                  
+                  {/* Totals Chart */}
+                  {aging.totals && (
+                    <div className="mb-6">
+                      <h4 className="text-md font-semibold mb-4">Total Aging Summary</h4>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={[
+                          {
+                            name: 'Totals',
+                            '0-30 Days': aging.totals.current ?? 0,
+                            '31-60 Days': aging.totals.days31_60 ?? 0,
+                            '61-90 Days': aging.totals.days61_90 ?? 0,
+                            '91+ Days': aging.totals.days91_plus ?? 0,
+                          }
+                        ]}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="name" />
+                          <YAxis />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                          <Bar dataKey="0-30 Days" fill="#82ca9d" />
+                          <Bar dataKey="31-60 Days" fill="#ffc658" />
+                          <Bar dataKey="61-90 Days" fill="#ff7c7c" />
+                          <Bar dataKey="91+ Days" fill="#d73027" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  )}
+
+                  <ScrollArea className="h-[600px]">
+                    <Table>
                     <TableHeader>
                       <TableRow>
                         <TableHead>Account Code</TableHead>
@@ -946,6 +1224,7 @@ export function FinancialReportsView() {
                     </TableBody>
                   </Table>
                 </ScrollArea>
+                </>
               ) : (
                 <div className="text-center py-12 text-muted-foreground">
                   Select type and date to generate report

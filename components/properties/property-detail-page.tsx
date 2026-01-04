@@ -847,14 +847,24 @@ export function PropertyDetailPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
             {attachments.map((attachment, idx) => {
               const isImage = attachment.fileType?.startsWith('image/')
-              // Use generic centralized file routes
-              const trackingId = String(propertyId)
-              const entity = 'properties'
-              
-              // Only construct the URL if we have a valid filename
+              // Construct URL from fileUrl stored in database
+              // fileUrl format: /secure-files/properties/{entityId}/{filename}
               let imageUrl = ''
-              if (attachment.fileName) {
-                 imageUrl = apiService.files.getViewUrl(entity, trackingId, attachment.fileName)
+              if (attachment.fileUrl) {
+                // If fileUrl is already a full URL, use it
+                if (attachment.fileUrl.startsWith('http://') || attachment.fileUrl.startsWith('https://')) {
+                  imageUrl = attachment.fileUrl
+                } else {
+                  // Construct full URL from relative path
+                  const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+                  const cleanPath = attachment.fileUrl.replace(/^\/api/, '')
+                  imageUrl = `${baseUrl.replace(/\/api\/?$/, '')}/api${cleanPath}`
+                }
+              } else if (attachment.fileName) {
+                // Fallback: use old format if fileUrl is missing
+                const trackingId = String(propertyId)
+                const entity = 'properties'
+                imageUrl = apiService.files.getViewUrl(entity, trackingId, attachment.fileName)
               }
 
               const handleViewDocument = () => {

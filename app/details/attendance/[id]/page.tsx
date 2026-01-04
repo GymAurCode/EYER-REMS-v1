@@ -37,6 +37,7 @@ export default function AttendanceDetailPage() {
         const formattedRecord = {
           id: attendanceData.id,
           employee: attendanceData.employee?.name || "-",
+          tid: attendanceData.employee?.tid || null,
           department: attendanceData.employee?.department || "-",
           date: attendanceData.date,
           checkIn: attendanceData.checkIn 
@@ -144,7 +145,15 @@ export default function AttendanceDetailPage() {
                 </div>
                 <div>
                   <h2 className="text-2xl font-bold text-foreground">{record.employee}</h2>
-                  <p className="text-muted-foreground">{record.department}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-muted-foreground">{record.department}</p>
+                    {record.tid && (
+                      <>
+                        <span className="text-muted-foreground">•</span>
+                        <p className="text-muted-foreground font-mono text-xs">TID: {record.tid}</p>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <Badge className={getStatusColor(record.status)}>

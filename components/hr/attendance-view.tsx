@@ -159,6 +159,9 @@ export function AttendanceView() {
                   Employee
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  TID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -181,17 +184,17 @@ export function AttendanceView() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-destructive">{error}</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-destructive">{error}</td>
                 </tr>
               ) : filteredAttendance.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Calendar className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
                       <p className="text-sm font-medium text-foreground mb-1">
@@ -213,6 +216,7 @@ export function AttendanceView() {
                   onClick={() => router.push(`/details/attendance/${record.id}`)}
                 >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">{record.employee}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">{record.tid || "-"}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{record.department}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {record.date ? new Date(record.date).toLocaleDateString() : "-"}

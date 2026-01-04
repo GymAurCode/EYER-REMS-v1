@@ -178,18 +178,45 @@ export function SubsidiaryManager() {
         formData.append('locationId', selectedLocationId)
         formData.append('options', JSON.stringify(validOptions))
 
-        // Use FormData for file upload
+        // Get CSRF token and session ID from sessionStorage
+        const csrfToken = sessionStorage.getItem('csrfToken')
+        const sessionId = sessionStorage.getItem('sessionId')
+        const deviceId = sessionStorage.getItem('deviceId')
+
+        // Validate CSRF token exists before upload
+        if (!csrfToken || !sessionId) {
+          toast({
+            title: "CSRF token missing",
+            description: "Please refresh the page and try again",
+            variant: "destructive",
+          })
+          setBusy(false)
+          return
+        }
+
+        // Use FormData for file upload with CSRF headers
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+            ...(sessionId && { 'X-Session-Id': sessionId }),
+            ...(deviceId && { 'X-Device-Id': deviceId }),
           },
+          credentials: 'include', // Include cookies for session
           body: formData,
         })
 
         if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to create subsidiary')
+          const error = await response.json().catch(() => ({ error: 'Failed to create subsidiary' }))
+          const errorMessage = error?.error || error?.message || 'Failed to create subsidiary'
+          
+          // If CSRF error, provide helpful message
+          if (response.status === 403 && (errorMessage.includes('CSRF') || errorMessage.includes('Session ID'))) {
+            throw new Error('CSRF protection failed. Please refresh the page and try again.')
+          }
+          
+          throw new Error(errorMessage)
         }
 
         const result = await response.json()
@@ -269,17 +296,44 @@ export function SubsidiaryManager() {
         formData.append('logo', editingLogoFile)
         formData.append('options', JSON.stringify(validOptions))
 
+        // Get CSRF token and session ID from sessionStorage
+        const csrfToken = sessionStorage.getItem('csrfToken')
+        const sessionId = sessionStorage.getItem('sessionId')
+        const deviceId = sessionStorage.getItem('deviceId')
+
+        // Validate CSRF token exists before upload
+        if (!csrfToken || !sessionId) {
+          toast({
+            title: "CSRF token missing",
+            description: "Please refresh the page and try again",
+            variant: "destructive",
+          })
+          setBusy(false)
+          return
+        }
+
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries/${editingId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            ...(csrfToken && { 'X-CSRF-Token': csrfToken }),
+            ...(sessionId && { 'X-Session-Id': sessionId }),
+            ...(deviceId && { 'X-Device-Id': deviceId }),
           },
+          credentials: 'include', // Include cookies for session
           body: formData,
         })
 
         if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.error || 'Failed to update subsidiary')
+          const error = await response.json().catch(() => ({ error: 'Failed to update subsidiary' }))
+          const errorMessage = error?.error || error?.message || 'Failed to update subsidiary'
+          
+          // If CSRF error, provide helpful message
+          if (response.status === 403 && (errorMessage.includes('CSRF') || errorMessage.includes('Session ID'))) {
+            throw new Error('CSRF protection failed. Please refresh the page and try again.')
+          }
+          
+          throw new Error(errorMessage)
         }
 
         toast({ title: "Subsidiary updated successfully" })

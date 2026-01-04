@@ -46,7 +46,7 @@ export function getPropertyImageUrl(propertyId: string | number, imageUrl?: stri
 
 /**
  * Get image URL for display in img src
- * Falls back to property image endpoint if imageUrl is not a full URL
+ * Constructs proper URL for secure-files endpoint
  */
 export function getPropertyImageSrc(propertyId: string | number, imageUrl?: string | null): string {
   if (!imageUrl) {
@@ -63,7 +63,21 @@ export function getPropertyImageSrc(propertyId: string | number, imageUrl?: stri
     return imageUrl
   }
 
-  // For all other paths, use the property image endpoint
+  // Handle secure-files paths: /secure-files/properties/{entityId}/{filename}
+  if (imageUrl.startsWith('/secure-files/')) {
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '')
+    // Remove /api prefix if present, then add it back
+    const cleanPath = imageUrl.replace(/^\/api/, '')
+    return `${baseUrl}/api${cleanPath}`
+  }
+
+  // Legacy /uploads paths
+  if (imageUrl.startsWith('/uploads/')) {
+    const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '')
+    return `${baseUrl}${imageUrl}`
+  }
+
+  // For all other paths, use the property image endpoint (handles various formats)
   const baseUrl = API_BASE_URL.replace(/\/api\/?$/, '')
   let url = `${baseUrl}/api/properties/${propertyId}/image`
 

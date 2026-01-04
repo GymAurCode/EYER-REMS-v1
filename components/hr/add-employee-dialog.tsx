@@ -166,15 +166,33 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
   }
 
   const fetchDepartments = async () => {
-    // TODO: Implement department API endpoint
-    // For now, using hardcoded list
-    setDepartments([
-      { code: "DEPT001", name: "Property Management" },
-      { code: "DEPT002", name: "Maintenance" },
-      { code: "DEPT003", name: "Sales" },
-      { code: "DEPT004", name: "Finance" },
-      { code: "DEPT005", name: "Human Resources" },
-    ])
+    try {
+      // Fetch departments from Advanced Options
+      const response = await apiService.advanced.getDropdownByKey('employee.hr.department')
+      const responseData = response.data as any
+      const options = responseData?.options || responseData?.data?.options || []
+      
+      if (options.length === 0) {
+        // Fallback: Show warning if no departments configured
+        console.warn('No departments found in Advanced Options. Please configure departments in Admin > Advanced Options.')
+        setDepartments([])
+        return
+      }
+      
+      // Map Advanced Options format to department format
+      const deptList = options
+        .filter((opt: any) => opt.isActive !== false)
+        .map((opt: any) => ({
+          code: opt.value || opt.id,
+          name: opt.label || opt.value,
+        }))
+      
+      setDepartments(deptList)
+    } catch (error) {
+      console.error('Failed to fetch departments from Advanced Options:', error)
+      // Show warning but don't block form
+      setDepartments([])
+    }
   }
 
   const handleFileUpload = async (file: File, type: "cnic" | "profile") => {
@@ -230,7 +248,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
         profilePhotoUrl,
         position: formData.position,
         department: formData.department,
-        departmentCode: formData.departmentCode || null,
+        departmentCode: formData.departmentCode && formData.departmentCode.trim() ? formData.departmentCode.trim() : null,
         role: formData.role || null,
         employeeType: formData.employeeType,
         status: formData.status,
@@ -426,28 +444,52 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="department">Department <span className="text-destructive">*</span></Label>
-                  <Select
-                    value={formData.department}
-                    onValueChange={(value) => {
-                      const dept = departments.find((d) => d.name === value)
-                      setFormData({
-                        ...formData,
-                        department: value,
-                        departmentCode: dept?.code || "",
-                      })
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select department" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {departments.map((dept) => (
-                        <SelectItem key={dept.code} value={dept.name}>
-                          {dept.name} ({dept.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {departments.length === 0 ? (
+                    <div className="space-y-2">
+                      <Input
+                        id="department"
+                        placeholder="No departments configured"
+                        value={formData.department}
+                        onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                        disabled
+                        className="bg-muted"
+                      />
+                      <p className="text-xs text-destructive">
+                        ⚠️ No departments found. Please configure departments in Admin &gt; Advanced Options &gt; employee.hr.department
+                      </p>
+                    </div>
+                  ) : (
+                    <Select
+                      value={formData.department}
+                      onValueChange={(value) => {
+                        const dept = departments.find((d) => d.name === value)
+                        if (!dept) {
+                          toast({
+                            title: "Invalid Department",
+                            description: "Selected department is not valid. Please select from the list.",
+                            variant: "destructive",
+                          })
+                          return
+                        }
+                        setFormData({
+                          ...formData,
+                          department: value,
+                          departmentCode: dept.code,
+                        })
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select department" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {departments.map((dept) => (
+                          <SelectItem key={dept.code} value={dept.name}>
+                            {dept.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="role">Role</Label>

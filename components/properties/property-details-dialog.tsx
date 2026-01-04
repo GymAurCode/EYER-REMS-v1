@@ -555,9 +555,19 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
                 </div>
                 <div className="space-y-2">
                   {attachments.map((attachment, idx) => {
-                    const fileUrl = attachment.fileUrl.startsWith('http')
-                      ? attachment.fileUrl
-                      : `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}${attachment.fileUrl}`
+                    // Construct proper URL from fileUrl stored in database
+                    // fileUrl format: /secure-files/properties/{entityId}/{filename}
+                    let fileUrl = ''
+                    if (attachment.fileUrl) {
+                      if (attachment.fileUrl.startsWith('http://') || attachment.fileUrl.startsWith('https://')) {
+                        fileUrl = attachment.fileUrl
+                      } else {
+                        // Construct full URL from relative path
+                        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+                        const cleanPath = attachment.fileUrl.replace(/^\/api/, '')
+                        fileUrl = `${baseUrl}/api${cleanPath}`
+                      }
+                    }
 
                     return (
                       <div key={attachment.id || idx} className="flex items-center gap-2 p-2 border rounded-md hover:bg-muted/50 transition-colors">

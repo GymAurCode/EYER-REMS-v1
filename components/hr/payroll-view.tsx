@@ -59,20 +59,20 @@ export function PayrollView() {
     ? payroll.reduce((sum, record) => sum + (record?.netPay || 0), 0)
     : 0
   const paidCount = Array.isArray(payroll)
-    ? payroll.filter((r) => r?.status === "paid").length
+    ? payroll.filter((r) => r?.status === "fully_paid").length
     : 0
   const paidAmount = Array.isArray(payroll)
     ? payroll
-        .filter((r) => r?.status === "paid")
+        .filter((r) => r?.status === "fully_paid")
         .reduce((sum, record) => sum + (record?.netPay || 0), 0)
     : 0
   const pendingCount = Array.isArray(payroll)
-    ? payroll.filter((r) => r?.status === "pending").length
+    ? payroll.filter((r) => r?.status === "created" || r?.status === "partially_paid").length
     : 0
   const pendingAmount = Array.isArray(payroll)
     ? payroll
-        .filter((r) => r?.status === "pending")
-        .reduce((sum, record) => sum + (record?.netPay || 0), 0)
+        .filter((r) => r?.status === "created" || r?.status === "partially_paid")
+        .reduce((sum, record) => sum + ((record as any)?.remainingBalance || record?.netPay || 0), 0)
     : 0
 
   // Get current month
@@ -138,7 +138,7 @@ export function PayrollView() {
 
         <Card
           className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
-          onClick={() => router.push("/details/payroll?status=paid")}
+          onClick={() => router.push("/details/payroll?status=fully_paid")}
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-success/10">
@@ -154,7 +154,7 @@ export function PayrollView() {
 
         <Card
           className="p-6 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
-          onClick={() => router.push("/details/payroll?status=pending")}
+          onClick={() => router.push("/details/payroll?status=partially_paid")}
         >
           <div className="flex items-center gap-3 mb-2">
             <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-warning/10">
@@ -179,6 +179,9 @@ export function PayrollView() {
                   Employee
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                  TID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Department
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
@@ -201,17 +204,17 @@ export function PayrollView() {
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center text-destructive">{error}</td>
+                  <td colSpan={8} className="px-6 py-12 text-center text-destructive">{error}</td>
                 </tr>
               ) : filteredPayroll.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-6 py-12 text-center">
+                  <td colSpan={8} className="px-6 py-12 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <DollarSign className="h-12 w-12 text-muted-foreground mb-4 opacity-50" />
                       <p className="text-sm font-medium text-foreground mb-1">
@@ -244,6 +247,7 @@ export function PayrollView() {
                       <p className="text-xs text-muted-foreground">{record.employeeId}</p>
                     </div>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground font-mono">{record.tid || "-"}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">{record.department}</td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
                     Rs {(record.baseSalary || 0).toLocaleString("en-PK")}
@@ -260,10 +264,15 @@ export function PayrollView() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Badge
                       variant={
-                        record.status === "paid" ? "default" : record.status === "processing" ? "secondary" : "outline"
+                        record.status === "fully_paid" 
+                          ? "default" 
+                          : record.status === "partially_paid"
+                            ? "secondary"
+                            : "outline"
                       }
+                      className="capitalize"
                     >
-                      {record.status}
+                      {record.status === "fully_paid" ? "Fully Paid" : record.status === "partially_paid" ? "Partially Paid" : "Created"}
                     </Badge>
                   </td>
                 </tr>

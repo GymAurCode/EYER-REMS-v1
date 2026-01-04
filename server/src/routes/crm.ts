@@ -996,9 +996,28 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
             phone: true,
             clientCode: true,
             status: true,
+            tid: true,
           },
         },
-        dealer: true,
+        dealer: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
+            company: true,
+            tid: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            name: true,
+            tid: true,
+            address: true,
+            city: true,
+          },
+        },
         paymentPlan: {
           include: {
             installments: {
@@ -1010,11 +1029,123 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
         payments: {
           where: { deletedAt: null },
           orderBy: { date: 'desc' },
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                username: true,
+                email: true,
+              },
+            },
+          },
+        },
+        ledgerEntries: {
+          where: { deletedAt: null },
+          orderBy: { date: 'desc' },
+          take: 20,
         },
       },
     });
-    if (!deal) return res.status(404).json({ error: 'Deal not found' });
-    res.json(deal);
+    
+    if (!deal) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Deal not found' 
+      });
+    }
+
+    // Get attachments from Attachment table
+    const attachments = await prisma.attachment.findMany({
+      where: {
+        entityType: 'deal',
+        entityId: deal.id,
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        property: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    // Calculate financial summary
+    const payments = deal.payments || [];
+    const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+    const dealAmount = deal.dealAmount || 0;
+    const remainingBalance = Math.max(0, dealAmount - totalPaid);
+    const completionPercentage = dealAmount > 0 ? (totalPaid / dealAmount) * 100 : 0;
+
+    // Payment plan summary
+    let paymentPlanSummary = null;
+    if (deal.paymentPlan) {
+      const plan = deal.paymentPlan;
+      const totalExpected = plan.totalExpected || plan.totalAmount || 0;
+      const totalPaidPlan = plan.totalPaid || 0;
+      const remainingPlan = plan.remaining || (totalExpected - totalPaidPlan);
+      const installments = plan.installments || [];
+      const paidInstallments = installments.filter((i: any) => i.status === 'paid' || i.status === 'Paid').length;
+      const pendingInstallments = installments.filter((i: any) => i.status === 'pending' || i.status === 'Pending' || i.status === 'unpaid').length;
+      const overdueInstallments = installments.filter((i: any) => {
+        if (i.status === 'overdue' || i.status === 'Overdue') return true;
+        if (i.status === 'pending' || i.status === 'Pending' || i.status === 'unpaid') {
+          return new Date(i.dueDate) < new Date();
+        }
+        return false;
+      }).length;
+
+      paymentPlanSummary = {
+        id: plan.id,
+        totalExpected,
+        totalPaid: totalPaidPlan,
+        remaining: remainingPlan,
+        status: plan.status || 'Pending',
+        numberOfInstallments: plan.numberOfInstallments || installments.length,
+        paidInstallments,
+        pendingInstallments,
+        overdueInstallments,
+        downPayment: plan.downPayment || 0,
+        startDate: plan.startDate,
+        installments: installments.map((i: any) => ({
+          id: i.id,
+          installmentNumber: i.installmentNumber,
+          amount: i.amount,
+          dueDate: i.dueDate,
+          paidDate: i.paidDate,
+          status: i.status,
+          paidAmount: i.paidAmount || 0,
+          remaining: i.remaining || 0,
+          paymentMode: i.paymentMode,
+          notes: i.notes,
+        })),
+      };
+    }
+
+    // Financial summary
+    const financialSummary = {
+      dealAmount,
+      totalPaid,
+      remainingBalance,
+      completionPercentage: Math.min(100, Math.max(0, completionPercentage)),
+      isCompleted: remainingBalance <= 0.01,
+      commissionRate: deal.commissionRate || 0,
+      commissionAmount: deal.commissionAmount || 0,
+      totalPayments: payments.length,
+      lastPaymentDate: payments.length > 0 ? payments[0].date : null,
+    };
+
+    res.json({
+      success: true,
+      data: {
+        ...deal,
+        attachments,
+        financialSummary,
+        paymentPlanSummary,
+      },
+    });
   } catch (error: any) {
     logger.error('Get deal error:', error);
     return errorResponse(res, error);

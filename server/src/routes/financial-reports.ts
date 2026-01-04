@@ -128,28 +128,88 @@ router.get('/property-profitability', authenticate, async (req: AuthRequest, res
   try {
     const { propertyId, startDate, endDate } = req.query;
 
-    const start = startDate ? new Date(startDate as string) : undefined;
-    const end = endDate ? new Date(endDate as string) : undefined;
+    // Validate date inputs
+    let start: Date | undefined;
+    let end: Date | undefined;
+    
+    if (startDate) {
+      start = new Date(startDate as string);
+      if (Number.isNaN(start.getTime())) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid start date format',
+          message: 'Start date must be a valid date string',
+        });
+      }
+    }
 
+    if (endDate) {
+      end = new Date(endDate as string);
+      if (Number.isNaN(end.getTime())) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid end date format',
+          message: 'End date must be a valid date string',
+        });
+      }
+    }
+
+    // Validate date range
+    if (start && end && start > end) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid date range',
+        message: 'Start date must be before or equal to end date',
+      });
+    }
+
+    // Validate property ID if provided
+    if (propertyId && typeof propertyId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid property ID',
+        message: 'Property ID must be a valid string',
+      });
+    }
+
+    // Generate profitability report
     const profitability = await FinancialReportingService.generatePropertyProfitability(
       propertyId as string | undefined,
       start,
       end
     );
 
+    // Validate that we have data
+    if (!profitability || (Array.isArray(profitability) && profitability.length === 0)) {
+      return res.status(404).json({
+        success: false,
+        error: 'No profitability data found',
+        message: propertyId 
+          ? `No profitability data found for property ${propertyId} in the specified date range`
+          : 'No profitability data found in the specified date range',
+        data: [],
+      });
+    }
+
     return successResponse(res, profitability);
   } catch (error) {
     logger.error('Generate property profitability error:', error);
     const message = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check for specific error types
     if (typeof message === 'string' && message.startsWith('INVALID_PROPERTY_DIMENSION')) {
       const parts = message.split(':');
       const count = parts[1] ? Number(parts[1]) : undefined;
       return res.status(422).json({
+        success: false,
         error: 'Invalid transactions: revenue/expense without property',
+        message: 'Some transactions are missing property associations',
         details: { count },
       });
     }
+    
     res.status(500).json({
+      success: false,
       error: 'Failed to generate property profitability report',
       message,
     });
@@ -325,15 +385,65 @@ router.get('/profit-loss/export', authenticate, async (req: AuthRequest, res: Re
 router.get('/property-profitability/export', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { propertyId, startDate, endDate, format = 'pdf' } = req.query;
-    const start = startDate ? new Date(startDate as string) : undefined;
-    const end = endDate ? new Date(endDate as string) : undefined;
 
+    // Validate date inputs
+    let start: Date | undefined;
+    let end: Date | undefined;
+    
+    if (startDate) {
+      start = new Date(startDate as string);
+      if (Number.isNaN(start.getTime())) {
+        return res.status(400).json({
+          error: 'Invalid start date format',
+          message: 'Start date must be a valid date string',
+        });
+      }
+    }
+
+    if (endDate) {
+      end = new Date(endDate as string);
+      if (Number.isNaN(end.getTime())) {
+        return res.status(400).json({
+          error: 'Invalid end date format',
+          message: 'End date must be a valid date string',
+        });
+      }
+    }
+
+    // Validate date range
+    if (start && end && start > end) {
+      return res.status(400).json({
+        error: 'Invalid date range',
+        message: 'Start date must be before or equal to end date',
+      });
+    }
+
+    // Validate property ID if provided
+    if (propertyId && typeof propertyId !== 'string') {
+      return res.status(400).json({
+        error: 'Invalid property ID',
+        message: 'Property ID must be a valid string',
+      });
+    }
+
+    // Generate profitability report
     const profitability = await FinancialReportingService.generatePropertyProfitability(
       propertyId as string | undefined,
       start,
       end
     );
 
+    // Validate that we have data
+    if (!profitability || (Array.isArray(profitability) && profitability.length === 0)) {
+      return res.status(404).json({
+        error: 'No profitability data found',
+        message: propertyId 
+          ? `No profitability data found for property ${propertyId} in the specified date range`
+          : 'No profitability data found in the specified date range',
+      });
+    }
+
+    // Generate export
     if (format === 'excel') {
       await generateReportExcel(profitability, 'property-profitability', res);
     } else {
@@ -341,9 +451,19 @@ router.get('/property-profitability/export', authenticate, async (req: AuthReque
     }
   } catch (error) {
     logger.error('Export property profitability error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    
+    // Check for specific error types
+    if (errorMessage.includes('INVALID_PROPERTY_DIMENSION')) {
+      return res.status(422).json({
+        error: 'Invalid transactions: revenue/expense without property',
+        message: 'Some transactions are missing property associations',
+      });
+    }
+
     res.status(500).json({
       error: 'Failed to export property profitability',
-      message: error instanceof Error ? error.message : 'Unknown error',
+      message: errorMessage,
     });
   }
 });

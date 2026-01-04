@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, Calendar, Loader2, Plus, RefreshCw } from "lucide-react"
+import { DollarSign, Calendar, Loader2, Plus, RefreshCw, Paperclip, Upload, File, Trash2, Download } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
@@ -22,19 +22,33 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [ledger, setLedger] = useState<any>(null)
+  const [dealer, setDealer] = useState<any>(null)
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [filter, setFilter] = useState<'all' | 'thisMonth'>('all')
+  const [uploading, setUploading] = useState(false)
   const [paymentForm, setPaymentForm] = useState({
     amount: "",
     paymentMode: "bank",
     description: "",
   })
 
+  const fetchDealer = useCallback(async () => {
+    if (!dealerId) return
+    try {
+      const response: any = await apiService.dealers.getById(dealerId)
+      const dealerData = (response.data as any)?.data || response.data || response
+      setDealer(dealerData)
+    } catch (error: any) {
+      console.error("Failed to fetch dealer:", error)
+    }
+  }, [dealerId])
+
   useEffect(() => {
     if (dealerId) {
       fetchLedger()
+      fetchDealer()
     }
-  }, [dealerId, filter])
+  }, [dealerId, filter, fetchDealer])
 
   const fetchLedger = async () => {
     try {
@@ -89,6 +103,74 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
         description: error.message || "Failed to record payment",
         variant: "destructive",
       })
+    }
+  }
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B"
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB"
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB"
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files || files.length === 0 || !dealerId || !dealer) return
+
+    setUploading(true)
+    try {
+      const newAttachments: any[] = []
+
+      for (const file of Array.from(files)) {
+        const reader = new FileReader()
+        const base64: string = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string)
+          reader.onerror = reject
+          reader.readAsDataURL(file)
+        })
+
+        newAttachments.push({
+          name: file.name,
+          url: base64,
+          type: file.type,
+          size: file.size,
+        })
+      }
+
+      const existingFiles = dealer?.attachments?.files || []
+      const updatedAttachments = {
+        notes: dealer?.attachments?.notes || "",
+        files: [...existingFiles, ...newAttachments]
+      }
+
+      await apiService.dealers.update(dealerId, { attachments: updatedAttachments })
+      toast({ title: `${newAttachments.length} file(s) uploaded successfully` })
+      fetchDealer()
+    } catch (err: any) {
+      console.error("Failed to upload file:", err)
+      toast({ title: "Failed to upload file", variant: "destructive" })
+    } finally {
+      setUploading(false)
+      e.target.value = ""
+    }
+  }
+
+  const handleRemoveAttachment = async (index: number) => {
+    if (!dealerId || !dealer) return
+
+    try {
+      const existingFiles = dealer?.attachments?.files || []
+      const updatedFiles = existingFiles.filter((_: any, i: number) => i !== index)
+      const updatedAttachments = {
+        notes: dealer?.attachments?.notes || "",
+        files: updatedFiles
+      }
+
+      await apiService.dealers.update(dealerId, { attachments: updatedAttachments })
+      toast({ title: "Attachment removed" })
+      fetchDealer()
+    } catch (err: any) {
+      console.error("Failed to remove attachment:", err)
+      toast({ title: "Failed to remove attachment", variant: "destructive" })
     }
   }
 
@@ -213,6 +295,100 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
               </Button>
             </div>
           </div>
+        </Card>
+      )}
+
+      {/* Attachments Section */}
+      {dealer && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold flex items-center gap-2">
+              <Paperclip className="h-5 w-5" />
+              Attachments
+            </h3>
+            <div>
+              <input
+                type="file"
+                multiple
+                onChange={handleFileUpload}
+                className="hidden"
+                id="dealer-attachment-upload"
+                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.xls,.xlsx"
+              />
+              <label htmlFor="dealer-attachment-upload">
+                <Button asChild disabled={uploading} size="sm">
+                  <span className="cursor-pointer">
+                    {uploading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Attachment
+                      </>
+                    )}
+                  </span>
+                </Button>
+              </label>
+            </div>
+          </div>
+
+          {dealer?.attachments?.files && dealer.attachments.files.length > 0 ? (
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+              {dealer.attachments.files.map((attachment: any, index: number) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-4 border rounded-lg bg-muted/30 hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <File className="h-8 w-8 text-primary shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{attachment.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {attachment.size ? formatFileSize(attachment.size) : ""}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {attachment.url && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (attachment.url.startsWith('data:')) {
+                            const link = document.createElement('a')
+                            link.href = attachment.url
+                            link.download = attachment.name
+                            document.body.appendChild(link)
+                            link.click()
+                            document.body.removeChild(link)
+                          } else {
+                            window.open(attachment.url, '_blank')
+                          }
+                        }}
+                      >
+                        <Download className="h-4 w-4" />
+                      </Button>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveAttachment(index)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
+              <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+              <p className="text-sm text-muted-foreground mb-2">No attachments uploaded for this dealer.</p>
+            </div>
+          )}
         </Card>
       )}
 
