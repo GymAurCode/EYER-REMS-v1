@@ -37,7 +37,7 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       select: {
         id: true,
         employeeId: true,
-        tid: true,
+        trackingId: true,
         name: true,
         email: true,
         phone: true,
@@ -134,7 +134,7 @@ const employeeSchema = z.object({
   phone: z.string().optional().nullable(),
   position: z.string().min(1, "Position is required"),
   department: z.string().min(1, "Department is required"),
-  departmentCode: z.string().optional().nullable().transform((val) => val && val.trim() ? val.trim() : null),
+  departmentCode: z.string().min(1, "Department code is required").transform((val) => val.trim()),
   role: z.string().optional().nullable(),
   employeeType: z.string().default('full-time'),
   status: z.string().default('active'),
@@ -168,6 +168,7 @@ const employeeSchema = z.object({
   shiftTimings: z.string().optional().nullable(),
   education: z.any().optional().nullable(),
   experience: z.any().optional().nullable(),
+  trackingId: z.string().min(1, "Tracking ID is required"),
 });
 
 // Create employee
@@ -190,13 +191,26 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     const data = validation.data;
 
+    // Check if trackingId already exists
+    const existingTrackingId = await prisma.employee.findUnique({
+      where: { trackingId: data.trackingId },
+    });
+
+    if (existingTrackingId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Tracking ID already exists',
+        details: [{ path: 'trackingId', message: `Tracking ID "${data.trackingId}" is already assigned to another employee.` }],
+      });
+    }
+
     // Generate employee ID using atomic sequence
     // Format: EMP0001
     const empSeq = await generateSequenceNumber('EMP');
     const employeeId = `EMP${empSeq.toString().padStart(4, '0')}`;
 
-    // Generate TID on backend (never trust frontend for TID)
-    const tid = await generateSystemId('emp');
+    // Use provided trackingId as tid as well
+    const tid = data.trackingId;
 
     // Auto-set joinDate if missing (use Prisma default)
     const joinDate = data.joinDate || new Date();
@@ -209,101 +223,75 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       probationEndDate = join;
     }
 
-    // Validate department against Advanced Options
-    // Department must exist in Advanced Options dropdown: employee.hr.department
-    let validDepartment: string | null = null;
-    let validDepartmentCode: string | null = null;
-    
-    if (data.department && data.department.trim()) {
+    // Validate department
+    // Department code is required and must exist in Department table
+    const departmentExists = await prisma.department.findUnique({
+      where: { code: data.departmentCode },
+    });
+
+    let validDepartment: any;
+    if (departmentExists) {
+      validDepartment = departmentExists;
+    } else {
+      // Create the department if it doesn't exist (auto-sync from frontend selection)
       try {
-        // Check if department exists in Advanced Options
-        const deptCategory = await prisma.dropdownCategory.findUnique({
-          where: { key: 'employee.hr.department' },
-          include: {
-            options: {
-              where: { isActive: true },
-            },
+        validDepartment = await prisma.department.create({
+          data: {
+            code: data.departmentCode,
+            name: data.department,
+            description: `Auto-created from employee creation`,
+            isActive: true,
           },
         });
-
-        if (deptCategory) {
-          // Find matching department by label or value
-          const matchingOption = deptCategory.options.find(
-            (opt) => opt.label === data.department.trim() || opt.value === data.department.trim()
-          );
-
-          if (matchingOption) {
-            validDepartment = matchingOption.label;
-            validDepartmentCode = matchingOption.value;
-          } else {
-            return res.status(400).json({
-              success: false,
-              error: 'Invalid department',
-              details: [{
-                path: 'department',
-                message: `Department "${data.department}" is not valid. Please select from configured departments in Advanced Options.`,
-              }],
-              hint: 'Configure departments in Admin > Advanced Options > employee.hr.department',
-            });
-          }
-        } else {
-          // Fallback: Allow if Advanced Options not configured yet (for migration)
-          console.warn('Department dropdown category "employee.hr.department" not found in Advanced Options. Allowing department value as-is.');
-          validDepartment = data.department.trim();
-          validDepartmentCode = data.departmentCode?.trim() || null;
-        }
-      } catch (err) {
-        console.error('Error validating department:', err);
+      } catch (createError: any) {
+        console.error('Failed to create department:', createError);
         return res.status(400).json({
           success: false,
-          error: 'Failed to validate department',
+          error: 'Department Creation Failed',
           details: [{
-            path: 'department',
-            message: 'Unable to validate department. Please ensure departments are configured in Advanced Options.',
+            path: 'departmentCode',
+            message: `Failed to create department "${data.department}". Please contact administrator.`,
           }],
         });
       }
-    } else {
-      return res.status(400).json({
-        success: false,
-        error: 'Department is required',
-        details: [{
-          path: 'department',
-          message: 'Department must be selected from the dropdown',
-        }],
-      });
     }
 
+    const validDepartmentCode = validDepartment.code;
+    const validDepartmentName = validDepartment.name;
+
+    // Validate Reporting Manager
     let validReportingManagerId: string | null = null;
     if (data.reportingManagerId && data.reportingManagerId.trim()) {
-      try {
-        // Check if manager exists and is not deleted
-        const manager = await prisma.employee.findFirst({
-          where: {
-            id: data.reportingManagerId.trim(),
-            isDeleted: false,
-          },
+      const manager = await prisma.employee.findUnique({
+        where: {
+          id: data.reportingManagerId.trim(),
+        },
+      });
+      
+      if (!manager || manager.isDeleted) {
+         return res.status(400).json({
+          success: false,
+          error: 'Invalid Reporting Manager',
+          details: [{
+            path: 'reportingManagerId',
+            message: `Reporting Manager with ID "${data.reportingManagerId}" not found.`,
+          }],
         });
-        if (manager) {
-          validReportingManagerId = data.reportingManagerId.trim();
-        } else {
-          console.warn(`Reporting manager with ID "${data.reportingManagerId}" not found, setting to null`);
-        }
-      } catch (err) {
-        console.warn('Error validating reporting manager ID:', err);
       }
+      validReportingManagerId = data.reportingManagerId.trim();
     }
 
     const employee = await prisma.employee.create({
       data: {
         employeeId,
         tid,
+        trackingId: data.trackingId,
         name: data.name,
         email: data.email,
         phone: data.phone,
         position: data.position,
-        department: validDepartment || data.department, // Use validated department
-        departmentCode: validDepartmentCode, // Use validated department code
+        department: validDepartmentName,
+        departmentCode: validDepartmentCode,
         role: data.role,
         employeeType: data.employeeType,
         status: data.status,
@@ -333,7 +321,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
         benefitsEligible: data.benefitsEligible,
         probationPeriod: data.probationPeriod,
         probationEndDate,
-        reportingManagerId: validReportingManagerId, // Only set if valid, otherwise null
+        reportingManagerId: validReportingManagerId,
         workLocation: data.workLocation,
         shiftTimings: data.shiftTimings,
         education: data.education,
@@ -348,6 +336,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   } catch (error: any) {
     console.error('Create employee error:', error);
     if (error.code === 'P2002') {
+       const target = error.meta?.target || [];
+       if (target.includes('trackingId')) {
+          return res.status(400).json({
+            success: false,
+            error: 'Tracking ID already exists',
+            details: [{ path: 'trackingId', message: 'Tracking ID must be unique' }]
+          });
+       }
       return res.status(400).json({
         success: false,
         error: 'Employee with this email or employee ID already exists',
@@ -358,7 +354,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       return res.status(400).json({
         success: false,
         error: 'Foreign key constraint failed',
-        details: [{ path: 'unknown', message: 'Check department code or reporting manager ID' }]
+        details: [{ path: 'unknown', message: `Database rejected reference: ${error.meta?.field_name || 'Check department or manager'}` }]
       });
     }
     res.status(500).json({
@@ -381,7 +377,7 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       bankAccountNumber, bankName, bankBranch, iban,
       insuranceEligible, benefitsEligible,
       probationPeriod, reportingManagerId, workLocation, shiftTimings,
-      education, experience
+      education, experience, trackingId
     } = req.body;
 
     const employee = await prisma.employee.findUnique({
@@ -402,6 +398,21 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
         return res.status(400).json({
           success: false,
           error: 'Invalid email format',
+        });
+      }
+    }
+
+    // Validate trackingId if provided and changed
+    if (trackingId !== undefined && trackingId !== null && trackingId !== employee.trackingId) {
+      const existingTrackingId = await prisma.employee.findUnique({
+        where: { trackingId },
+      });
+
+      if (existingTrackingId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Tracking ID already exists',
+          details: [{ path: 'trackingId', message: `Tracking ID "${trackingId}" is already assigned to another employee.` }],
         });
       }
     }
@@ -428,14 +439,18 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (departmentCode !== undefined) {
       // Validate department code if provided
       if (departmentCode && departmentCode.trim()) {
-        try {
-          const dept = await prisma.department.findUnique({
-            where: { code: departmentCode.trim() },
+        const dept = await prisma.department.findUnique({
+          where: { code: departmentCode.trim() },
+        });
+
+        if (!dept) {
+          return res.status(400).json({
+            success: false,
+            error: 'Department Code Not Found',
+            details: [{ path: 'departmentCode', message: `Department code "${departmentCode}" does not exist.` }],
           });
-          updateData.departmentCode = dept ? departmentCode.trim() : null;
-        } catch {
-          updateData.departmentCode = null;
         }
+        updateData.departmentCode = departmentCode.trim();
       } else {
         updateData.departmentCode = null;
       }
@@ -472,17 +487,21 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (reportingManagerId !== undefined) {
       // Validate reporting manager ID if provided
       if (reportingManagerId && reportingManagerId.trim()) {
-        try {
-          const manager = await prisma.employee.findFirst({
-            where: {
-              id: reportingManagerId.trim(),
-              isDeleted: false,
-            },
+        const manager = await prisma.employee.findFirst({
+          where: {
+            id: reportingManagerId.trim(),
+            isDeleted: false,
+          },
+        });
+        
+        if (!manager) {
+          return res.status(400).json({
+            success: false,
+            error: 'Invalid Reporting Manager',
+            details: [{ path: 'reportingManagerId', message: `Reporting Manager with ID "${reportingManagerId}" not found.` }],
           });
-          updateData.reportingManagerId = manager ? reportingManagerId.trim() : null;
-        } catch {
-          updateData.reportingManagerId = null;
         }
+        updateData.reportingManagerId = reportingManagerId.trim();
       } else {
         updateData.reportingManagerId = null;
       }
@@ -491,6 +510,9 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     if (shiftTimings !== undefined) updateData.shiftTimings = shiftTimings || null;
     if (education !== undefined) updateData.education = education || null;
     if (experience !== undefined) updateData.experience = experience || null;
+    if (trackingId !== undefined) {
+      updateData.trackingId = trackingId || null;
+    }
 
     const updatedEmployee = await prisma.employee.update({
       where: { id },

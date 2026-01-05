@@ -87,17 +87,38 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
     try {
       setLoading(true)
       const response: any = await apiService.deals?.getById?.(dealId)
-      const dealData = response?.data || response
-      setDeal(dealData)
+      
+      // Handle different response structures
+      let dealData = null
+      if (response?.data) {
+        // Check if response.data has a nested data property (backend returns { success: true, data: {...} })
+        if (response.data.data) {
+          dealData = response.data.data
+        } else if (response.data.success && response.data.data) {
+          dealData = response.data.data
+        } else {
+          dealData = response.data
+        }
+      } else if (response?.success && response?.data) {
+        dealData = response.data
+      } else {
+        dealData = response
+      }
 
-      // Load attachments after deal is loaded
-      // Use useEffect dependency to trigger loadAttachments when deal changes
+      // Validate deal data exists
+      if (!dealData || !dealData.id) {
+        throw new Error('Deal data is invalid or missing')
+      }
+
+      setDeal(dealData)
     } catch (error: any) {
+      console.error('Failed to load deal:', error)
       toast({
         title: "Error",
         description: error.message || "Failed to load deal",
         variant: "destructive",
       })
+      setDeal(null) // Clear deal state on error
     } finally {
       setLoading(false)
     }
@@ -113,7 +134,10 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">Loading deal details...</p>
+        </div>
       </div>
     )
   }
@@ -124,7 +148,17 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
         <Button variant="ghost" size="icon" onClick={() => router.back()}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="text-center py-12 text-destructive">Deal not found</div>
+        <div className="text-center py-12">
+          <p className="text-destructive text-lg font-semibold mb-2">Deal not found</p>
+          <p className="text-muted-foreground">The deal with ID "{dealId}" could not be loaded.</p>
+          <Button 
+            variant="outline" 
+            className="mt-4" 
+            onClick={() => loadDeal()}
+          >
+            Retry
+          </Button>
+        </div>
       </div>
     )
   }

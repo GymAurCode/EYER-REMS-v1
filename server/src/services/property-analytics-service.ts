@@ -42,6 +42,24 @@ export async function generatePropertyProfitabilityReport(
     // Group by property
     const propertyMap = new Map<string, PropertyProfitabilityReport>();
 
+    // If propertyId is provided, ensure we have an entry for it
+    if (propertyId) {
+        const property = await prisma.property.findUnique({
+            where: { id: propertyId },
+            select: { name: true },
+        });
+        if (property) {
+            propertyMap.set(propertyId, {
+                propertyId: propertyId,
+                propertyName: property.name,
+                totalIncome: 0,
+                totalExpenses: 0,
+                netProfit: 0,
+                transactionCount: 0,
+            });
+        }
+    }
+
     // Helper to get or create report entry
     const getReportEntry = (pId: string | null, pName: string) => {
         const key = pId || 'unassigned';

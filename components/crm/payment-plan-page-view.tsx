@@ -127,7 +127,39 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
         dealResponse = await fetchResponse.json()
       }
 
-      setDeal(dealResponse?.data || dealResponse)
+      // Handle different response structures - backend returns { success: true, data: {...} }
+      let dealData = null
+      if (dealResponse?.data) {
+        // Check if response.data has a nested data property
+        if (dealResponse.data.data) {
+          dealData = dealResponse.data.data
+        } else if (dealResponse.data.success && dealResponse.data.data) {
+          dealData = dealResponse.data.data
+        } else {
+          dealData = dealResponse.data
+        }
+      } else if (dealResponse?.success && dealResponse?.data) {
+        dealData = dealResponse.data
+      } else {
+        dealData = dealResponse
+      }
+
+      // Validate deal data exists and has required fields
+      if (!dealData || !dealData.id) {
+        throw new Error('Deal data is invalid or missing')
+      }
+
+      // Validate dealAmount exists
+      if (!dealData.dealAmount || dealData.dealAmount <= 0) {
+        console.warn('Deal amount is missing or invalid:', dealData.dealAmount)
+        toast({
+          title: "Warning",
+          description: "Deal amount is missing or invalid. Please update the deal before creating a payment plan.",
+          variant: "destructive",
+        })
+      }
+
+      setDeal(dealData)
 
       // Check if payment plan exists (for display only in view section, NOT for form editing)
       try {
@@ -704,94 +736,76 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     try {
       setGeneratingReport(true)
 
-      // Generate PDF report from backend
-      const response = await apiService.deals.getPaymentPlanPDF(dealId)
-
-      // Handle blob response properly
-      let blob: Blob | null = null
-      if (response.data instanceof Blob) {
-        // Check if it's an error JSON response (small size or JSON type)
-        if (response.data.type === 'application/json' || (response.data.size < 1000 && response.data.size > 0)) {
-          // Clone blob before reading to avoid consuming it
-          const clonedBlob = response.data.slice()
-          const text = await clonedBlob.text()
-          try {
-            const errorData = JSON.parse(text)
-            if (errorData.error) {
-              throw new Error(errorData.error)
+      // Prepare data for unified report
+      const reportData = {
+        title: "Payment Plan Report",
+        systemId: deal.dealCode ? `DEAL-${deal.dealCode}` : `DEAL-${deal.id}`,
+        generatedOn: new Date().toLocaleString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }),
+        sections: [
+          {
+            title: "Deal Information",
+            data: {
+              "Deal Title": deal.title || "N/A",
+              "Deal Code": deal.dealCode || "N/A",
+              "Client": deal.client?.name || "N/A",
+              "Total Amount": deal.dealAmount ? `Rs ${Number(deal.dealAmount).toLocaleString("en-IN")}` : "Rs 0",
+              "Status": deal.status || "N/A",
+              "Created": deal.createdAt ? new Date(deal.createdAt).toLocaleDateString() : "N/A"
             }
-            // If JSON parsed successfully but no error field, it's still an error (we expected PDF)
-            throw new Error('Received JSON response instead of PDF')
-          } catch (parseError: any) {
-            // If it's our error, re-throw it
-            if (parseError instanceof Error && parseError.message.includes('Received JSON')) {
-              throw parseError
+          },
+          {
+            title: "Payment Plan Summary",
+            data: {
+              "Total Amount": `Rs ${Number(finalSummary.totalAmount).toLocaleString("en-IN")}`,
+              "Total Paid": `Rs ${Number(finalSummary.paidAmount).toLocaleString("en-IN")}`,
+              "Outstanding": `Rs ${Number(finalSummary.remainingAmount).toLocaleString("en-IN")}`,
+              "Progress": `${finalSummary.progress.toFixed(1)}%`,
+              "Status": finalSummary.status
             }
-            // Not JSON or parsing failed, might be valid small PDF - use original blob
-            blob = response.data
-          }
-        } else {
-          blob = response.data
-        }
-      } else if (response.data instanceof ArrayBuffer) {
-        blob = new Blob([response.data], { type: 'application/pdf' })
-      } else if (typeof response.data === 'string') {
-        // Check if it's JSON error
-        if (response.data.trim().startsWith('{')) {
-          try {
-            const parsed = JSON.parse(response.data)
-            if (parsed.error) {
-              throw new Error(parsed.error)
-            }
-          } catch {
-            throw new Error('Invalid response from server')
-          }
-        }
-        // Not JSON, treat as base64 string
-        try {
-          const binaryString = atob(response.data)
-          const bytes = new Uint8Array(binaryString.length)
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i)
-          }
-          blob = new Blob([bytes], { type: 'application/pdf' })
-        } catch {
-          throw new Error('Failed to decode PDF data')
-        }
-      } else {
-        blob = new Blob([response.data as any], { type: 'application/pdf' })
+          },
+          ...(viewInstallments.length > 0 ? [{
+            title: "Installment Schedule",
+            tableData: viewInstallments.map(inst => ({
+              number: inst.installmentNumber,
+              type: inst.type || 'Custom',
+              amount: inst.amount || 0,
+              dueDate: inst.dueDate ? format(inst.dueDate, "PPP") : "N/A",
+              paidAmount: inst.paidAmount || 0,
+              remaining: (inst.amount || 0) - (inst.paidAmount || 0),
+              status: inst.status || 'Pending'
+            })),
+            tableColumns: [
+              { key: 'number', label: '#', type: 'number' as 'number' },
+              { key: 'type', label: 'Type' },
+              { key: 'amount', label: 'Amount', type: 'currency' as 'currency' },
+              { key: 'dueDate', label: 'Due Date', type: 'date' as 'date' },
+              { key: 'paidAmount', label: 'Paid', type: 'currency' as 'currency' },
+              { key: 'remaining', label: 'Remaining', type: 'currency' as 'currency' },
+              { key: 'status', label: 'Status' }
+            ]
+          }] : [])
+        ]
       }
 
-      // Verify blob is valid PDF
-      if (!blob) {
-        throw new Error('Failed to process PDF response')
-      }
-      if (blob.size === 0) {
-        throw new Error('Received empty PDF file')
-      }
-
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement("a")
-      a.href = url
-      a.download = `payment-plan-${deal.dealCode || deal.id}-${format(new Date(), "yyyy-MM-dd")}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      
-      // Clean up after a short delay
-      setTimeout(() => {
-        document.body.removeChild(a)
-        URL.revokeObjectURL(url)
-      }, 100)
+      // Open in new tab
+      const { openReportInNewTab } = await import("@/components/reports/report-utils")
+      openReportInNewTab(reportData)
 
       toast({
         title: "Success",
-        description: "PDF report downloaded successfully",
+        description: "Report opened in new tab",
       })
     } catch (error: any) {
-      console.error('PDF download error:', error)
+      console.error('Report generation error:', error)
       toast({
         title: "Error",
-        description: error?.response?.data?.error || error?.message || "Failed to download PDF report",
+        description: error?.response?.data?.error || error?.message || "Failed to generate report",
         variant: "destructive",
       })
     } finally {
@@ -974,10 +988,68 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
     status: apiSummary?.status || (totalPaidAmount > 0 ? 'Partially Paid' : 'Pending'),
   }
 
+  // Loading state
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">Loading deal and payment plan...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state - deal not loaded
+  if (!deal) {
+    return (
+      <div className="p-6">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="text-center py-12">
+          <p className="text-destructive text-lg font-semibold mb-2">Deal not found</p>
+          <p className="text-muted-foreground">The deal with ID "{dealId}" could not be loaded.</p>
+          <Button 
+            variant="outline" 
+            className="mt-4" 
+            onClick={() => loadDeal()}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Empty state - deal amount missing
+  if (!deal.dealAmount || deal.dealAmount <= 0) {
+    return (
+      <div className="p-6">
+        <Button variant="ghost" size="icon" onClick={() => router.back()}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="text-center py-12">
+          <p className="text-destructive text-lg font-semibold mb-2">Deal amount is missing</p>
+          <p className="text-muted-foreground">
+            The deal "{deal.dealCode || deal.title || 'Deal'}" does not have a valid deal amount.
+            Please update the deal with a valid amount before creating a payment plan.
+          </p>
+          <div className="flex gap-2 justify-center mt-4">
+            <Button 
+              variant="outline" 
+              onClick={() => router.push(`/details/deals/${dealId}`)}
+            >
+              Go to Deal Details
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => loadDeal()}
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -1014,7 +1086,7 @@ export function PaymentPlanPageView({ dealId }: PaymentPlanPageViewProps) {
                 ) : (
                   <FileText className="mr-2 h-4 w-4" />
                 )}
-                Download PDF
+                Generate Report
               </Button>
             </>
           )}

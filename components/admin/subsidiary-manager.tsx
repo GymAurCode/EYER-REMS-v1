@@ -195,7 +195,9 @@ export function SubsidiaryManager() {
         }
 
         // Use FormData for file upload with CSRF headers
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries`, {
+        // Normalize baseURL to prevent duplicate /api prefix
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+        const response = await fetch(`${baseUrl}/api/subsidiaries`, {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -254,7 +256,9 @@ export function SubsidiaryManager() {
   const startEditing = (subsidiary: Subsidiary) => {
     setEditingId(subsidiary.id)
     setEditingOptions(subsidiary.options.map((opt) => opt.name))
-    setEditingLogoPreview(subsidiary.logoPath ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}` : null)
+    // Normalize baseURL to prevent duplicate /api prefix
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+    setEditingLogoPreview(subsidiary.logoPath ? `${baseUrl}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}` : null)
     setEditingLogoFile(null)
   }
 
@@ -312,7 +316,9 @@ export function SubsidiaryManager() {
           return
         }
 
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/subsidiaries/${editingId}`, {
+        // Normalize baseURL to prevent duplicate /api prefix
+        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+        const response = await fetch(`${baseUrl}/api/subsidiaries/${editingId}`, {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('token')}`,
@@ -516,11 +522,17 @@ export function SubsidiaryManager() {
                         <>
                           {subsidiary.logoPath && (
                             <div className="mb-2">
-                              <img
-                                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}`}
-                                alt="Subsidiary logo"
-                                className="w-16 h-16 object-contain border rounded-md"
-                              />
+                              {/* Normalize baseURL to prevent duplicate /api prefix */}
+                              {(() => {
+                                const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+                                return (
+                                  <img
+                                    src={`${baseUrl}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}`}
+                                    alt="Subsidiary logo"
+                                    className="w-16 h-16 object-contain border rounded-md"
+                                  />
+                                )
+                              })()}
                             </div>
                           )}
                           <div className="flex flex-wrap gap-1">

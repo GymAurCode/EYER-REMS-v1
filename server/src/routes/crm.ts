@@ -522,7 +522,8 @@ router.put('/clients/:id', authenticate, upload.any(), async (req: AuthRequest, 
       return res.status(404).json({ error: 'Client not found' });
     }
 
-    const parsedData = createClientSchema.partial().parse(req.body);
+    const { attachments, ...bodyData } = req.body;
+    const parsedData = createClientSchema.partial().parse(bodyData);
 
     // TID cannot be changed after creation
     if (parsedData.tid !== undefined && parsedData.tid !== oldClient.tid) {
@@ -543,6 +544,7 @@ router.put('/clients/:id', authenticate, upload.any(), async (req: AuthRequest, 
       data: {
         ...updateData,
         manualUniqueId: manualUniqueId === undefined ? undefined : (manualUniqueId?.trim() || null),
+        attachments: attachments || undefined,
       },
     });
 

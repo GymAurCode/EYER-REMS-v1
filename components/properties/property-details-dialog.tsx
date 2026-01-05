@@ -107,23 +107,53 @@ export function PropertyDetailsDialog({ propertyId, open, onOpenChange }: Proper
     fetchPropertyDetails()
   }
 
-  const handleGenerateReport = async () => {
-    if (!propertyId) return
-    try {
-      setReportLoading(true)
-      const response = await apiService.properties.getReport(String(propertyId))
-      const blob = new Blob([response.data as Blob], { type: "application/pdf" })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${(property?.tid || "property").replace(/\s+/g, "-").toLowerCase()}-report.pdf`
-      link.click()
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error("Failed to generate property report", error)
-    } finally {
-      setReportLoading(false)
+  const handleGenerateReport = () => {
+    if (!property) return
+
+    // Prepare data for unified report
+    const unitsValue = typeof property.units === "number" ? property.units : property._count?.units ?? (Array.isArray(property.units) ? property.units.length : 0)
+    const totalAreaValue = typeof property.totalArea === "number" ? property.totalArea : typeof property.totalArea === "string" ? parseFloat(property.totalArea.replace(/[^0-9.]/g, "")) || 0 : 0
+
+    const reportData = {
+      title: "Property Report",
+      systemId: property.propertyCode ? `PROP-${property.propertyCode}` : `PROP-${property.id}`,
+      generatedOn: new Date().toLocaleString("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }),
+      sections: [
+        {
+          title: "Basic Information",
+          data: {
+            "Property Name": property.tid || "N/A",
+            "Type": property.type || "N/A",
+            "Status": property.status || "N/A",
+            "Year Built": property.yearBuilt || "N/A",
+            "Area": formatArea(totalAreaValue),
+            "Units": `${property.occupied || 0} / ${unitsValue}`,
+            "Sale Price": property.salePrice ? `Rs ${Number(property.salePrice).toLocaleString("en-IN")}` : "Rs 0",
+            "Address": property.address || "N/A"
+          }
+        },
+        {
+          title: "Finance Summary",
+          data: {
+            "Total Received": `Rs ${Number(financeSummary?.totalReceived || 0).toLocaleString("en-IN")}`,
+            "Total Expenses": `Rs ${Number(financeSummary?.totalExpenses || 0).toLocaleString("en-IN")}`,
+            "Pending Amount": `Rs ${Number(financeSummary?.pendingAmount || 0).toLocaleString("en-IN")}`,
+            "Active Deals": financeSummary?.entryCount || financeRecords.length || 0
+          }
+        }
+      ]
     }
+
+    // Import the utility and open in new tab
+    import("@/components/reports/report-utils").then(({ openReportInNewTab }) => {
+      openReportInNewTab(reportData)
+    })
   }
 
   return (

@@ -755,10 +755,10 @@ export const apiService = {
   // HR - Payroll
   payroll: {
     getAll: (params?: Record<string, any>) => api.get('/hr/payroll', { params }),
-    getById: (id: number) => api.get(`/hr/payroll/${id}`),
+    getById: (id: string) => api.get(`/hr/payroll/${id}`),
     create: (data: any) => api.post('/hr/payroll', data),
-    update: (id: number, data: any) => api.put(`/hr/payroll/${id}`, data),
-    delete: (id: number) => api.delete(`/hr/payroll/${id}`),
+    update: (id: string, data: any) => api.put(`/hr/payroll/${id}`, data),
+    delete: (id: string) => api.delete(`/hr/payroll/${id}`),
   },
 
   // HR - Leave

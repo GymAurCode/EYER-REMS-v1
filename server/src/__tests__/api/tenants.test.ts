@@ -78,6 +78,7 @@ describe('Tenants API', () => {
 
     it('should create tenant successfully', async () => {
       const tenantData = {
+        tid: 'TEN-001',
         name: 'John Tenant',
         email: 'john.tenant@example.com',
         phone: '+1234567890',

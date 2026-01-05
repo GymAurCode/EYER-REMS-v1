@@ -529,6 +529,7 @@ model Employee {
   shiftTimings             String?
   workLocation             String?
   tid                      String?
+  trackingId               String?            @unique
   attendance               Attendance[]
   departmentRef            Department?        @relation(fields: [departmentCode], references: [code])
   reportingManager         Employee?          @relation("EmployeeManager", fields: [reportingManagerId], references: [id])

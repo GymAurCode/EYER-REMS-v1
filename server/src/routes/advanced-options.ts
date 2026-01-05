@@ -246,6 +246,24 @@ router.post('/dropdowns/:key([^/]+)', authenticate, requireAdmin, async (req: Au
         categoryId: category.id,
       },
     });
+
+    // Sync with Department table for employee departments
+    if (key === 'employee.hr.department') {
+      await prisma.department.upsert({
+        where: { code: value },
+        create: {
+          code: value,
+          name: label,
+          description: `Auto-created from dropdown option`,
+          isActive: typeof isActive === 'boolean' ? isActive : true,
+        },
+        update: {
+          name: label,
+          isActive: typeof isActive === 'boolean' ? isActive : true,
+        },
+      });
+    }
+
     await logAudit(req, {
       entityType: 'dropdown_option',
       entityId: option.id,
@@ -263,7 +281,10 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
   try {
     const { id } = req.params;
     const payload = sanitize(req.body);
-    const existing = await prisma.dropdownOption.findUnique({ where: { id } });
+    const existing = await prisma.dropdownOption.findUnique({
+      where: { id },
+      include: { category: true }
+    });
     if (!existing) {
       return res.status(404).json({ error: 'Option not found' });
     }
@@ -277,6 +298,27 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
         isActive: typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive,
       },
     });
+
+    // Sync with Department table for employee departments
+    if (existing.category.key === 'employee.hr.department') {
+      const newValue = payload.value ?? existing.value;
+      const newLabel = payload.label ?? existing.label;
+      const newIsActive = typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive;
+      await prisma.department.upsert({
+        where: { code: newValue },
+        create: {
+          code: newValue,
+          name: newLabel,
+          description: `Auto-created from dropdown option`,
+          isActive: newIsActive,
+        },
+        update: {
+          name: newLabel,
+          isActive: newIsActive,
+        },
+      });
+    }
+
     await logAudit(req, {
       entityType: 'dropdown_option',
       entityId: updated.id,
@@ -294,10 +336,22 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
 router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
     const { id } = req.params;
-    const existing = await prisma.dropdownOption.findUnique({ where: { id } });
+    const existing = await prisma.dropdownOption.findUnique({
+      where: { id },
+      include: { category: true }
+    });
     if (!existing) {
       return res.status(404).json({ error: 'Option not found' });
     }
+
+    // Sync with Department table for employee departments - deactivate instead of delete
+    if (existing.category.key === 'employee.hr.department') {
+      await prisma.department.updateMany({
+        where: { code: existing.value },
+        data: { isActive: false },
+      });
+    }
+
     await prisma.dropdownOption.delete({ where: { id } });
     await logAudit(req, {
       entityType: 'dropdown_option',

@@ -43,7 +43,7 @@ export function showErrorToast(title: string, description?: string | any) {
           .map((item: any) => {
             if (typeof item === 'string') return item
             if (item?.message) return item.message
-            if (item?.path && item?.message) return `${item.path.join('.')}: ${item.message}`
+            if (item?.path && item?.message) return `${item.path}: ${item.message}`
             return JSON.stringify(item)
           })
           .join(', ')
@@ -105,7 +105,7 @@ export function handleApiResponse(
           .map((err: any) => {
             if (typeof err === 'string') return err
             if (err?.message) return err.message
-            if (err?.path) return `${err.path.join('.')}: ${err.message || 'Invalid value'}`
+            if (err?.path) return `${err.path}: ${err.message || 'Invalid value'}`
             return JSON.stringify(err)
           })
           .join(', ')
@@ -140,7 +140,7 @@ export function handleApiError(error: any, defaultMessage?: string) {
         .map((err: any) => {
           if (typeof err === 'string') return err
           if (err?.message) return err.message
-          if (err?.path) return `${err.path.join('.')}: ${err.message || 'Invalid value'}`
+          if (err?.path) return `${err.path}: ${err.message || 'Invalid value'}`
           return JSON.stringify(err)
         })
         .join(', ')

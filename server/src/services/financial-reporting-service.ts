@@ -673,30 +673,17 @@ export class FinancialReportingService {
       },
     });
 
-    // Get all properties for mapping
-    const properties = await prisma.property.findMany({
-      where: {
-        isDeleted: false,
-        ...propertyFilter,
-      },
-      select: {
-        id: true,
-        name: true,
-        propertyCode: true,
-      },
-    });
-
-    // If a specific property was requested but not found, return empty array
-    if (propertyId && properties.length === 0) {
-      return [];
-    }
-
     // Group by property
     const propertyMap = new Map<string, PropertyProfitability>();
 
-    // Initialize all properties (even if no transactions)
-    for (const property of properties) {
-      if (!propertyMap.has(property.id)) {
+    // If specific property requested, initialize it even if no transactions found
+    if (propertyId) {
+      const property = await prisma.property.findUnique({
+        where: { id: propertyId },
+        select: { id: true, name: true, propertyCode: true },
+      });
+
+      if (property) {
         propertyMap.set(property.id, {
           propertyId: property.id,
           propertyName: property.name,
@@ -711,16 +698,16 @@ export class FinancialReportingService {
       }
     }
 
-    // Process LedgerEntry transactions (via deals)
+    // Process LedgerEntry (Deal-based)
     for (const entry of ledgerEntries) {
-      const propId = entry.deal?.propertyId;
-      if (propertyId && propId !== propertyId) continue; // Filter by property if specified
-      
-      if (!propId) {
-        // Skip entries without property association
-        continue;
-      }
+      const deal = entry.deal;
+      if (!deal || !deal.property) continue;
 
+      // Filter by propertyId if specified
+      if (propertyId && deal.property.id !== propertyId) continue;
+
+      const propId = deal.property.id;
+      
       if (!propertyMap.has(propId)) {
         const property = await prisma.property.findUnique({
           where: { id: propId },

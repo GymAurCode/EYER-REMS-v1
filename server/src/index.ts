@@ -220,7 +220,9 @@ app.use('/api/roles', roleRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/properties', propertiesRoutes);
 app.use('/api/locations', locationRoutes);
+// Mount subsidiaries routes with logging
 app.use('/api/subsidiaries', subsidiariesRoutes);
+logger.info('✅ Subsidiaries routes mounted at /api/subsidiaries');
 app.use('/api/units', unitsRoutes);
 app.use('/api/tenants', tenantsRoutes);
 app.use('/api/leases', leasesRoutes);

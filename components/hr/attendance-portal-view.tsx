@@ -48,7 +48,7 @@ export function AttendancePortalView() {
     }
   }
 
-  // Fetch today's attendance
+  // Fetch today's attendance on mount and when employee changes
   useEffect(() => {
     if (currentEmployeeId) {
       fetchTodayAttendance()
@@ -56,29 +56,61 @@ export function AttendancePortalView() {
     }
   }, [currentEmployeeId])
 
-  // Calculate elapsed time based on backend timestamp
+  // Fetch attendance on page load to ensure state persists
   useEffect(() => {
+    if (currentEmployeeId) {
+      fetchTodayAttendance()
+    }
+  }, []) // Run once on mount
+
+  // Calculate elapsed time based on backend timestamp (backend-driven)
+  useEffect(() => {
+    // Stop timer if checked out or no check-in
     if (!todayAttendance?.checkIn || todayAttendance?.checkOut) {
       setElapsedTime("00:00:00")
       return
     }
 
+    // Derive time from stored backend timestamp, not intervals
     const updateElapsedTime = () => {
-      const checkInTime = new Date(todayAttendance.checkIn).getTime()
-      const now = Date.now()
-      const elapsed = now - checkInTime
-      
-      const hours = Math.floor(elapsed / (1000 * 60 * 60))
-      const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((elapsed % (1000 * 60)) / 1000)
-      
-      setElapsedTime(
-        `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-      )
+      try {
+        // Use the exact checkIn timestamp from backend
+        const checkInTime = new Date(todayAttendance.checkIn).getTime()
+        const now = Date.now()
+        const elapsed = now - checkInTime
+        
+        // Ensure non-negative elapsed time
+        if (elapsed < 0) {
+          setElapsedTime("00:00:00")
+          return
+        }
+        
+        const hours = Math.floor(elapsed / (1000 * 60 * 60))
+        const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60))
+        const seconds = Math.floor((elapsed % (1000 * 60)) / 1000)
+        
+        setElapsedTime(
+          `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+        )
+      } catch (error) {
+        console.error('Error calculating elapsed time:', error)
+        setElapsedTime("00:00:00")
+      }
     }
 
+    // Update immediately on check-in
     updateElapsedTime()
-    const interval = setInterval(updateElapsedTime, 1000)
+    
+    // Update every second only if checked in and not checked out
+    const interval = setInterval(() => {
+      // Double-check state before updating
+      if (todayAttendance?.checkIn && !todayAttendance?.checkOut) {
+        updateElapsedTime()
+      } else {
+        setElapsedTime("00:00:00")
+      }
+    }, 1000)
+    
     return () => clearInterval(interval)
   }, [todayAttendance?.checkIn, todayAttendance?.checkOut])
 
@@ -92,16 +124,30 @@ export function AttendancePortalView() {
       const endOfDay = new Date()
       endOfDay.setHours(23, 59, 59, 999)
 
+      // Fetch attendance from backend to get exact timestamps
       const response = await apiService.attendance.getAll()
       const allAttendance = (response.data as any)?.data || []
       
+      // Find today's record for current employee
       const todayRecord = allAttendance.find((att: any) => {
         if (!att || att.employeeId !== currentEmployeeId) return false
         const attDate = new Date(att.date)
         return attDate >= today && attDate <= endOfDay && !att.isDeleted
       })
 
-      setTodayAttendance(todayRecord || null)
+      // Ensure we have the full timestamp data from backend
+      if (todayRecord) {
+        // The backend should return checkIn and checkOut as full timestamps
+        // If they're formatted strings, we need to preserve the original
+        setTodayAttendance({
+          ...todayRecord,
+          // Ensure checkIn and checkOut are preserved as-is from backend
+          checkIn: todayRecord.checkIn || null,
+          checkOut: todayRecord.checkOut || null,
+        })
+      } else {
+        setTodayAttendance(null)
+      }
     } catch (error) {
       console.error('Failed to fetch today attendance:', error)
       toast({
@@ -142,9 +188,22 @@ export function AttendancePortalView() {
       return
     }
 
+    // Prevent multiple check-ins
+    if (todayAttendance?.checkIn && !todayAttendance?.checkOut) {
+      toast({
+        title: "Already Checked In",
+        description: "You are already checked in. Please check out first.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setCheckingIn(true)
-      await apiService.attendance.checkIn({ employeeId: currentEmployeeId })
+      const response = await apiService.attendance.checkIn({ employeeId: currentEmployeeId })
+      
+      // Immediately stop any running timer and update state
+      setElapsedTime("00:00:00")
       
       toast({
         title: "Success",
@@ -152,6 +211,7 @@ export function AttendancePortalView() {
         variant: "default",
       })
 
+      // Fetch updated attendance from backend (with exact timestamp)
       await fetchTodayAttendance()
     } catch (err: any) {
       console.error("Failed to check in:", err)
@@ -176,8 +236,20 @@ export function AttendancePortalView() {
       return
     }
 
+    if (!todayAttendance?.checkIn) {
+      toast({
+        title: "Error",
+        description: "Please check in first before checking out.",
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
       setCheckingOut(true)
+      // Stop timer immediately
+      setElapsedTime("00:00:00")
+      
       await apiService.attendance.checkOut({ employeeId: currentEmployeeId })
       
       toast({
@@ -186,6 +258,7 @@ export function AttendancePortalView() {
         variant: "default",
       })
 
+      // Fetch updated attendance from backend
       await fetchTodayAttendance()
     } catch (err: any) {
       console.error("Failed to check out:", err)
@@ -203,7 +276,13 @@ export function AttendancePortalView() {
   const formatTime = (timestamp: string | null | undefined) => {
     if (!timestamp) return "Not recorded"
     try {
-      return new Date(timestamp).toLocaleTimeString('en-US', {
+      // Handle both ISO timestamp strings and formatted time strings
+      const date = new Date(timestamp)
+      if (isNaN(date.getTime())) {
+        // If it's already a formatted string, return as-is
+        return timestamp
+      }
+      return date.toLocaleTimeString('en-US', {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit',

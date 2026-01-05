@@ -305,7 +305,9 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 // Create tenant
 router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    logger.info('Tenant creation request payload:', req.body);
     const data = createTenantSchema.parse(req.body);
+    logger.info('Tenant creation data after validation:', data);
 
     // Verify unit exists and is not already occupied
     const unit = await prisma.unit.findFirst({

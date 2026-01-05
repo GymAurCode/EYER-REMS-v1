@@ -45,6 +45,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     });
 
     // Format attendance data for frontend
+    // Return full timestamps for backend-driven timing calculations
     const formattedAttendance = attendance.map((record) => ({
       id: record.id,
       employee: record.employee.name,
@@ -53,8 +54,12 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       tid: record.employee.tid, // Tracking ID
       department: record.employee.department,
       date: record.date,
-      checkIn: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-      checkOut: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+      // Return full ISO timestamp strings for accurate time calculations
+      checkIn: record.checkIn ? record.checkIn.toISOString() : null,
+      checkOut: record.checkOut ? record.checkOut.toISOString() : null,
+      // Also include formatted times for display convenience
+      checkInFormatted: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+      checkOutFormatted: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
       hours: record.hours || 0,
       status: record.status,
     }));
@@ -100,9 +105,15 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Return attendance with full ISO timestamp strings for backend-driven timing
     res.json({
       success: true,
-      data: attendance,
+      data: {
+        ...attendance,
+        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
+        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
+        date: attendance.date.toISOString(),
+      },
     });
   } catch (error) {
     console.error('Get attendance error:', error);
@@ -188,9 +199,15 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Return attendance with full ISO timestamp strings for backend-driven timing
     res.json({
       success: true,
-      data: attendance,
+      data: {
+        ...attendance,
+        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
+        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
+        date: attendance.date.toISOString(),
+      },
     });
   } catch (error: any) {
     console.error('Create attendance error:', error);
@@ -252,12 +269,21 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
     const isLate = now > checkInTime;
     const status = isLate ? 'late' : 'present';
 
+    // Prevent multiple check-ins without checkout
+    if (attendance && attendance.checkIn && !attendance.checkOut) {
+      return res.status(400).json({
+        success: false,
+        error: 'Already checked in. Please check out before checking in again.',
+      });
+    }
+
     if (attendance) {
-      // Update existing attendance
+      // Update existing attendance (only if no checkIn or if checked out)
       attendance = await prisma.attendance.update({
         where: { id: attendance.id },
         data: {
           checkIn: now,
+          checkOut: null, // Reset checkout if checking in again
           status: attendance.status === 'absent' ? status : attendance.status,
         },
         include: {
@@ -272,12 +298,13 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
         },
       });
     } else {
-      // Create new attendance
+      // Create new attendance with exact timestamp
       attendance = await prisma.attendance.create({
         data: {
           employeeId,
           date: today,
-          checkIn: now,
+          checkIn: now, // Store exact timestamp
+          checkOut: null,
           status,
         },
         include: {
@@ -293,9 +320,15 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
       });
     }
 
+    // Return attendance with full ISO timestamp strings for backend-driven timing
     res.json({
       success: true,
-      data: attendance,
+      data: {
+        ...attendance,
+        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
+        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
+        date: attendance.date.toISOString(),
+      },
     });
   } catch (error: any) {
     console.error('Check-in error:', error);
@@ -373,9 +406,15 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       },
     });
 
+    // Return with full ISO timestamp strings for backend-driven timing
     res.json({
       success: true,
-      data: updatedAttendance,
+      data: {
+        ...updatedAttendance,
+        checkIn: updatedAttendance.checkIn ? updatedAttendance.checkIn.toISOString() : null,
+        checkOut: updatedAttendance.checkOut ? updatedAttendance.checkOut.toISOString() : null,
+        date: updatedAttendance.date.toISOString(),
+      },
     });
   } catch (error) {
     console.error('Check-out error:', error);
@@ -440,9 +479,15 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // Return with full ISO timestamp strings for backend-driven timing
     res.json({
       success: true,
-      data: updatedAttendance,
+      data: {
+        ...updatedAttendance,
+        checkIn: updatedAttendance.checkIn ? updatedAttendance.checkIn.toISOString() : null,
+        checkOut: updatedAttendance.checkOut ? updatedAttendance.checkOut.toISOString() : null,
+        date: updatedAttendance.date.toISOString(),
+      },
     });
   } catch (error) {
     console.error('Update attendance error:', error);

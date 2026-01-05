@@ -246,7 +246,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
                 <div>
                   <h3 className="font-semibold text-foreground">{employee.name}</h3>
                   <p className="text-sm text-muted-foreground">{employee.position}</p>
-                  <p className="text-xs font-mono text-muted-foreground">{employee.tid || employee.employeeId}</p>
+                  <p className="text-xs font-mono text-muted-foreground">{employee.trackingId || employee.tid || employee.employeeId}</p>
                 </div>
               </div>
               <Badge variant={employee.status === "active" ? "default" : "secondary"}>{employee.status}</Badge>

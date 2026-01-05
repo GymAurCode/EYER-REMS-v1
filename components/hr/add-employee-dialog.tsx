@@ -46,6 +46,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
 
   const [formData, setFormData] = useState({
     // Basic Information
+    trackingId: "",
     name: "",
     email: "",
     phone: "",
@@ -106,6 +107,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
       fetchDepartments()
       // Reset form when dialog opens
       setFormData({
+        trackingId: "",
         name: "",
         email: "",
         phone: "",
@@ -171,14 +173,14 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
       const response = await apiService.advanced.getDropdownByKey('employee.hr.department')
       const responseData = response.data as any
       const options = responseData?.options || responseData?.data?.options || []
-      
+
       if (options.length === 0) {
         // Fallback: Show warning if no departments configured
         console.warn('No departments found in Advanced Options. Please configure departments in Admin > Advanced Options.')
         setDepartments([])
         return
       }
-      
+
       // Map Advanced Options format to department format
       const deptList = options
         .filter((opt: any) => opt.isActive !== false)
@@ -186,7 +188,6 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
           code: opt.value || opt.id,
           name: opt.label || opt.value,
         }))
-      
       setDepartments(deptList)
     } catch (error) {
       console.error('Failed to fetch departments from Advanced Options:', error)
@@ -215,7 +216,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
 
     try {
       // Validate required fields
-      if (!formData.name || !formData.email || !formData.position || !formData.department || !formData.salary || !formData.joinDate) {
+      if (!formData.trackingId || !formData.name || !formData.email || !formData.position || !formData.department || !formData.salary || !formData.joinDate) {
         setError("Please fill in all required fields")
         setLoading(false)
         return
@@ -235,6 +236,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
 
       // Prepare employee data
       const employeeData: any = {
+        trackingId: formData.trackingId,
         name: formData.name,
         email: formData.email,
         phone: formData.phone || null,
@@ -324,6 +326,16 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
           <div className="flex-1 overflow-y-auto mt-4">
             <TabsContent value="basic" className="space-y-4">
               <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="trackingId">Tracking ID <span className="text-destructive">*</span></Label>
+                  <Input
+                    id="trackingId"
+                    placeholder="EMP-001"
+                    value={formData.trackingId}
+                    onChange={(e) => setFormData({ ...formData, trackingId: e.target.value })}
+                    required
+                  />
+                </div>
                 <div className="grid gap-2">
                   <Label htmlFor="name">Full Name <span className="text-destructive">*</span></Label>
                   <Input
@@ -460,9 +472,9 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
                     </div>
                   ) : (
                     <Select
-                      value={formData.department}
+                      value={formData.departmentCode}
                       onValueChange={(value) => {
-                        const dept = departments.find((d) => d.name === value)
+                        const dept = departments.find((d) => d.code === value)
                         if (!dept) {
                           toast({
                             title: "Invalid Department",
@@ -473,8 +485,8 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
                         }
                         setFormData({
                           ...formData,
-                          department: value,
-                          departmentCode: dept.code,
+                          department: dept.name,
+                          departmentCode: value,
                         })
                       }}
                     >
@@ -483,7 +495,7 @@ export function AddEmployeeDialog({ open, onOpenChange, onSuccess }: AddEmployee
                       </SelectTrigger>
                       <SelectContent>
                         {departments.map((dept) => (
-                          <SelectItem key={dept.code} value={dept.name}>
+                          <SelectItem key={dept.code} value={dept.code}>
                             {dept.name}
                           </SelectItem>
                         ))}

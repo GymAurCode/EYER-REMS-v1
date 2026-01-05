@@ -187,6 +187,8 @@ router.get('/location/:locationId', authenticate, async (req: AuthRequest, res: 
 
 // GET all subsidiaries with their locations
 router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
+  // Log route resolution for debugging
+  console.log('[Subsidiaries Route] GET / - Resolved path:', _req.path, 'Original URL:', _req.originalUrl, 'Base URL:', _req.baseUrl);
   try {
     // Get only active subsidiaries, then filter by location status
     const allSubsidiaries = await prisma.propertySubsidiary.findMany({
@@ -340,6 +342,8 @@ router.get('/', authenticate, async (_req: AuthRequest, res: Response) => {
 
 // GET single subsidiary by ID (generic route - comes last)
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  // Log route resolution for debugging
+  console.log('[Subsidiaries Route] GET /:id - Resolved path:', req.path, 'Original URL:', req.originalUrl, 'Base URL:', req.baseUrl, 'ID:', req.params.id);
   try {
     const { id } = req.params;
     const subsidiary = await prisma.propertySubsidiary.findUnique({
@@ -369,6 +373,10 @@ const createSubsidiarySchema = z.object({
 
 // POST create subsidiary with logo upload support
 router.post('/', authenticate, requireAdmin, upload.single('logo'), async (req: AuthRequest, res: Response) => {
+  // Log route resolution for debugging
+  console.log('[Subsidiaries Route] POST / - Resolved path:', req.path, 'Original URL:', req.originalUrl, 'Base URL:', req.baseUrl);
+  console.log('[Subsidiaries Route] POST / - Request Body:', JSON.stringify(req.body, null, 2));
+  
   try {
     // Parse JSON body if sent as form-data
     let body = req.body;
@@ -377,6 +385,28 @@ router.post('/', authenticate, requireAdmin, upload.single('logo'), async (req: 
         body = JSON.parse(body);
       } catch {
         // If parsing fails, use as is
+      }
+    }
+
+    // Normalize options field to array if it's a string (common with FormData)
+    if (body.options) {
+      if (typeof body.options === 'string') {
+        try {
+          // Try parsing as JSON first (e.g. "[\"A\",\"B\"]")
+          const parsed = JSON.parse(body.options);
+          if (Array.isArray(parsed)) {
+            body.options = parsed;
+          } else {
+            // If valid JSON but not array (e.g. "some string"), wrap it
+            body.options = [body.options];
+          }
+        } catch {
+          // Not valid JSON, treat as single string value -> wrap in array
+          body.options = [body.options];
+        }
+      } else if (!Array.isArray(body.options)) {
+        // If it exists but is not an array (and not a string), wrap it
+        body.options = [body.options];
       }
     }
     
@@ -508,6 +538,10 @@ const updateSubsidiarySchema = z.object({
 
 // PUT update subsidiary (options and logo can be updated)
 router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req: AuthRequest, res: Response) => {
+  // Log route resolution for debugging
+  console.log('[Subsidiaries Route] PUT /:id - Resolved path:', req.path, 'Original URL:', req.originalUrl, 'Base URL:', req.baseUrl, 'ID:', req.params.id);
+  console.log('[Subsidiaries Route] PUT /:id - Request Body:', JSON.stringify(req.body, null, 2));
+
   try {
     const { id } = req.params;
     
@@ -518,6 +552,28 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
         body = JSON.parse(body);
       } catch {
         // If parsing fails, use as is
+      }
+    }
+
+    // Normalize options field to array if it's a string (common with FormData)
+    if (body.options) {
+      if (typeof body.options === 'string') {
+        try {
+          // Try parsing as JSON first (e.g. "[\"A\",\"B\"]")
+          const parsed = JSON.parse(body.options);
+          if (Array.isArray(parsed)) {
+            body.options = parsed;
+          } else {
+            // If valid JSON but not array (e.g. "some string"), wrap it
+            body.options = [body.options];
+          }
+        } catch {
+          // Not valid JSON, treat as single string value -> wrap in array
+          body.options = [body.options];
+        }
+      } else if (!Array.isArray(body.options)) {
+        // If it exists but is not an array (and not a string), wrap it
+        body.options = [body.options];
       }
     }
     
@@ -642,6 +698,8 @@ router.put('/:id', authenticate, requireAdmin, upload.single('logo'), async (req
 
 // DELETE subsidiary (soft delete)
 router.delete('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  // Log route resolution for debugging
+  console.log('[Subsidiaries Route] DELETE /:id - Resolved path:', req.path, 'Original URL:', req.originalUrl, 'Base URL:', req.baseUrl, 'ID:', req.params.id);
   try {
     const { id } = req.params;
     const existing = await prisma.propertySubsidiary.findUnique({

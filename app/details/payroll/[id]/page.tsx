@@ -110,7 +110,14 @@ export default function PayrollDetailPage() {
   })
 
   useEffect(() => {
-    fetchPayroll()
+    if (payrollId && payrollId.trim() !== '') {
+      console.log("Fetching payroll details for ID:", payrollId)
+      fetchPayroll()
+    } else {
+      console.error("Invalid payroll ID:", payrollId)
+      setError("Invalid payroll ID")
+      setLoading(false)
+    }
   }, [payrollId])
 
   const fetchPayroll = async () => {
@@ -118,7 +125,7 @@ export default function PayrollDetailPage() {
       setLoading(true)
       setError(null)
 
-      const response = await apiService.payroll.getById(Number(payrollId))
+      const response = await apiService.payroll.getById(payrollId)
       const responseData = response?.data as any
       const payrollData: PayrollDetail | null = responseData?.data || responseData || null
 

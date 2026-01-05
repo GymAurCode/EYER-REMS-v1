@@ -59,7 +59,7 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
 
   const handleGenerate = async () => {
     const selectedFields = fields.filter((f) => f.checked)
-    
+
     if (selectedFields.length === 0) {
       toast({
         title: "Error",
@@ -71,13 +71,13 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
 
     try {
       setGenerating(true)
-      
+
       // Get data if not provided
       let reportData = data
       if (!reportData && getData) {
         reportData = await getData()
       }
-      
+
       if (!reportData || reportData.length === 0) {
         toast({
           title: "Error",
@@ -89,21 +89,48 @@ export function ReportGenerator({ moduleName, availableFields, data, getData }: 
 
       // Generate report based on selected format and fields
       const fieldLabels = selectedFields.map((f) => f.label)
-      
-      if (exportFormat === "csv") {
-        generateCSV(reportData, fieldLabels, moduleName)
-      } else if (exportFormat === "excel") {
-        generateExcel(reportData, fieldLabels, moduleName)
-      } else if (exportFormat === "pdf") {
-        generatePDF(reportData, fieldLabels, moduleName)
+
+      // For preview flow, open HTML report in new tab
+      if (exportFormat === "pdf" || exportFormat === "excel" || exportFormat === "csv") {
+        // Create unified report data
+        const unifiedReportData = {
+          title: `${moduleName} Report`,
+          generatedOn: new Date().toLocaleString("en-US", {
+            month: "2-digit",
+            day: "2-digit",
+            year: "numeric",
+            hour: "2-digit",
+            minute: "2-digit"
+          }),
+          sections: [
+            {
+              title: "Report Data",
+              tableData: reportData.map((item: any) =>
+                fieldLabels.reduce((acc, label) => {
+                  acc[label] = getFieldValue(item, label)
+                  return acc
+                }, {} as Record<string, string>)
+              ),
+              tableColumns: fieldLabels.map(label => ({
+                key: label,
+                label,
+                type: isNumericField(label) ? ('currency' as const) : isDateField(label) ? ('date' as const) : ('text' as const)
+              }))
+            }
+          ]
+        }
+
+        // Import and open in new tab
+        const { openReportInNewTab } = await import("@/components/reports/report-utils")
+        openReportInNewTab(unifiedReportData)
       }
-      
+
       toast({
         title: "Success",
-        description: `${exportFormat.toUpperCase()} report generated successfully`,
+        description: `Report opened in new tab`,
         variant: "default",
       })
-      
+
       setOpen(false)
     } catch (err: any) {
       console.error("Failed to generate report:", err)

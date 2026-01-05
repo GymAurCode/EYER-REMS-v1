@@ -49,8 +49,6 @@ import { SalesView } from "./sales-view"
 import { BuyersView } from "./buyers-view"
 import { SellersView } from "./sellers-view"
 import { ReportGenerator } from "@/components/shared/report-generator"
-import { PropertyReportHTML } from "@/components/reports/property-report-html"
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog"
 import { apiService } from "@/lib/api"
 import { PropertyToasts, handleApiError } from "@/lib/toast-utils"
 import { formatCurrency } from "@/lib/utils"
@@ -78,8 +76,6 @@ export function PropertiesView() {
   const [showStructureDialog, setShowStructureDialog] = useState(false)
   const [structurePropertyId, setStructurePropertyId] = useState<string | null>(null)
   const [structurePropertyName, setStructurePropertyName] = useState<string>("")
-  const [reportDialogOpen, setReportDialogOpen] = useState(false)
-  const [reportProperty, setReportProperty] = useState<any>(null)
   const [reportLoading, setReportLoading] = useState(false)
 
   // Pagination state
@@ -334,14 +330,167 @@ export function PropertiesView() {
   const handleGeneratePropertyReport = async (property: any) => {
     try {
       setReportLoading(true)
-      setReportProperty(null)
-      
+
       // Fetch full property details with deals and payment plan
       const response: any = await apiService.properties.getById(String(property.id))
       const propertyData = response?.data?.data || response?.data || property
-      
-      setReportProperty(propertyData)
-      setReportDialogOpen(true)
+
+      // Prepare data for unified report
+      const unitsValue = typeof propertyData.units === "number" ? propertyData.units : propertyData._count?.units ?? (Array.isArray(propertyData.units) ? propertyData.units.length : 0)
+      const totalAreaValue = typeof propertyData.totalArea === "number" ? propertyData.totalArea : typeof propertyData.totalArea === "string" ? parseFloat(propertyData.totalArea.replace(/[^0-9.]/g, "")) || 0 : 0
+
+      // Get payment plan from first deal that has one
+      const reportPaymentPlan = propertyData?.deals ? (() => {
+        for (const deal of propertyData.deals) {
+          if (deal.paymentPlan) {
+            const plan = deal.paymentPlan
+            const installments = plan.installments || []
+            const totalInstallments = installments.length
+            const installmentAmount = totalInstallments > 0 ? installments[0].amount || 0 : 0
+
+            // Calculate duration (months)
+            let duration = "N/A"
+            if (installments.length > 0) {
+              const firstDate = new Date(installments[0].dueDate || Date.now())
+              const lastDate = new Date(installments[installments.length - 1].dueDate || Date.now())
+              const months = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
+              duration = `${months} Months`
+            }
+
+            return {
+              totalAmount: plan.totalAmount || 0,
+              downPayment: plan.downPayment || 0,
+              installments: totalInstallments,
+              installmentAmount: installmentAmount,
+              duration: duration,
+              schedule: installments.map((inst: any, idx: number) => {
+                let dateStr = "N/A"
+                if (inst.dueDate) {
+                  const date = new Date(inst.dueDate)
+                  const day = String(date.getDate()).padStart(2, "0")
+                  const month = date.toLocaleDateString("en-US", { month: "short" })
+                  const year = date.getFullYear()
+                  dateStr = `${day} ${month} ${year}`
+                }
+                return {
+                  no: inst.installmentNumber || idx + 1,
+                  date: dateStr,
+                  amount: formatCurrency(inst.amount || 0),
+                  status: inst.status === "paid" ? "Paid" : inst.status === "overdue" ? "Overdue" : "Pending",
+                }
+              }),
+            }
+          }
+        }
+        return null
+      })() : null
+
+      // Prepare deals data
+      const reportDeals = propertyData?.deals ? propertyData.deals.map((deal: any) => {
+        const totalReceived = deal.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0
+        const dealAmount = deal.dealAmount || deal.amount || 0
+        return {
+          title: deal.title || "N/A",
+          client: deal.contactName || deal.client?.name || "N/A",
+          amount: dealAmount,
+          received: totalReceived,
+          pending: Math.max(0, dealAmount - totalReceived),
+          stage: deal.stage || "N/A",
+        }
+      }) : []
+
+      const reportData = {
+        title: "Property Report",
+        systemId: propertyData.propertyCode ? `PROP-${propertyData.propertyCode}` : `PROP-${propertyData.id}`,
+        generatedOn: new Date().toLocaleString("en-US", {
+          month: "2-digit",
+          day: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit"
+        }),
+        sections: [
+          {
+            title: "Basic Information",
+            data: {
+              "Property Name": propertyData.tid || "N/A",
+              "Type": propertyData.type || "N/A",
+              "Status": propertyData.status || "N/A",
+              "Year Built": propertyData.yearBuilt || "N/A",
+              "Area": (() => {
+                if (!totalAreaValue) return "N/A"
+                if (totalAreaValue >= 5445) {
+                  const kanal = Math.floor(totalAreaValue / 5445)
+                  const remainingMarla = Math.round((totalAreaValue % 5445) / 272.25)
+                  return remainingMarla > 0 ? `${kanal} Kanal ${remainingMarla} Marla (${totalAreaValue.toLocaleString()} sq ft)` : `${kanal} Kanal (${totalAreaValue.toLocaleString()} sq ft)`
+                }
+                const marla = Math.round(totalAreaValue / 272.25)
+                return `${marla} Marla (${totalAreaValue.toLocaleString()} sq ft)`
+              })(),
+              "Units": `${propertyData.occupied || 0} / ${unitsValue}`,
+              "Sale Price": propertyData.salePrice ? `Rs ${Number(propertyData.salePrice).toLocaleString("en-IN")}` : "Rs 0",
+              "Address": propertyData.address || "N/A"
+            }
+          },
+          {
+            title: "Finance Summary",
+            data: {
+              "Total Received": `Rs ${Number(propertyData.financeSummary?.totalReceived || 0).toLocaleString("en-IN")}`,
+              "Total Expenses": `Rs ${Number(propertyData.financeSummary?.totalExpenses || 0).toLocaleString("en-IN")}`,
+              "Pending Amount": `Rs ${Number(propertyData.financeSummary?.pendingAmount || 0).toLocaleString("en-IN")}`,
+              "Active Deals": propertyData.financeSummary?.entryCount || propertyData.financeRecords?.length || 0
+            }
+          },
+          ...(reportPaymentPlan ? [{
+            title: "Payment Plan Summary",
+            data: {
+              "Total Amount": formatCurrency(reportPaymentPlan.totalAmount || 0),
+              "Down Payment": formatCurrency(reportPaymentPlan.downPayment || 0),
+              "Installments": reportPaymentPlan.installments || 0,
+              "Installment Amount": formatCurrency(reportPaymentPlan.installmentAmount || 0),
+              "Duration": reportPaymentPlan.duration || "N/A"
+            }
+          },
+          {
+            title: "Payment Schedule",
+            tableData: reportPaymentPlan.schedule.map((s: any) => ({
+              no: s.no,
+              date: s.date,
+              amount: s.amount,
+              status: s.status
+            })),
+            tableColumns: [
+              { key: 'no', label: '#', type: 'number' as 'number' },
+              { key: 'date', label: 'Due Date', type: 'date' as 'date' },
+              { key: 'amount', label: 'Amount', type: 'currency' as 'currency' },
+              { key: 'status', label: 'Status' }
+            ]
+          }] : []),
+          ...(reportDeals.length > 0 ? [{
+            title: "Active Deals",
+            tableData: reportDeals.map((deal: any) => ({
+              title: deal.title,
+              client: deal.client,
+              amount: deal.amount,
+              received: deal.received,
+              pending: deal.pending,
+              stage: deal.stage
+            })),
+            tableColumns: [
+              { key: 'title', label: 'Deal Title' },
+              { key: 'client', label: 'Client' },
+              { key: 'amount', label: 'Amount', type: 'currency' as 'currency' },
+              { key: 'received', label: 'Received', type: 'currency' as 'currency' },
+              { key: 'pending', label: 'Pending', type: 'currency' as 'currency' },
+              { key: 'stage', label: 'Stage' }
+            ]
+          }] : [])
+        ]
+      }
+
+      // Open in new tab
+      const { openReportInNewTab } = await import("@/components/reports/report-utils")
+      openReportInNewTab(reportData)
     } catch (error: any) {
       console.error("Failed to fetch property details for report", error)
       handleApiError(error, "Failed to load property details")
@@ -350,65 +499,6 @@ export function PropertiesView() {
     }
   }
 
-  // Get payment plan from first deal that has one (same logic as property-detail-page)
-  const reportPaymentPlan = reportProperty?.deals ? (() => {
-    for (const deal of reportProperty.deals) {
-      if (deal.paymentPlan) {
-        const plan = deal.paymentPlan
-        const installments = plan.installments || []
-        const totalInstallments = installments.length
-        const installmentAmount = totalInstallments > 0 ? installments[0].amount || 0 : 0
-        
-        // Calculate duration (months)
-        let duration = "N/A"
-        if (installments.length > 0) {
-          const firstDate = new Date(installments[0].dueDate || Date.now())
-          const lastDate = new Date(installments[installments.length - 1].dueDate || Date.now())
-          const months = Math.ceil((lastDate.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24 * 30))
-          duration = `${months} Months`
-        }
-
-        return {
-          totalAmount: plan.totalAmount || 0,
-          downPayment: plan.downPayment || 0,
-          installments: totalInstallments,
-          installmentAmount: installmentAmount,
-          duration: duration,
-          schedule: installments.map((inst: any, idx: number) => {
-            let dateStr = "N/A"
-            if (inst.dueDate) {
-              const date = new Date(inst.dueDate)
-              const day = String(date.getDate()).padStart(2, "0")
-              const month = date.toLocaleDateString("en-US", { month: "short" })
-              const year = date.getFullYear()
-              dateStr = `${day} ${month} ${year}`
-            }
-            return {
-              no: inst.installmentNumber || idx + 1,
-              date: dateStr,
-              amount: formatCurrency(inst.amount || 0),
-              status: inst.status === "paid" ? "Paid" : inst.status === "overdue" ? "Overdue" : "Pending",
-            }
-          }),
-        }
-      }
-    }
-    return null
-  })() : null
-
-  // Prepare deals data for report
-  const reportDeals = reportProperty?.deals ? reportProperty.deals.map((deal: any) => {
-    const totalReceived = deal.payments?.reduce((sum: number, p: any) => sum + (p.amount || 0), 0) || 0
-    const dealAmount = deal.dealAmount || deal.amount || 0
-    return {
-      title: deal.title || "N/A",
-      contactName: deal.contactName || deal.client?.name || "N/A",
-      amount: dealAmount,
-      received: totalReceived,
-      pending: Math.max(0, dealAmount - totalReceived),
-      stage: deal.stage || "N/A",
-    }
-  }) : []
 
   return (
     <div className="space-y-6">
@@ -978,30 +1068,6 @@ export function PropertiesView() {
         />
       )}
 
-      {/* Property Report Dialog */}
-      <Dialog open={reportDialogOpen} onOpenChange={setReportDialogOpen}>
-        <DialogContent className="max-w-[1000px] w-full max-h-[90vh] overflow-hidden p-0">
-          <DialogTitle className="sr-only">Property Report</DialogTitle>
-          {reportLoading ? (
-            <div className="flex items-center justify-center h-[90vh]">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : reportProperty ? (
-            <div className="h-[90vh] overflow-y-auto">
-              <PropertyReportHTML
-                property={{
-                  ...reportProperty,
-                  totalArea: reportProperty.totalArea,
-                }}
-                financeSummary={reportProperty.financeSummary || {}}
-                paymentPlan={reportPaymentPlan || undefined}
-                deals={reportDeals}
-                hideActions={false}
-              />
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }

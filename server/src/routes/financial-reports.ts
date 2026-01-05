@@ -179,18 +179,7 @@ router.get('/property-profitability', authenticate, async (req: AuthRequest, res
       end
     );
 
-    // Validate that we have data
-    if (!profitability || (Array.isArray(profitability) && profitability.length === 0)) {
-      return res.status(404).json({
-        success: false,
-        error: 'No profitability data found',
-        message: propertyId 
-          ? `No profitability data found for property ${propertyId} in the specified date range`
-          : 'No profitability data found in the specified date range',
-        data: [],
-      });
-    }
-
+    // Return results (empty array if no data found is valid)
     return successResponse(res, profitability);
   } catch (error) {
     logger.error('Generate property profitability error:', error);
@@ -433,17 +422,7 @@ router.get('/property-profitability/export', authenticate, async (req: AuthReque
       end
     );
 
-    // Validate that we have data
-    if (!profitability || (Array.isArray(profitability) && profitability.length === 0)) {
-      return res.status(404).json({
-        error: 'No profitability data found',
-        message: propertyId 
-          ? `No profitability data found for property ${propertyId} in the specified date range`
-          : 'No profitability data found in the specified date range',
-      });
-    }
-
-    // Generate export
+    // Generate export (even if empty)
     if (format === 'excel') {
       await generateReportExcel(profitability, 'property-profitability', res);
     } else {
