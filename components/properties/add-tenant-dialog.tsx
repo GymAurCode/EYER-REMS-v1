@@ -153,11 +153,16 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
     e.preventDefault()
     try {
       // Validate required fields
+      if (!formData.tid || !formData.tid.trim()) {
+        showErrorToast("Error", "Tracking ID is required")
+        return
+      }
+
       if (!formData.name || !formData.name.trim()) {
         showErrorToast("Error", "Tenant name is required")
         return
       }
-      
+
       if (!formData.unitId || formData.unitId === "none") {
         showErrorToast("Error", "Please select a unit")
         return
@@ -172,10 +177,11 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
       }
       
       const payload: any = {
+        tid: formData.tid.trim(),
         name: formData.name.trim(),
         unitId: formData.unitId,
       }
-      
+
       // Only add optional fields if they have values (don't send empty strings)
       if (formData.email && formData.email.trim()) {
         payload.email = formData.email.trim()
@@ -239,7 +245,7 @@ export function AddTenantDialog({ open, onOpenChange, onSuccess, blockId, onTena
       if (err.response?.data?.details && Array.isArray(err.response.data.details)) {
         // Format Zod validation errors
         const validationErrors = err.response.data.details.map((d: any) => {
-          const field = d.path?.join('.') || 'unknown'
+          const field = d.path || 'unknown'
           return `${field}: ${d.message}`
         })
         errorMessage = validationErrors.join(', ')
