@@ -7,6 +7,8 @@ import { PrismaClient } from '@prisma/client';
 import { Request } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
+import { getSecureUploadDir } from '../utils/file-security';
+import logger from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -83,8 +85,7 @@ export async function deleteAttachment(attachmentId: string) {
     data: { isDeleted: true },
   });
 
-  // Optionally delete physical file
-  // await deletePhysicalFile(attachment.fileUrl);
+  await deletePhysicalFile(attachment.fileUrl);
 
   return attachment;
 }
@@ -142,10 +143,22 @@ export async function saveUploadedFile(
  */
 export async function deletePhysicalFile(fileUrl: string) {
   try {
-    const filePath = path.join(process.cwd(), 'public', fileUrl);
-    await fs.unlink(filePath);
+    const normalized = fileUrl.replace(/^\/api/, '').replace(/\\/g, '/');
+    if (normalized.startsWith('/secure-files/')) {
+      const parts = normalized.split('/').filter(Boolean);
+      if (parts.length >= 4) {
+        const [, entityType, entityId, ...filenameParts] = parts;
+        const filename = filenameParts.join('/');
+        const uploadDir = await getSecureUploadDir();
+        const securePath = path.join(uploadDir, entityType, entityId, filename);
+        await fs.unlink(securePath);
+        return;
+      }
+    }
+    const publicPath = path.join(process.cwd(), 'public', normalized);
+    await fs.unlink(publicPath);
   } catch (error) {
-    console.error('Error deleting file:', error);
+    logger.error(`Error deleting file: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 

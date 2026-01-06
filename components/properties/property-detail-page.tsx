@@ -32,6 +32,7 @@ import { PropertyReportHTML } from "@/components/reports/property-report-html"
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ImageLightbox } from "@/components/shared/image-lightbox"
 import { DocumentViewer } from "@/components/shared/document-viewer"
+import { AccountsFooterBar } from "@/components/shared/accounts-footer-bar"
 import { useToast } from "@/hooks/use-toast"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -1010,6 +1011,15 @@ export function PropertyDetailPage() {
         }}
         document={selectedDocument}
       />
+
+      {/* Accounts Footer Bar */}
+      {propertyId && (
+        <AccountsFooterBar
+          entityType="property"
+          entityId={String(propertyId)}
+          onUpdate={fetchProperty}
+        />
+      )}
     </div>
   )
 }

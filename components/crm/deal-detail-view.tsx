@@ -12,6 +12,7 @@ import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { DealTimeline } from "./deal-timeline"
 import { DocumentViewer } from "@/components/shared/document-viewer"
+import { AccountsFooterBar } from "@/components/shared/accounts-footer-bar"
 
 // Utility functions for frontend
 const formatCurrency = (amount: number) => {
@@ -500,6 +501,13 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
           setSelectedDocument(null)
         }}
         document={selectedDocument}
+      />
+
+      {/* Accounts Footer Bar */}
+      <AccountsFooterBar
+        entityType="deal"
+        entityId={dealId}
+        onUpdate={loadDeal}
       />
     </div>
   )

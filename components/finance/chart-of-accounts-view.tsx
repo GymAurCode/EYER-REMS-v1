@@ -358,10 +358,10 @@ export function ChartOfAccountsView() {
 
   return (
     <>
-      <div className="h-[calc(100vh-250px)] flex flex-col overflow-hidden">
+      <div className="h-[calc(100vh-250px)] md:h-[calc(100vh-200px)] flex flex-col overflow-hidden">
         {/* Search Bar & Actions */}
-        <div className="mb-4 px-1 flex-shrink-0 flex items-center justify-between gap-4">
-          <div className="relative flex-1">
+        <div className="mb-4 px-1 flex-shrink-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="relative flex-1 w-full sm:w-auto">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               placeholder="Search by code, name, or description..."
@@ -370,8 +370,8 @@ export function ChartOfAccountsView() {
               className="pl-9"
             />
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => {
+          <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto" onClick={() => {
               const params = new URLSearchParams()
               params.set('tab', 'reports')
               router.push(`/finance?${params.toString()}`)
@@ -379,7 +379,7 @@ export function ChartOfAccountsView() {
               <BarChart3 className="mr-2 h-4 w-4" />
               Financial Reports
             </Button>
-            <Button onClick={handleAddAccount}>
+            <Button className="w-full sm:w-auto" onClick={handleAddAccount}>
               <Plus className="mr-2 h-4 w-4" />
               Add Account
             </Button>
@@ -387,9 +387,9 @@ export function ChartOfAccountsView() {
         </div>
 
         {/* Main Content: Split Layout */}
-        <div className="flex-1 flex gap-4 overflow-hidden min-h-0">
+        <div className="flex-1 flex flex-col md:flex-row gap-4 overflow-hidden min-h-0">
         {/* LEFT SECTION - Account Tree */}
-        <Card className="flex-1 flex flex-col overflow-hidden border-r min-w-0">
+        <Card className="flex-1 flex flex-col overflow-hidden border-r md:border-r-0 md:border-b min-w-0">
           <CardHeader className="flex-shrink-0 pb-3 border-b">
             <CardTitle className="text-lg">Account Tree</CardTitle>
           </CardHeader>
@@ -413,7 +413,7 @@ export function ChartOfAccountsView() {
         </Card>
 
         {/* RIGHT SECTION - Account Detail Panel */}
-        <Card className="w-[500px] flex flex-col overflow-hidden flex-shrink-0 min-w-[500px]">
+        <Card className="w-full md:w-[500px] flex flex-col overflow-hidden flex-shrink-0 md:min-w-[500px]">
           <CardHeader 
             className={cn(
               "flex-shrink-0 pb-3 border-b",
@@ -423,7 +423,7 @@ export function ChartOfAccountsView() {
               borderLeftWidth: selectedAccount ? '4px' : '0px'
             }}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <CardTitle className="text-lg">Account Details</CardTitle>
               {selectedAccount && (
                 <div className="flex items-center gap-2">

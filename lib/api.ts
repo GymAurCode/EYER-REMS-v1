@@ -846,6 +846,32 @@ export const apiService = {
     },
   },
 
+  // Entities footer (account binding, attachments, history, metadata)
+  entities: {
+    getAccountBinding: (entityType: string, entityId: string) =>
+      api.get(`/entity-accounts/bindings/${entityType}/${entityId}`),
+    bindAccount: (entityType: string, entityId: string, accountId: string) =>
+      api.post(`/entity-accounts/bind`, { entityType, entityId, accountId }),
+    unbindAccount: (entityType: string, entityId: string, accountId: string) =>
+      api.delete(`/entity-accounts/bindings/${entityType}/${entityId}/${accountId}`),
+    getAttachments: (entityType: string, entityId: string) =>
+      api.get(`/entity-accounts/attachments/${entityType}/${entityId}`),
+    uploadAttachment: (entityType: string, entityId: string, data: { file: string; filename: string; fileType?: string }) =>
+      api.post(`/entity-accounts/attachments`, { ...data, entityType, entityId }),
+    deleteAttachment: (_entityType: string, _entityId: string, attachmentId: string) =>
+      api.delete(`/entity-accounts/attachments/${attachmentId}`),
+    // Transactions via bound account
+    getHistory: (entityType: string, entityId: string) =>
+      api.get(`/entity-accounts/history/${entityType}/${entityId}`),
+    // Change history (audit logs)
+    addHistory: (entityType: string, entityId: string, data: { action: string; oldValue?: string; newValue?: string }) =>
+      api.post(`/entity-accounts/audit`, { entityType, entityId, action: data.action, oldValue: data.oldValue, newValue: data.newValue }),
+    getMetadata: (entityType: string, entityId: string) =>
+      api.get(`/entity-accounts/metadata/${entityType}/${entityId}`),
+    updateMetadata: (entityType: string, entityId: string, data: { notes?: string; references?: string[] }) =>
+      api.post(`/entity-accounts/metadata`, { entityType, entityId, ...data }),
+  },
+
   transactionCategories: {
     getAll: () => api.get('/finance/transaction-categories'),
     create: (data: any) => api.post('/finance/transaction-categories', data),

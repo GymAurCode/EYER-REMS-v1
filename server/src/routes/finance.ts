@@ -1159,7 +1159,22 @@ router.get('/attachments/:id', authenticate, async (req: AuthRequest, res: Respo
 
     const fs = await import('fs');
     const path = await import('path');
-    const filePath = path.join(process.cwd(), 'public', attachment.fileUrl);
+    const cleanUrl = attachment.fileUrl.replace(/^\/api/, '').replace(/\\/g, '/');
+    let filePath: string;
+    if (cleanUrl.startsWith('/secure-files/')) {
+      const parts = cleanUrl.split('/').filter(Boolean);
+      if (parts.length >= 4) {
+        const [, entityType, entityId, ...filenameParts] = parts;
+        const filename = filenameParts.join('/');
+        const { getSecureUploadDir } = await import('../utils/file-security');
+        const uploadDir = await getSecureUploadDir();
+        filePath = path.join(uploadDir, entityType, entityId, filename);
+      } else {
+        filePath = path.join(process.cwd(), 'public', cleanUrl);
+      }
+    } else {
+      filePath = path.join(process.cwd(), 'public', cleanUrl);
+    }
 
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
