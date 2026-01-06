@@ -39,6 +39,8 @@
   },
   "dependencies": {
     "@prisma/client": "5.19.1",
+    "@types/cookie-parser": "^1.4.10",
+    "@types/express": "^4.17.25",
     "@types/pdfkit": "^0.17.4",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
@@ -56,9 +58,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.25",
     "@types/express-session": "^1.18.2",
     "@types/jest": "^30.0.0",
     "@types/jsonwebtoken": "^9.0.10",
