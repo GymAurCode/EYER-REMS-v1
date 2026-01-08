@@ -6,12 +6,40 @@ import { z } from 'zod';
 
 const router = (express as any).Router();
 
-// Get all employees
+// Get all employees with optional search
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const { search, limit } = req.query;
+    const searchLimit = limit ? parseInt(limit as string, 10) : undefined;
+
+    const where: any = { isDeleted: false };
+
+    // Add search filter if provided
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { employeeId: { contains: searchTerm, mode: 'insensitive' } },
+        { email: { contains: searchTerm, mode: 'insensitive' } },
+        { phone: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
     const employees = await prisma.employee.findMany({
-      where: { isDeleted: false },
+      where,
       orderBy: { createdAt: 'desc' },
+      take: searchLimit,
+      select: {
+        id: true,
+        employeeId: true,
+        name: true,
+        email: true,
+        phone: true,
+        department: true,
+        position: true,
+        status: true,
+        createdAt: true,
+      },
     });
 
     res.json({

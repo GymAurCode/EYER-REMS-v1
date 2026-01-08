@@ -4,6 +4,7 @@ import type React from "react"
 import { useEffect, useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 import { useDropdownOptions } from "@/hooks/use-dropdowns"
+import { SearchableSelect } from "@/components/common/searchable-select"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -120,95 +121,19 @@ export function AddDealDialog({
   mode = "create",
 }: AddDealDialogProps) {
   const [formData, setFormData] = useState(defaultFormState)
-  const [clients, setClients] = useState<ClientOption[]>([])
-  const [properties, setProperties] = useState<PropertyOption[]>([])
-  const [loadingClients, setLoadingClients] = useState(false)
-  const [loadingProperties, setLoadingProperties] = useState(false)
+  // Removed: clients and properties state - now handled by SearchableSelect
   const [submitting, setSubmitting] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const { toast } = useToast()
   const isEdit = mode === "edit" && !!initialData?.id
-  const { options: stageOverrides } = useDropdownOptions("deal.stage")
-  const { options: statusOverrides } = useDropdownOptions("deal.status")
+  const { options: stageOverrides } = useDropdownOptions("crm.deal.stage")
+  const { options: statusOverrides } = useDropdownOptions("crm.deal.status")
   const stageOptions = stageOverrides.length ? stageOverrides : FALLBACK_STAGE_OPTIONS
   const statusOptions = statusOverrides.length ? statusOverrides : FALLBACK_STATUS_OPTIONS
-  const selectedClient = clients.find((c) => c.id === formData.clientId)
-  const selectedProperty = properties.find((p) => p.id === formData.propertyId)
+  // Removed: selectedClient and selectedProperty - no longer needed
 
-  useEffect(() => {
-    if (!open) return
-    const controller = new AbortController()
-
-    const loadClients = async () => {
-      try {
-        setLoadingClients(true)
-        const response = await apiService.clients.getAll(undefined, { signal: controller.signal })
-        const responseData = response.data as any
-        // Handle nested data structure: response.data.data or response.data
-        const data = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-
-        if (!controller.signal.aborted) {
-          setClients(
-            data
-              .map((client: any) => ({
-                id: String(client.id || ''),
-                name: String(client.name || client.id || ''),
-                tid: client.tid ? String(client.tid) : undefined,
-              }))
-              .filter((client: { id: string, name: string }) => client.id && client.name) // Filter out invalid clients
-          )
-        }
-      } catch (error) {
-
-        if (controller.signal.aborted) return
-        console.error("Failed to load clients", error)
-        toast({ title: "Failed to load clients", variant: "destructive" })
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingClients(false)
-        }
-      }
-    }
-
-    const loadProperties = async () => {
-      try {
-        setLoadingProperties(true)
-        const response = await apiService.properties.getAll(undefined, { signal: controller.signal })
-        const responseData = response.data as any
-        const payload = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-
-        if (!controller.signal.aborted) {
-          setProperties(
-            payload
-              .map((property: any) => ({
-                id: String(property.id || ''),
-                tid: property.tid ? String(property.tid) : undefined,
-                name: String(property.name || property.id || ''),
-                propertyCode: property.propertyCode ? String(property.propertyCode) : undefined,
-                status: property.status ? String(property.status) : undefined,
-                salePrice: property.salePrice ? Number(property.salePrice) : undefined,
-              }))
-              .filter((property: { id: string, name: string }) => property.id && property.name) // Filter out invalid properties
-          )
-        }
-      } catch (error) {
-
-        if (controller.signal.aborted) return
-        console.error("Failed to load properties", error)
-        toast({ title: "Failed to load properties", variant: "destructive" })
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingProperties(false)
-        }
-      }
-    }
-
-    loadClients()
-    loadProperties()
-
-    return () => controller.abort()
-  }, [open])
+  // Removed: Client and property loading logic - now handled by SearchableSelect component
 
   useEffect(() => {
     if (!open) return
@@ -451,51 +376,35 @@ export function AddDealDialog({
               {errors.title && <p className="text-sm text-destructive">{errors.title}</p>}
             </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="clientId">Client <span className="text-destructive">*</span></Label>
-              <Select
-                value={formData.clientId || ""}
-                onValueChange={(value) => {
-                  setFormData({ ...formData, clientId: value })
-                  if (errors.clientId) setErrors({ ...errors, clientId: "" })
-                }}
-              >
-                <SelectTrigger className={errors.clientId ? "border-destructive" : ""}>
-                  <SelectValue placeholder={loadingClients ? "Loading clients..." : "Select Client"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {clients.map((client) => (
-                    <SelectItem key={client.id} value={client.id}>
-                      {client.name} {client.tid ? `(${client.tid})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.clientId && <p className="text-sm text-destructive">{errors.clientId}</p>}
-            </div>
+            <SearchableSelect
+              source="clients"
+              label="Client"
+              value={formData.clientId || null}
+              onChange={(value) => {
+                setFormData({ ...formData, clientId: value || "" })
+                if (errors.clientId) setErrors({ ...errors, clientId: "" })
+              }}
+              required
+              placeholder="Search and select client..."
+              error={!!errors.clientId}
+              allowEmpty={false}
+            />
+            {errors.clientId && <p className="text-sm text-destructive">{errors.clientId}</p>}
 
-            <div className="grid gap-2">
-              <Label htmlFor="propertyId">Property <span className="text-destructive">*</span></Label>
-              <Select
-                value={formData.propertyId || ""}
-                onValueChange={(value) => {
-                  setFormData({ ...formData, propertyId: value })
-                  if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
-                }}
-              >
-                <SelectTrigger className={errors.propertyId ? "border-destructive" : ""}>
-                  <SelectValue placeholder={loadingProperties ? "Loading properties..." : "Select Property"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
-                      {property.name} {property.tid ? `(${property.tid})` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {errors.propertyId && <p className="text-sm text-destructive">{errors.propertyId}</p>}
-            </div>
+            <SearchableSelect
+              source="properties"
+              label="Property"
+              value={formData.propertyId || null}
+              onChange={(value) => {
+                setFormData({ ...formData, propertyId: value || "" })
+                if (errors.propertyId) setErrors({ ...errors, propertyId: "" })
+              }}
+              required
+              placeholder="Search and select property..."
+              error={!!errors.propertyId}
+              allowEmpty={false}
+            />
+            {errors.propertyId && <p className="text-sm text-destructive">{errors.propertyId}</p>}
 
             <div className="grid gap-2">
               <Label htmlFor="role">Client Role</Label>
@@ -530,11 +439,6 @@ export function AddDealDialog({
                 className={errors.dealAmount ? "border-destructive" : ""}
               />
               {errors.dealAmount && <p className="text-sm text-destructive">{errors.dealAmount}</p>}
-              {selectedProperty?.salePrice && (
-                <p className="text-xs text-muted-foreground">
-                  Suggested Price: {selectedProperty.salePrice.toLocaleString()}
-                </p>
-              )}
             </div>
 
             <div className="grid gap-2">

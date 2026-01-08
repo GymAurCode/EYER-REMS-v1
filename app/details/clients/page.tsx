@@ -33,7 +33,7 @@ export default function ClientsPage() {
         setError(null)
         const [clientsRes, dealsRes] = await Promise.all([
           apiService.clients.getAll(undefined, { signal: controller.signal }),
-          apiService.deals.getAll({ signal: controller.signal }),
+          apiService.deals.getAll(undefined, { signal: controller.signal }),
         ])
 
         // Robust data extraction for clients

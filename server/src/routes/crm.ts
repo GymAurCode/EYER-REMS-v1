@@ -811,14 +811,28 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
-    const { includeDeleted } = req.query;
+    const { includeDeleted, search } = req.query;
 
     // Show all deals by default, filter deleted only if explicitly requested
     const where: any = includeDeleted === 'true' ? {} : { isDeleted: false };
+
+    // Add search filter if provided
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      where.OR = [
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { tid: { contains: searchTerm, mode: 'insensitive' } },
+        { dealCode: { contains: searchTerm, mode: 'insensitive' } },
+        { client: { name: { contains: searchTerm, mode: 'insensitive' } } },
+      ];
+    }
+
     const [deals, total] = await Promise.all([
       prisma.deal.findMany({
         where,
         orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
         include: {
           client: {
             select: {
@@ -849,8 +863,6 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
             },
           },
         },
-        skip,
-        take: limit,
       }),
       prisma.deal.count({ where }),
     ]);

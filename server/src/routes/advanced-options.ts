@@ -126,13 +126,20 @@ router.post('/dropdowns', authenticate, requireAdmin, async (req: AuthRequest, r
   }
 });
 
-// GET dropdown by key - allow authenticated users (not just admin) since used in forms
-// Use regex to allow dots in the key parameter (e.g., "property.category")
-// Default dropdowns to serve when database is empty
-const DEFAULT_DROPDOWNS: Record<string, { name: string; options: { label: string; value: string }[] }> = {
+// Central registry for all dropdowns (name, description, and defaults).
+// This is the single source of truth for what categories should exist.
+const DROPDOWN_REGISTRY: Record<
+  string,
+  {
+    name: string;
+    description?: string;
+    defaults?: { label: string; value: string; sortOrder?: number }[];
+  }
+> = {
+  // Properties
   'property.type': {
     name: 'Property Type',
-    options: [
+    defaults: [
       { label: 'Residential', value: 'residential' },
       { label: 'Commercial', value: 'commercial' },
       { label: 'Industrial', value: 'industrial' },
@@ -141,7 +148,7 @@ const DEFAULT_DROPDOWNS: Record<string, { name: string; options: { label: string
   },
   'property.category': {
     name: 'Property Category',
-    options: [
+    defaults: [
       { label: 'Apartment', value: 'apartment' },
       { label: 'House', value: 'house' },
       { label: 'Villa', value: 'villa' },
@@ -152,7 +159,7 @@ const DEFAULT_DROPDOWNS: Record<string, { name: string; options: { label: string
   },
   'property.status': {
     name: 'Property Status',
-    options: [
+    defaults: [
       { label: 'Active', value: 'Active' },
       { label: 'Inactive', value: 'Inactive' },
       { label: 'Maintenance', value: 'Maintenance' },
@@ -162,60 +169,138 @@ const DEFAULT_DROPDOWNS: Record<string, { name: string; options: { label: string
   },
   'property.size': {
     name: 'Property Size',
-    options: [
+    defaults: [
       { label: 'Small', value: 'small' },
       { label: 'Medium', value: 'medium' },
       { label: 'Large', value: 'large' },
     ],
   },
+
+  // CRM - Deals
+  'crm.deal.stage': {
+    name: 'Deal Stage',
+    defaults: [
+      { label: 'Prospecting', value: 'prospecting' },
+      { label: 'Qualified', value: 'qualified' },
+      { label: 'Proposal', value: 'proposal' },
+      { label: 'Negotiation', value: 'negotiation' },
+      { label: 'Closing', value: 'closing' },
+      { label: 'Closed Won', value: 'closed-won' },
+      { label: 'Closed Lost', value: 'closed-lost' },
+    ],
+  },
+  'crm.deal.status': {
+    name: 'Deal Status',
+    defaults: [
+      { label: 'Open', value: 'open' },
+      { label: 'In Progress', value: 'in_progress' },
+      { label: 'Won', value: 'won' },
+      { label: 'Lost', value: 'lost' },
+      { label: 'Cancelled', value: 'cancelled' },
+    ],
+  },
+
+  // Finance
+  'finance.payment.method': {
+    name: 'Payment Method',
+    defaults: [
+      { label: 'Cash', value: 'cash' },
+      { label: 'Bank Transfer', value: 'bank_transfer' },
+      { label: 'Cheque', value: 'cheque' },
+      { label: 'Card', value: 'card' },
+    ],
+  },
+
+  // HR
+  'employee.hr.department': {
+    name: 'Department',
+    description: 'Used to sync HR departments',
+  },
+};
+
+// Map of dropdown keys to usage checkers to prevent deleting options in use.
+type UsageChecker = (value: string) => Promise<boolean>;
+const DROPDOWN_USAGE: Record<string, UsageChecker[]> = {
+  'property.status': [
+    async (value) => (await prisma.property.count({ where: { status: value } })) > 0,
+  ],
+  'property.type': [
+    async (value) => (await prisma.property.count({ where: { type: value } })) > 0,
+  ],
+  'property.category': [
+    async (value) => (await prisma.property.count({ where: { category: value } })) > 0,
+  ],
+  'property.size': [
+    async (value) => (await prisma.property.count({ where: { size: value as any } })) > 0,
+  ],
+
+  'crm.deal.stage': [
+    async (value) => (await prisma.deal.count({ where: { stage: value } })) > 0,
+  ],
+  'crm.deal.status': [
+    async (value) => (await prisma.deal.count({ where: { status: value } })) > 0,
+  ],
+
+  'finance.payment.method': [
+    async (value) => (await prisma.transaction.count({ where: { paymentMethod: value } })) > 0,
+    async (value) => (await prisma.payroll.count({ where: { paymentMethod: value } })) > 0,
+    async (value) => (await prisma.tenantPayment.count({ where: { method: value } })) > 0,
+    async (value) => (await prisma.receipt.count({ where: { paymentMethod: value } })) > 0,
+  ],
+
+  'employee.hr.department': [
+    async (value) => (await prisma.employee.count({ where: { department: value } })) > 0,
+  ],
 };
 
 router.get('/dropdowns/:key([^/]+)', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    // Decode the key in case it was URL encoded
     const key = decodeURIComponent(req.params.key);
-    const category = await prisma.dropdownCategory.findUnique({
+
+    // Try to load existing category with active options
+    let category = await prisma.dropdownCategory.findUnique({
       where: { key },
       include: {
         options: {
+          where: { isActive: true },
           orderBy: { sortOrder: 'asc' },
         },
       },
     });
 
+    // Auto-create from registry (including defaults) if missing
+    if (!category) {
+      const registry = DROPDOWN_REGISTRY[key];
+      if (registry) {
+        category = await prisma.dropdownCategory.create({
+          data: {
+            key,
+            name: registry.name,
+            description: registry.description,
+            options: {
+              create: (registry.defaults || []).map((opt, idx) => ({
+                label: opt.label,
+                value: opt.value,
+                sortOrder: typeof opt.sortOrder === 'number' ? opt.sortOrder : idx,
+                isActive: true,
+              })),
+            },
+          },
+          include: {
+            options: {
+              where: { isActive: true },
+              orderBy: { sortOrder: 'asc' },
+            },
+          },
+        });
+      }
+    }
+
     if (category) {
       return res.json({ data: category, options: category.options });
     }
 
-    // Fallback to default options if not found in database
-    const defaultData = DEFAULT_DROPDOWNS[key];
-    if (defaultData) {
-      const options = defaultData.options.map((opt, idx) => ({
-        id: `default-${key}-${idx}`,
-        label: opt.label,
-        value: opt.value,
-        sortOrder: idx,
-        isActive: true,
-        categoryId: 'default',
-        metadata: {},
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
-
-      const categoryData = {
-        id: 'default',
-        key,
-        name: defaultData.name,
-        description: 'Default system options',
-        createdBy: 'system',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        options,
-      };
-
-      return res.json({ data: categoryData, options });
-    }
-
+    // If no registry entry and no DB record, return 404
     return res.status(404).json({ error: 'Category not found' });
   } catch (error) {
     return errorResponse(res, error);
@@ -283,11 +368,26 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
     const payload = sanitize(req.body);
     const existing = await prisma.dropdownOption.findUnique({
       where: { id },
-      include: { category: true }
+      include: { category: true },
     });
     if (!existing) {
       return res.status(404).json({ error: 'Option not found' });
     }
+
+    // Prevent changing value if the option is in use
+    if (payload.value && payload.value !== existing.value) {
+      const usageCheckers = DROPDOWN_USAGE[existing.category.key] || [];
+      const used = await Promise.all(
+        usageCheckers.map(async (fn) => (await fn(existing.value)) === true),
+      ).then((results) => results.some(Boolean));
+
+      if (used) {
+        return res.status(400).json({
+          error: 'Option value is in use and cannot be changed. You can edit the label or disable it.',
+        });
+      }
+    }
+
     const updated = await prisma.dropdownOption.update({
       where: { id },
       data: {
@@ -303,7 +403,8 @@ router.put('/dropdowns/options/:id', authenticate, requireAdmin, async (req: Aut
     if (existing.category.key === 'employee.hr.department') {
       const newValue = payload.value ?? existing.value;
       const newLabel = payload.label ?? existing.label;
-      const newIsActive = typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive;
+      const newIsActive =
+        typeof payload.isActive === 'boolean' ? payload.isActive : existing.isActive;
       await prisma.department.upsert({
         where: { code: newValue },
         create: {
@@ -338,10 +439,35 @@ router.delete('/dropdowns/options/:id', authenticate, requireAdmin, async (req: 
     const { id } = req.params;
     const existing = await prisma.dropdownOption.findUnique({
       where: { id },
-      include: { category: true }
+      include: { category: true },
     });
     if (!existing) {
       return res.status(404).json({ error: 'Option not found' });
+    }
+
+    const usageCheckers = DROPDOWN_USAGE[existing.category.key] || [];
+    const used = await Promise.all(
+      usageCheckers.map(async (fn) => (await fn(existing.value)) === true),
+    ).then((results) => results.some(Boolean));
+
+    if (used) {
+      // Enforce soft-disable instead of delete when in use
+      const updated = await prisma.dropdownOption.update({
+        where: { id },
+        data: { isActive: false },
+      });
+      await logAudit(req, {
+        entityType: 'dropdown_option',
+        entityId: updated.id,
+        action: 'update',
+        description: `Dropdown option "${updated.label}" marked inactive (in use)`,
+        oldValues: existing,
+        newValues: updated,
+      });
+      return res.status(200).json({
+        data: updated,
+        warning: 'Option is in use and was marked inactive instead of being deleted.',
+      });
     }
 
     // Sync with Department table for employee departments - deactivate instead of delete

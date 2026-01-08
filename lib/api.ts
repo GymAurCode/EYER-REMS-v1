@@ -691,7 +691,14 @@ export const apiService = {
   // CRM - Deals
   deals: {
     getLedger: (dealId: string) => api.get(`/crm/deals/${dealId}/ledger`),
-    getAll: (config?: any) => api.get('/crm/deals', config),
+    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+      const queryParams = new URLSearchParams()
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.page) queryParams.append('page', params.page.toString())
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      const queryString = queryParams.toString()
+      return api.get(`/crm/deals${queryString ? `?${queryString}` : ''}`, config)
+    },
     getById: (id: string) => api.get(`/crm/deals/${id}`),
     searchByTID: (tid: string) => api.get(`/crm/search/tid/${tid}`),
     create: (data: any) => api.post('/crm/deals', data),
@@ -734,7 +741,13 @@ export const apiService = {
 
   // HR - Employees
   employees: {
-    getAll: () => api.get('/hr/employees'),
+    getAll: (params?: { search?: string; limit?: number }, config?: any) => {
+      const queryParams = new URLSearchParams()
+      if (params?.search) queryParams.append('search', params.search)
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
+      const queryString = queryParams.toString()
+      return api.get(`/hr/employees${queryString ? `?${queryString}` : ''}`, config)
+    },
     getById: (id: string) => api.get(`/hr/employees/${id}`),
     create: (data: any) => api.post('/hr/employees', data),
     update: (id: string, data: any) => api.put(`/hr/employees/${id}`, data),
@@ -823,7 +836,16 @@ export const apiService = {
 
   // Finance - Accounts (Chart of Accounts)
   accounts: {
-    getAll: (params?: { tree?: string; search?: string; type?: string; level?: string; accountType?: string; postable?: string; trustOnly?: string }) => {
+    getAll: (params?: {
+      tree?: string
+      search?: string
+      type?: string
+      level?: string
+      accountType?: string
+      postable?: string
+      trustOnly?: string
+      limit?: number
+    }) => {
       const queryParams = new URLSearchParams()
       if (params?.tree) queryParams.append('tree', params.tree)
       if (params?.search) queryParams.append('search', params.search)
@@ -832,6 +854,7 @@ export const apiService = {
       if (params?.accountType) queryParams.append('accountType', params.accountType)
       if (params?.postable) queryParams.append('postable', params.postable)
       if (params?.trustOnly) queryParams.append('trustOnly', params.trustOnly)
+      if (params?.limit) queryParams.append('limit', params.limit.toString())
       const queryString = queryParams.toString()
       return api.get(`/accounts${queryString ? `?${queryString}` : ''}`)
     },
