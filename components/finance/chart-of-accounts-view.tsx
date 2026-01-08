@@ -111,6 +111,7 @@ export function ChartOfAccountsView() {
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null)
   const [selectedAccountDetails, setSelectedAccountDetails] = useState<Account | null>(null)
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false)
+  const [accountToEdit, setAccountToEdit] = useState<Account | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [accountToDelete, setAccountToDelete] = useState<Account | null>(null)
 
@@ -187,16 +188,13 @@ export function ChartOfAccountsView() {
   }, [])
 
   const handleAddAccount = () => {
+    setAccountToEdit(null)
     setIsAccountDialogOpen(true)
   }
 
   const handleEditAccount = (account: Account) => {
-    // TODO: Implement edit functionality when AddAccountDialog supports editing
-    toast({
-      title: "Edit functionality",
-      description: "Account editing will be available soon. Please delete and recreate the account for now.",
-      variant: "default",
-    })
+    setAccountToEdit(account)
+    setIsAccountDialogOpen(true)
   }
 
   const handleDeleteClick = (account: Account) => {
@@ -604,14 +602,22 @@ export function ChartOfAccountsView() {
 
       <AddAccountDialog 
         open={isAccountDialogOpen} 
+        accountToEdit={accountToEdit}
         onOpenChange={(open) => {
           setIsAccountDialogOpen(open)
           if (!open) {
+            setAccountToEdit(null)
             // Refresh accounts when dialog closes
             fetchAccounts()
             if (selectedAccount) {
               fetchAccountDetails(selectedAccount.id)
             }
+          }
+        }}
+        onSuccess={() => {
+          fetchAccounts()
+          if (selectedAccount) {
+            fetchAccountDetails(selectedAccount.id)
           }
         }}
       />

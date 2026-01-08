@@ -55,6 +55,25 @@ router.post('/bind', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId, accountId } = bindAccountSchema.parse(req.body);
 
+    logger.info(`[Bind Account] Starting bind operation: entityType=${entityType}, entityId=${entityId}, accountId=${accountId}, userId=${req.user?.id}`);
+
+    // Verify account exists
+    const account = await prisma.account.findUnique({
+      where: { id: accountId },
+      select: { id: true, code: true, name: true, isActive: true }
+    });
+
+    if (!account) {
+      logger.error(`[Bind Account] Account not found: ${accountId}`);
+      return errorResponse(res, new Error('Account not found'), 404);
+    }
+
+    if (!account.isActive) {
+      logger.warn(`[Bind Account] Attempting to bind inactive account: ${accountId}`);
+    }
+
+    logger.info(`[Bind Account] Account verified: ${account.code} - ${account.name}`);
+
     const binding = await prisma.entityAccountBinding.upsert({
       where: {
         entityType_entityId_accountId: {
@@ -74,24 +93,45 @@ router.post('/bind', authenticate, async (req: AuthRequest, res: Response) => {
         createdBy: req.user?.id,
       },
       include: {
-        account: true,
+        account: {
+          include: {
+            parent: true,
+          },
+        },
       },
     });
 
+    logger.info(`[Bind Account] Binding created/updated successfully: bindingId=${binding.id}`);
+
+    // Verify the binding was actually saved
+    const verifyBinding = await prisma.entityAccountBinding.findUnique({
+      where: { id: binding.id },
+      include: { account: true }
+    });
+
+    if (!verifyBinding) {
+      logger.error(`[Bind Account] Binding verification failed: bindingId=${binding.id}`);
+      return errorResponse(res, new Error('Failed to verify binding creation'), 500);
+    }
+
+    logger.info(`[Bind Account] Binding verified in database: bindingId=${verifyBinding.id}, accountId=${verifyBinding.accountId}`);
+
     return successResponse(res, binding);
   } catch (error) {
-    logger.error('Error binding entity to account:', error);
+    logger.error('[Bind Account] Error binding entity to account:', error);
     return errorResponse(res, error);
   }
 });
 
 /**
  * GET /bindings/:entityType/:entityId
- * Get bindings for an entity
+ * Get bindings for an entity with account balances and expense/income totals
  */
 router.get('/bindings/:entityType/:entityId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId } = req.params;
+
+    logger.info(`[Get Bindings] Fetching bindings for entityType=${entityType}, entityId=${entityId}`);
 
     const bindings = await prisma.entityAccountBinding.findMany({
       where: {
@@ -105,36 +145,154 @@ router.get('/bindings/:entityType/:entityId', authenticate, async (req: AuthRequ
           },
         },
       },
+      orderBy: {
+        createdAt: 'desc',
+      },
     });
 
-    // Build full path for each account
+    logger.info(`[Get Bindings] Found ${bindings.length} bindings in database`);
+
+    // Build full path and calculate balances for each account
     const bindingsWithPath = await Promise.all(
       bindings.map(async (binding) => {
         const fullPath = await buildAccountPath(binding.account);
+        
+        // Calculate account balance from ledger entries
+        const [debitTotal, creditTotal] = await Promise.all([
+          prisma.ledgerEntry.aggregate({
+            where: { 
+              debitAccountId: binding.accountId, 
+              deletedAt: null 
+            },
+            _sum: { amount: true },
+          }),
+          prisma.ledgerEntry.aggregate({
+            where: { 
+              creditAccountId: binding.accountId, 
+              deletedAt: null 
+            },
+            _sum: { amount: true },
+          }),
+        ]);
+
+        const debitSum = debitTotal._sum.amount || 0;
+        const creditSum = creditTotal._sum.amount || 0;
+
+        // Calculate balance based on normal balance
+        let balance = 0;
+        if (binding.account.normalBalance === 'Debit') {
+          balance = debitSum - creditSum;
+        } else {
+          balance = creditSum - debitSum;
+        }
+
+        // Calculate expense/income totals related to this entity
+        // This would need to be customized based on how expenses are linked to entities
+        // For now, we'll query ledger entries that reference this entity
+        let entityExpenseTotal = 0;
+        let entityIncomeTotal = 0;
+
+        try {
+          // Query ledger entries that might reference this entity
+          // This is a simplified approach - you may need to adjust based on your data model
+          const entityLedgerEntries = await prisma.ledgerEntry.findMany({
+            where: {
+              OR: [
+                { debitAccountId: binding.accountId },
+                { creditAccountId: binding.accountId },
+              ],
+              deletedAt: null,
+              // Add entity reference if your ledger entries have entityType/entityId fields
+              // Otherwise, this will need to be adjusted based on your schema
+            },
+            select: {
+              amount: true,
+              debitAccountId: true,
+              creditAccountId: true,
+            },
+            take: 1000, // Limit to prevent performance issues
+          });
+
+          entityLedgerEntries.forEach((entry) => {
+            if (entry.debitAccountId === binding.accountId) {
+              // Debit to this account (expense for asset/expense accounts, income for liability/equity/revenue)
+              if (binding.account.type?.toLowerCase() === 'expense' || 
+                  binding.account.type?.toLowerCase() === 'asset') {
+                entityExpenseTotal += entry.amount || 0;
+              } else {
+                entityIncomeTotal += entry.amount || 0;
+              }
+            } else if (entry.creditAccountId === binding.accountId) {
+              // Credit to this account (income for liability/equity/revenue accounts)
+              if (binding.account.type?.toLowerCase() === 'revenue' || 
+                  binding.account.type?.toLowerCase() === 'liability' ||
+                  binding.account.type?.toLowerCase() === 'equity') {
+                entityIncomeTotal += entry.amount || 0;
+              } else {
+                entityExpenseTotal += entry.amount || 0;
+              }
+            }
+          });
+        } catch (expenseError) {
+          logger.warn(`[Get Bindings] Error calculating expense/income totals: ${expenseError}`);
+        }
+
         return {
           ...binding,
           account: {
             ...binding.account,
             fullPath,
+            balance: Number(balance.toFixed(2)),
+            debitTotal: Number(debitSum.toFixed(2)),
+            creditTotal: Number(creditSum.toFixed(2)),
+            entityExpenseTotal: Number(entityExpenseTotal.toFixed(2)),
+            entityIncomeTotal: Number(entityIncomeTotal.toFixed(2)),
           },
         };
       })
     );
 
+    logger.info(`[Get Bindings] Returning ${bindingsWithPath.length} bindings with balances`);
+
     return successResponse(res, bindingsWithPath);
   } catch (error) {
-    logger.error('Error fetching entity bindings:', error);
+    logger.error('[Get Bindings] Error fetching entity bindings:', error);
     return errorResponse(res, error);
   }
 });
 
 /**
- * DELETE /binding/:entityType/:entityId/:accountId
+ * DELETE /bindings/:entityType/:entityId/:accountId
  * Unbind an account from an entity
  */
-router.delete('/binding/:entityType/:entityId/:accountId', authenticate, async (req: AuthRequest, res: Response) => {
+router.delete('/bindings/:entityType/:entityId/:accountId', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { entityType, entityId, accountId } = req.params;
+
+    logger.info(`[Unbind Account] Starting unbind operation: entityType=${entityType}, entityId=${entityId}, accountId=${accountId}, userId=${req.user?.id}`);
+
+    // Verify binding exists before deletion
+    const existingBinding = await prisma.entityAccountBinding.findUnique({
+      where: {
+        entityType_entityId_accountId: {
+          entityType,
+          entityId,
+          accountId,
+        },
+      },
+      include: {
+        account: {
+          select: { code: true, name: true }
+        }
+      }
+    });
+
+    if (!existingBinding) {
+      logger.warn(`[Unbind Account] Binding not found: entityType=${entityType}, entityId=${entityId}, accountId=${accountId}`);
+      return errorResponse(res, new Error('Binding not found'), 404);
+    }
+
+    logger.info(`[Unbind Account] Binding found: account=${existingBinding.account.code} - ${existingBinding.account.name}`);
 
     const deleted = await prisma.entityAccountBinding.delete({
       where: {
@@ -146,9 +304,11 @@ router.delete('/binding/:entityType/:entityId/:accountId', authenticate, async (
       },
     });
 
+    logger.info(`[Unbind Account] Binding deleted successfully: bindingId=${deleted.id}`);
+
     return successResponse(res, deleted);
   } catch (error) {
-    logger.error('Error unbinding account:', error);
+    logger.error('[Unbind Account] Error unbinding account:', error);
     return errorResponse(res, error);
   }
 });

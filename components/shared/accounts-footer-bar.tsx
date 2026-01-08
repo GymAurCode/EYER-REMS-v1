@@ -48,6 +48,12 @@ interface Account {
   parentId?: string
   parent?: Account
   children?: Account[]
+  balance?: number
+  debitTotal?: number
+  creditTotal?: number
+  entityExpenseTotal?: number
+  entityIncomeTotal?: number
+  fullPath?: string
 }
 
 interface HistoryEntry {
@@ -157,42 +163,77 @@ export function AccountsFooterBar({ entityType, entityId, onUpdate }: AccountsFo
 
     try {
       // Load bound accounts
-      console.log('Loading bound accounts for entityType:', entityType, 'entityId:', entityId, 'type of entityId:', typeof entityId)
+      console.log('[Footer] Loading bound accounts for entityType:', entityType, 'entityId:', entityId)
       const bindingResponse = await apiService.entities.getAccountBinding(entityType, entityId)
-      console.log('Binding response:', bindingResponse)
-      const data = bindingResponse.data
-      console.log('Binding data:', data, 'isArray:', Array.isArray(data))
-      if (Array.isArray(data)) {
-        console.log('First binding item:', data[0])
-      }
+      console.log('[Footer] Raw binding response:', JSON.stringify(bindingResponse, null, 2))
+      
+      // Extract data from response (handle both { data: ... } and direct response)
+      let data = bindingResponse?.data?.data || bindingResponse?.data || bindingResponse
+      console.log('[Footer] Extracted data:', JSON.stringify(data, null, 2))
+      console.log('[Footer] Data type:', typeof data, 'isArray:', Array.isArray(data))
 
       if (data) {
         if (Array.isArray(data)) {
-          // Direct array of accounts or bindings
-          const bindings = data
-          if (bindings.length > 0) {
-            if (bindings[0].account) {
-              // Wrapped in account property
-              boundAccounts = bindings.map((b: any) => b.account).filter(Boolean)
+          // Array of bindings: [{ id, entityType, entityId, accountId, account: {...} }, ...]
+          console.log('[Footer] Processing array of bindings, length:', data.length)
+          if (data.length > 0) {
+            console.log('[Footer] First binding item structure:', Object.keys(data[0]))
+            console.log('[Footer] First binding item:', JSON.stringify(data[0], null, 2))
+            
+            // Check if items have 'account' property (binding objects) or are direct accounts
+            if (data[0].account) {
+              // Bindings with nested account: extract accounts
+              boundAccounts = data
+                .map((b: any) => {
+                  if (b.account) {
+                    console.log('[Footer] Extracting account from binding:', b.account.id, b.account.name)
+                    return b.account
+                  }
+                  return null
+                })
+                .filter((acc: any) => acc && acc.id)
+              console.log('[Footer] Extracted accounts from bindings:', boundAccounts.length)
+            } else if (data[0].id && data[0].code) {
+              // Direct accounts array
+              boundAccounts = data.filter((acc: any) => acc && acc.id)
+              console.log('[Footer] Direct accounts array, count:', boundAccounts.length)
             } else {
-              // Direct accounts
-              boundAccounts = bindings.filter((b: any) => b && b.id)
+              console.warn('[Footer] Unknown array structure, first item:', data[0])
             }
+          } else {
+            console.log('[Footer] Empty bindings array')
           }
         } else if (data.accounts && Array.isArray(data.accounts)) {
           // { accounts: [...] }
           boundAccounts = data.accounts.filter((acc: any) => acc && acc.id)
+          console.log('[Footer] Found accounts in data.accounts, count:', boundAccounts.length)
         } else if (data.account) {
           // Single account wrapped
           boundAccounts = [data.account].filter(Boolean)
-        } else if (data.id) {
+          console.log('[Footer] Single account wrapped')
+        } else if (data.id && data.code) {
           // Single direct account
           boundAccounts = [data].filter(Boolean)
+          console.log('[Footer] Single direct account')
+        } else {
+          console.warn('[Footer] Unknown data structure:', Object.keys(data))
         }
+      } else {
+        console.log('[Footer] No data returned from API')
       }
-      console.log('Parsed bound accounts:', boundAccounts, 'length:', boundAccounts.length)
+      
+      console.log('[Footer] Final parsed bound accounts:', boundAccounts.length, 'accounts')
+      boundAccounts.forEach((acc, idx) => {
+        console.log(`[Footer] Account ${idx + 1}:`, acc.id, acc.code, acc.name)
+      })
     } catch (error: any) {
-      console.warn("Failed to load bound accounts:", error?.message)
+      console.error("[Footer] Failed to load bound accounts:", error)
+      console.error("[Footer] Error details:", error?.response?.data || error?.message)
+      toast({
+        title: "Error loading bound accounts",
+        description: error?.response?.data?.error || error?.message || "Failed to load accounts",
+        variant: "destructive",
+      })
     }
 
     try {
@@ -246,13 +287,26 @@ export function AccountsFooterBar({ entityType, entityId, onUpdate }: AccountsFo
 
     try {
       setBindingAccount(true)
-      console.log('Binding account:', selectedAccountId, 'to entityType:', entityType, 'entityId:', entityId)
+      console.log('[Bind] Starting account binding process')
+      console.log('[Bind] Account ID:', selectedAccountId)
+      console.log('[Bind] Entity Type:', entityType)
+      console.log('[Bind] Entity ID:', entityId)
+      
       const selectedAccount = accounts.find(acc => acc.id === selectedAccountId)
-      console.log('Selected account:', selectedAccount)
-      if (!selectedAccount) return
+      console.log('[Bind] Selected account:', selectedAccount)
+      if (!selectedAccount) {
+        console.error('[Bind] Selected account not found in accounts list')
+        toast({
+          title: "Account not found",
+          description: "The selected account could not be found",
+          variant: "destructive",
+        })
+        return
+      }
 
       // Check if already bound
       if (footerData.boundAccounts.some(acc => acc.id === selectedAccountId)) {
+        console.log('[Bind] Account already bound, skipping')
         toast({
           title: "Account already bound",
           description: "This account is already bound to this entity",
@@ -261,32 +315,76 @@ export function AccountsFooterBar({ entityType, entityId, onUpdate }: AccountsFo
         return
       }
 
-      console.log('Calling bindAccount API')
+      console.log('[Bind] Calling bindAccount API with payload:', {
+        entityType,
+        entityId,
+        accountId: selectedAccountId
+      })
+      
       const bindResponse = await apiService.entities.bindAccount(entityType, entityId, selectedAccountId)
-      console.log('Bind response:', bindResponse)
+      console.log('[Bind] Bind API response:', JSON.stringify(bindResponse, null, 2))
+      
+      // Verify the response indicates success
+      if (!bindResponse?.data) {
+        console.error('[Bind] Invalid response from bind API')
+        throw new Error('Invalid response from server')
+      }
+      
+      console.log('[Bind] Account binding successful, response data:', bindResponse.data)
+
+      // Optimistically update state before refresh
+      const newBoundAccount = bindResponse.data?.account || selectedAccount
+      if (newBoundAccount && !footerData.boundAccounts.some(acc => acc.id === newBoundAccount.id)) {
+        console.log('[Bind] Optimistically adding account to state:', newBoundAccount.id)
+        setFooterData(prev => ({
+          ...prev,
+          boundAccounts: [...prev.boundAccounts, newBoundAccount]
+        }))
+      }
 
       // Record in history
       const fullPath = buildAccountPath(selectedAccountId, accounts)
-      console.log('Adding history with fullPath:', fullPath)
-      await apiService.entities.addHistory(entityType, entityId, {
-        action: "Account bound",
-        newValue: fullPath || `${selectedAccount.code} - ${selectedAccount.name}`
+      console.log('[Bind] Adding history entry with fullPath:', fullPath)
+      try {
+        await apiService.entities.addHistory(entityType, entityId, {
+          action: "Account bound",
+          newValue: fullPath || `${selectedAccount.code} - ${selectedAccount.name}`
+        })
+        console.log('[Bind] History entry added successfully')
+      } catch (historyError) {
+        console.warn('[Bind] Failed to add history entry:', historyError)
+        // Don't fail the whole operation if history fails
+      }
+
+      toast({ 
+        title: "Account bound successfully",
+        description: `${selectedAccount.code} - ${selectedAccount.name} has been bound`
       })
 
-      toast({ title: "Account bound successfully" })
-
-      // Refresh data
+      // Refresh data to get latest from server (including any computed fields)
+      console.log('[Bind] Refreshing footer data from server')
       await loadFooterData()
+      
       onUpdate?.()
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("accounts-footer-updated"))
       }
       setSelectedAccountId("") // Reset selection
+      console.log('[Bind] Account binding process completed successfully')
     } catch (error: any) {
-      console.error('Error in handleAccountBinding:', error)
+      console.error('[Bind] Error in handleAccountBinding:', error)
+      console.error('[Bind] Error response:', error?.response?.data)
+      console.error('[Bind] Error message:', error?.message)
+      
+      // Revert optimistic update on error
+      setFooterData(prev => ({
+        ...prev,
+        boundAccounts: prev.boundAccounts.filter(acc => acc.id !== selectedAccountId)
+      }))
+      
       toast({
         title: "Failed to bind account",
-        description: error?.response?.data?.error || error?.message || "Unknown error",
+        description: error?.response?.data?.error || error?.message || "Unknown error occurred",
         variant: "destructive",
       })
     } finally {
@@ -550,31 +648,79 @@ export function AccountsFooterBar({ entityType, entityId, onUpdate }: AccountsFo
     <Card className="p-4 bg-muted/30">
       <div className="space-y-4">
         {/* Account Binding Section */}
-        <div className="flex items-center gap-4 flex-wrap">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-            <span className="text-sm font-medium text-foreground">Accounts:</span>
-            <div className="space-y-1">
-              {footerData.boundAccounts.length > 0 ? (
-                footerData.boundAccounts.map(account => (
-                  <div key={account.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                    <div className="text-sm">
-                      <div className="font-medium">{account.name}</div>
-                      <div className="text-muted-foreground text-xs">{account.accountType} - {buildAccountPath(account.id, accounts) || `${account.code} - ${account.name}`}</div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleUnbindAccount(account.id)}
-                      className="h-6 w-6 p-0 hover:bg-destructive/10"
-                    >
-                      <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                    </Button>
+        <div className="flex items-start gap-4 flex-wrap">
+          <div className="flex items-start gap-2 min-w-0 flex-1">
+            <FileText className="h-4 w-4 text-muted-foreground shrink-0 mt-1" />
+            <div className="flex-1 min-w-0">
+              <span className="text-sm font-medium text-foreground">Bound Accounts:</span>
+              <div className="space-y-2 mt-2">
+                {footerData.boundAccounts.length > 0 ? (
+                  footerData.boundAccounts.map(account => {
+                    const accountPath = account.fullPath || buildAccountPath(account.id, accounts) || `${account.code} - ${account.name}`
+                    const balance = account.balance ?? 0
+                    const expenseTotal = account.entityExpenseTotal ?? 0
+                    const incomeTotal = account.entityIncomeTotal ?? 0
+                    
+                    return (
+                      <div key={account.id} className="flex items-start justify-between p-3 bg-muted/50 rounded-md border border-border/50">
+                        <div className="flex-1 min-w-0 space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="font-medium text-sm">{account.name}</div>
+                            <Badge variant="outline" className="text-xs">
+                              {account.accountType || account.type}
+                            </Badge>
+                          </div>
+                          <div className="text-muted-foreground text-xs">
+                            {account.code} - {accountPath}
+                          </div>
+                          <div className="flex items-center gap-4 mt-2 text-xs">
+                            {balance !== undefined && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Balance:</span>
+                                <span className={`font-medium ${balance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                  Rs {Math.abs(balance).toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )}
+                            {expenseTotal > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Expenses:</span>
+                                <span className="font-medium text-red-600">
+                                  Rs {expenseTotal.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )}
+                            {incomeTotal > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-muted-foreground">Income:</span>
+                                <span className="font-medium text-green-600">
+                                  Rs {incomeTotal.toLocaleString('en-PK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-muted-foreground text-xs mt-1">
+                            Linked to: <span className="capitalize">{entityType}</span>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleUnbindAccount(account.id)}
+                          className="h-8 w-8 p-0 hover:bg-destructive/10 shrink-0 ml-2"
+                          title="Unbind account"
+                        >
+                          <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-sm text-muted-foreground p-2 bg-muted/30 rounded-md border border-dashed">
+                    No accounts bound to this {entityType}. Select an account below to bind it.
                   </div>
-                ))
-              ) : (
-                <span className="text-sm text-muted-foreground">No accounts bound</span>
-              )}
+                )}
+              </div>
             </div>
           </div>
 
