@@ -44,6 +44,7 @@ import accountsRoutes from './routes/accounts';
 import entityAccountsRoutes from './routes/entity-accounts';
 import fraudDetectionRoutes from './routes/fraud-detection';
 import filesRoutes from './routes/files';
+import constructionRoutes from './routes/construction';
 import { csrfProtection } from './middleware/csrf';
 import { apiLoggingMiddleware } from './middleware/api-logging';
 import path from 'path';
@@ -254,6 +255,7 @@ app.use('/api/tenant-portal', tenantPortalRoutes);
 app.use('/api/bulk', bulkRoutes);
 app.use('/api/bulk/excel', excelBulkRoutes);
 app.use('/api/recycle-bin', recycleBinRoutes);
+app.use('/api/construction', constructionRoutes);
 
 // Health check with DB connection test
 app.get('/api/health', async (req: Request, res: Response) => {

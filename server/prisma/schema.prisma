@@ -99,58 +99,59 @@ model Notification {
 }
 
 model Property {
-  id                       String               @id @default(uuid())
+  id                       String                @id @default(uuid())
   name                     String
   type                     String
   address                  String
   location                 String?
-  status                   String               @default("Vacant")
+  status                   String                @default("Vacant")
   imageUrl                 String?
   description              String?
   yearBuilt                Int?
   totalArea                Float?
-  totalUnits               Int                  @default(0)
+  totalUnits               Int                   @default(0)
   dealerId                 String?
-  isDeleted                Boolean              @default(false)
-  createdAt                DateTime             @default(now())
-  updatedAt                DateTime             @updatedAt
-  propertyCode             String?              @unique
+  isDeleted                Boolean               @default(false)
+  createdAt                DateTime              @default(now())
+  updatedAt                DateTime              @updatedAt
+  propertyCode             String?               @unique
   city                     String?
   documents                Json?
   ownerName                String?
   ownerPhone               String?
   previousTenants          Json?
   rentAmount               Float?
-  rentEscalationPercentage Float?               @default(0)
-  securityDeposit          Float?               @default(0)
+  rentEscalationPercentage Float?                @default(0)
+  securityDeposit          Float?                @default(0)
   size                     Float?
   title                    String?
   locationId               String?
-  manualUniqueId           String?              @unique
+  manualUniqueId           String?               @unique
   propertySubsidiary       String?
   amenities                String[]
   salePrice                Float?
   subsidiaryOptionId       String?
-  tid                      String?              @unique
+  tid                      String?               @unique
   category                 String?
-  attachments              Attachment[]         @relation("PropertyAttachments")
+  attachments              Attachment[]          @relation("PropertyAttachments")
   blocks                   Block[]
   buyers                   Buyer[]
-  deals                    Deal[]               @relation("DealProperty")
+  deals                    Deal[]                @relation("DealProperty")
   dealProperties           DealProperty[]
   expenseSummaries         ExpenseSummary[]
   FinanceLedger            FinanceLedger[]
   floors                   Floor[]
   invoices                 Invoice[]
   maintenanceRequests      MaintenanceRequest[]
-  locationNode             Location?            @relation("PropertyLocationMapping", fields: [locationId], references: [id])
-  subsidiaryOption         SubsidiaryOption?    @relation(fields: [subsidiaryOptionId], references: [id])
+  locationNode             Location?             @relation("PropertyLocationMapping", fields: [locationId], references: [id])
+  subsidiaryOption         SubsidiaryOption?     @relation(fields: [subsidiaryOptionId], references: [id])
   propertyExpenses         PropertyExpense[]
   revenueSummaries         RevenueSummary[]
   sales                    Sale[]
   tenancies                Tenancy[]
   transactions             Transaction[]
   units                    Unit[]
+  constructionProjects     ConstructionProject[] @relation("ConstructionProjectProperty")
 
   @@index([status])
   @@index([isDeleted])
@@ -1584,37 +1585,37 @@ model Commission {
 }
 
 model Account {
-  id                        String                @id @default(uuid())
-  code                      String                @unique
+  id                        String                 @id @default(uuid())
+  code                      String                 @unique
   name                      String
   type                      String
   description               String?
-  isActive                  Boolean               @default(true)
-  createdAt                 DateTime              @default(now())
-  updatedAt                 DateTime              @updatedAt
+  isActive                  Boolean                @default(true)
+  createdAt                 DateTime               @default(now())
+  updatedAt                 DateTime               @updatedAt
   parentId                  String?
-  isPostable                Boolean               @default(true)
+  isPostable                Boolean                @default(true)
   cashFlowCategory          String?
-  level                     Int                   @default(1)
-  accountType               String                @default("Posting")
-  normalBalance             String                @default("Debit")
-  trustFlag                 Boolean               @default(false)
-  parent                    Account?              @relation("AccountHierarchy", fields: [parentId], references: [id])
-  children                  Account[]             @relation("AccountHierarchy")
+  level                     Int                    @default(1)
+  accountType               String                 @default("Posting")
+  normalBalance             String                 @default("Debit")
+  trustFlag                 Boolean                @default(false)
+  parent                    Account?               @relation("AccountHierarchy", fields: [parentId], references: [id])
+  children                  Account[]              @relation("AccountHierarchy")
   accountAliases            AccountAlias[]
-  invoiceIncomeAccounts     Invoice[]             @relation("InvoiceIncomeAccount")
-  invoiceTenantAccounts     Invoice[]             @relation("InvoiceTenantAccount")
+  invoiceIncomeAccounts     Invoice[]              @relation("InvoiceIncomeAccount")
+  invoiceTenantAccounts     Invoice[]              @relation("InvoiceTenantAccount")
   journalLines              JournalLine[]
-  creditLedgerEntries       LedgerEntry[]         @relation("LedgerEntryCreditAccount")
-  debitLedgerEntries        LedgerEntry[]         @relation("LedgerEntryDebitAccount")
-  creditTransactions        Transaction[]         @relation("TransactionCreditAccount")
-  debitTransactions         Transaction[]         @relation("TransactionDebitAccount")
-  transactionCategoryCredit TransactionCategory[] @relation("TransactionCategoryCredit")
-  transactionCategoryDebit  TransactionCategory[] @relation("TransactionCategoryDebit")
+  creditLedgerEntries       LedgerEntry[]          @relation("LedgerEntryCreditAccount")
+  debitLedgerEntries        LedgerEntry[]          @relation("LedgerEntryDebitAccount")
+  creditTransactions        Transaction[]          @relation("TransactionCreditAccount")
+  debitTransactions         Transaction[]          @relation("TransactionDebitAccount")
+  transactionCategoryCredit TransactionCategory[]  @relation("TransactionCategoryCredit")
+  transactionCategoryDebit  TransactionCategory[]  @relation("TransactionCategoryDebit")
   vouchers                  Voucher[]
-  tenantAdvancePayments     TenantPayment[]       @relation("TenantPaymentAdvanceAccount")
-  tenantBankPayments        TenantPayment[]       @relation("TenantPaymentBankAccount")
-  tenantReceivablePayments  TenantPayment[]       @relation("TenantPaymentReceivableAccount")
+  tenantAdvancePayments     TenantPayment[]        @relation("TenantPaymentAdvanceAccount")
+  tenantBankPayments        TenantPayment[]        @relation("TenantPaymentBankAccount")
+  tenantReceivablePayments  TenantPayment[]        @relation("TenantPaymentReceivableAccount")
   entityAccountBindings     EntityAccountBinding[]
 
   @@index([type])
@@ -1649,17 +1650,29 @@ model JournalEntry {
 }
 
 model JournalLine {
-  id          String       @id @default(uuid())
-  entryId     String
-  accountId   String
-  debit       Float        @default(0)
-  credit      Float        @default(0)
-  description String?
-  account     Account      @relation(fields: [accountId], references: [id])
-  entry       JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  id                    String               @id @default(uuid())
+  entryId               String
+  accountId             String
+  debit                 Float                @default(0)
+  credit                Float                @default(0)
+  description           String?
+  // Construction module dimensions (mandatory for construction postings)
+  constructionProjectId String?
+  costCodeId            String?
+  sourceModule          String? // "Construction"
+  referenceDocumentId   String? // ID of the source document (GRN, Issue, etc.)
+  approvalMetadata      Json? // Approval info, user, timestamp
+  account               Account              @relation(fields: [accountId], references: [id])
+  entry                 JournalEntry         @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  constructionProject   ConstructionProject? @relation("JournalLineProject", fields: [constructionProjectId], references: [id])
+  costCode              CostCode?            @relation("JournalLineCostCode", fields: [costCodeId], references: [id])
 
   @@index([entryId])
   @@index([accountId])
+  @@index([constructionProjectId])
+  @@index([costCodeId])
+  @@index([sourceModule])
+  @@index([referenceDocumentId])
 }
 
 model LedgerEntry {
@@ -2131,7 +2144,7 @@ model Sequence {
 }
 
 model EntityAccountBinding {
-  id        String   @id @default(uuid())
+  id         String   @id @default(uuid())
   entityType String
   entityId   String
   accountId  String
@@ -2153,7 +2166,429 @@ model EntityMetadata {
   references Json?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
-  
+
   @@unique([entityType, entityId])
   @@index([entityType, entityId])
+}
+
+// ============================================
+// CONSTRUCTION MODULE MODELS
+// ============================================
+
+// Construction Project
+model ConstructionProject {
+  id                String                       @id @default(uuid())
+  code              String                       @unique
+  name              String
+  description       String?
+  propertyId        String? // Optional link to Property
+  status            String                       @default("planning") // planning, active, on-hold, completed, closed
+  accountingMode    String                       @default("WIP") // WIP or DirectExpense
+  costCodeMandatory Boolean                      @default(true)
+  budgetEnforcement Boolean                      @default(false)
+  startDate         DateTime?
+  endDate           DateTime?
+  budgetAmount      Float?
+  actualCost        Float                        @default(0)
+  isDeleted         Boolean                      @default(false)
+  createdBy         String?
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  property          Property?                    @relation("ConstructionProjectProperty", fields: [propertyId], references: [id])
+  costCodes         CostCode[]
+  dailyLogs         ConstructionDailyLog[]
+  laborEntries      ConstructionLabor[]
+  equipmentUsages   ConstructionEquipmentUsage[]
+  grns              ConstructionGRN[]
+  issues            ConstructionIssue[]
+  consumptions      ConstructionConsumption[]
+  budgets           ConstructionBudget[]
+  milestones        ConstructionMilestone[]
+  journalLines      JournalLine[]                @relation("JournalLineProject")
+
+  @@index([propertyId])
+  @@index([status])
+  @@index([code])
+  @@index([isDeleted])
+}
+
+// Cost Code Master (Hierarchical: Trade → Activity → Task)
+model CostCode {
+  id              String                       @id @default(uuid())
+  code            String                       @unique
+  name            String
+  level           Int                          @default(1) // 1=Trade, 2=Activity, 3=Task
+  parentId        String?
+  description     String?
+  isActive        Boolean                      @default(true)
+  projectId       String? // Optional: project-specific cost codes
+  createdAt       DateTime                     @default(now())
+  updatedAt       DateTime                     @updatedAt
+  parent          CostCode?                    @relation("CostCodeHierarchy", fields: [parentId], references: [id])
+  children        CostCode[]                   @relation("CostCodeHierarchy")
+  project         ConstructionProject?         @relation(fields: [projectId], references: [id])
+  journalLines    JournalLine[]                @relation("JournalLineCostCode")
+  laborEntries    ConstructionLabor[]
+  equipmentUsages ConstructionEquipmentUsage[]
+  issues          ConstructionIssue[]
+  consumptions    ConstructionConsumption[]
+  budgets         ConstructionBudget[]
+
+  @@index([parentId])
+  @@index([level])
+  @@index([projectId])
+  @@index([isActive])
+}
+
+// Daily Logs
+model ConstructionDailyLog {
+  id             String              @id @default(uuid())
+  projectId      String
+  logDate        DateTime
+  weather        String?
+  siteActivities Json? // Array of activity descriptions
+  laborHours     Float               @default(0)
+  equipmentHours Float               @default(0)
+  notes          String?
+  attachments    Json?
+  status         String              @default("draft") // draft, submitted, approved, locked
+  submittedBy    String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  isDeleted      Boolean             @default(false)
+  createdBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  project        ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([logDate])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Crew Master
+model ConstructionCrew {
+  id           String              @id @default(uuid())
+  code         String              @unique
+  name         String
+  description  String?
+  crewLeadId   String? // Employee ID
+  isActive     Boolean             @default(true)
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  laborEntries ConstructionLabor[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Labor Entries
+model ConstructionLabor {
+  id             String              @id @default(uuid())
+  projectId      String
+  costCodeId     String
+  crewId         String?
+  employeeId     String? // Employee ID
+  workDate       DateTime
+  hours          Float
+  rate           Float? // Hourly rate
+  amount         Float // hours * rate
+  description    String?
+  status         String              @default("draft") // draft, approved, posted
+  approvedBy     String?
+  approvedAt     DateTime?
+  journalEntryId String? // Link to posted journal entry
+  isDeleted      Boolean             @default(false)
+  createdBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  project        ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode       CostCode            @relation(fields: [costCodeId], references: [id])
+  crew           ConstructionCrew?   @relation(fields: [crewId], references: [id])
+
+  @@index([projectId])
+  @@index([costCodeId])
+  @@index([workDate])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Equipment Master
+model ConstructionEquipment {
+  id            String                       @id @default(uuid())
+  code          String                       @unique
+  name          String
+  type          String? // Excavator, Crane, etc.
+  make          String?
+  model         String?
+  serialNumber  String?
+  hourlyRate    Float? // Internal recovery rate
+  dailyRate     Float?
+  costingMethod String                       @default("hourly") // hourly, daily
+  isActive      Boolean                      @default(true)
+  createdAt     DateTime                     @default(now())
+  updatedAt     DateTime                     @updatedAt
+  usages        ConstructionEquipmentUsage[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Equipment Usage
+model ConstructionEquipmentUsage {
+  id             String                @id @default(uuid())
+  projectId      String
+  costCodeId     String
+  equipmentId    String
+  usageDate      DateTime
+  hours          Float? // For hourly costing
+  days           Float? // For daily costing
+  amount         Float // Calculated based on costing method
+  description    String?
+  status         String                @default("draft") // draft, approved, posted
+  approvedBy     String?
+  approvedAt     DateTime?
+  journalEntryId String? // Link to posted journal entry
+  isDeleted      Boolean               @default(false)
+  createdBy      String?
+  createdAt      DateTime              @default(now())
+  updatedAt      DateTime              @updatedAt
+  project        ConstructionProject   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode       CostCode              @relation(fields: [costCodeId], references: [id])
+  equipment      ConstructionEquipment @relation(fields: [equipmentId], references: [id])
+
+  @@index([projectId])
+  @@index([costCodeId])
+  @@index([equipmentId])
+  @@index([usageDate])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Inventory Item Master (Construction Materials)
+model ConstructionInventoryItem {
+  id            String                     @id @default(uuid())
+  code          String                     @unique
+  name          String
+  category      String? // Cement, Steel, etc.
+  unit          String                     @default("pcs") // pcs, kg, m, m2, m3
+  unitPrice     Float?
+  isActive      Boolean                    @default(true)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  grnItems      ConstructionGRNItem[]
+  issueItems    ConstructionIssueItem[]
+  consumptions  ConstructionConsumption[]
+  stockBalances ConstructionStockBalance[]
+
+  @@index([code])
+  @@index([category])
+  @@index([isActive])
+}
+
+// Warehouse
+model ConstructionWarehouse {
+  id            String                     @id @default(uuid())
+  code          String                     @unique
+  name          String
+  location      String?
+  isActive      Boolean                    @default(true)
+  createdAt     DateTime                   @default(now())
+  updatedAt     DateTime                   @updatedAt
+  stockBalances ConstructionStockBalance[]
+  grns          ConstructionGRN[]
+  issues        ConstructionIssue[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
+// Stock Balance
+model ConstructionStockBalance {
+  id          String                    @id @default(uuid())
+  warehouseId String
+  itemId      String
+  quantity    Float                     @default(0)
+  unitPrice   Float                     @default(0)
+  lastUpdated DateTime                  @default(now())
+  warehouse   ConstructionWarehouse     @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  item        ConstructionInventoryItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([warehouseId, itemId])
+  @@index([warehouseId])
+  @@index([itemId])
+}
+
+// GRN (Goods Receipt Note)
+model ConstructionGRN {
+  id           String                @id @default(uuid())
+  grnNumber    String                @unique
+  warehouseId  String
+  projectId    String? // Optional: direct project receipt
+  supplierName String?
+  receiptDate  DateTime
+  status       String                @default("draft") // draft, received, posted
+  notes        String?
+  attachments  Json?
+  postedBy     String?
+  postedAt     DateTime?
+  isDeleted    Boolean               @default(false)
+  createdBy    String?
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+  warehouse    ConstructionWarehouse @relation(fields: [warehouseId], references: [id])
+  project      ConstructionProject?  @relation(fields: [projectId], references: [id])
+  items        ConstructionGRNItem[]
+
+  @@index([warehouseId])
+  @@index([projectId])
+  @@index([grnNumber])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// GRN Items
+model ConstructionGRNItem {
+  id          String                    @id @default(uuid())
+  grnId       String
+  itemId      String
+  quantity    Float
+  unitPrice   Float
+  totalAmount Float
+  grn         ConstructionGRN           @relation(fields: [grnId], references: [id], onDelete: Cascade)
+  item        ConstructionInventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([grnId])
+  @@index([itemId])
+}
+
+// Issue to Project
+model ConstructionIssue {
+  id             String                  @id @default(uuid())
+  issueNumber    String                  @unique
+  projectId      String
+  warehouseId    String
+  costCodeId     String
+  issueDate      DateTime
+  status         String                  @default("draft") // draft, issued, posted
+  notes          String?
+  approvedBy     String?
+  approvedAt     DateTime?
+  journalEntryId String? // Link to posted journal entry
+  isDeleted      Boolean                 @default(false)
+  createdBy      String?
+  createdAt      DateTime                @default(now())
+  updatedAt      DateTime                @updatedAt
+  project        ConstructionProject     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  warehouse      ConstructionWarehouse   @relation(fields: [warehouseId], references: [id])
+  costCode       CostCode                @relation(fields: [costCodeId], references: [id])
+  items          ConstructionIssueItem[]
+
+  @@index([projectId])
+  @@index([warehouseId])
+  @@index([costCodeId])
+  @@index([issueNumber])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Issue Items
+model ConstructionIssueItem {
+  id          String                    @id @default(uuid())
+  issueId     String
+  itemId      String
+  quantity    Float
+  unitPrice   Float
+  totalAmount Float
+  issue       ConstructionIssue         @relation(fields: [issueId], references: [id], onDelete: Cascade)
+  item        ConstructionInventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([issueId])
+  @@index([itemId])
+}
+
+// Consumption (Material consumed on site)
+model ConstructionConsumption {
+  id              String                    @id @default(uuid())
+  projectId       String
+  costCodeId      String
+  itemId          String
+  quantity        Float
+  unitPrice       Float
+  totalAmount     Float
+  consumptionDate DateTime
+  description     String?
+  status          String                    @default("draft") // draft, approved, posted
+  approvedBy      String?
+  approvedAt      DateTime?
+  journalEntryId  String? // Link to posted journal entry
+  isDeleted       Boolean                   @default(false)
+  createdBy       String?
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+  project         ConstructionProject       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode        CostCode                  @relation(fields: [costCodeId], references: [id])
+  item            ConstructionInventoryItem @relation(fields: [itemId], references: [id])
+
+  @@index([projectId])
+  @@index([costCodeId])
+  @@index([itemId])
+  @@index([consumptionDate])
+  @@index([status])
+  @@index([isDeleted])
+}
+
+// Budget
+model ConstructionBudget {
+  id           String              @id @default(uuid())
+  projectId    String
+  costCodeId   String
+  budgetAmount Float
+  description  String?
+  fiscalYear   String?
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  project      ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  costCode     CostCode            @relation(fields: [costCodeId], references: [id])
+
+  @@unique([projectId, costCodeId, fiscalYear])
+  @@index([projectId])
+  @@index([costCodeId])
+}
+
+// Milestone (for client billing)
+model ConstructionMilestone {
+  id                String              @id @default(uuid())
+  projectId         String
+  milestoneNumber   String
+  name              String
+  description       String?
+  targetDate        DateTime?
+  completionDate    DateTime?
+  billingPercentage Float               @default(0) // % of contract value
+  billingAmount     Float               @default(0)
+  status            String              @default("planned") // planned, in-progress, completed, billed
+  invoiceId         String? // Link to invoice
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  project           ConstructionProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+}
+
+// Posting Rules (Configuration for event → DR/CR mapping)
+model ConstructionPostingRule {
+  id                String   @id @default(uuid())
+  eventType         String   @unique // MaterialIssue, LaborApproval, EquipmentUsage, etc.
+  debitAccountCode  String? // Account code (not ID, for flexibility)
+  creditAccountCode String?
+  description       String?
+  isActive          Boolean  @default(true)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([eventType])
+  @@index([isActive])
 }

@@ -29,6 +29,7 @@ import {
   ChevronRight,
   Loader2,
   Shield,
+  Hammer,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme-provider"
 import { useAuth } from "@/lib/auth-context"
@@ -58,6 +59,7 @@ const getNavigationForUser = (role: string, permissions?: string[]) => {
       ...baseNav,
       { name: "Properties", href: "/properties", icon: Building2 },
       { name: "Finance", href: "/finance", icon: DollarSign },
+      { name: "Construction", href: "/construction", icon: Hammer },
       { name: "HR Management", href: "/hr", icon: Users },
       { name: "CRM", href: "/crm", icon: UserCircle },
       { name: "Tenant Portal", href: "/tenant", icon: Home },
@@ -80,6 +82,9 @@ const getNavigationForUser = (role: string, permissions?: string[]) => {
   }
   if (hasModuleAccess(permissions, "crm")) {
     navItems.push({ name: "CRM", href: "/crm", icon: UserCircle })
+  }
+  if (hasModuleAccess(permissions, "construction")) {
+    navItems.push({ name: "Construction", href: "/construction", icon: Hammer })
   }
   if (hasModuleAccess(permissions, "tenant")) {
     navItems.push({ name: "Tenant Portal", href: "/tenant", icon: Home })

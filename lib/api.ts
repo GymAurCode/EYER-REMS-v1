@@ -1143,6 +1143,91 @@ export const apiService = {
       });
     },
   },
+
+  // Construction Module
+  construction: {
+    projects: {
+      getAll: (params?: { page?: number; limit?: number; status?: string; propertyId?: string; search?: string }) =>
+        api.get('/construction/projects', { params }),
+      getById: (id: string) => api.get(`/construction/projects/${id}`),
+      create: (data: any) => api.post('/construction/projects', data),
+      update: (id: string, data: any) => api.put(`/construction/projects/${id}`, data),
+      delete: (id: string) => api.delete(`/construction/projects/${id}`),
+    },
+    costCodes: {
+      getAll: (params?: { projectId?: string; level?: number; parentId?: string }) =>
+        api.get('/construction/cost-codes', { params }),
+      create: (data: any) => api.post('/construction/cost-codes', data),
+      update: (id: string, data: any) => api.put(`/construction/cost-codes/${id}`, data),
+    },
+    dailyLogs: {
+      getAll: (params?: { page?: number; limit?: number; projectId?: string; status?: string; fromDate?: string; toDate?: string }) =>
+        api.get('/construction/daily-logs', { params }),
+      create: (data: any) => api.post('/construction/daily-logs', data),
+      approve: (id: string) => api.put(`/construction/daily-logs/${id}/approve`),
+    },
+    labor: {
+      getAll: (params?: { page?: number; limit?: number; projectId?: string; status?: string; fromDate?: string; toDate?: string }) =>
+        api.get('/construction/labor', { params }),
+      create: (data: any) => api.post('/construction/labor', data),
+      approve: (id: string) => api.put(`/construction/labor/${id}/approve`),
+    },
+    crews: {
+      getAll: () => api.get('/construction/crews'),
+      create: (data: any) => api.post('/construction/crews', data),
+    },
+    equipment: {
+      getAll: () => api.get('/construction/equipment'),
+      create: (data: any) => api.post('/construction/equipment', data),
+    },
+    equipmentUsage: {
+      getAll: (params?: { page?: number; limit?: number; projectId?: string; equipmentId?: string; status?: string }) =>
+        api.get('/construction/equipment-usage', { params }),
+      create: (data: any) => api.post('/construction/equipment-usage', data),
+      approve: (id: string) => api.put(`/construction/equipment-usage/${id}/approve`),
+    },
+    inventory: {
+      items: {
+        getAll: (params?: { category?: string; search?: string }) =>
+          api.get('/construction/inventory-items', { params }),
+        create: (data: any) => api.post('/construction/inventory-items', data),
+      },
+      warehouses: {
+        getAll: () => api.get('/construction/warehouses'),
+        create: (data: any) => api.post('/construction/warehouses', data),
+        getStock: (id: string) => api.get(`/construction/warehouses/${id}/stock`),
+      },
+    },
+    grns: {
+      getAll: (params?: { page?: number; limit?: number; warehouseId?: string; projectId?: string; status?: string }) =>
+        api.get('/construction/grns', { params }),
+      create: (data: any) => api.post('/construction/grns', data),
+      post: (id: string) => api.put(`/construction/grns/${id}/post`),
+    },
+    issues: {
+      getAll: (params?: { page?: number; limit?: number; projectId?: string; warehouseId?: string; status?: string }) =>
+        api.get('/construction/issues', { params }),
+      create: (data: any) => api.post('/construction/issues', data),
+      approve: (id: string) => api.put(`/construction/issues/${id}/approve`),
+    },
+    budgets: {
+      getAll: (params?: { projectId?: string; costCodeId?: string }) =>
+        api.get('/construction/budgets', { params }),
+      create: (data: any) => api.post('/construction/budgets', data),
+    },
+    milestones: {
+      getAll: (params?: { projectId?: string; status?: string }) =>
+        api.get('/construction/milestones', { params }),
+      create: (data: any) => api.post('/construction/milestones', data),
+      bill: (id: string, data?: { retentionAmount?: number }) => api.put(`/construction/milestones/${id}/bill`, data),
+    },
+    reports: {
+      projectCostSummary: (projectId: string) => api.get(`/construction/reports/project-cost-summary/${projectId}`),
+      budgetVsActual: (projectId: string) => api.get(`/construction/reports/budget-vs-actual/${projectId}`),
+      wipMovement: (projectId: string, params?: { fromDate?: string; toDate?: string }) =>
+        api.get(`/construction/reports/wip-movement/${projectId}`, { params }),
+    },
+  },
 }
 
 export default api
