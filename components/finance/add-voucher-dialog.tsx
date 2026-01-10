@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import {
   Dialog,
   DialogContent,
@@ -15,9 +15,12 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Upload, X, FileText, Image as ImageIcon, Loader2 } from "lucide-react"
+import { Upload, X, FileText, Image as ImageIcon, Loader2, Plus, Trash2, AlertCircle } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { SearchableSelect } from "@/components/common/searchable-select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { cn } from "@/lib/utils"
 
 interface AddVoucherDialogProps {
   open: boolean
@@ -26,80 +29,207 @@ interface AddVoucherDialogProps {
   onSuccess?: () => void
 }
 
+interface VoucherLine {
+  id: string
+  accountId: string
+  debit: number
+  credit: number
+  description: string
+  propertyId?: string
+  unitId?: string
+}
+
 export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payment", onSuccess }: AddVoucherDialogProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  const [accounts, setAccounts] = useState<any[]>([])
+  const [loadingAccounts, setLoadingAccounts] = useState(false)
+  
+  // Form state
   const [formData, setFormData] = useState({
-    date: "",
-    payee: "",
-    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    paymentMethod: voucherType.includes("bank") ? "Cheque" : "Cash",
+    accountId: "", // Primary account (bank/cash)
     description: "",
-    reference: "",
+    referenceNumber: "",
+    propertyId: "",
+    unitId: "",
+    payeeType: "",
+    payeeId: "",
     dealId: "",
   })
+
+  const [lines, setLines] = useState<VoucherLine[]>([
+    { id: "1", accountId: "", debit: 0, credit: 0, description: "" },
+  ])
+
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; mimeType?: string }>>([])
   const [uploadingAttachments, setUploadingAttachments] = useState(false)
-  const [deals, setDeals] = useState<Array<{ id: string; title: string; clientName: string; propertyName: string }>>([])
-  const [loadingDeals, setLoadingDeals] = useState(false)
-  const [selectedDeal, setSelectedDeal] = useState<any>(null)
-  const { toast } = useToast()
-  
-  const isBankReceipt = voucherType === "bank-receipt"
 
-  useEffect(() => {
-    if (open && isBankReceipt) {
-      fetchDeals()
+  // Determine voucher type code
+  const voucherTypeCode = useMemo(() => {
+    switch (voucherType) {
+      case "bank-payment": return "BPV"
+      case "bank-receipt": return "BRV"
+      case "cash-payment": return "CPV"
+      case "cash-receipt": return "CRV"
+      default: return "BPV"
     }
-  }, [open, isBankReceipt])
+  }, [voucherType])
 
-  const fetchDeals = async () => {
+  const isPayment = voucherType.includes("payment")
+  const isReceipt = voucherType.includes("receipt")
+  const isBank = voucherType.includes("bank")
+  const isCash = voucherType.includes("cash")
+
+  // Load accounts on mount
+  useEffect(() => {
+    if (open) {
+      fetchAccounts()
+    }
+  }, [open])
+
+  // Auto-setup initial lines based on voucher type
+  useEffect(() => {
+    if (open && lines.length === 1 && !lines[0].accountId) {
+      setupInitialLines()
+    }
+  }, [open, voucherType])
+
+  const fetchAccounts = async () => {
     try {
-      setLoadingDeals(true)
-      const response = await apiService.deals.getAll() as any
-      // Handle nested response structure: { success: true, data: [...], pagination: {...} }
-      const responseData = response.data?.data || response.data
-      const data = Array.isArray(responseData) ? responseData : []
-      setDeals(
-        data.map((deal: any) => ({
-          id: deal.id,
-          title: deal.title || deal.dealCode || "Untitled Deal",
-          clientName: deal.client?.name || "Unassigned Client",
-          propertyName: deal.property?.name || "Unassigned Property",
-        })),
-      )
+      setLoadingAccounts(true)
+      const response = await apiService.accounts.getAll({ postable: "true" })
+      const responseData = response.data as any
+      const accountsData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
+      setAccounts(accountsData.filter((acc: any) => acc.isPostable && acc.level === 5))
     } catch (error) {
-      console.error("Failed to load deals", error)
+      console.error("Failed to load accounts:", error)
       toast({
-        title: "Failed to load deals",
+        title: "Failed to load accounts",
         description: "Please refresh and try again.",
         variant: "destructive",
       })
-      setDeals([])
     } finally {
-      setLoadingDeals(false)
+      setLoadingAccounts(false)
     }
   }
 
-  const handleDealChange = async (dealId: string) => {
-    if (!dealId) {
-      setSelectedDeal(null)
-      setFormData((prev) => ({ ...prev, dealId: "", payee: "" }))
-      return
-    }
+  const setupInitialLines = async () => {
+    // This will be called after accounts are loaded
+    // Setup will happen when user selects primary account
+  }
 
-    try {
-      const deal = await apiService.deals.getById(dealId)
-      const dealData: any = deal.data || deal
-      setSelectedDeal(dealData)
-      setFormData((prev) => ({
-        ...prev,
-        dealId,
-        payee: dealData?.client?.name || "",
-      }))
-    } catch (error: any) {
+  // Get filtered accounts based on voucher type
+  const getFilteredAccounts = (forLine: boolean = false) => {
+    if (forLine) {
+      // For line items, filter by voucher type rules
+      if (isPayment) {
+        // BPV/CPV: Expense or Liability accounts
+        return accounts.filter((acc: any) => acc.type === "Expense" || acc.type === "Liability")
+      } else {
+        // BRV/CRV: Revenue, Asset (Receivable), or Liability (Advance)
+        return accounts.filter((acc: any) => 
+          acc.type === "Revenue" || 
+          acc.type === "Asset" || 
+          acc.type === "Liability"
+        )
+      }
+    } else {
+      // For primary account, filter by bank/cash
+      if (isBank) {
+        return accounts.filter((acc: any) => 
+          acc.code?.startsWith("1112") || 
+          acc.code?.startsWith("111201") || 
+          acc.code?.startsWith("111202") ||
+          acc.name?.toLowerCase().includes("bank")
+        )
+      } else {
+        return accounts.filter((acc: any) => 
+          acc.code?.startsWith("1111") || 
+          acc.code?.startsWith("111101") || 
+          acc.code?.startsWith("111102") ||
+          acc.name?.toLowerCase().includes("cash")
+        )
+      }
+    }
+  }
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
+    const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0)
+    return { debit: totalDebit, credit: totalCredit, balance: Math.abs(totalDebit - totalCredit) }
+  }, [lines])
+
+  // Validate balance
+  const isBalanced = totals.balance < 0.01
+
+  const addLine = () => {
+    setLines([...lines, { id: Date.now().toString(), accountId: "", debit: 0, credit: 0, description: "" }])
+  }
+
+  const removeLine = (id: string) => {
+    if (lines.length <= 1) {
       toast({
-        title: "Failed to load deal",
-        description: error?.response?.data?.message || error?.message || "Unknown error",
+        title: "Cannot remove",
+        description: "Voucher must have at least one line item",
         variant: "destructive",
       })
+      return
+    }
+    setLines(lines.filter((line) => line.id !== id))
+  }
+
+  const updateLine = (id: string, field: keyof VoucherLine, value: any) => {
+    setLines(lines.map((line) => (line.id === id ? { ...line, [field]: value } : line)))
+  }
+
+  // Auto-generate lines when primary account is selected
+  const handlePrimaryAccountChange = (accountId: string) => {
+    setFormData({ ...formData, accountId })
+    
+    // Auto-setup lines based on voucher type
+    if (lines.length === 1 && !lines[0].accountId) {
+      const newLines: VoucherLine[] = []
+      
+      if (isPayment) {
+        // BPV/CPV: Credit primary account, Debit expense (user will add lines)
+        newLines.push({
+          id: "1",
+          accountId: accountId,
+          debit: 0,
+          credit: 0,
+          description: `${isBank ? "Bank" : "Cash"} Payment`,
+        })
+        // Add one expense line
+        newLines.push({
+          id: "2",
+          accountId: "",
+          debit: 0,
+          credit: 0,
+          description: "Expense",
+        })
+      } else {
+        // BRV/CRV: Debit primary account, Credit income (user will add lines)
+        newLines.push({
+          id: "1",
+          accountId: accountId,
+          debit: 0,
+          credit: 0,
+          description: `${isBank ? "Bank" : "Cash"} Receipt`,
+        })
+        // Add one income line
+        newLines.push({
+          id: "2",
+          accountId: "",
+          debit: 0,
+          credit: 0,
+          description: "Income",
+        })
+      }
+      
+      setLines(newLines)
     }
   }
 
@@ -120,7 +250,6 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
       const uploads: Array<{ id?: string; url: string; name: string; mimeType?: string }> = []
       
       for (const file of Array.from(files)) {
-        // Validate file type
         const allowedTypes = ['application/pdf', 'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
         if (!allowedTypes.includes(file.type.toLowerCase())) {
           toast({
@@ -131,7 +260,6 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
           continue
         }
 
-        // Validate file size (max 10MB)
         if (file.size > 10 * 1024 * 1024) {
           toast({
             title: "File too large",
@@ -143,7 +271,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
 
         const base64 = await toBase64(file)
         uploads.push({
-          url: base64, // Store base64 temporarily
+          url: base64,
           name: file.name,
           mimeType: file.type,
         })
@@ -161,224 +289,404 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
       })
     } finally {
       setUploadingAttachments(false)
-      // Reset input
       if (e.target) {
         e.target.value = ""
       }
     }
   }
 
-  const handleRemoveAttachment = async (index: number) => {
+  const handleRemoveAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, idx) => idx !== index))
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Validation
+    if (!formData.accountId) {
+      toast({
+        title: "Primary account required",
+        description: "Please select the primary bank/cash account",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (lines.length === 0 || lines.some((line) => !line.accountId)) {
+      toast({
+        title: "All lines must have accounts",
+        description: "Please select accounts for all line items",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!isBalanced) {
+      toast({
+        title: "Entries must balance",
+        description: `Total Debit (${totals.debit.toFixed(2)}) must equal Total Credit (${totals.credit.toFixed(2)})`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate attachment requirement for bank/cash vouchers
+    if (attachments.length === 0) {
+      toast({
+        title: "Attachments required",
+        description: `${voucherTypeCode} requires at least one attachment (receipt, invoice, bank statement, etc.)`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate reference number for cheque/transfer
+    if (isBank && ["Cheque", "Transfer"].includes(formData.paymentMethod) && !formData.referenceNumber) {
+      toast({
+        title: "Reference number required",
+        description: `${formData.paymentMethod} ${voucherTypeCode} requires a reference number (cheque number/transaction ID)`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate payee for payment vouchers
+    if (isPayment && !formData.payeeType) {
+      toast({
+        title: "Payee required",
+        description: `${voucherTypeCode} requires a payee type (Vendor, Owner, Agent, Contractor, Tenant, Client, Dealer, or Employee)`,
+        variant: "destructive",
+      })
+      return
+    }
+
     try {
-      const isReceipt = voucherType.includes("receipt")
+      setLoading(true)
+
+      // Prepare lines - separate primary account line from others
+      const nonPrimaryLines = lines.filter((line) => line.accountId !== formData.accountId)
+      const primaryLine = lines.find((line) => line.accountId === formData.accountId)
       
-      // For bank receipt vouchers, validate deal is selected
-      if (isBankReceipt && !formData.dealId) {
+      // Calculate totals from non-primary lines
+      const otherLinesDebit = nonPrimaryLines.reduce((sum, line) => sum + (line.debit || 0), 0)
+      const otherLinesCredit = nonPrimaryLines.reduce((sum, line) => sum + (line.credit || 0), 0)
+      
+      // Prepare non-primary lines
+      const preparedNonPrimaryLines = nonPrimaryLines.map((line) => ({
+        accountId: line.accountId,
+        debit: line.debit || 0,
+        credit: line.credit || 0,
+        description: line.description || formData.description,
+        propertyId: line.propertyId || formData.propertyId || undefined,
+        unitId: line.unitId || formData.unitId || undefined,
+      }))
+      
+      // Prepare primary account line - auto-calculate based on voucher type
+      let preparedPrimaryLine
+      if (primaryLine) {
+        // Primary account line exists, adjust it based on voucher type
+        if (isPayment) {
+          // Payment: Credit bank/cash, amount = total debit from expense lines
+          preparedPrimaryLine = {
+            accountId: formData.accountId,
+            debit: 0,
+            credit: otherLinesDebit,
+            description: primaryLine.description || `${isBank ? "Bank" : "Cash"} Payment`,
+          }
+        } else {
+          // Receipt: Debit bank/cash, amount = total credit from income lines
+          preparedPrimaryLine = {
+            accountId: formData.accountId,
+            debit: otherLinesCredit,
+            credit: 0,
+            description: primaryLine.description || `${isBank ? "Bank" : "Cash"} Receipt`,
+          }
+        }
+      } else {
+        // Primary account line missing, add it
+        if (isPayment) {
+          preparedPrimaryLine = {
+            accountId: formData.accountId,
+            debit: 0,
+            credit: otherLinesDebit,
+            description: `${isBank ? "Bank" : "Cash"} Payment`,
+          }
+        } else {
+          preparedPrimaryLine = {
+            accountId: formData.accountId,
+            debit: otherLinesCredit,
+            credit: 0,
+            description: `${isBank ? "Bank" : "Cash"} Receipt`,
+          }
+        }
+      }
+      
+      // Combine all lines
+      const preparedLines = [...preparedNonPrimaryLines, preparedPrimaryLine]
+
+      // Verify final balance
+      const finalDebit = preparedLines.reduce((sum, l) => sum + (l.debit || 0), 0)
+      const finalCredit = preparedLines.reduce((sum, l) => sum + (l.credit || 0), 0)
+      
+      if (Math.abs(finalDebit - finalCredit) > 0.01) {
         toast({
-          title: "Deal selection required",
-          description: "Please select a deal for this bank receipt voucher",
+          title: "Balance error",
+          description: `Unable to balance entries. Debit: ${finalDebit.toFixed(2)}, Credit: ${finalCredit.toFixed(2)}`,
           variant: "destructive",
         })
         return
       }
-      
-      // For bank receipt vouchers, use the voucher API endpoint
-      if (isBankReceipt) {
-        // Get account ID (Bank account)
-        const accountsResponse = await apiService.accounts.getAll()
-        const accounts = Array.isArray(accountsResponse.data) ? accountsResponse.data : []
-        const bankAccount = accounts.find((acc: any) => 
-          acc.name?.toLowerCase().includes("bank") || acc.code === "1010"
-        )
-        
-        if (!bankAccount) {
-          toast({
-            title: "Bank account not found",
-            description: "Please configure a bank account in Chart of Accounts",
-            variant: "destructive",
-          })
-          return
-        }
 
-        const voucherPayload = {
-          voucherType: "bank_receipt",
-          paymentMethod: "Bank",
-          accountId: bankAccount.id,
-          amount: parseFloat(formData.amount || "0"),
-          date: new Date(formData.date).toISOString(),
-          description: formData.description || `Bank Receipt Voucher - ${selectedDeal?.title || ""}`,
-          referenceNumber: formData.reference || null,
-          dealId: formData.dealId,
-          attachments: attachments.length > 0 ? attachments.map(a => ({
-            name: a.name,
-            url: a.url,
-            mimeType: a.mimeType,
-          })) : undefined,
-        }
-        
-        await apiService.vouchers.create(voucherPayload)
-      } else {
-        // For other voucher types, use transaction API
-        const transactionPayload = {
-          transactionType: isReceipt ? "income" : "expense",
-          type: isReceipt ? "income" : "expense",
-          description: formData.description || (isReceipt ? "Receipt voucher" : "Payment voucher"),
-          amount: parseFloat(formData.amount || "0"),
-          date: new Date(formData.date).toISOString(),
-          paymentMethod: voucherType.startsWith("bank") ? "bank" : "cash",
-          referenceNumber: formData.reference || null,
-          status: "completed",
-          attachments: attachments.length > 0 ? attachments.map(a => ({
-            name: a.name,
-            url: a.url,
-            mimeType: a.mimeType,
-          })) : undefined,
-        }
-        await apiService.transactions.create(transactionPayload)
+      const voucherPayload = {
+        type: voucherTypeCode,
+        date: formData.date,
+        paymentMethod: formData.paymentMethod,
+        accountId: formData.accountId,
+        description: formData.description,
+        referenceNumber: formData.referenceNumber || undefined,
+        propertyId: formData.propertyId || undefined,
+        unitId: formData.unitId || undefined,
+        payeeType: formData.payeeType || undefined,
+        payeeId: formData.payeeId || undefined,
+        dealId: formData.dealId || undefined,
+        lines: preparedLines,
+        attachments: attachments.map((a) => ({
+          url: a.url,
+          name: a.name,
+          mimeType: a.mimeType,
+        })),
       }
-      toast({ title: "Voucher created" })
+
+      await apiService.vouchers.create(voucherPayload)
+      
+      toast({ title: "Voucher created successfully", description: `Draft ${voucherTypeCode} created. You can submit it for approval.` })
+      
       // Reset form
       setFormData({
-        date: "",
-        payee: "",
-        amount: "",
+        date: new Date().toISOString().split("T")[0],
+        paymentMethod: voucherType.includes("bank") ? "Cheque" : "Cash",
+        accountId: "",
         description: "",
-        reference: "",
+        referenceNumber: "",
+        propertyId: "",
+        unitId: "",
+        payeeType: "",
+        payeeId: "",
         dealId: "",
       })
+      setLines([{ id: "1", accountId: "", debit: 0, credit: 0, description: "" }])
       setAttachments([])
-      setSelectedDeal(null)
+      
       onOpenChange(false)
       onSuccess?.()
     } catch (error: any) {
-      toast({ 
-        title: "Failed to create voucher", 
-        description: error?.response?.data?.message || error?.message || "Unknown error",
-        variant: "destructive" 
+      toast({
+        title: "Failed to create voucher",
+        description: error?.response?.data?.error || error?.message || "Unknown error",
+        variant: "destructive",
       })
+    } finally {
+      setLoading(false)
     }
   }
 
   const getTitle = () => {
     switch (voucherType) {
       case "bank-payment":
-        return "New Bank Payment Voucher"
+        return "New Bank Payment Voucher (BPV)"
       case "bank-receipt":
-        return "New Bank Receipt Voucher"
+        return "New Bank Receipt Voucher (BRV)"
       case "cash-payment":
-        return "New Cash Payment Voucher"
+        return "New Cash Payment Voucher (CPV)"
       case "cash-receipt":
-        return "New Cash Receipt Voucher"
+        return "New Cash Receipt Voucher (CRV)"
       default:
         return "New Voucher"
     }
   }
 
-  // Reset form when dialog closes
   const handleOpenChange = (open: boolean) => {
     if (!open) {
+      // Reset form
       setFormData({
-        date: "",
-        payee: "",
-        amount: "",
+        date: new Date().toISOString().split("T")[0],
+        paymentMethod: voucherType.includes("bank") ? "Cheque" : "Cash",
+        accountId: "",
         description: "",
-        reference: "",
+        referenceNumber: "",
+        propertyId: "",
+        unitId: "",
+        payeeType: "",
+        payeeId: "",
         dealId: "",
       })
+      setLines([{ id: "1", accountId: "", debit: 0, credit: 0, description: "" }])
       setAttachments([])
-      setSelectedDeal(null)
     }
     onOpenChange(open)
   }
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[900px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[900px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1200px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{getTitle()}</DialogTitle>
-          <DialogDescription>Enter the voucher details</DialogDescription>
+          <DialogDescription>
+            Create a new {voucherTypeCode} voucher. All entries must balance (Total Debit = Total Credit).
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
-            <div className="grid gap-2">
-              <Label htmlFor="date">Date</Label>
-              <Input
-                id="date"
-                type="date"
-                value={formData.date}
-                onChange={(e) => setFormData({ ...formData, date: e.target.value })}
-                required
-              />
-            </div>
-            {isBankReceipt && (
+          <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto">
+            {/* Basic Information */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="deal">Deal *</Label>
+                <Label htmlFor="date">Date *</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={formData.date}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                  required
+                />
+              </div>
+              
+              <div className="grid gap-2">
+                <Label htmlFor="paymentMethod">Payment Method *</Label>
                 <Select
-                  value={formData.dealId}
-                  onValueChange={handleDealChange}
-                  disabled={loadingDeals}
+                  value={formData.paymentMethod}
+                  onValueChange={(value) => setFormData({ ...formData, paymentMethod: value })}
+                  required
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={loadingDeals ? "Loading deals..." : "Select a deal"} />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {deals.map((deal) => (
-                      <SelectItem key={deal.id} value={deal.id}>
-                        {deal.title} - {deal.clientName}
-                      </SelectItem>
-                    ))}
+                    {isBank ? (
+                      <>
+                        <SelectItem value="Cheque">Cheque</SelectItem>
+                        <SelectItem value="Transfer">Transfer</SelectItem>
+                        <SelectItem value="Online">Online</SelectItem>
+                      </>
+                    ) : (
+                      <SelectItem value="Cash">Cash</SelectItem>
+                    )}
                   </SelectContent>
                 </Select>
               </div>
-            )}
-            {isBankReceipt && selectedDeal && (
-              <>
+
+              <div className="grid gap-2">
+                <Label htmlFor="primaryAccount">{isBank ? "Bank" : "Cash"} Account *</Label>
+                <SearchableSelect
+                  source="accounts"
+                  value={formData.accountId}
+                  onChange={(value) => handlePrimaryAccountChange(value || "")}
+                  placeholder={`Select ${isBank ? "bank" : "cash"} account...`}
+                  required
+                  filters={{ postable: "true" }}
+                  transform={(item: any) => {
+                    // Filter to only show relevant accounts
+                    const isBankAccount = item.code?.startsWith("1112") || item.name?.toLowerCase().includes("bank")
+                    const isCashAccount = item.code?.startsWith("1111") || item.name?.toLowerCase().includes("cash")
+                    
+                    const isRelevant = (isBank && isBankAccount) || (isCash && isCashAccount)
+                    
+                    return {
+                      id: item.id,
+                      label: `${item.code} - ${item.name}`,
+                      value: item.id,
+                      subtitle: item.type,
+                      metadata: item,
+                      disabled: !isRelevant, // Disable irrelevant accounts instead of returning null
+                    }
+                  }}
+                />
+              </div>
+
+              {(isBank && ["Cheque", "Transfer"].includes(formData.paymentMethod)) && (
                 <div className="grid gap-2">
-                  <Label>Deal Owner (Client)</Label>
+                  <Label htmlFor="referenceNumber">Reference Number *</Label>
                   <Input
-                    value={selectedDeal.client?.name || "N/A"}
-                    readOnly
-                    className="bg-muted"
+                    id="referenceNumber"
+                    placeholder={formData.paymentMethod === "Cheque" ? "Cheque number" : "Transaction ID"}
+                    value={formData.referenceNumber}
+                    onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
+                    required
                   />
                 </div>
+              )}
+
+              {isPayment && (
+                <>
+                  <div className="grid gap-2">
+                    <Label htmlFor="payeeType">Payee Type *</Label>
+                    <Select
+                      value={formData.payeeType}
+                      onValueChange={(value) => setFormData({ ...formData, payeeType: value, payeeId: "" })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select payee type" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Vendor">Vendor</SelectItem>
+                        <SelectItem value="Owner">Owner</SelectItem>
+                        <SelectItem value="Agent">Agent</SelectItem>
+                        <SelectItem value="Contractor">Contractor</SelectItem>
+                        <SelectItem value="Tenant">Tenant</SelectItem>
+                        <SelectItem value="Client">Client</SelectItem>
+                        <SelectItem value="Dealer">Dealer</SelectItem>
+                        <SelectItem value="Employee">Employee</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.payeeType && (
+                    <div className="grid gap-2">
+                      <Label htmlFor="payeeId">Payee *</Label>
+                      <SearchableSelect
+                        source={
+                          formData.payeeType === "Agent" || formData.payeeType === "Dealer" ? "dealers" :
+                          formData.payeeType === "Tenant" ? "tenants" :
+                          formData.payeeType === "Client" ? "clients" :
+                          formData.payeeType === "Employee" ? "employees" :
+                          "clients"
+                        }
+                        value={formData.payeeId}
+                        onChange={(value) => setFormData({ ...formData, payeeId: value || "" })}
+                        placeholder={`Select ${formData.payeeType.toLowerCase()}...`}
+                        required
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="grid gap-2">
+                <Label htmlFor="propertyId">Property (Optional)</Label>
+                <SearchableSelect
+                  source="properties"
+                  value={formData.propertyId}
+                  onChange={(value) => setFormData({ ...formData, propertyId: value || "", unitId: "" })}
+                  placeholder="Select property..."
+                  allowEmpty
+                />
+              </div>
+
+              {formData.propertyId && (
                 <div className="grid gap-2">
-                  <Label>Deal Unit / Property</Label>
-                  <Input
-                    value={selectedDeal.property?.name || "N/A"}
-                    readOnly
-                    className="bg-muted"
+                  <Label htmlFor="unitId">Unit (Optional)</Label>
+                  <SearchableSelect
+                    source="units"
+                    value={formData.unitId}
+                    onChange={(value) => setFormData({ ...formData, unitId: value || "" })}
+                    placeholder="Select unit..."
+                    allowEmpty
+                    filters={{ propertyId: formData.propertyId }}
                   />
                 </div>
-              </>
-            )}
-            <div className="grid gap-2">
-              <Label htmlFor="payee">{voucherType.includes("receipt") ? "From" : "Payee"}</Label>
-              <Input
-                id="payee"
-                placeholder={voucherType.includes("receipt") ? "Payer name" : "Payee name"}
-                value={formData.payee}
-                onChange={(e) => setFormData({ ...formData, payee: e.target.value })}
-                required={!isBankReceipt}
-                disabled={isBankReceipt && selectedDeal}
-                className={isBankReceipt && selectedDeal ? "bg-muted" : ""}
-              />
+              )}
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                required
-              />
-            </div>
+
             <div className="grid gap-2">
               <Label htmlFor="description">Description</Label>
               <Textarea
@@ -386,20 +694,162 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                 placeholder="Voucher description"
                 value={formData.description}
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                required
+                rows={2}
               />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="reference">Reference/Cheque No.</Label>
-              <Input
-                id="reference"
-                placeholder="Optional reference number"
-                value={formData.reference}
-                onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
-              />
+
+            {/* Voucher Lines */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <Label className="text-base font-semibold">Voucher Lines *</Label>
+                <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Line
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {lines.map((line, index) => {
+                  const isPrimaryAccount = line.accountId === formData.accountId
+                  return (
+                    <div key={line.id} className="border rounded-lg p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium">Line {index + 1}</span>
+                        {lines.length > 1 && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeLine(line.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        <div className="md:col-span-2 grid gap-2">
+                          <Label>Account *</Label>
+                          <SearchableSelect
+                            source="accounts"
+                            value={line.accountId}
+                            onChange={(value) => updateLine(line.id, "accountId", value || "")}
+                            placeholder="Select account..."
+                            required
+                            filters={{ postable: "true" }}
+                            transform={(item: any) => {
+                              // Filter accounts based on voucher type and line position
+                              let isRelevant = true
+                              
+                              if (isPrimaryAccount) {
+                                // Primary account already selected - disable it
+                                isRelevant = false
+                              } else if (isPayment) {
+                                // Payment: Only expense/liability
+                                isRelevant = item.type === "Expense" || item.type === "Liability"
+                              } else {
+                                // Receipt: Only revenue/asset/liability
+                                isRelevant = ["Revenue", "Asset", "Liability"].includes(item.type)
+                              }
+                              
+                              return {
+                                id: item.id,
+                                label: `${item.code} - ${item.name}`,
+                                value: item.id,
+                                subtitle: item.type,
+                                metadata: item,
+                                disabled: !isRelevant, // Disable irrelevant accounts instead of returning null
+                              }
+                            }}
+                          />
+                          {isPrimaryAccount && (
+                            <p className="text-xs text-muted-foreground">
+                              {isPayment ? "Will be credited" : "Will be debited"} automatically
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Debit</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.debit || ""}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0
+                              updateLine(line.id, "debit", val)
+                              if (val > 0) updateLine(line.id, "credit", 0)
+                            }}
+                            disabled={isPrimaryAccount}
+                            placeholder="0.00"
+                          />
+                        </div>
+
+                        <div className="grid gap-2">
+                          <Label>Credit</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={line.credit || ""}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0
+                              updateLine(line.id, "credit", val)
+                              if (val > 0) updateLine(line.id, "debit", 0)
+                            }}
+                            disabled={isPrimaryAccount}
+                            placeholder="0.00"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-2">
+                        <Label>Line Description</Label>
+                        <Input
+                          placeholder="Line item description"
+                          value={line.description}
+                          onChange={(e) => updateLine(line.id, "description", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Balance Summary */}
+              <div className="border-t pt-4">
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <span className="text-muted-foreground">Total Debit:</span>
+                    <span className="ml-2 font-semibold">Rs {totals.debit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Total Credit:</span>
+                    <span className="ml-2 font-semibold">Rs {totals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Difference:</span>
+                    <span className={cn("ml-2 font-semibold", isBalanced ? "text-green-600" : "text-red-600")}>
+                      Rs {totals.balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
+
+                {!isBalanced && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Entries must balance. Total Debit ({totals.debit.toFixed(2)}) must equal Total Credit ({totals.credit.toFixed(2)}).
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
             </div>
+
+            {/* Attachments */}
             <div className="grid gap-2">
-              <Label>Attachments (Bank Receipt, etc.)</Label>
+              <Label>Attachments *</Label>
               <div className="space-y-2">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center">
                   <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
@@ -416,6 +866,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                     />
                   </Label>
                   <p className="text-xs text-muted-foreground mt-2">PDF, JPG, PNG, GIF, WEBP up to 10MB each</p>
+                  <p className="text-xs text-muted-foreground mt-1">Required for {voucherTypeCode}</p>
                 </div>
                 {uploadingAttachments && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -458,7 +909,16 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Create Voucher</Button>
+            <Button type="submit" disabled={loading || !isBalanced}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Voucher (Draft)"
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

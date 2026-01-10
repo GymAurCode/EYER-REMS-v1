@@ -1232,150 +1232,96 @@ router.get('/attachments', authenticate, async (req: AuthRequest, res: Response)
 });
 
 // -------------------- Bank/Cash Vouchers --------------------
-router.get('/vouchers', authenticate, async (_req: AuthRequest, res: Response) => {
+router.get('/vouchers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const vouchers = await prisma.voucher.findMany({
-      orderBy: { date: 'desc' },
-      include: {
-        account: true,
-        expenseCategory: true,
-        preparedBy: true,
-        approvedBy: true,
-        journalEntry: { include: { lines: true } },
-      },
+    const { VoucherService } = await import('../services/voucher-service');
+    const { type, status, propertyId, dateFrom, dateTo, limit, offset } = req.query;
+    
+    const result = await VoucherService.listVouchers({
+      type: type as any,
+      status: status as any,
+      propertyId: propertyId as string,
+      dateFrom: dateFrom ? new Date(dateFrom as string) : undefined,
+      dateTo: dateTo ? new Date(dateTo as string) : undefined,
+      limit: limit ? parseInt(limit as string) : undefined,
+      offset: offset ? parseInt(offset as string) : undefined,
     });
-    res.json(vouchers);
-  } catch {
-    res.status(500).json({ error: 'Failed to fetch vouchers' });
+    
+    res.json({ success: true, data: result.vouchers, total: result.total });
+  } catch (error: any) {
+    logger.error('List vouchers error:', error);
+    res.status(500).json({ error: error.message || 'Failed to fetch vouchers' });
   }
 });
 
+// POST /finance/vouchers - Create new voucher (draft)
 router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const { VoucherService } = await import('../services/voucher-service');
+    
     const {
-      voucherType,
-      paymentMethod,
-      accountId,
-      amount,
+      type, // BPV, BRV, CPV, CRV, JV
       date,
+      paymentMethod, // Cheque, Transfer, Online, Cash
+      accountId, // Primary account (bank/cash)
       description,
       referenceNumber,
-      expenseCategoryId,
-      transactionCategoryId,
+      propertyId,
+      unitId,
+      payeeType, // Vendor, Owner, Agent, Contractor, Tenant, Client, Dealer, Employee
+      payeeId,
+      dealId,
+      lines, // Array of { accountId, debit, credit, description, propertyId?, unitId? }
       attachments,
       preparedByUserId,
-      approvedByUserId,
-      counterAccountId,
-      dealId,
     } = req.body;
 
-    if (!voucherType || !paymentMethod || !accountId || !amount || !date) {
-      return res.status(400).json({ error: 'voucherType, paymentMethod, accountId, amount and date are required' });
+    if (!type || !paymentMethod || !accountId || !date || !lines || !Array.isArray(lines) || lines.length === 0) {
+      return res.status(400).json({ 
+        error: 'type, paymentMethod, accountId, date, and lines (array with at least one item) are required' 
+      });
     }
 
-    const voucherNumber = req.body.voucherNumber || generateDocumentCode('PV');
-    const voucherDate = normalizeDateInput(date);
-    const isReceipt = voucherType.includes('receipt');
-    const isBankReceived = voucherType.toLowerCase().includes('bank') && isReceipt;
     const normalizedAttachments = normalizeAttachments(attachments);
+    const voucherDate = normalizeDateInput(date);
 
-    // Bank Received Voucher requires mandatory attachment
-    if (isBankReceived && (!normalizedAttachments || normalizedAttachments.length === 0)) {
-      return res.status(400).json({
-        error: 'Bank Received Voucher requires a mandatory voucher upload. Please attach the voucher file.'
-      });
-    }
+    // Filter and transform attachments to match service interface
+    const validAttachments = normalizedAttachments
+      .filter((att) => att.url && att.name) // Only include attachments with required fields
+      .map((att) => ({
+        url: att.url!,
+        name: att.name!,
+        mimeType: att.mimeType || undefined,
+        size: att.size || undefined,
+      }));
 
-    const categoryId = transactionCategoryId || expenseCategoryId || null;
-    const category = categoryId
-      ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
-      : null;
-
-    let debitAccountId: string | null = null;
-    let creditAccountId: string | null = null;
-
-    if (isReceipt) {
-      debitAccountId = accountId;
-      creditAccountId = counterAccountId || category?.defaultCreditAccountId || null;
-    } else {
-      debitAccountId = category?.defaultDebitAccountId || counterAccountId || null;
-      creditAccountId = accountId;
-    }
-
-    if (!debitAccountId || !creditAccountId) {
-      return res.status(400).json({ error: 'Unable to resolve voucher accounts. Please provide a category or counter account.' });
-    }
-
-    const voucher = await prisma.$transaction(async (tx) => {
-      // Validate deal exists if dealId is provided
-      if (dealId) {
-        const deal = await tx.deal.findUnique({
-          where: { id: dealId },
-          select: { id: true },
-        });
-        if (!deal) {
-          return res.status(400).json({ error: 'Deal not found' });
-        }
-      }
-
-      const createdVoucher = await tx.voucher.create({
-        data: {
-          voucherNumber,
-          type: voucherType,
-          paymentMethod,
-          accountId,
-          expenseCategoryId: categoryId,
-          dealId: dealId || null,
-          description: description || null,
-          referenceNumber: referenceNumber || null,
-          amount,
-          attachments: normalizedAttachments,
-          preparedByUserId: preparedByUserId || req.user?.id || null,
-          approvedByUserId: approvedByUserId || null,
-          date: voucherDate,
-        },
-      });
-
-      const lines = isReceipt
-        ? [
-          { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Receipt' },
-          { accountId: creditAccountId, debit: 0, credit: amount, description: 'Income' },
-        ]
-        : [
-          { accountId: debitAccountId, debit: amount, credit: 0, description: description || 'Expense' },
-          { accountId: creditAccountId, debit: 0, credit: amount, description: 'Cash/Bank' },
-        ];
-
-      const journalEntry = await tx.journalEntry.create({
-        data: {
-          entryNumber: generateDocumentCode('JV'),
-          voucherNo: voucherNumber,
-          date: voucherDate,
-          description: description || `Voucher ${voucherNumber}`,
-          narration: referenceNumber || null,
-          status: 'posted',
-          attachments: normalizedAttachments,
-          preparedByUserId: preparedByUserId || req.user?.id || null,
-          approvedByUserId: approvedByUserId || null,
-          lines: {
-            create: lines,
-          },
-        },
-      });
-
-      return tx.voucher.update({
-        where: { id: createdVoucher.id },
-        data: { journalEntryId: journalEntry.id },
-        include: {
-          account: true,
-          expenseCategory: true,
-          journalEntry: { include: { lines: true } },
-        },
-      });
+    const voucher = await VoucherService.createVoucher({
+      type: type.toUpperCase() as any,
+      date: voucherDate,
+      paymentMethod: paymentMethod as any,
+      accountId,
+      description,
+      referenceNumber,
+      propertyId,
+      unitId,
+      payeeType: payeeType as any,
+      payeeId,
+      dealId,
+      lines: lines.map((line: any) => ({
+        accountId: line.accountId,
+        debit: parseFloat(line.debit) || 0,
+        credit: parseFloat(line.credit) || 0,
+        description: line.description,
+        propertyId: line.propertyId,
+        unitId: line.unitId,
+      })),
+      attachments: validAttachments.length > 0 ? validAttachments : undefined,
+      preparedByUserId: preparedByUserId || req.user?.id,
     });
 
-    res.status(201).json(voucher);
+    res.status(201).json({ success: true, data: voucher });
   } catch (error: any) {
+    logger.error('Create voucher error:', error);
     const message = error?.message || 'Failed to create voucher';
     res.status(400).json({ error: message });
   }
@@ -1384,169 +1330,144 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
 // GET /finance/vouchers/:id - Get voucher by ID
 router.get('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const voucher = await prisma.voucher.findUnique({
-      where: { id: req.params.id },
-      include: {
-        account: true,
-        expenseCategory: true,
-        preparedBy: true,
-        approvedBy: true,
-        journalEntry: {
-          include: {
-            lines: {
-              include: {
-                account: true,
-              },
-            },
-          },
-        },
-        deal: {
-          include: {
-            client: true,
-            property: true,
-          },
-        },
-      },
-    });
+    const { VoucherService } = await import('../services/voucher-service');
+    const voucher = await VoucherService.getVoucherById(req.params.id);
+    
     if (!voucher) {
       return res.status(404).json({ error: 'Voucher not found' });
     }
-    res.json(voucher);
+    
+    res.json({ success: true, data: voucher });
   } catch (error: any) {
     logger.error('Get voucher error:', error);
     res.status(500).json({ error: error.message || 'Failed to fetch voucher' });
   }
 });
 
-// PUT /finance/vouchers/:id - Update voucher
+// PUT /finance/vouchers/:id - Update voucher (only draft status)
 router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    const { VoucherService } = await import('../services/voucher-service');
+    
     const {
+      date,
       paymentMethod,
       accountId,
-      amount,
-      date,
       description,
       referenceNumber,
-      expenseCategoryId,
-      transactionCategoryId,
-      attachments,
-      approvedByUserId,
-      counterAccountId,
+      propertyId,
+      unitId,
+      payeeType,
+      payeeId,
       dealId,
+      lines,
+      attachments,
     } = req.body;
 
-    // Check if voucher exists
-    const existingVoucher = await prisma.voucher.findUnique({
-      where: { id: req.params.id },
-      include: { journalEntry: true },
-    });
-
-    if (!existingVoucher) {
-      return res.status(404).json({ error: 'Voucher not found' });
-    }
-
-    // Validate deal exists if dealId is provided
-    if (dealId) {
-      const deal = await prisma.deal.findUnique({
-        where: { id: dealId },
-        select: { id: true },
-      });
-      if (!deal) {
-        return res.status(400).json({ error: 'Deal not found' });
-      }
-    }
-
-    const voucherDate = date ? normalizeDateInput(date) : existingVoucher.date;
     const normalizedAttachments = normalizeAttachments(attachments);
-    const voucherType = existingVoucher.type;
-    const isReceipt = voucherType.includes('receipt');
 
-    const categoryId = transactionCategoryId || expenseCategoryId || existingVoucher.expenseCategoryId || null;
-    const category = categoryId
-      ? await prisma.transactionCategory.findUnique({ where: { id: categoryId } })
-      : null;
+    // Filter and transform attachments to match service interface
+    const validAttachments = normalizedAttachments
+      .filter((att) => att.url && att.name)
+      .map((att) => ({
+        url: att.url!,
+        name: att.name!,
+        mimeType: att.mimeType || undefined,
+        size: att.size || undefined,
+      }));
 
-    let debitAccountId: string | null = null;
-    let creditAccountId: string | null = null;
-
-    if (isReceipt) {
-      debitAccountId = accountId || existingVoucher.accountId;
-      creditAccountId = counterAccountId || category?.defaultCreditAccountId || null;
-    } else {
-      debitAccountId = category?.defaultDebitAccountId || counterAccountId || null;
-      creditAccountId = accountId || existingVoucher.accountId;
+    const updatePayload: any = {};
+    if (date !== undefined) updatePayload.date = normalizeDateInput(date);
+    if (paymentMethod !== undefined) updatePayload.paymentMethod = paymentMethod;
+    if (accountId !== undefined) updatePayload.accountId = accountId;
+    if (description !== undefined) updatePayload.description = description;
+    if (referenceNumber !== undefined) updatePayload.referenceNumber = referenceNumber;
+    if (propertyId !== undefined) updatePayload.propertyId = propertyId;
+    if (unitId !== undefined) updatePayload.unitId = unitId;
+    if (payeeType !== undefined) updatePayload.payeeType = payeeType;
+    if (payeeId !== undefined) updatePayload.payeeId = payeeId;
+    if (dealId !== undefined) updatePayload.dealId = dealId;
+    if (lines !== undefined && Array.isArray(lines)) {
+      updatePayload.lines = lines.map((line: any) => ({
+        accountId: line.accountId,
+        debit: parseFloat(line.debit) || 0,
+        credit: parseFloat(line.credit) || 0,
+        description: line.description,
+        propertyId: line.propertyId,
+        unitId: line.unitId,
+      }));
+    }
+    if (validAttachments.length > 0) {
+      updatePayload.attachments = validAttachments;
     }
 
-    if (!debitAccountId || !creditAccountId) {
-      return res.status(400).json({ error: 'Unable to resolve voucher accounts. Please provide a category or counter account.' });
-    }
+    const voucher = await VoucherService.updateVoucher(req.params.id, updatePayload, req.user!.id);
 
-    const finalAmount = amount !== undefined ? parseFloat(amount) : existingVoucher.amount;
-
-    const updatedVoucher = await prisma.$transaction(async (tx) => {
-      // Update voucher
-      const voucher = await tx.voucher.update({
-        where: { id: req.params.id },
-        data: {
-          paymentMethod: paymentMethod || existingVoucher.paymentMethod,
-          accountId: accountId || existingVoucher.accountId,
-          expenseCategoryId: categoryId,
-          dealId: dealId !== undefined ? dealId : existingVoucher.dealId,
-          description: description !== undefined ? description : existingVoucher.description,
-          referenceNumber: referenceNumber !== undefined ? referenceNumber : existingVoucher.referenceNumber,
-          amount: finalAmount,
-          attachments: normalizedAttachments.length > 0 ? normalizedAttachments : (existingVoucher.attachments as any) || undefined,
-          approvedByUserId: approvedByUserId || existingVoucher.approvedByUserId,
-          date: voucherDate,
-        },
-        include: {
-          account: true,
-          expenseCategory: true,
-          journalEntry: { include: { lines: true } },
-        },
-      });
-
-      // Update journal entry if it exists
-      if (existingVoucher.journalEntryId) {
-        const lines = isReceipt
-          ? [
-            { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Receipt' },
-            { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Income' },
-          ]
-          : [
-            { accountId: debitAccountId, debit: finalAmount, credit: 0, description: description || 'Expense' },
-            { accountId: creditAccountId, debit: 0, credit: finalAmount, description: 'Cash/Bank' },
-          ];
-
-        // Delete old journal lines
-        await tx.journalLine.deleteMany({
-          where: { entryId: existingVoucher.journalEntryId },
-        });
-
-        // Create new journal lines
-        await tx.journalEntry.update({
-          where: { id: existingVoucher.journalEntryId },
-          data: {
-            date: voucherDate,
-            description: description || `Voucher ${voucher.voucherNumber}`,
-            narration: referenceNumber || null,
-            attachments: normalizedAttachments.length > 0 ? normalizedAttachments : (existingVoucher.attachments as any) || undefined,
-            lines: {
-              create: lines,
-            },
-          },
-        });
-      }
-
-      return voucher;
-    });
-
-    res.json(updatedVoucher);
+    res.json({ success: true, data: voucher });
   } catch (error: any) {
     logger.error('Update voucher error:', error);
-    const message = error?.message || 'Failed to update voucher';
-    res.status(400).json({ error: message });
+    res.status(400).json({ error: error.message || 'Failed to update voucher' });
+  }
+});
+
+// PUT /finance/vouchers/:id/submit - Submit voucher (draft -> submitted)
+router.put('/vouchers/:id/submit', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { VoucherService } = await import('../services/voucher-service');
+    const voucher = await VoucherService.submitVoucher(req.params.id, req.user!.id);
+    res.json({ success: true, data: voucher });
+  } catch (error: any) {
+    logger.error('Submit voucher error:', error);
+    res.status(400).json({ error: error.message || 'Failed to submit voucher' });
+  }
+});
+
+// PUT /finance/vouchers/:id/approve - Approve voucher (submitted -> approved)
+router.put('/vouchers/:id/approve', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { VoucherService } = await import('../services/voucher-service');
+    const voucher = await VoucherService.approveVoucher(req.params.id, req.user!.id);
+    res.json({ success: true, data: voucher });
+  } catch (error: any) {
+    logger.error('Approve voucher error:', error);
+    res.status(400).json({ error: error.message || 'Failed to approve voucher' });
+  }
+});
+
+// PUT /finance/vouchers/:id/post - Post voucher (approved -> posted) - Creates journal entries
+router.put('/vouchers/:id/post', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { VoucherService } = await import('../services/voucher-service');
+    const { postingDate } = req.body;
+    const voucher = await VoucherService.postVoucher(
+      req.params.id,
+      req.user!.id,
+      postingDate ? normalizeDateInput(postingDate) : undefined
+    );
+    res.json({ success: true, data: voucher });
+  } catch (error: any) {
+    logger.error('Post voucher error:', error);
+    res.status(400).json({ error: error.message || 'Failed to post voucher' });
+  }
+});
+
+// PUT /finance/vouchers/:id/reverse - Reverse a posted voucher
+router.put('/vouchers/:id/reverse', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { VoucherService } = await import('../services/voucher-service');
+    const { reversalDate } = req.body;
+    if (!reversalDate) {
+      return res.status(400).json({ error: 'reversalDate is required' });
+    }
+    const result = await VoucherService.reverseVoucher(
+      req.params.id,
+      req.user!.id,
+      normalizeDateInput(reversalDate)
+    );
+    res.json({ success: true, data: result });
+  } catch (error: any) {
+    logger.error('Reverse voucher error:', error);
+    res.status(400).json({ error: error.message || 'Failed to reverse voucher' });
   }
 });
 

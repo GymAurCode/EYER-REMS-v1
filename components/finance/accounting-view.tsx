@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical } from "lucide-react"
+import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical, Send, CheckCircle, ArrowRight, RotateCcw } from "lucide-react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
 import { AddVoucherDialog } from "./add-voucher-dialog"
@@ -19,8 +19,13 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { cn } from "@/lib/utils"
+
+type VoucherStatus = "draft" | "submitted" | "approved" | "posted" | "reversed"
+type VoucherType = "BPV" | "BRV" | "CPV" | "CRV" | "JV"
 
 export function AccountingView() {
   const { toast } = useToast()
@@ -30,13 +35,12 @@ export function AccountingView() {
     "bank-payment",
   )
   const [loading, setLoading] = useState(true)
-  const [transactions, setTransactions] = useState<any[]>([])
-  const [payments, setPayments] = useState<any[]>([])
   const [vouchers, setVouchers] = useState<any[]>([])
   const [viewingVoucherId, setViewingVoucherId] = useState<string | null>(null)
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState("bank-payment")
 
   useEffect(() => {
     fetchData()
@@ -45,92 +49,132 @@ export function AccountingView() {
   const fetchData = async () => {
     try {
       setLoading(true)
-      const [txRes, payRes, vouRes] = await Promise.all([
-        apiService.transactions.getAll(),
-        apiService.payments.getAll(),
-        apiService.vouchers.getAll(),
-      ])
-      // Handle API response structure: could be { data: [...] } or { data: { data: [...] } }
-      const txData = txRes.data as any
-      const transactionsData = Array.isArray(txData?.data) ? txData.data : Array.isArray(txData) ? txData : []
-      setTransactions(transactionsData)
-      
-      const payData = payRes.data as any
-      const paymentsData = Array.isArray(payData?.data) ? payData.data : Array.isArray(payData) ? payData : []
-      setPayments(paymentsData)
-      
-      const vouData = vouRes.data as any
-      const vouchersData = Array.isArray(vouData?.data) ? vouData.data : Array.isArray(vouData) ? vouData : []
+      const response = await apiService.vouchers.getAll()
+      const responseData = response.data as any
+      const vouchersData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
       setVouchers(vouchersData)
-    } catch {
-      setTransactions([])
-      setPayments([])
+    } catch (error: any) {
+      console.error("Failed to fetch vouchers:", error)
+      toast({
+        title: "Error",
+        description: error?.response?.data?.error || error?.message || "Failed to load vouchers",
+        variant: "destructive",
+      })
       setVouchers([])
     } finally {
       setLoading(false)
     }
   }
 
+  const getStatusBadge = (status: VoucherStatus) => {
+    const variants: Record<VoucherStatus, "default" | "secondary" | "outline" | "destructive"> = {
+      draft: "outline",
+      submitted: "secondary",
+      approved: "default",
+      posted: "default",
+      reversed: "destructive",
+    }
+    const colors: Record<VoucherStatus, string> = {
+      draft: "bg-gray-100 text-gray-800",
+      submitted: "bg-blue-100 text-blue-800",
+      approved: "bg-green-100 text-green-800",
+      posted: "bg-green-100 text-green-800",
+      reversed: "bg-red-100 text-red-800",
+    }
+    return (
+      <Badge variant={variants[status]} className={colors[status]}>
+        {status.charAt(0).toUpperCase() + status.slice(1)}
+      </Badge>
+    )
+  }
 
+  // Filter vouchers by type
   const bankPaymentVouchers = useMemo(() => {
-    return transactions
-      .filter((t) => t.type === "expense")
-      .map((t) => ({
-        id: t.id,
-        date: new Date(t.date).toISOString().split("T")[0],
-        payee: t.property || "Expense",
-        amount: `Rs ${Number(t.amount || 0).toLocaleString("en-IN")}`,
-        description: t.description,
-        status: t.status || "paid",
+    return vouchers
+      .filter((v) => v.type === "BPV")
+      .map((v) => ({
+        ...v,
+        id: v.id,
+        voucherNumber: v.voucherNumber || v.id,
+        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        payee: v.payeeType && v.payeeId ? `${v.payeeType}: ${v.payeeId}` : v.description || "Payee",
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amountRaw: v.amount || 0,
+        description: v.description || "Bank payment",
+        status: (v.status || "draft") as VoucherStatus,
+        linesCount: v.lines?.length || 0,
       }))
-  }, [transactions])
+  }, [vouchers])
 
   const bankReceiptVouchers = useMemo(() => {
     return vouchers
-      .filter((v) => v.type === "bank_receipt" || (v.type === "receipt" && v.paymentMethod === "Bank"))
+      .filter((v) => v.type === "BRV")
       .map((v) => ({
+        ...v,
         id: v.id,
-        voucherId: v.id,
         voucherNumber: v.voucherNumber || v.id,
         date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
         from: v.description || v.account?.name || "Customer",
         amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
         amountRaw: v.amount || 0,
         description: v.description || "Bank receipt",
-        status: v.status || "posted",
+        status: (v.status || "draft") as VoucherStatus,
+        linesCount: v.lines?.length || 0,
       }))
   }, [vouchers])
 
   const cashReceiptVouchers = useMemo(() => {
     return vouchers
-      .filter((v) => v.type === "cash_receipt" || (v.type === "receipt" && v.paymentMethod === "Cash"))
+      .filter((v) => v.type === "CRV")
       .map((v) => ({
+        ...v,
         id: v.id,
-        voucherId: v.id,
         voucherNumber: v.voucherNumber || v.id,
         date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
         from: v.description || v.account?.name || "Customer",
         amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
         amountRaw: v.amount || 0,
         description: v.description || "Cash receipt",
-        status: v.status || "posted",
+        status: (v.status || "draft") as VoucherStatus,
+        linesCount: v.lines?.length || 0,
       }))
   }, [vouchers])
 
   const cashPaymentVouchers = useMemo(() => {
     return vouchers
-      .filter((v) => v.type === "cash_payment" || (v.type === "payment" && v.paymentMethod === "Cash"))
+      .filter((v) => v.type === "CPV")
       .map((v) => ({
+        ...v,
         id: v.id,
-        voucherId: v.id,
         voucherNumber: v.voucherNumber || v.id,
         date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
-        payee: v.description || v.account?.name || "Payee",
+        payee: v.payeeType && v.payeeId ? `${v.payeeType}: ${v.payeeId}` : v.description || "Payee",
         amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
         amountRaw: v.amount || 0,
         description: v.description || "Cash payment",
-        status: v.status || "posted",
+        status: (v.status || "draft") as VoucherStatus,
+        linesCount: v.lines?.length || 0,
       }))
+  }, [vouchers])
+
+  const journalVouchers = useMemo(() => {
+    return vouchers
+      .filter((v) => v.type === "JV")
+      .map((v) => {
+        const totalDebit = v.lines?.reduce((sum: number, line: any) => sum + (line.debit || 0), 0) || 0
+        const totalCredit = v.lines?.reduce((sum: number, line: any) => sum + (line.credit || 0), 0) || 0
+        return {
+          ...v,
+          id: v.id,
+          voucherNumber: v.voucherNumber || v.id,
+          date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+          description: v.description || "Journal entry",
+          debit: `Rs ${totalDebit.toLocaleString("en-IN")}`,
+          credit: `Rs ${totalCredit.toLocaleString("en-IN")}`,
+          status: (v.status || "draft") as VoucherStatus,
+          linesCount: v.lines?.length || 0,
+        }
+      })
   }, [vouchers])
 
   const handleViewVoucher = (voucherId: string) => {
@@ -139,8 +183,52 @@ export function AccountingView() {
   }
 
   const handleEditVoucher = (voucherId: string) => {
+    const voucher = vouchers.find((v) => v.id === voucherId)
+    if (voucher?.status !== "draft") {
+      toast({
+        title: "Cannot Edit",
+        description: "Only draft vouchers can be edited. Use workflow actions for other statuses.",
+        variant: "destructive",
+      })
+      return
+    }
     setEditingVoucherId(voucherId)
     setShowEditDialog(true)
+  }
+
+  const handleWorkflowAction = async (voucherId: string, action: "submit" | "approve" | "post" | "reverse") => {
+    try {
+      switch (action) {
+        case "submit":
+          await apiService.vouchers.submit(voucherId)
+          toast({ title: "Success", description: "Voucher submitted successfully" })
+          break
+        case "approve":
+          await apiService.vouchers.approve(voucherId)
+          toast({ title: "Success", description: "Voucher approved successfully" })
+          break
+        case "post":
+          await apiService.vouchers.post(voucherId)
+          toast({ title: "Success", description: "Voucher posted successfully" })
+          break
+        case "reverse":
+          if (!window.confirm("Are you sure you want to reverse this voucher? A reversal voucher will be created.")) {
+            return
+          }
+          const reversalDate = prompt("Enter reversal date (YYYY-MM-DD):", new Date().toISOString().split("T")[0])
+          if (!reversalDate) return
+          await apiService.vouchers.reverse(voucherId, { reversalDate })
+          toast({ title: "Success", description: "Voucher reversed successfully" })
+          break
+      }
+      await fetchData()
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error?.response?.data?.error || error?.message || `Failed to ${action} voucher`,
+        variant: "destructive",
+      })
+    }
   }
 
   const handleDownloadPDF = async (voucherId: string) => {
@@ -166,6 +254,16 @@ export function AccountingView() {
   }
 
   const handleDeleteVoucher = async (voucherId: string) => {
+    const voucher = vouchers.find((v) => v.id === voucherId)
+    if (voucher?.status === "posted") {
+      toast({
+        title: "Cannot Delete",
+        description: "Posted vouchers cannot be deleted. Use reverse action instead.",
+        variant: "destructive",
+      })
+      return
+    }
+    
     if (!window.confirm("Are you sure you want to delete this voucher?")) return
     
     try {
@@ -184,11 +282,76 @@ export function AccountingView() {
     }
   }
 
-  const journalVouchers: any[] = []
+  const getWorkflowActions = (status: VoucherStatus) => {
+    const actions = []
+    if (status === "draft") {
+      actions.push({ label: "Submit", action: "submit", icon: Send })
+    }
+    if (status === "submitted") {
+      actions.push({ label: "Approve", action: "approve", icon: CheckCircle })
+    }
+    if (status === "approved") {
+      actions.push({ label: "Post", action: "post", icon: ArrowRight })
+    }
+    if (status === "posted") {
+      actions.push({ label: "Reverse", action: "reverse", icon: RotateCcw })
+    }
+    return actions
+  }
+
+  const renderVoucherActions = (voucher: any) => {
+    const workflowActions = getWorkflowActions(voucher.status)
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
+            <Eye className="mr-2 h-4 w-4" />
+            View Details
+          </DropdownMenuItem>
+          {voucher.status === "draft" && (
+            <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Edit
+            </DropdownMenuItem>
+          )}
+          {workflowActions.map((action) => (
+            <DropdownMenuItem
+              key={action.action}
+              onClick={() => handleWorkflowAction(voucher.id, action.action as any)}
+            >
+              <action.icon className="mr-2 h-4 w-4" />
+              {action.label}
+            </DropdownMenuItem>
+          ))}
+          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
+            <Download className="mr-2 h-4 w-4" />
+            Download PDF
+          </DropdownMenuItem>
+          {voucher.status !== "posted" && voucher.status !== "reversed" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => handleDeleteVoucher(voucher.id)}
+                className="text-destructive"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
 
   return (
     <div className="space-y-6">
-      <Tabs defaultValue="bank-payment" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <div className="overflow-x-auto">
           <TabsList className="inline-flex min-w-full sm:min-w-0 grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 w-full sm:w-auto">
             <TabsTrigger value="bank-payment" className="text-xs sm:text-sm whitespace-nowrap">Bank Payment</TabsTrigger>
@@ -203,7 +366,7 @@ export function AccountingView() {
         {/* Bank Payment Vouchers */}
         <TabsContent value="bank-payment" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <h3 className="text-lg font-semibold">Bank Payment Vouchers</h3>
+            <h3 className="text-lg font-semibold">Bank Payment Vouchers (BPV)</h3>
             <Button
               onClick={() => {
                 setVoucherType("bank-payment")
@@ -212,49 +375,55 @@ export function AccountingView() {
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Voucher
+              New BPV
             </Button>
           </div>
           <Card>
             <div className="overflow-x-auto">
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Voucher No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Payee</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+                    <TableHead>Voucher No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Payee</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Lines</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : bankPaymentVouchers.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.id}</TableCell>
-                    <TableCell>{voucher.date}</TableCell>
-                    <TableCell>{voucher.payee}</TableCell>
-                    <TableCell>{voucher.description}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
-                    <TableCell>
-                      <Badge>{voucher.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="sm">
-                        <FileText className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : bankPaymentVouchers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                        No bank payment vouchers found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    bankPaymentVouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                        <TableCell>{voucher.date}</TableCell>
+                        <TableCell>{voucher.payee}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </TabsContent>
@@ -262,7 +431,7 @@ export function AccountingView() {
         {/* Bank Receipt Vouchers */}
         <TabsContent value="bank-receipt" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <h3 className="text-lg font-semibold">Bank Receipt Vouchers</h3>
+            <h3 className="text-lg font-semibold">Bank Receipt Vouchers (BRV)</h3>
             <Button
               onClick={() => {
                 setVoucherType("bank-receipt")
@@ -271,74 +440,55 @@ export function AccountingView() {
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Voucher
+              New BRV
             </Button>
           </div>
           <Card>
             <div className="overflow-x-auto">
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Voucher No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+                    <TableHead>Voucher No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Lines</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : bankReceiptVouchers.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
-                    <TableCell>{voucher.date}</TableCell>
-                    <TableCell>{voucher.from}</TableCell>
-                    <TableCell>{voucher.description}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{voucher.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteVoucher(voucher.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : bankReceiptVouchers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                        No bank receipt vouchers found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    bankReceiptVouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                        <TableCell>{voucher.date}</TableCell>
+                        <TableCell>{voucher.from}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </TabsContent>
@@ -346,7 +496,7 @@ export function AccountingView() {
         {/* Cash Payment Vouchers */}
         <TabsContent value="cash-payment" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <h3 className="text-lg font-semibold">Cash Payment Vouchers</h3>
+            <h3 className="text-lg font-semibold">Cash Payment Vouchers (CPV)</h3>
             <Button
               onClick={() => {
                 setVoucherType("cash-payment")
@@ -355,74 +505,55 @@ export function AccountingView() {
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Voucher
+              New CPV
             </Button>
           </div>
           <Card>
             <div className="overflow-x-auto">
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Voucher No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Payee</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+                    <TableHead>Voucher No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Payee</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Lines</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : cashPaymentVouchers.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
-                    <TableCell>{voucher.date}</TableCell>
-                    <TableCell>{voucher.payee}</TableCell>
-                    <TableCell>{voucher.description}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
-                    <TableCell>
-                      <Badge>{voucher.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteVoucher(voucher.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : cashPaymentVouchers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                        No cash payment vouchers found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    cashPaymentVouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                        <TableCell>{voucher.date}</TableCell>
+                        <TableCell>{voucher.payee}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </TabsContent>
@@ -430,7 +561,7 @@ export function AccountingView() {
         {/* Cash Receipt Vouchers */}
         <TabsContent value="cash-receipt" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <h3 className="text-lg font-semibold">Cash Receipt Vouchers</h3>
+            <h3 className="text-lg font-semibold">Cash Receipt Vouchers (CRV)</h3>
             <Button
               onClick={() => {
                 setVoucherType("cash-receipt")
@@ -439,74 +570,55 @@ export function AccountingView() {
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4 mr-2" />
-              New Voucher
+              New CRV
             </Button>
           </div>
           <Card>
             <div className="overflow-x-auto">
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Voucher No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+                    <TableHead>Voucher No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>From</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Lines</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : cashReceiptVouchers.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.voucherNumber || voucher.id}</TableCell>
-                    <TableCell>{voucher.date}</TableCell>
-                    <TableCell>{voucher.from}</TableCell>
-                    <TableCell>{voucher.description}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{voucher.status}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleViewVoucher(voucher.id)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEditVoucher(voucher.id)}>
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleDownloadPDF(voucher.id)}>
-                            <Download className="mr-2 h-4 w-4" />
-                            Download PDF
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            onClick={() => handleDeleteVoucher(voucher.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="mr-2 h-4 w-4" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : cashReceiptVouchers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                        No cash receipt vouchers found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    cashReceiptVouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                        <TableCell>{voucher.date}</TableCell>
+                        <TableCell>{voucher.from}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </TabsContent>
@@ -514,7 +626,7 @@ export function AccountingView() {
         {/* Journal Vouchers */}
         <TabsContent value="journal" className="space-y-4">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:justify-between">
-            <h3 className="text-lg font-semibold">Journal Vouchers</h3>
+            <h3 className="text-lg font-semibold">Journal Vouchers (JV)</h3>
             <Button onClick={() => setShowAddGeneralVoucherDialog(true)} className="w-full sm:w-auto">
               <Plus className="h-4 w-4 mr-2" />
               New Journal Entry
@@ -523,37 +635,49 @@ export function AccountingView() {
           <Card>
             <div className="overflow-x-auto">
               <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Voucher No.</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Debit</TableHead>
-                  <TableHead className="text-right">Credit</TableHead>
-                  <TableHead>Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={6} className="px-6 py-12 text-center">
-                      <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                    </TableCell>
+                    <TableHead>Voucher No.</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-right">Debit</TableHead>
+                    <TableHead className="text-right">Credit</TableHead>
+                    <TableHead>Lines</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
-                ) : journalVouchers.map((voucher) => (
-                  <TableRow key={voucher.id}>
-                    <TableCell className="font-medium">{voucher.id}</TableCell>
-                    <TableCell>{voucher.date}</TableCell>
-                    <TableCell>{voucher.description}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.debit}</TableCell>
-                    <TableCell className="text-right font-semibold">{voucher.credit}</TableCell>
-                    <TableCell>
-                      <Badge variant="secondary">{voucher.status}</Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
+                      </TableCell>
+                    </TableRow>
+                  ) : journalVouchers.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                        No journal vouchers found
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    journalVouchers.map((voucher) => (
+                      <TableRow key={voucher.id}>
+                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                        <TableCell>{voucher.date}</TableCell>
+                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.debit}</TableCell>
+                        <TableCell className="text-right font-semibold">{voucher.credit}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                        </TableCell>
+                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
             </div>
           </Card>
         </TabsContent>
@@ -565,11 +689,23 @@ export function AccountingView() {
       </Tabs>
 
       {/* Add dialogs for accounting operations */}
-      <AddVoucherDialog open={showAddVoucherDialog} onOpenChange={(open) => {
-        setShowAddVoucherDialog(open)
-        if (!open) fetchData()
-      }} voucherType={voucherType} onSuccess={fetchData} />
-      <AddGeneralVoucherDialog open={showAddGeneralVoucherDialog} onOpenChange={setShowAddGeneralVoucherDialog} />
+      <AddVoucherDialog
+        open={showAddVoucherDialog}
+        onOpenChange={(open) => {
+          setShowAddVoucherDialog(open)
+          if (!open) fetchData()
+        }}
+        voucherType={voucherType}
+        onSuccess={fetchData}
+      />
+      <AddGeneralVoucherDialog
+        open={showAddGeneralVoucherDialog}
+        onOpenChange={(open) => {
+          setShowAddGeneralVoucherDialog(open)
+          if (!open) fetchData()
+        }}
+        onSuccess={fetchData}
+      />
       
       {viewingVoucherId && (
         <ViewVoucherDialog

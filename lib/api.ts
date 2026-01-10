@@ -941,10 +941,25 @@ export const apiService = {
   },
 
   vouchers: {
-    getAll: () => api.get('/finance/vouchers'),
+    getAll: (filters?: { type?: string; status?: string; propertyId?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }) => {
+      const params = new URLSearchParams()
+      if (filters?.type) params.append('type', filters.type)
+      if (filters?.status) params.append('status', filters.status)
+      if (filters?.propertyId) params.append('propertyId', filters.propertyId)
+      if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom)
+      if (filters?.dateTo) params.append('dateTo', filters.dateTo)
+      if (filters?.limit) params.append('limit', filters.limit.toString())
+      if (filters?.offset) params.append('offset', filters.offset.toString())
+      const queryString = params.toString()
+      return api.get(`/finance/vouchers${queryString ? `?${queryString}` : ''}`)
+    },
     getById: (id: string) => api.get(`/finance/vouchers/${id}`),
     create: (data: any) => api.post('/finance/vouchers', data),
     update: (id: string, data: any) => api.put(`/finance/vouchers/${id}`, data),
+    submit: (id: string) => api.put(`/finance/vouchers/${id}/submit`),
+    approve: (id: string) => api.put(`/finance/vouchers/${id}/approve`),
+    post: (id: string, data?: { postingDate?: string }) => api.put(`/finance/vouchers/${id}/post`, data),
+    reverse: (id: string, data: { reversalDate: string }) => api.put(`/finance/vouchers/${id}/reverse`, data),
     delete: (id: string) => api.delete(`/finance/vouchers/${id}`),
     getPDF: (id: string) => api.get(`/finance/vouchers/${id}/pdf`, { responseType: 'blob' }),
     export: (filters?: any) => api.get('/finance/vouchers/export', { params: filters, responseType: 'blob' }),
