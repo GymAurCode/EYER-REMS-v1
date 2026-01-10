@@ -22,7 +22,7 @@ export default function AttendanceDetailPage() {
         setLoading(true)
         setError(null)
         
-        const response = await apiService.attendance.getById(Number(id))
+        const response = await apiService.attendance.getById(id)
         
         // Handle response structure
         const responseData = response.data as any

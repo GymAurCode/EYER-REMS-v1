@@ -1,7 +1,7 @@
 "use client"
 
 import { useParams, useRouter } from "next/navigation"
-import { DealDetailView } from "@/components/crm/deal-detail-view"
+import { DealDetailRefactored } from "@/components/crm/deal-detail-refactored"
 
 export default function DealDetailPage() {
   const params = useParams<{ id: string }>()
@@ -15,5 +15,5 @@ export default function DealDetailPage() {
     )
   }
 
-  return <DealDetailView dealId={dealId} />
+  return <DealDetailRefactored dealId={dealId} />
 }

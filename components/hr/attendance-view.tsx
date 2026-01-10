@@ -14,6 +14,7 @@ export function AttendanceView() {
   const [attendance, setAttendance] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [employees, setEmployees] = useState<any[]>([])
   const router = useRouter()
 
   useEffect(() => {

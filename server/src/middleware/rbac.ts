@@ -9,28 +9,19 @@ import { verifyToken } from '../utils/jwt';
 const prisma = new PrismaClient();
 
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    roleId: string;
-    role?: {
-      id: string;
-      name: string;
-      permissions: string[];
-    };
-  };
-  // Explicitly include Request properties to ensure type resolution
-  params: any;
-  body: any;
-  query: any;
-  headers: any;
-  method?: string;
-  path?: string;
-  cookies?: any;
-  file?: any;
-  files?: any;
-}
+   user?: {
+     id: string;
+     username: string;
+     email: string;
+     roleId: string;
+     role?: {
+       id: string;
+       name: string;
+       permissions: string[];
+     };
+   };
+   cookies: any;
+ }
 
 /**
  * Check if user has required permission

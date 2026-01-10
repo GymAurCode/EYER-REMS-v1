@@ -4,25 +4,13 @@ import prisma from '../prisma/client';
 import logger from '../utils/logger';
 
 export interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    username: string;
-    email: string;
-    roleId: string;
-  };
-  // Explicitly include Request properties to ensure type resolution
-  params: any;
-  body: any;
-  query: any;
-  headers: any;
-  method?: string;
-  path?: string;
-  originalUrl?: string;
-  baseUrl?: string;
-  cookies?: any;
-  file?: any;
-  files?: any;
-}
+   user?: {
+     id: string;
+     username: string;
+     email: string;
+     roleId: string;
+   };
+ }
 
 export const authenticate = async (
   req: AuthRequest,

@@ -8,7 +8,7 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Mail, Lock, Loader2, AlertCircle, Eye, EyeOff, Video, MessageSquare, Code, Grid, ArrowRight } from "lucide-react"
+import { Mail, Lock, Loader2, AlertCircle, Video, MessageSquare, Code, ArrowRight, ShieldCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { AuthToasts } from "@/lib/toast-utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -54,19 +54,19 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex bg-white">
-      {/* Left Panel - EYERCALL Details */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden bg-white border-r border-purple-100">
-        <div className="relative z-10 flex flex-col justify-between p-12">
+      {/* Left Panel - Info Section */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-neutral-50 border-r border-neutral-200">
+        <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           {/* Logo and Header */}
           <div>
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 via-purple-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg shadow-purple-500/30">
+              <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-sm">
                 <span className="text-white font-bold text-xl">A</span>
               </div>
-              <span className="text-2xl font-bold tracking-tight text-purple-900">EYERCALL</span>
+              <span className="text-2xl font-bold tracking-tight text-neutral-900">EYERCALL</span>
             </div>
-            <p className="text-lg text-purple-700 mb-12">
-              Connecting the world through secure communication and digital innovation.
+            <p className="text-lg text-neutral-600 mb-12 max-w-md">
+              Enterprise-grade solution for secure communication and digital innovation management.
             </p>
           </div>
 
@@ -74,39 +74,39 @@ export default function LoginPage() {
           <div className="space-y-8 mb-12">
             {/* Secure Video Meetings */}
             <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
-                <Video className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 rounded-lg bg-white border border-neutral-200 flex items-center justify-center shrink-0 shadow-sm">
+                <Video className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-2 text-purple-900">Secure Video Meetings</h3>
-                <p className="text-purple-600 text-sm leading-relaxed">
-                  Seamless and secure video meetings for various purposes—online classes, business conferences, personal discussions. A reliable, user-friendly platform for crystal-clear communication.
+                <h3 className="font-semibold text-lg mb-1 text-neutral-900">Secure Video Meetings</h3>
+                <p className="text-neutral-600 text-sm leading-relaxed max-w-sm">
+                  Seamless and secure video meetings for business conferences and discussions.
                 </p>
               </div>
             </div>
 
             {/* Messaging & Courses */}
             <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
-                <MessageSquare className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 rounded-lg bg-white border border-neutral-200 flex items-center justify-center shrink-0 shadow-sm">
+                <MessageSquare className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-2 text-purple-900">Messaging & Courses</h3>
-                <p className="text-purple-600 text-sm leading-relaxed">
-                  Built-in messaging for students and teachers, and exploring academic and professional courses.
+                <h3 className="font-semibold text-lg mb-1 text-neutral-900">Messaging & Collaboration</h3>
+                <p className="text-neutral-600 text-sm leading-relaxed max-w-sm">
+                  Built-in messaging for teams to collaborate efficiently.
                 </p>
               </div>
             </div>
 
             {/* Custom Website & More */}
             <div className="flex gap-4">
-              <div className="w-12 h-12 rounded-lg bg-purple-100 border border-purple-200 flex items-center justify-center shrink-0">
-                <Code className="w-6 h-6 text-purple-600" />
+              <div className="w-12 h-12 rounded-lg bg-white border border-neutral-200 flex items-center justify-center shrink-0 shadow-sm">
+                <Code className="w-6 h-6 text-primary" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg mb-2 text-purple-900">Custom Website & More</h3>
-                <p className="text-purple-600 text-sm leading-relaxed">
-                  Powerful, customized digital solutions, from modern websites to advanced software development, to help businesses grow and scale.
+                <h3 className="font-semibold text-lg mb-1 text-neutral-900">Digital Solutions</h3>
+                <p className="text-neutral-600 text-sm leading-relaxed max-w-sm">
+                  Powerful, customized digital solutions to help businesses grow and scale.
                 </p>
               </div>
             </div>
@@ -114,18 +114,14 @@ export default function LoginPage() {
 
           {/* Footer */}
           <div>
-            <Link
-              href="#"
-              className="inline-flex items-center gap-2 text-purple-600 hover:text-purple-700 transition-colors mb-8 font-medium"
-            >
+            <div className="flex items-center gap-2 text-primary font-medium mb-8 cursor-pointer hover:underline">
               Explore our ecosystem <ArrowRight className="w-4 h-4" />
-            </Link>
-            <div className="text-sm text-purple-500">
-              <div className="mb-2">© 2024 EYERCALL INC.</div>
-              <div className="flex gap-4">
-                <Link href="#" className="hover:text-purple-700 transition-colors">PRIVACY POLICY</Link>
-                <span>•</span>
-                <Link href="#" className="hover:text-purple-700 transition-colors">TERMS</Link>
+            </div>
+            <div className="text-sm text-neutral-500 flex justify-between items-center pr-8">
+              <div>© 2024 EYERCALL INC.</div>
+              <div className="flex gap-6">
+                <Link href="#" className="hover:text-neutral-900 transition-colors">Privacy Policy</Link>
+                <Link href="#" className="hover:text-neutral-900 transition-colors">Terms</Link>
               </div>
             </div>
           </div>
@@ -134,43 +130,42 @@ export default function LoginPage() {
 
       {/* Right Panel - Login Form */}
       <div className="flex-1 lg:w-1/2 flex items-center justify-center p-8 bg-white">
-        <div className="w-full max-w-md bg-white rounded-xl shadow-2xl border border-purple-100 p-8">
+        <div className="w-full max-w-sm space-y-8">
           {/* Secure Access Portal Badge */}
-          <div className="flex items-center gap-2 mb-6">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md border border-purple-500/30 bg-purple-50">
-              <Grid className="w-4 h-4 text-purple-700" />
-              <Lock className="w-4 h-4 text-purple-700" />
-              <span className="text-xs font-bold text-purple-800 tracking-wider">SECURE ACCESS PORTAL</span>
+          <div className="flex items-center justify-center mb-8">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-neutral-200 bg-neutral-50">
+              <ShieldCheck className="w-4 h-4 text-primary" />
+              <span className="text-xs font-semibold text-neutral-700 tracking-wider">SECURE ACCESS PORTAL</span>
             </div>
           </div>
 
           {/* Welcome Message */}
-          <div className="mb-8">
-            <h1 className="text-4xl font-bold text-purple-950 mb-2">Welcome Back</h1>
-            <p className="text-purple-800 font-medium">Access your digital dashboard.</p>
+          <div className="text-center space-y-2">
+            <h1 className="text-3xl font-bold text-primary tracking-tight">Welcome Back</h1>
+            <p className="text-neutral-600">Enter your credentials to access the dashboard.</p>
           </div>
 
           {error && (
-            <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200">
-              <AlertCircle className="h-4 w-4" />
-              <AlertTitle>Error</AlertTitle>
-              <AlertDescription className="text-red-900">{error}</AlertDescription>
+            <Alert variant="destructive" className="bg-red-50 border-red-100 text-red-900">
+              <AlertCircle className="h-4 w-4 text-red-700" />
+              <AlertTitle className="text-red-900 font-semibold">Authentication Error</AlertTitle>
+              <AlertDescription className="text-red-800">{error}</AlertDescription>
             </Alert>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Email Field */}
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-purple-900 font-bold">EMAIL</Label>
+              <Label htmlFor="email" className="text-neutral-900 font-medium">Email Address</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-purple-700" />
+                <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
                 <Input
                   id="email"
                   type="email"
                   placeholder="user@eyercall.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 h-12 bg-white border-purple-200 text-gray-900 placeholder:text-gray-500 focus:border-purple-600 focus:ring-purple-600"
+                  className="pl-10 h-11 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:border-primary focus:ring-primary rounded-md"
                   required
                   disabled={loading}
                 />
@@ -180,40 +175,32 @@ export default function LoginPage() {
             {/* Password Field */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-purple-900 font-bold">PASSWORD</Label>
+                <Label htmlFor="password" className="text-neutral-900 font-medium">Password</Label>
                 <Link
                   href="/reset-password"
-                  className="text-sm text-purple-700 hover:text-purple-900 transition-colors font-medium"
+                  className="text-sm text-primary hover:text-primary/80 transition-colors font-medium"
                 >
                   Forgot Password?
                 </Link>
               </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-purple-700" />
+                <Lock className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-neutral-400" />
                 <Input
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10 h-12 bg-white border-purple-200 text-gray-900 placeholder:text-gray-500 focus:border-purple-600 focus:ring-purple-600"
+                  className="pl-10 pr-10 h-11 bg-white border-neutral-200 text-neutral-900 placeholder:text-neutral-400 focus:border-primary focus:ring-primary rounded-md"
                   required
                   disabled={loading}
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-purple-700 hover:text-purple-900 transition-colors"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
               </div>
             </div>
 
-            {/* Sign In Button */}
             <Button
               type="submit"
-              className="w-full h-12 bg-purple-700 hover:bg-purple-800 text-white font-bold text-base shadow-lg shadow-purple-900/20"
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium text-base shadow-none rounded-md"
               disabled={loading}
             >
               {loading ? (
@@ -222,18 +209,15 @@ export default function LoginPage() {
                   Signing in...
                 </>
               ) : (
-                <>
-                  Sign In <ArrowRight className="h-5 w-5 ml-2" />
-                </>
+                "Sign In"
               )}
             </Button>
           </form>
 
-          {/* New User Prompt */}
-          <div className="mt-8 text-center text-purple-800 font-medium">
-            New to Eyercall?{" "}
-            <Link href="/signup" className="text-purple-900 hover:text-black font-bold transition-colors">
-              Start Free Trial
+          <div className="pt-4 text-center text-sm">
+            <span className="text-neutral-500">Don't have an account? </span>
+            <Link href="/signup" className="text-primary hover:underline font-medium">
+              Request Access
             </Link>
           </div>
         </div>

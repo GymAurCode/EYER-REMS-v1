@@ -741,28 +741,43 @@ export const apiService = {
 
   // HR - Employees
   employees: {
-    getAll: (params?: { search?: string; limit?: number }, config?: any) => {
+    getAll: (params?: { department?: string; status?: string; search?: string; limit?: number }, config?: any) => {
       const queryParams = new URLSearchParams()
+      if (params?.department) queryParams.append('department', params.department)
+      if (params?.status) queryParams.append('status', params.status)
       if (params?.search) queryParams.append('search', params.search)
       if (params?.limit) queryParams.append('limit', params.limit.toString())
-      const queryString = queryParams.toString()
-      return api.get(`/hr/employees${queryString ? `?${queryString}` : ''}`, config)
+      return api.get(`/hr/employees?${queryParams.toString()}`, config)
     },
     getById: (id: string) => api.get(`/hr/employees/${id}`),
     create: (data: any) => api.post('/hr/employees', data),
     update: (id: string, data: any) => api.put(`/hr/employees/${id}`, data),
     delete: (id: string) => api.delete(`/hr/employees/${id}`),
+    getLeaves: (id: string) => api.get(`/hr/employees/${id}/leaves`),
+    getAttendance: (id: string) => api.get(`/hr/employees/${id}/attendance`),
+    getPayroll: (id: string) => api.get(`/hr/employees/${id}/payroll`),
   },
 
   // HR - Attendance
   attendance: {
-    getAll: () => api.get('/hr/attendance'),
-    getById: (id: number) => api.get(`/hr/attendance/${id}`),
+    getAll: (params?: { date?: string; startDate?: string; endDate?: string; employeeId?: string; status?: string }) => {
+      const queryParams = new URLSearchParams()
+      if (params?.date) queryParams.append('date', params.date)
+      if (params?.startDate) queryParams.append('startDate', params.startDate)
+      if (params?.endDate) queryParams.append('endDate', params.endDate)
+      if (params?.employeeId) queryParams.append('employeeId', params.employeeId)
+      if (params?.status) queryParams.append('status', params.status)
+      return api.get(`/hr/attendance?${queryParams.toString()}`)
+    },
+    getById: (id: string) => api.get(`/hr/attendance/${id}`),
     create: (data: any) => api.post('/hr/attendance', data),
-    update: (id: number, data: any) => api.put(`/hr/attendance/${id}`, data),
-    delete: (id: number) => api.delete(`/hr/attendance/${id}`),
+    update: (id: string, data: any) => api.put(`/hr/attendance/${id}`, data),
+    delete: (id: string) => api.delete(`/hr/attendance/${id}`),
     checkIn: (data: any) => api.post('/hr/attendance/checkin', data),
     checkOut: (data: any) => api.post('/hr/attendance/checkout', data),
+    getToday: (employeeId: string) => api.get(`/hr/attendance/today?employeeId=${employeeId}`),
+    getEmployeeHistory: (employeeId: string, params?: { limit?: number }) => api.get(`/hr/attendance/employee/${employeeId}${params?.limit ? `?limit=${params.limit}` : ''}`),
+    getStats: () => api.get('/hr/attendance/stats'),
   },
 
   // HR - Payroll
@@ -772,6 +787,7 @@ export const apiService = {
     create: (data: any) => api.post('/hr/payroll', data),
     update: (id: string, data: any) => api.put(`/hr/payroll/${id}`, data),
     delete: (id: string) => api.delete(`/hr/payroll/${id}`),
+    recordPayment: (id: string, data: any) => api.post(`/hr/payroll/${id}/payments`, data),
   },
 
   // HR - Leave

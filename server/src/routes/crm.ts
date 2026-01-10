@@ -5,7 +5,7 @@ import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';
 import logger from '../utils/logger';
-import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID, generatePrefixedId } from '../services/id-generation-service';
 import { generateSequenceNumber } from '../services/id-generation-service';
 import { parsePaginationQuery, calculatePagination } from '../utils/pagination';
 import { successResponse, errorResponse } from '../utils/error-handler';
@@ -188,13 +188,18 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
       return res.status(400).json({ error: 'Lead has already been converted to a client' });
     }
 
-    const { tid } = req.body;
-    if (!tid) {
-      return res.status(400).json({ error: 'TID is required' });
+    // Generate unique TID
+    let tid = '';
+    let isUnique = false;
+    while (!isUnique) {
+      tid = await generatePrefixedId('L-CLI', 'cli');
+      try {
+        await validateTID(tid);
+        isUnique = true;
+      } catch (error) {
+        // If TID exists, loop will continue and generate next sequence number
+      }
     }
-
-    // Validate TID
-    await validateTID(tid);
 
     // Generate system ID: cli-YY-####
     const clientCode = await generateSystemId('cli');
@@ -222,6 +227,7 @@ router.post('/leads/:id/convert', authenticate, async (req: AuthRequest, res: Re
           clientType: 'individual',
           clientCategory: 'regular',
           status: 'active',
+          convertedFromLeadId: lead.id,
         },
       });
     });

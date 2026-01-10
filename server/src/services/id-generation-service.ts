@@ -644,6 +644,73 @@ export async function validateTID(
 }
 
 /**
+ * Generate a prefixed ID for special cases like converted entities
+ * Format: {customPrefix}-{XXXX}
+ * Example: L-CLI-0001 for lead-converted clients
+ *
+ * @param customPrefix - The custom prefix (e.g., 'L-CLI')
+ * @param entityType - The entity type for uniqueness checking
+ * @param tx - Optional transaction client
+ * @returns Generated prefixed ID
+ */
+export async function generatePrefixedId(
+  customPrefix: string,
+  entityType: ModulePrefix,
+  tx?: Prisma.TransactionClient
+): Promise<string> {
+  // Use a sequence key for the custom prefix
+  const sequencePrefix = `${customPrefix}-counter`;
+
+  try {
+    // Try to increment sequence
+    const client = tx || prisma;
+    const seq = await client.sequence.update({
+      where: { prefix: sequencePrefix },
+      data: { current: { increment: 1 } },
+    });
+
+    return `${customPrefix}-${seq.current.toString().padStart(4, '0')}`;
+  } catch (error: any) {
+    // If sequence not found, initialize it
+    if (error.code === 'P2025') {
+      const client = tx || prisma;
+
+      // Find max existing ID with this prefix for the entity type
+      let maxCounter = 0;
+
+      switch (entityType) {
+        case 'cli':
+          const maxCli = await client.client.findFirst({
+            where: { tid: { startsWith: customPrefix } },
+            orderBy: { tid: 'desc' },
+            select: { tid: true },
+          });
+          if (maxCli?.tid) {
+            const counterStr = maxCli.tid.replace(customPrefix + '-', '');
+            maxCounter = parseInt(counterStr, 10) || 0;
+          }
+          break;
+        // Add other entity types if needed
+        default:
+          break;
+      }
+
+      const nextCounter = maxCounter + 1;
+
+      // Create sequence starting at nextCounter
+      const seq = await client.sequence.upsert({
+        where: { prefix: sequencePrefix },
+        create: { prefix: sequencePrefix, current: nextCounter },
+        update: { current: { increment: 1 } },
+      });
+
+      return `${customPrefix}-${seq.current.toString().padStart(4, '0')}`;
+    }
+    throw error;
+  }
+}
+
+/**
  * Extract year and counter from system ID
  * Useful for migration or analysis
  */

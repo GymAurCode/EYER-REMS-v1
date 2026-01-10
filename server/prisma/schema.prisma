@@ -553,31 +553,32 @@ model Employee {
 }
 
 model Attendance {
-  id               String                 @id @default(uuid())
-  employeeId       String
-  date             DateTime               @default(now())
-  checkIn          DateTime?
-  checkOut         DateTime?
-  status           String
-  hours            Float?
-  isDeleted        Boolean                @default(false)
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-  checkInLocation  Json?
-  checkOutLocation Json?
-  deviceId         String?
-  graceMinutes     Int?                   @default(0)
-  isManualOverride Boolean                @default(false)
-  isNightShift     Boolean                @default(false)
-  isSuspicious     Boolean                @default(false)
-  lateMinutes      Int?                   @default(0)
-  overrideBy       String?
-  overrideReason   String?
-  overtimeHours    Float?                 @default(0)
-  shiftId          String?
-  suspiciousReason String?
-  employee         Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  corrections      AttendanceCorrection[]
+  id                   String                 @id @default(uuid())
+  employeeId           String
+  date                 DateTime               @default(now())
+  checkIn              DateTime?
+  checkOut             DateTime?
+  status               String
+  hours                Float?
+  totalWorkDuration    String?                // HH:MM:SS format
+  isDeleted            Boolean                @default(false)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  checkInLocation      Json?
+  checkOutLocation     Json?
+  deviceId             String?
+  graceMinutes         Int?                   @default(0)
+  isManualOverride     Boolean                @default(false)
+  isNightShift         Boolean                @default(false)
+  isSuspicious         Boolean                @default(false)
+  lateMinutes          Int?                   @default(0)
+  overrideBy           String?
+  overrideReason       String?
+  overtimeHours        Float?                 @default(0)
+  shiftId              String?
+  suspiciousReason     String?
+  employee             Employee               @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  corrections          AttendanceCorrection[]
 
   @@unique([employeeId, date])
   @@index([employeeId])

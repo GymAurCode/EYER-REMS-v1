@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Loader2, Download, Filter } from "lucide-react"
+import { Loader2, Download, Filter, Printer } from "lucide-react"
 import { format } from "date-fns"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
@@ -27,9 +27,12 @@ interface LedgerEntry {
   credit: number
   runningBalance: number
   propertyName?: string
+  propertyId?: string
   dealTitle?: string
   paymentType?: string
   paymentMode?: string
+  paymentId?: string
+  dealId?: string
 }
 
 export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps) {
@@ -38,7 +41,7 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
   const [entries, setEntries] = useState<LedgerEntry[]>([])
   const [filter, setFilter] = useState<'all' | 'thisMonth'>('all')
   const [selectedPropertyId, setSelectedPropertyId] = useState<string>('')
-  const [properties, setProperties] = useState<Array<{ id: string; name: string }>>([])
+  const [properties, setProperties] = useState<Array<{ id: string; name: string; code?: string }>>([])
 
   useEffect(() => {
     loadLedgerData()
@@ -50,7 +53,11 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
       const response: any = await apiService.properties.getAll()
       const data = response?.data?.data || response?.data || []
       const props = Array.isArray(data)
-        ? data.map((p: any) => ({ id: p.id, name: p.name || p.address || 'Unnamed Property' }))
+        ? data.map((p: any) => ({ 
+            id: p.id, 
+            name: p.name || p.address || 'Unnamed Property',
+            code: p.manualUniqueId || p.propertyCode
+          }))
         : []
       setProperties(props)
     } catch (error) {
@@ -84,16 +91,33 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
 
   const handleExport = () => {
     // Create CSV content
-    const headers = ['Date', 'Description', 'Property', 'Deal', 'Debit', 'Credit', 'Balance']
-    const rows = entries.map(entry => [
-      format(new Date(entry.date), 'yyyy-MM-dd'),
-      entry.description || '',
-      entry.propertyName || '',
-      entry.dealTitle || '',
-      entry.debit.toFixed(2),
-      entry.credit.toFixed(2),
-      entry.runningBalance.toFixed(2),
-    ])
+    const headers = [
+      'Customer Name', 'Tran Date', 'Transaction Number', 'Cheque Number', 'Cheque Date',
+      'Reference No', 'Memo', 'Debit', 'Credit', 'Running Total', 'Status',
+      'Property Serial No', 'Attachment', 'Modified Flag', 'Auditor Remarks', 'Reason Modification'
+    ]
+    
+    const rows = entries.map(entry => {
+      const prop = properties.find(p => p.id === entry.propertyId)
+      return [
+        clientName || '—',
+        format(new Date(entry.date), 'yyyy-MM-dd'),
+        entry.paymentId || entry.dealId || '—',
+        entry.paymentMode === 'Cheque' ? '—' : '—', // Placeholder
+        '—', // Cheque Date
+        '—', // Reference No
+        entry.description || '—',
+        entry.debit.toFixed(2),
+        entry.credit.toFixed(2),
+        entry.runningBalance.toFixed(2),
+        'Posted', // Status
+        prop?.code || '—',
+        '—', // Attachment
+        '—', // Modified Flag
+        '—', // Auditor Remarks
+        '—'  // Reason Modification
+      ]
+    })
 
     const csvContent = [
       headers.join(','),
@@ -104,7 +128,7 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `client-ledger-${clientId}-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `customer-ledger-${clientId}-${new Date().toISOString().split('T')[0]}.csv`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -116,24 +140,34 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
     })
   }
 
+  const handlePrint = () => {
+    window.print()
+  }
+
   const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0)
   const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0)
   const finalBalance = entries.length > 0 ? entries[entries.length - 1].runningBalance : 0
 
   return (
-    <div className="space-y-6">
-      {/* Header and Filters */}
-      <Card>
+    <div className="space-y-6 print:space-y-2">
+      {/* Header and Filters - Hidden in print if needed, or styled */}
+      <Card className="print:hidden">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Client Ledger {clientName && `- ${clientName}`}</CardTitle>
-              <CardDescription>All credit and debit entries with running balance</CardDescription>
+              <CardTitle>Customer Ledger Report</CardTitle>
+              <CardDescription>Complete financial history of {clientName}</CardDescription>
             </div>
-            <Button onClick={handleExport} variant="outline">
-              <Download className="h-4 w-4 mr-2" />
-              Export CSV
-            </Button>
+            <div className="flex gap-2">
+               <Button onClick={handlePrint} variant="outline">
+                <Printer className="h-4 w-4 mr-2" />
+                Print
+              </Button>
+              <Button onClick={handleExport} variant="outline">
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -176,43 +210,16 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
         </CardContent>
       </Card>
 
-      {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Debit</div>
-            <div className="text-2xl font-bold text-red-600">{formatCurrency(totalDebit)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Credit</div>
-            <div className="text-2xl font-bold text-green-600">{formatCurrency(totalCredit)}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Final Balance</div>
-            <div className={`text-2xl font-bold ${finalBalance >= 0 ? 'text-primary' : 'text-orange-600'}`}>
-              {formatCurrency(finalBalance)}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="text-sm text-muted-foreground">Total Entries</div>
-            <div className="text-2xl font-bold">{entries.length}</div>
-          </CardContent>
-        </Card>
+      {/* Printable Header - Only visible in print */}
+      <div className="hidden print:block mb-4">
+        <h1 className="text-2xl font-bold">Customer Ledger Report</h1>
+        <p className="text-sm text-gray-500">Customer: {clientName}</p>
+        <p className="text-sm text-gray-500">Date: {format(new Date(), "PPP")}</p>
       </div>
 
       {/* Ledger Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Ledger Entries</CardTitle>
-          <CardDescription>Date-wise sorted list of all transactions</CardDescription>
-        </CardHeader>
-        <CardContent>
+      <Card className="border-t-4 border-t-primary/80 shadow-sm print:shadow-none print:border-none">
+        <CardContent className="p-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -221,43 +228,70 @@ export function ClientLedgerPage({ clientId, clientName }: ClientLedgerPageProps
             <p className="text-center text-muted-foreground py-8">No ledger entries found</p>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
+              <Table className="min-w-[1500px]">
+                <TableHeader className="sticky top-0 bg-background z-10 shadow-sm print:shadow-none">
                   <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead>Property</TableHead>
-                    <TableHead>Deal</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead className="text-right">Debit</TableHead>
-                    <TableHead className="text-right">Credit</TableHead>
-                    <TableHead className="text-right">Balance</TableHead>
+                    <TableHead className="w-[150px]">Customer Name</TableHead>
+                    <TableHead className="w-[100px]">Tran Date</TableHead>
+                    <TableHead className="w-[120px]">Transaction No</TableHead>
+                    <TableHead className="w-[100px]">Cheque No</TableHead>
+                    <TableHead className="w-[100px]">Cheque Date</TableHead>
+                    <TableHead className="w-[100px]">Reference No</TableHead>
+                    <TableHead className="w-[200px]">Memo</TableHead>
+                    <TableHead className="text-right w-[120px]">Debit</TableHead>
+                    <TableHead className="text-right w-[120px]">Credit</TableHead>
+                    <TableHead className="text-right w-[120px]">Running Total</TableHead>
+                    <TableHead className="w-[100px]">Status</TableHead>
+                    <TableHead className="w-[120px]">Property Serial</TableHead>
+                    <TableHead className="w-[80px]">Attach</TableHead>
+                    <TableHead className="w-[80px]">Modified</TableHead>
+                    <TableHead className="w-[150px]">Auditor Remarks</TableHead>
+                    <TableHead className="w-[150px]">Reason Mod</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map((entry) => (
-                    <TableRow key={entry.id}>
-                      <TableCell>{format(new Date(entry.date), "PPP")}</TableCell>
-                      <TableCell>{entry.description || '—'}</TableCell>
-                      <TableCell>{entry.propertyName || '—'}</TableCell>
-                      <TableCell>{entry.dealTitle || '—'}</TableCell>
-                      <TableCell>
-                        {entry.paymentType && (
-                          <Badge variant="outline">{entry.paymentType}</Badge>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-red-600">
-                        {entry.debit > 0 ? formatCurrency(entry.debit) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right font-medium text-green-600">
-                        {entry.credit > 0 ? formatCurrency(entry.credit) : '—'}
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${entry.runningBalance >= 0 ? 'text-primary' : 'text-orange-600'}`}>
-                        {formatCurrency(entry.runningBalance)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {entries.map((entry) => {
+                    const prop = properties.find(p => p.id === entry.propertyId)
+                    return (
+                      <TableRow key={entry.id} className="hover:bg-muted/50">
+                        <TableCell className="font-medium">{clientName || '—'}</TableCell>
+                        <TableCell>{format(new Date(entry.date), "dd-MMM-yyyy")}</TableCell>
+                        <TableCell className="font-mono text-xs">{entry.paymentId || entry.dealId || '—'}</TableCell>
+                        <TableCell>{entry.paymentMode === 'Cheque' ? '—' : '—'}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={entry.description}>{entry.description || '—'}</TableCell>
+                        <TableCell className="text-right text-red-600 font-medium">
+                          {entry.debit > 0 ? formatCurrency(entry.debit) : '—'}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600 font-medium">
+                          {entry.credit > 0 ? formatCurrency(entry.credit) : '—'}
+                        </TableCell>
+                        <TableCell className={`text-right font-bold ${entry.runningBalance >= 0 ? 'text-primary' : 'text-orange-600'}`}>
+                          {formatCurrency(entry.runningBalance)}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="bg-slate-100">Posted</Badge>
+                        </TableCell>
+                        <TableCell>{prop?.code || '—'}</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                        <TableCell>—</TableCell>
+                      </TableRow>
+                    )
+                  })}
                 </TableBody>
+                {/* Report Total Section */}
+                <tfoot className="bg-muted/50 font-bold border-t-2 border-primary/20">
+                    <TableRow>
+                        <TableCell colSpan={7} className="text-right text-muted-foreground uppercase tracking-wider">Report Total</TableCell>
+                        <TableCell className="text-right text-red-600 text-lg">{formatCurrency(totalDebit)}</TableCell>
+                        <TableCell className="text-right text-green-600 text-lg">{formatCurrency(totalCredit)}</TableCell>
+                        <TableCell className="text-right text-primary text-lg">{formatCurrency(finalBalance)}</TableCell>
+                        <TableCell colSpan={6}></TableCell>
+                    </TableRow>
+                </tfoot>
               </Table>
             </div>
           )}

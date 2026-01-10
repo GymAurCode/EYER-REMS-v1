@@ -4,13 +4,13 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.97 0 0);
+  --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.55 0.22 264);
+  --primary: oklch(0.488 0.143 190.474); /* Teal 700 */
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -20,23 +20,23 @@
   --accent-foreground: oklch(0.205 0 0);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
+  --border: oklch(0.898 0 0); /* Light Gray */
+  --input: oklch(0.898 0 0);
+  --ring: oklch(0.488 0.143 190.474); /* Teal 700 */
+  --chart-1: oklch(0.488 0.143 190.474);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
+  --radius: 0.5rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary: oklch(0.488 0.143 190.474);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.97 0 0);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-ring: oklch(0.488 0.143 190.474);
 }
 
 /* Updated dark mode to use even lighter gray tones for better visibility */
@@ -95,55 +95,7 @@
 @theme inline {
   --font-sans: "Inter", system-ui, sans-serif;
 
-  /* Primary Brand Colors - Professional Blue */
-  --color-primary: #2563eb;
-  --color-primary-foreground: #ffffff;
-
-  /* Neutral Colors */
-  --color-background: #ffffff;
-  --color-foreground: #0f172a;
-  --color-card: #ffffff;
-  --color-card-foreground: #0f172a;
-  --color-popover: #ffffff;
-  --color-popover-foreground: #0f172a;
-
-  /* Secondary */
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
-
-  /* Muted Colors */
-  --color-muted: #f1f5f9;
-  --color-muted-foreground: #64748b;
-
-  /* Accent Colors */
-  --color-accent: #f1f5f9;
-  --color-accent-foreground: #0f172a;
-
-  /* Destructive */
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-
-  /* Border & Input */
-  --color-border: #e2e8f0;
-  --color-input: #e2e8f0;
-  --color-ring: #2563eb;
-
-  /* Success & Warning */
-  --color-success: #10b981;
-  --color-success-foreground: #ffffff;
-  --color-warning: #f59e0b;
-  --color-warning-foreground: #ffffff;
-
-  /* Chart Colors */
-  --color-chart-1: #2563eb;
-  --color-chart-2: #10b981;
-  --color-chart-3: #f59e0b;
-  --color-chart-4: #8b5cf6;
-  --color-chart-5: #ec4899;
-
-  --radius: 0.5rem;
-
-  /* optional: --font-sans, --font-serif, --font-mono if they are applied in the layout.tsx */
+  /* Map to CSS Variables */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

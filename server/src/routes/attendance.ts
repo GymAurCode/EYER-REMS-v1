@@ -1,22 +1,90 @@
-import express, { Response } from 'express';
+import * as express from 'express';
+import { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 
 const router = (express as any).Router();
 
+// Get attendance stats for today
+router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const attendanceRecords = await prisma.attendance.findMany({
+      where: {
+        date: { gte: today, lte: endOfDay },
+        isDeleted: false,
+      },
+      select: {
+        status: true,
+      },
+    });
+
+    const stats = {
+      present: 0,
+      late: 0,
+      absent: 0, // This is tricky as absent records might not exist yet. We might need to count total employees - (present + late + on_leave)
+      onLeave: 0,
+    };
+
+    attendanceRecords.forEach((record) => {
+      const status = record.status.toLowerCase();
+      if (status === 'present') stats.present++;
+      else if (status === 'late') stats.late++;
+      else if (status === 'on leave' || status === 'leave') stats.onLeave++;
+      else if (status === 'absent') stats.absent++;
+    });
+
+    // To calculate 'Absent' correctly, we should check total active employees.
+    // However, for now, let's just count explicitly marked 'absent' records 
+    // OR we can fetch total employees count and subtract.
+    // The requirement says "Automatically calculate... based on today's attendance records."
+    // If 'Absent' is not a record, it won't be in 'attendanceRecords'.
+    // But usually in HR systems, 'Absent' is either explicitly marked or implied.
+    // Let's also fetch total active employees to infer absent if needed, 
+    // but the user requirement "based on today’s attendance records" suggests we might just count what's there 
+    // OR we should be smart.
+    // Let's stick to counting records for now, but maybe add a query for total employees if we want to show "Not Marked".
+    // For "Absent", if the system auto-creates absent records (cron job), then it's in the table.
+    // If not, "Absent" might just be Total Employees - (Present + Late + On Leave).
+    // Let's count explicitly.
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    console.error('Get attendance stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch attendance stats',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 // Get all attendance records
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { date, employeeId, status } = req.query;
+    const { date, startDate, endDate, employeeId, status } = req.query;
 
     const where: any = { isDeleted: false };
 
     if (date) {
-      const startDate = new Date(date as string);
-      startDate.setHours(0, 0, 0, 0);
-      const endDate = new Date(date as string);
-      endDate.setHours(23, 59, 59, 999);
-      where.date = { gte: startDate, lte: endDate };
+      const dayStart = new Date(date as string);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date as string);
+      dayEnd.setHours(23, 59, 59, 999);
+      where.date = { gte: dayStart, lte: dayEnd };
+    } else if (startDate && endDate) {
+      const start = new Date(startDate as string);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate as string);
+      end.setHours(23, 59, 59, 999);
+      where.date = { gte: start, lte: end };
     }
 
     if (employeeId) {
@@ -137,6 +205,17 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
+    // Determine checkIn time if not provided but status implies presence
+    let finalCheckIn = checkIn ? new Date(checkIn) : null;
+    if (!finalCheckIn && ['present', 'late', 'half-day'].includes(status)) {
+        // Only default to now if the date is today
+        const recordDate = new Date(date);
+        const today = new Date();
+        if (recordDate.toDateString() === today.toDateString()) {
+            finalCheckIn = new Date();
+        }
+    }
+
     // Check if employee exists
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
@@ -182,7 +261,7 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       data: {
         employeeId,
         date: attendanceDate,
-        checkIn: checkIn ? new Date(checkIn) : null,
+        checkIn: finalCheckIn,
         checkOut: checkOut ? new Date(checkOut) : null,
         status,
         hours,
@@ -265,26 +344,34 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
     });
 
     const now = new Date();
-    const checkInTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 9, 0, 0); // 9 AM
-    const isLate = now > checkInTime;
-    const status = isLate ? 'late' : 'present';
-
-    // Prevent multiple check-ins without checkout
-    if (attendance && attendance.checkIn && !attendance.checkOut) {
-      return res.status(400).json({
-        success: false,
-        error: 'Already checked in. Please check out before checking in again.',
-      });
-    }
+    // Company timing rule: Check-in before 9:00 AM is present, after is late
+    const companyStartTime = new Date(now);
+    companyStartTime.setHours(9, 0, 0, 0); // 9:00 AM
+    const status = now <= companyStartTime ? 'present' : 'late';
 
     if (attendance) {
-      // Update existing attendance (only if no checkIn or if checked out)
+      // Prevent multiple check-ins if already checked out (Strict Mode)
+      if (attendance.checkIn && attendance.checkOut) {
+        return res.status(400).json({
+          success: false,
+          error: 'Attendance already completed for today. Multiple check-ins are not allowed.',
+        });
+      }
+
+      // Prevent check-in if already checked in
+      if (attendance.checkIn) {
+        return res.status(400).json({
+          success: false,
+          error: 'Already checked in. Please check out before checking in again.',
+        });
+      }
+
+      // Update existing attendance (only if no checkIn, e.g., was marked absent)
       attendance = await prisma.attendance.update({
         where: { id: attendance.id },
         data: {
           checkIn: now,
-          checkOut: null, // Reset checkout if checking in again
-          status: attendance.status === 'absent' ? status : attendance.status,
+          status: status, // Update status based on arrival time
         },
         include: {
           employee: {
@@ -298,26 +385,63 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
         },
       });
     } else {
-      // Create new attendance with exact timestamp
-      attendance = await prisma.attendance.create({
-        data: {
-          employeeId,
-          date: today,
-          checkIn: now, // Store exact timestamp
-          checkOut: null,
-          status,
-        },
-        include: {
-          employee: {
-            select: {
-              id: true,
-              employeeId: true,
-              name: true,
-              department: true,
+      try {
+        // Create new attendance with exact timestamp
+        attendance = await prisma.attendance.create({
+          data: {
+            employeeId,
+            date: today,
+            checkIn: now, // Store exact timestamp
+            checkOut: null,
+            status,
+          },
+          include: {
+            employee: {
+              select: {
+                id: true,
+                employeeId: true,
+                name: true,
+                department: true,
+              },
             },
           },
-        },
-      });
+        });
+      } catch (error: any) {
+        // Handle Race Condition (P2002: Unique constraint failed)
+        if (error.code === 'P2002') {
+          // Record was created by another request in the meantime
+          attendance = await prisma.attendance.findFirst({
+             where: {
+                employeeId,
+                date: { gte: today, lte: endOfDay },
+             },
+             include: {
+                employee: {
+                   select: { id: true, employeeId: true, name: true, department: true }
+                }
+             }
+          });
+
+          if (attendance) {
+             if (attendance.checkIn) {
+                return res.status(400).json({
+                   success: false,
+                   error: 'Already checked in. Please check out before checking in again.',
+                });
+             }
+             // If it exists but no checkIn (unlikely in race condition unless it was absent record), update it
+             attendance = await prisma.attendance.update({
+                where: { id: attendance.id },
+                data: { checkIn: now, status },
+                include: { employee: { select: { id: true, employeeId: true, name: true, department: true } } }
+             });
+          } else {
+             throw error; // Should not happen if P2002 occurred
+          }
+        } else {
+          throw error;
+        }
+      }
     }
 
     // Return attendance with full ISO timestamp strings for backend-driven timing
@@ -383,9 +507,19 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
 
     const now = new Date();
     let hours = null;
+    let totalWorkDuration = null;
 
     if (attendance.checkIn) {
-      hours = (now.getTime() - new Date(attendance.checkIn).getTime()) / (1000 * 60 * 60);
+      const checkInTime = new Date(attendance.checkIn);
+      const durationMs = now.getTime() - checkInTime.getTime();
+      hours = durationMs / (1000 * 60 * 60);
+
+      // Calculate HH:MM:SS format
+      const totalSeconds = Math.floor(durationMs / 1000);
+      const hours_part = Math.floor(totalSeconds / 3600);
+      const minutes_part = Math.floor((totalSeconds % 3600) / 60);
+      const seconds_part = totalSeconds % 60;
+      totalWorkDuration = `${String(hours_part).padStart(2, '0')}:${String(minutes_part).padStart(2, '0')}:${String(seconds_part).padStart(2, '0')}`;
     }
 
     const updatedAttendance = await prisma.attendance.update({
@@ -393,6 +527,7 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       data: {
         checkOut: now,
         hours,
+        totalWorkDuration,
       },
       include: {
         employee: {
@@ -529,6 +664,149 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete attendance',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get today's attendance for specific employee
+router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.query;
+
+    if (!employeeId || typeof employeeId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Employee ID is required',
+      });
+    }
+
+    // Check if employee exists
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const endOfDay = new Date();
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: { gte: today, lte: endOfDay },
+        isDeleted: false,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            employeeId: true,
+            name: true,
+            department: true,
+          },
+        },
+      },
+    });
+
+    if (!attendance) {
+      return res.json({
+        success: true,
+        data: null,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        ...attendance,
+        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
+        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
+        date: attendance.date.toISOString(),
+      },
+    });
+  } catch (error) {
+    console.error('Get today attendance error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch today\'s attendance',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get attendance history for specific employee
+router.get('/employee/:id', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate, limit = '30' } = req.query;
+
+    // Check if employee exists
+    const employee = await prisma.employee.findUnique({
+      where: { id },
+    });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+    }
+
+    const where: any = {
+      employeeId: id,
+      isDeleted: false,
+    };
+
+    if (startDate && endDate) {
+      where.date = {
+        gte: new Date(startDate as string),
+        lte: new Date(endDate as string),
+      };
+    }
+
+    const attendance = await prisma.attendance.findMany({
+      where,
+      include: {
+        employee: {
+          select: {
+            id: true,
+            employeeId: true,
+            name: true,
+            department: true,
+          },
+        },
+      },
+      orderBy: { date: 'desc' },
+      take: parseInt(limit as string),
+    });
+
+    const formattedAttendance = attendance.map((record) => ({
+      id: record.id,
+      date: record.date.toISOString().split('T')[0],
+      checkIn: record.checkIn ? record.checkIn.toISOString() : null,
+      checkOut: record.checkOut ? record.checkOut.toISOString() : null,
+      totalWorkDuration: record.totalWorkDuration,
+      status: record.status,
+      employee: record.employee,
+    }));
+
+    res.json({
+      success: true,
+      data: formattedAttendance,
+    });
+  } catch (error) {
+    console.error('Get employee attendance error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch employee attendance',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

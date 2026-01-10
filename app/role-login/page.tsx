@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card } from "@/components/ui/card"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Building2, Lock, User, Loader2, AlertCircle } from "lucide-react"
+import { Building2, Lock, User, Loader2, AlertCircle, ShieldCheck, PieChart } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -95,101 +95,142 @@ export default function RoleLoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-4">
-      <Card className="w-full max-w-md p-8">
-        <div className="flex flex-col items-center mb-8">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="h-10 w-10 text-primary" />
-            <span className="text-2xl font-bold text-foreground">RealEstate ERP</span>
+    <div className="min-h-screen flex bg-white">
+      {/* Left Panel - Info Section */}
+      <div className="hidden lg:flex lg:w-1/2 relative bg-neutral-50 border-r border-neutral-200">
+        <div className="absolute inset-0 flex flex-col items-center justify-center p-12 text-center">
+          <div className="bg-white p-4 rounded-2xl shadow-sm border border-neutral-100 mb-8">
+            <Building2 className="h-12 w-12 text-primary" />
           </div>
-          <p className="text-muted-foreground text-center">Sign in to your account</p>
+          <h2 className="text-3xl font-bold text-neutral-900 mb-4">Enterprise Real Estate ERP</h2>
+          <p className="text-neutral-600 max-w-md text-lg leading-relaxed">
+            Streamline your property management, payroll, and HR operations with our comprehensive enterprise solution.
+          </p>
+          
+          <div className="mt-12 grid grid-cols-2 gap-4 w-full max-w-md">
+            <div className="bg-white p-4 rounded-xl border border-neutral-100 shadow-sm flex flex-col items-center">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-sm font-semibold text-neutral-900">Secure Access</span>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-neutral-100 shadow-sm flex flex-col items-center">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center mb-3">
+                <PieChart className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-sm font-semibold text-neutral-900">Analytics</span>
+            </div>
+          </div>
         </div>
+        
+        {/* Decorative Pattern */}
+        <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-white/50 to-transparent" />
+      </div>
 
-        {error && (
-          <Alert 
-            variant={error.includes("Device approval") || error.includes("pending") ? "default" : "destructive"} 
-            className="mb-4"
-          >
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>
-              {error.includes("Device approval") || error.includes("pending") 
-                ? "Device Approval Required" 
-                : "Error"}
-            </AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <div className="relative">
-              <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="username"
-                type="text"
-                placeholder="Enter your username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="pl-9"
-                required
-                disabled={loading}
-                autoComplete="username"
-              />
-            </div>
+      {/* Right Panel - Login Form */}
+      <div className="flex-1 lg:w-1/2 flex items-center justify-center p-8 bg-white">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center lg:text-left">
+            <h1 className="text-3xl font-bold text-neutral-900 tracking-tight">Role Login</h1>
+            <p className="mt-2 text-neutral-500">
+              Sign in to your account with your role credentials
+            </p>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-9"
-                required
-                disabled={loading}
-                autoComplete="current-password"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="remember"
-              checked={rememberMe}
-              onCheckedChange={(checked: boolean | "indeterminate") => setRememberMe(checked === true)}
-              disabled={loading}
-            />
-            <Label
-              htmlFor="remember"
-              className="text-sm font-normal cursor-pointer"
+          {error && (
+            <Alert 
+              variant={error.includes("Device approval") || error.includes("pending") ? "default" : "destructive"} 
+              className="mb-4"
             >
-              Remember username and password
-            </Label>
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>
+                {error.includes("Device approval") || error.includes("pending") 
+                  ? "Device Approval Required" 
+                  : "Error"}
+              </AlertTitle>
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="username" className="text-neutral-700 font-medium">Username</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <Input
+                    id="username"
+                    type="text"
+                    placeholder="Enter your username"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    className="pl-10 h-11 border-neutral-200 focus:border-primary focus:ring-primary/20 transition-all bg-white"
+                    required
+                    disabled={loading}
+                    autoComplete="username"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-neutral-700 font-medium">Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pl-10 h-11 border-neutral-200 focus:border-primary focus:ring-primary/20 transition-all bg-white"
+                    required
+                    disabled={loading}
+                    autoComplete="current-password"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="remember"
+                checked={rememberMe}
+                onCheckedChange={(checked: boolean | "indeterminate") => setRememberMe(checked === true)}
+                disabled={loading}
+                className="border-neutral-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+              />
+              <Label
+                htmlFor="remember"
+                className="text-sm font-normal text-neutral-600 cursor-pointer select-none"
+              >
+                Remember username and password
+              </Label>
+            </div>
+
+            <Button 
+              type="submit" 
+              className="w-full h-11 bg-primary hover:bg-primary/90 text-white font-medium text-base shadow-sm transition-all" 
+              disabled={loading || !username || !password}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign In"
+              )}
+            </Button>
+          </form>
+
+          <div className="text-center text-sm text-neutral-500">
+            Admin?{" "}
+            <Link href="/login" className="font-semibold text-primary hover:text-primary/80 transition-colors">
+              Login here
+            </Link>
           </div>
-
-          <Button type="submit" className="w-full" disabled={loading || !username || !password}>
-            {loading ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              "Sign In"
-            )}
-          </Button>
-        </form>
-
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          <Link href="/login" className="text-primary hover:underline">
-            Admin Login
-          </Link>
         </div>
-      </Card>
+      </div>
     </div>
   )
 }

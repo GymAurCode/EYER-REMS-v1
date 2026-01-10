@@ -108,6 +108,20 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 // Get payroll by ID with full details
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    console.log('PAYROLL GET DETAIL REQUEST:', {
+      method: req.method,
+      url: req.url,
+      path: req.path,
+      params: req.params,
+      headers: {
+        'x-csrf-token': req.headers['x-csrf-token'] || req.headers['X-CSRF-Token'],
+        'x-session-id': req.headers['x-session-id'] || req.headers['X-Session-Id'],
+        'x-device-id': req.headers['x-device-id'] || req.headers['X-Device-Id'],
+        authorization: req.headers.authorization ? 'present' : 'missing'
+      },
+      user: req.user ? { id: req.user.id, username: req.user.username } : 'no user'
+    });
+
     const { id } = req.params;
 
     // Validate ID format (should be UUID)

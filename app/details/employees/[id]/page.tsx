@@ -34,6 +34,7 @@ interface EmployeePayload {
     checkIn?: string | null
     checkOut?: string | null
     hours?: number | null
+    totalWorkDuration?: string | null
   }>
   payroll?: Array<{
     id: string
@@ -591,6 +592,7 @@ export default function EmployeeDetailPage() {
                   <TableHead>Check In</TableHead>
                   <TableHead>Check Out</TableHead>
                   <TableHead className="text-right">Hours Worked</TableHead>
+                  <TableHead className="text-right">Total Duration</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -621,13 +623,17 @@ export default function EmployeeDetailPage() {
                       <TableCell>
                         <Badge
                           variant={
-                            record.status === "present"
+                            record.status === "Checked Out"
                               ? "default"
-                              : record.status === "late"
+                              : record.status === "Checked In"
                                 ? "secondary"
-                                : record.status === "absent"
-                                  ? "destructive"
-                                  : "outline"
+                                : record.status === "present"
+                                  ? "default"
+                                  : record.status === "late"
+                                    ? "secondary"
+                                    : record.status === "absent"
+                                      ? "destructive"
+                                      : "outline"
                           }
                           className="capitalize"
                         >
@@ -637,6 +643,7 @@ export default function EmployeeDetailPage() {
                       <TableCell className="font-mono text-sm">{checkInTime}</TableCell>
                       <TableCell className="font-mono text-sm">{checkOutTime}</TableCell>
                       <TableCell className="text-right font-semibold">{hoursDisplay}</TableCell>
+                      <TableCell className="text-right font-semibold">{record.totalWorkDuration || "-"}</TableCell>
                     </TableRow>
                   )
                 })}

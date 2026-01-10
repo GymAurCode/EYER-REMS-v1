@@ -178,27 +178,14 @@ export default function PayrollDetailPage() {
       setRecordingPayment(true)
       
       // Call API to record payment
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'}/hr/payroll/${payrollId}/payments`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({
-          amount: paymentAmount,
-          paymentMethod: paymentForm.paymentMethod,
-          referenceNumber: paymentForm.referenceNumber || null,
-          transactionId: paymentForm.transactionId || null,
-          notes: paymentForm.notes || null,
-          paymentDate: paymentForm.paymentDate,
-        }),
+      await apiService.payroll.recordPayment(payrollId, {
+        amount: paymentAmount,
+        paymentMethod: paymentForm.paymentMethod,
+        referenceNumber: paymentForm.referenceNumber || null,
+        transactionId: paymentForm.transactionId || null,
+        notes: paymentForm.notes || null,
+        paymentDate: paymentForm.paymentDate,
       })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to record payment')
-      }
 
       toast({
         title: "Success",

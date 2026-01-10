@@ -11,7 +11,7 @@ import { createAuditLog } from '../services/audit-log';
 import { syncDealToFinanceLedger } from '../services/workflows';
 import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alerts';
 import { createAttachment, saveUploadedFile } from '../services/attachments';
-import { generateSystemId, validateManualUniqueId, validateTID } from '../services/id-generation-service';
+import { generateSystemId, validateManualUniqueId, validateTID, generatePrefixedId } from '../services/id-generation-service';
 import multer from 'multer';
 
 const router = (express as any).Router();
@@ -309,9 +309,8 @@ router.post('/leads/:id/convert', requireAuth, requirePermission('crm.leads.upda
       return res.status(404).json({ error: 'Lead not found' });
     }
 
-    const { tid } = req.body;
-    if (!tid) return res.status(400).json({ error: 'TID is required' });
-    await validateTID(tid);
+    // Auto-generate prefixed TID for lead conversion
+    const tid = await generatePrefixedId('L-CLI', 'cli');
 
     const clientCode = await generateClientCode();
     const lastClient = await prisma.client.findFirst({ orderBy: { createdAt: 'desc' } });

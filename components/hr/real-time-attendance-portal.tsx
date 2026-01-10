@@ -309,7 +309,7 @@ export function RealTimeAttendancePortal() {
                       )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
-                      {emp.checkIn || (emp.status ? currentTime.toLocaleTimeString() : "-")}
+                      {emp.checkIn ? new Date(emp.checkIn).toLocaleTimeString() : (emp.status ? "Manual Entry" : "-")}
                     </TableCell>
                   </TableRow>
                 ))}
