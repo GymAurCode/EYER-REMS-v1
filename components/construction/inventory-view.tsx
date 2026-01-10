@@ -17,7 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -163,30 +163,6 @@ export function InventoryView() {
     items: [] as Array<{ itemId: string; quantity: number }>,
   })
 
-  useEffect(() => {
-    fetchProjects()
-    fetchCostCodes()
-    if (activeTab === "items") {
-      fetchItems()
-    } else if (activeTab === "warehouses") {
-      fetchWarehouses()
-    } else if (activeTab === "grns") {
-      fetchGRNs()
-    } else if (activeTab === "issues") {
-      fetchIssues()
-    }
-  }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === "grns" || activeTab === "issues") {
-      if (activeTab === "grns") {
-        fetchGRNs()
-      } else {
-        fetchIssues()
-      }
-    }
-  }, [page, projectFilter, warehouseFilter, statusFilter])
-
   const fetchProjects = async () => {
     try {
       const response = await apiService.construction.projects.getAll({ limit: 100 })
@@ -320,6 +296,30 @@ export function InventoryView() {
       setLoading(false)
     }
   }, [page, projectFilter, warehouseFilter, statusFilter, toast])
+
+  useEffect(() => {
+    fetchProjects()
+    fetchCostCodes()
+    if (activeTab === "items") {
+      fetchItems()
+    } else if (activeTab === "warehouses") {
+      fetchWarehouses()
+    } else if (activeTab === "grns") {
+      fetchGRNs()
+    } else if (activeTab === "issues") {
+      fetchIssues()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "grns" || activeTab === "issues") {
+      if (activeTab === "grns") {
+        fetchGRNs()
+      } else {
+        fetchIssues()
+      }
+    }
+  }, [activeTab, fetchGRNs, fetchIssues])
 
   const handleItemSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -545,8 +545,8 @@ export function InventoryView() {
 
         {/* Items Tab */}
         <TabsContent value="items" className="space-y-4">
-          <Card className="p-4">
-            <div className="flex items-center justify-between mb-4">
+      <Card className="p-4">
+        <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Inventory Items</h3>
               <Button
                 onClick={() => {
@@ -560,10 +560,10 @@ export function InventoryView() {
                   setShowItemDialog(true)
                 }}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
-              </Button>
-            </div>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Item
+          </Button>
+        </div>
             {loading ? (
               <div className="flex items-center justify-center h-64">
                 <Loader2 className="h-6 w-6 animate-spin" />
@@ -1002,7 +1002,7 @@ export function InventoryView() {
                 )}
               </>
             )}
-          </Card>
+      </Card>
         </TabsContent>
       </Tabs>
 
@@ -1011,6 +1011,7 @@ export function InventoryView() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Inventory Item</DialogTitle>
+            <DialogDescription>Create a new inventory item. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleItemSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1087,6 +1088,7 @@ export function InventoryView() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Warehouse</DialogTitle>
+            <DialogDescription>Create a new warehouse. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleWarehouseSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1132,6 +1134,7 @@ export function InventoryView() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add GRN</DialogTitle>
+            <DialogDescription>Create a Goods Receipt Note to record incoming inventory. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleGRNSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -1177,14 +1180,14 @@ export function InventoryView() {
               <div className="space-y-2">
                 <Label htmlFor="grnProject">Project (Optional)</Label>
                 <Select
-                  value={grnFormData.projectId}
-                  onValueChange={(value) => setGrnFormData({ ...grnFormData, projectId: value })}
+                  value={grnFormData.projectId || "__none__"}
+                  onValueChange={(value) => setGrnFormData({ ...grnFormData, projectId: value === "__none__" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select project" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {projects.map((project) => (
                       <SelectItem key={project.id} value={project.id}>
                         {project.code} - {project.name}
@@ -1284,6 +1287,7 @@ export function InventoryView() {
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Issue to Project</DialogTitle>
+            <DialogDescription>Issue inventory items from warehouse to a project. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleIssueSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

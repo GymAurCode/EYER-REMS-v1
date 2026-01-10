@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
 import { apiService } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import { Loader2 } from "lucide-react"
 
 interface EditProjectDialogProps {
@@ -19,6 +20,7 @@ interface EditProjectDialogProps {
 }
 
 export function EditProjectDialog({ open, onOpenChange, project, onSuccess }: EditProjectDialogProps) {
+  const { toast } = useToast()
   const [loading, setLoading] = useState(false)
   const [properties, setProperties] = useState<any[]>([])
   const [formData, setFormData] = useState({
@@ -67,23 +69,33 @@ export function EditProjectDialog({ open, onOpenChange, project, onSuccess }: Ed
     setLoading(true)
 
     try {
-      const payload = {
-        ...formData,
-        budgetAmount: formData.budgetAmount ? parseFloat(formData.budgetAmount) : undefined,
+      const payload: any = {
+        name: formData.name,
+        description: formData.description || undefined,
         propertyId: formData.propertyId && formData.propertyId.trim() !== "" ? formData.propertyId : undefined,
-        startDate: formData.startDate || undefined,
-        endDate: formData.endDate || undefined,
+        status: formData.status,
+        accountingMode: formData.accountingMode,
+        costCodeMandatory: formData.costCodeMandatory,
+        budgetEnforcement: formData.budgetEnforcement,
+        budgetAmount: formData.budgetAmount ? parseFloat(formData.budgetAmount) : undefined,
+        startDate: formData.startDate ? new Date(formData.startDate).toISOString() : undefined,
+        endDate: formData.endDate ? new Date(formData.endDate).toISOString() : undefined,
       }
 
-      const response = await apiService.construction.projects.update(project.id, payload)
-      const responseData = response.data as any
-      if (responseData?.success || response.status === 200) {
-        onSuccess?.()
-        onOpenChange(false)
-      }
+      await apiService.construction.projects.update(project.id, payload)
+      toast({
+        title: "Success",
+        description: "Project updated successfully",
+      })
+      onSuccess?.()
+      onOpenChange(false)
     } catch (error: any) {
       console.error("Error updating project:", error)
-      alert(error.message || "Failed to update project")
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || error.message || "Failed to update project",
+        variant: "destructive",
+      })
     } finally {
       setLoading(false)
     }
@@ -94,6 +106,7 @@ export function EditProjectDialog({ open, onOpenChange, project, onSuccess }: Ed
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Project</DialogTitle>
+          <DialogDescription>Update the project details below. Fields marked with * are required.</DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -112,13 +125,14 @@ export function EditProjectDialog({ open, onOpenChange, project, onSuccess }: Ed
             <div className="space-y-2">
               <Label htmlFor="propertyId">Property (Optional)</Label>
               <Select
-                value={formData.propertyId}
-                onValueChange={(value) => setFormData({ ...formData, propertyId: value })}
+                value={formData.propertyId || "__none__"}
+                onValueChange={(value) => setFormData({ ...formData, propertyId: value === "__none__" ? undefined : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select property (optional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
                   {properties.map((prop) => (
                     <SelectItem key={prop.id} value={prop.id}>
                       {prop.name} {prop.propertyCode ? `(${prop.propertyCode})` : ""}

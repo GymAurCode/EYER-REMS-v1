@@ -16,7 +16,7 @@ import {
   FileText,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { apiService } from "@/lib/api"
@@ -71,14 +71,6 @@ export function DailyLogsView() {
     newActivity: "",
   })
 
-  useEffect(() => {
-    fetchProjects()
-  }, [])
-
-  useEffect(() => {
-    fetchLogs()
-  }, [page, projectFilter, statusFilter, fromDate, toDate])
-
   const fetchProjects = async () => {
     try {
       const response = await apiService.construction.projects.getAll({ limit: 100 })
@@ -120,6 +112,14 @@ export function DailyLogsView() {
       setLoading(false)
     }
   }, [page, projectFilter, statusFilter, fromDate, toDate, toast])
+
+  useEffect(() => {
+    fetchProjects()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    fetchLogs()
+  }, [fetchLogs])
 
   const handleAdd = () => {
     setFormData({
@@ -398,6 +398,7 @@ export function DailyLogsView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Daily Log</DialogTitle>
+            <DialogDescription>Record daily activities, weather, and hours for a project. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -529,6 +530,7 @@ export function DailyLogsView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Daily Log Details</DialogTitle>
+            <DialogDescription>View detailed information about the daily log entry.</DialogDescription>
           </DialogHeader>
           {selectedLog && (
             <div className="space-y-4">

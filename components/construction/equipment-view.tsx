@@ -15,7 +15,7 @@ import {
   DollarSign,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -105,22 +105,6 @@ export function EquipmentView() {
     costingMethod: "hourly",
   })
 
-  useEffect(() => {
-    fetchProjects()
-    fetchCostCodes()
-    if (activeTab === "usage") {
-      fetchUsages()
-    } else {
-      fetchEquipment()
-    }
-  }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === "usage") {
-      fetchUsages()
-    }
-  }, [page, projectFilter, equipmentFilter, statusFilter])
-
   const fetchProjects = async () => {
     try {
       const response = await apiService.construction.projects.getAll({ limit: 100 })
@@ -193,6 +177,22 @@ export function EquipmentView() {
       setLoading(false)
     }
   }, [page, projectFilter, equipmentFilter, statusFilter, toast])
+
+  useEffect(() => {
+    fetchProjects()
+    fetchCostCodes()
+    if (activeTab === "usage") {
+      fetchUsages()
+    } else {
+      fetchEquipment()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "usage") {
+      fetchUsages()
+    }
+  }, [activeTab, fetchUsages])
 
   const handleAdd = () => {
     setFormData({
@@ -600,6 +600,7 @@ export function EquipmentView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Equipment Usage</DialogTitle>
+            <DialogDescription>Record equipment usage for a project. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -729,6 +730,7 @@ export function EquipmentView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Equipment</DialogTitle>
+            <DialogDescription>Create a new equipment master record. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEquipmentSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">

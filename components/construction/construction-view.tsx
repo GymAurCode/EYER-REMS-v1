@@ -96,7 +96,7 @@ export function ConstructionView() {
 
   useEffect(() => {
     fetchStats()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchStats = async () => {
     try {

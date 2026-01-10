@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Loader2 } from "lucide-react"
@@ -46,6 +46,7 @@ export function ProjectDetailDialog({ open, onOpenChange, projectId }: ProjectDe
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Project Details</DialogTitle>
+          <DialogDescription>View detailed information about the construction project.</DialogDescription>
         </DialogHeader>
 
         {loading ? (
@@ -88,7 +89,7 @@ export function ProjectDetailDialog({ open, onOpenChange, projectId }: ProjectDe
                 )}
                 <div>
                   <p className="text-sm text-muted-foreground">Actual Cost</p>
-                  <p className="font-semibold">{formatCurrency(project.actualCost)}</p>
+                  <p className="font-semibold">{formatCurrency(project.actualCost || 0)}</p>
                 </div>
               </div>
             </Card>
