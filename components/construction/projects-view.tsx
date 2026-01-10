@@ -42,7 +42,7 @@ interface Project {
   startDate?: string
   endDate?: string
   budgetAmount?: number
-  actualCost: number
+  actualCost?: number
   property?: {
     id: string
     name: string
@@ -206,7 +206,7 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
                       {project.budgetAmount ? formatCurrency(project.budgetAmount) : "-"}
                     </TableCell>
                     <TableCell className="font-medium">
-                      {formatCurrency(project.actualCost)}
+                      {formatCurrency(project.actualCost || 0)}
                     </TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>

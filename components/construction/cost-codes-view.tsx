@@ -24,7 +24,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
@@ -68,7 +68,7 @@ export function CostCodesView() {
   useEffect(() => {
     fetchCostCodes()
     fetchProjects()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProjects = async () => {
     try {
@@ -373,9 +373,12 @@ export function CostCodesView() {
       {/* Add/Edit Dialog */}
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingCode ? "Edit Cost Code" : "Add Cost Code"}</DialogTitle>
-          </DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{editingCode ? "Edit Cost Code" : "Add Cost Code"}</DialogTitle>
+          <DialogDescription>
+            {editingCode ? "Update the cost code details below." : "Create a new cost code for construction projects. Fields marked with * are required."}
+          </DialogDescription>
+        </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -420,13 +423,14 @@ export function CostCodesView() {
                 <div className="space-y-2">
                   <Label htmlFor="parentId">Parent {getLevelName(formData.level - 1)}</Label>
                   <Select
-                    value={formData.parentId ?? undefined}
-                    onValueChange={(value) => setFormData({ ...formData, parentId: value || undefined })}
+                    value={formData.parentId || "__none__"}
+                    onValueChange={(value) => setFormData({ ...formData, parentId: value === "__none__" ? undefined : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select parent (optional)" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
                       {costCodes
                         .filter((cc) => cc.level === formData.level - 1 && cc.isActive)
                         .map((cc) => (
@@ -443,13 +447,14 @@ export function CostCodesView() {
             <div className="space-y-2">
               <Label htmlFor="projectId">Project (Optional)</Label>
               <Select
-                value={formData.projectId ?? undefined}
-                onValueChange={(value) => setFormData({ ...formData, projectId: value || undefined })}
+                value={formData.projectId || "__none__"}
+                onValueChange={(value) => setFormData({ ...formData, projectId: value === "__none__" ? undefined : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select project (optional)" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
                   {projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
                       {project.code} - {project.name}

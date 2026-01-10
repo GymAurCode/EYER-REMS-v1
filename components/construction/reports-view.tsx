@@ -64,7 +64,7 @@ export function ReportsView() {
 
   useEffect(() => {
     fetchProjects()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchProjects = async () => {
     try {
@@ -142,7 +142,7 @@ export function ReportsView() {
     } else if (activeTab === "budget-vs-actual" && selectedProject) {
       fetchBudgetVsActual()
     }
-  }, [activeTab, selectedProject])
+  }, [activeTab, selectedProject]) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="space-y-4">

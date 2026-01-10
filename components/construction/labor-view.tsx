@@ -16,7 +16,7 @@ import {
   DollarSign,
 } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -99,23 +99,6 @@ export function LaborView() {
     description: "",
     crewLeadId: "",
   })
-
-  useEffect(() => {
-    fetchProjects()
-    fetchCostCodes()
-    fetchEmployees()
-    if (activeTab === "entries") {
-      fetchLaborEntries()
-    } else {
-      fetchCrews()
-    }
-  }, [activeTab])
-
-  useEffect(() => {
-    if (activeTab === "entries") {
-      fetchLaborEntries()
-    }
-  }, [page, projectFilter, statusFilter, fromDate, toDate])
 
   const fetchProjects = async () => {
     try {
@@ -202,6 +185,23 @@ export function LaborView() {
       setLoading(false)
     }
   }, [page, projectFilter, statusFilter, fromDate, toDate, toast])
+
+  useEffect(() => {
+    fetchProjects()
+    fetchCostCodes()
+    fetchEmployees()
+    if (activeTab === "entries") {
+      fetchLaborEntries()
+    } else {
+      fetchCrews()
+    }
+  }, [activeTab]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeTab === "entries") {
+      fetchLaborEntries()
+    }
+  }, [activeTab, fetchLaborEntries])
 
   const handleAdd = () => {
     setFormData({
@@ -595,6 +595,7 @@ export function LaborView() {
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Add Labor Entry</DialogTitle>
+            <DialogDescription>Record labor hours for a project. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -644,14 +645,14 @@ export function LaborView() {
               <div className="space-y-2">
                 <Label htmlFor="crewId">Crew (Optional)</Label>
                 <Select
-                  value={formData.crewId}
-                  onValueChange={(value) => setFormData({ ...formData, crewId: value })}
+                  value={formData.crewId || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, crewId: value === "__none__" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select crew" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {crews
                       .filter((c) => c.isActive)
                       .map((crew) => (
@@ -665,14 +666,14 @@ export function LaborView() {
               <div className="space-y-2">
                 <Label htmlFor="employeeId">Employee (Optional)</Label>
                 <Select
-                  value={formData.employeeId}
-                  onValueChange={(value) => setFormData({ ...formData, employeeId: value })}
+                  value={formData.employeeId || "__none__"}
+                  onValueChange={(value) => setFormData({ ...formData, employeeId: value === "__none__" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select employee" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="__none__">None</SelectItem>
                     {employees.map((emp) => (
                       <SelectItem key={emp.id} value={emp.id}>
                         {emp.employeeId} - {emp.name}
@@ -759,6 +760,7 @@ export function LaborView() {
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add Crew</DialogTitle>
+            <DialogDescription>Create a new crew for labor management. Fields marked with * are required.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleCrewSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
@@ -786,14 +788,14 @@ export function LaborView() {
             <div className="space-y-2">
               <Label htmlFor="crewLeadId">Crew Lead (Optional)</Label>
               <Select
-                value={crewFormData.crewLeadId}
-                onValueChange={(value) => setCrewFormData({ ...crewFormData, crewLeadId: value })}
+                value={crewFormData.crewLeadId || "__none__"}
+                onValueChange={(value) => setCrewFormData({ ...crewFormData, crewLeadId: value === "__none__" ? "" : value })}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select crew lead" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="__none__">None</SelectItem>
                   {employees.map((emp) => (
                     <SelectItem key={emp.id} value={emp.id}>
                       {emp.employeeId} - {emp.name}
