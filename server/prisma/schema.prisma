@@ -148,6 +148,8 @@ model Property {
   propertyExpenses         PropertyExpense[]
   revenueSummaries         RevenueSummary[]
   sales                    Sale[]
+  vouchers                 Voucher[]                @relation("VoucherProperty")
+  voucherLines             VoucherLine[]            @relation("VoucherLineProperty")
   tenancies                Tenancy[]
   transactions             Transaction[]
   units                    Unit[]
@@ -273,6 +275,8 @@ model Unit {
   block              Block?   @relation(fields: [blockId], references: [id])
   floor              Floor?   @relation(fields: [floorId], references: [id])
   property           Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  vouchers           Voucher[] @relation("VoucherUnit")
+  voucherLines       VoucherLine[] @relation("VoucherLineUnit")
 
   @@index([propertyId])
   @@index([blockId])
@@ -1547,29 +1551,80 @@ model ExpenseSummary {
 model Voucher {
   id                String               @id @default(uuid())
   voucherNumber     String               @unique
-  type              String
+  type              String               // BPV, BRV, CPV, CRV, JV
   date              DateTime
-  paymentMethod     String
-  accountId         String
+  postingDate       DateTime?            // Actual posting date (may differ from voucher date)
+  paymentMethod     String               // Cheque, Transfer, Online, Cash
+  accountId         String               // Primary account (bank/cash for payment/receipt vouchers)
   expenseCategoryId String?
   description       String?
-  referenceNumber   String?
-  amount            Float
+  referenceNumber   String?              // Cheque number, transaction reference, etc.
+  amount            Float                // Total amount (calculated from lines)
+  status            String               @default("draft") // draft, submitted, approved, posted, reversed
   attachments       Json?
   preparedByUserId  String?
   approvedByUserId  String?
+  postedByUserId    String?
+  postedAt          DateTime?
   journalEntryId    String?
   createdAt         DateTime             @default(now())
   updatedAt         DateTime             @updatedAt
   dealId            String?
+  // Property/Unit linkage (mandatory for property-related vouchers)
+  propertyId        String?
+  unitId            String?
+  // Payee entity linkage (for BPV/CPV - who we're paying)
+  payeeType         String?              // Vendor, Owner, Agent, Contractor, Tenant, Client, Dealer, Employee
+  payeeId           String?              // ID of the payee entity
+  // Reversal support
+  reversedVoucherId String?              // Reference to original voucher if this is a reversal
+  reversedByUserId  String?
+  reversedAt        DateTime?
+  // Legacy fields maintained for backward compatibility
   account           Account              @relation(fields: [accountId], references: [id])
   approvedBy        User?                @relation("VoucherApprovedBy", fields: [approvedByUserId], references: [id])
   deal              Deal?                @relation("VoucherDeal", fields: [dealId], references: [id])
   expenseCategory   TransactionCategory? @relation(fields: [expenseCategoryId], references: [id])
   journalEntry      JournalEntry?        @relation("JournalEntryVouchers", fields: [journalEntryId], references: [id])
   preparedBy        User?                @relation("VoucherPreparedBy", fields: [preparedByUserId], references: [id])
+  property          Property?            @relation("VoucherProperty", fields: [propertyId], references: [id])
+  unit              Unit?                @relation("VoucherUnit", fields: [unitId], references: [id])
+  reversedVoucher   Voucher?             @relation("VoucherReversal", fields: [reversedVoucherId], references: [id])
+  reversalVouchers  Voucher[]            @relation("VoucherReversal")
+  lines             VoucherLine[]
 
   @@index([dealId])
+  @@index([propertyId])
+  @@index([unitId])
+  @@index([status])
+  @@index([type])
+  @@index([date])
+  @@index([postingDate])
+  @@index([payeeType, payeeId])
+  @@index([reversedVoucherId])
+}
+
+model VoucherLine {
+  id                String   @id @default(uuid())
+  voucherId         String
+  accountId         String   // Account for this line item
+  debit             Float    @default(0)
+  credit            Float    @default(0)
+  description       String?
+  // Property/Unit allocation (optional for line-level allocation)
+  propertyId        String?
+  unitId            String?
+  // Reference to entity account binding if applicable
+  entityAccountBindingId String?
+  voucher           Voucher  @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  account           Account  @relation("VoucherLineAccount", fields: [accountId], references: [id])
+  property          Property? @relation("VoucherLineProperty", fields: [propertyId], references: [id])
+  unit              Unit?    @relation("VoucherLineUnit", fields: [unitId], references: [id])
+
+  @@index([voucherId])
+  @@index([accountId])
+  @@index([propertyId])
+  @@index([unitId])
 }
 
 model Commission {
@@ -1614,6 +1669,7 @@ model Account {
   transactionCategoryCredit TransactionCategory[]  @relation("TransactionCategoryCredit")
   transactionCategoryDebit  TransactionCategory[]  @relation("TransactionCategoryDebit")
   vouchers                  Voucher[]
+  voucherLines              VoucherLine[]          @relation("VoucherLineAccount")
   tenantAdvancePayments     TenantPayment[]        @relation("TenantPaymentAdvanceAccount")
   tenantBankPayments        TenantPayment[]        @relation("TenantPaymentBankAccount")
   tenantReceivablePayments  TenantPayment[]        @relation("TenantPaymentReceivableAccount")

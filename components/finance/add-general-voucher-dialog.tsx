@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,29 +14,173 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Plus, Trash2, Loader2, AlertCircle } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { SearchableSelect } from "@/components/common/searchable-select"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { cn } from "@/lib/utils"
 
 interface AddGeneralVoucherDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  onSuccess?: () => void
 }
 
-export function AddGeneralVoucherDialog({ open, onOpenChange }: AddGeneralVoucherDialogProps) {
+interface JournalLine {
+  id: string
+  accountId: string
+  debit: number
+  credit: number
+  description: string
+  propertyId?: string
+  unitId?: string
+}
+
+export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGeneralVoucherDialogProps) {
+  const { toast } = useToast()
+  const [loading, setLoading] = useState(false)
+  
   const [formData, setFormData] = useState({
-    voucherNo: "",
     date: new Date().toISOString().split("T")[0],
     description: "",
-    debitAccount: "",
-    creditAccount: "",
-    amount: "",
-    narration: "",
+    propertyId: "",
+    unitId: "",
   })
-  const [accounts, setAccounts] = useState<any[]>([])
-  const [loadingAccounts, setLoadingAccounts] = useState(false)
-  const { toast } = useToast()
 
+  const [lines, setLines] = useState<JournalLine[]>([
+    { id: "1", accountId: "", debit: 0, credit: 0, description: "" },
+    { id: "2", accountId: "", debit: 0, credit: 0, description: "" },
+  ])
+
+  // Calculate totals
+  const totals = useMemo(() => {
+    const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
+    const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0)
+    return { debit: totalDebit, credit: totalCredit, balance: Math.abs(totalDebit - totalCredit) }
+  }, [lines])
+
+  // Validate balance
+  const isBalanced = totals.balance < 0.01
+
+  const addLine = () => {
+    setLines([...lines, { id: Date.now().toString(), accountId: "", debit: 0, credit: 0, description: "" }])
+  }
+
+  const removeLine = (id: string) => {
+    if (lines.length <= 2) {
+      toast({
+        title: "Cannot remove",
+        description: "Journal voucher must have at least 2 line items (minimum double-entry)",
+        variant: "destructive",
+      })
+      return
+    }
+    setLines(lines.filter((line) => line.id !== id))
+  }
+
+  const updateLine = (id: string, field: keyof JournalLine, value: any) => {
+    setLines(lines.map((line) => (line.id === id ? { ...line, [field]: value } : line)))
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // Validation
+    if (lines.length < 2) {
+      toast({
+        title: "Insufficient lines",
+        description: "Journal voucher must have at least 2 line items (minimum double-entry)",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (lines.some((line) => !line.accountId)) {
+      toast({
+        title: "All lines must have accounts",
+        description: "Please select accounts for all line items",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!isBalanced) {
+      toast({
+        title: "Entries must balance",
+        description: `Total Debit (${totals.debit.toFixed(2)}) must equal Total Credit (${totals.credit.toFixed(2)})`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Validate no cash/bank accounts for JV
+    const hasCashBank = lines.some((line) => {
+      const account = accounts.find((a) => a.id === line.accountId)
+      return account && (account.code?.startsWith("1111") || account.code?.startsWith("1112"))
+    })
+
+    if (hasCashBank) {
+      toast({
+        title: "Invalid account",
+        description: "Journal Voucher cannot use cash/bank accounts. Use BPV/BRV/CPV/CRV instead.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      setLoading(true)
+
+      const voucherPayload = {
+        type: "JV",
+        date: formData.date,
+        paymentMethod: "N/A", // JV doesn't have payment method
+        accountId: lines[0].accountId, // Use first line as primary (not used for JV but required)
+        description: formData.description,
+        propertyId: formData.propertyId || undefined,
+        unitId: formData.unitId || undefined,
+        lines: lines.map((line) => ({
+          accountId: line.accountId,
+          debit: line.debit || 0,
+          credit: line.credit || 0,
+          description: line.description || formData.description,
+          propertyId: line.propertyId || formData.propertyId || undefined,
+          unitId: line.unitId || formData.unitId || undefined,
+        })),
+      }
+
+      await apiService.vouchers.create(voucherPayload)
+      
+      toast({ title: "Journal voucher created successfully", description: "Draft JV created. You can submit it for approval." })
+      
+      // Reset form
+      setFormData({
+        date: new Date().toISOString().split("T")[0],
+        description: "",
+        propertyId: "",
+        unitId: "",
+      })
+      setLines([
+        { id: "1", accountId: "", debit: 0, credit: 0, description: "" },
+        { id: "2", accountId: "", debit: 0, credit: 0, description: "" },
+      ])
+      
+      onOpenChange(false)
+      onSuccess?.()
+    } catch (error: any) {
+      toast({
+        title: "Failed to create journal voucher",
+        description: error?.response?.data?.error || error?.message || "Unknown error",
+        variant: "destructive",
+      })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Get accounts excluding cash/bank for JV
+  const [accounts, setAccounts] = useState<any[]>([])
   useEffect(() => {
     if (open) {
       fetchAccounts()
@@ -46,101 +189,55 @@ export function AddGeneralVoucherDialog({ open, onOpenChange }: AddGeneralVouche
 
   const fetchAccounts = async () => {
     try {
-      setLoadingAccounts(true)
-      const response: any = await apiService.accounts.getAll()
+      const response = await apiService.accounts.getAll({ postable: "true" })
       const responseData = response.data as any
       const accountsData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-      const sorted = Array.isArray(accountsData)
-        ? accountsData.sort((a: any, b: any) => (a.code || "").localeCompare(b.code || ""))
-        : []
-      setAccounts(sorted)
-    } catch {
+      // Filter out cash/bank accounts for JV
+      const filtered = accountsData.filter((acc: any) => 
+        acc.isPostable && 
+        acc.level === 5 &&
+        !acc.code?.startsWith("1111") &&
+        !acc.code?.startsWith("1112")
+      )
+      setAccounts(filtered)
+    } catch (error) {
+      console.error("Failed to load accounts:", error)
       setAccounts([])
-    } finally {
-      setLoadingAccounts(false)
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    try {
-      if (!formData.debitAccount || !formData.creditAccount) {
-        toast({ title: "Select both debit and credit accounts", variant: "destructive" })
-        return
-      }
-
-      if (formData.debitAccount === formData.creditAccount) {
-        toast({ title: "Debit and credit accounts must be different", variant: "destructive" })
-        return
-      }
-
-      const parsedAmount = Number.parseFloat(formData.amount)
-      if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-        toast({ title: "Enter a valid amount greater than zero", variant: "destructive" })
-        return
-      }
-
-      await apiService.journals.create({
-        date: new Date(formData.date).toISOString(),
-        description: formData.description || undefined,
-        narration: formData.narration || undefined,
-        lines: [
-          {
-            accountId: formData.debitAccount,
-            debit: parsedAmount,
-            credit: 0,
-            description: formData.description || undefined,
-          },
-          {
-            accountId: formData.creditAccount,
-            debit: 0,
-            credit: parsedAmount,
-            description: formData.description || undefined,
-          },
-        ],
-      })
-      toast({ title: "Journal entry created" })
-      onOpenChange(false)
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      // Reset form
       setFormData({
-        voucherNo: "",
         date: new Date().toISOString().split("T")[0],
         description: "",
-        debitAccount: "",
-        creditAccount: "",
-        amount: "",
-        narration: "",
+        propertyId: "",
+        unitId: "",
       })
-    } catch (error: any) {
-      const message =
-        error?.response?.data?.error ||
-        error?.response?.data?.message ||
-        error?.message ||
-        "Failed to create journal entry"
-      toast({ title: message, variant: "destructive" })
+      setLines([
+        { id: "1", accountId: "", debit: 0, credit: 0, description: "" },
+        { id: "2", accountId: "", debit: 0, credit: 0, description: "" },
+      ])
     }
+    onOpenChange(open)
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[900px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[900px]">
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1200px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New Journal Entry</DialogTitle>
-          <DialogDescription>Create a new general journal voucher entry</DialogDescription>
+          <DialogTitle>New Journal Voucher (JV)</DialogTitle>
+          <DialogDescription>
+            Create a new journal voucher for non-cash/bank adjustments (accruals, depreciation, corrections, etc.).
+            Total Debit must equal Total Credit. Cannot use cash/bank accounts.
+          </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="voucherNo">Voucher No.</Label>
-              <Input
-                id="voucherNo"
-                placeholder="Auto-generated"
-                disabled
-                value={`JV${Date.now().toString().slice(-6)}`}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="date">Date</Label>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Date *</Label>
               <Input
                 id="date"
                 type="date"
@@ -149,95 +246,186 @@ export function AddGeneralVoucherDialog({ open, onOpenChange }: AddGeneralVouche
                 required
               />
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <Input
-              id="description"
-              placeholder="e.g., Depreciation entry"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="debitAccount">Debit Account</Label>
-              <Select
-                value={formData.debitAccount}
-                onValueChange={(value) => setFormData({ ...formData, debitAccount: value })}
-              >
-                <SelectTrigger id="debitAccount">
-                  <SelectValue placeholder={loadingAccounts ? "Loading accounts..." : "Select account"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.length === 0 ? (
-                    <SelectItem value="none" disabled>No accounts available</SelectItem>
-                  ) : (
-                    accounts.map((a: any) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {(a.name || "Account")} ({a.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+            <div className="grid gap-2 md:col-span-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                placeholder="e.g., Depreciation entry, Accrual adjustment"
+                value={formData.description}
+                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                rows={2}
+              />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="creditAccount">Credit Account</Label>
-              <Select
-                value={formData.creditAccount}
-                onValueChange={(value) => setFormData({ ...formData, creditAccount: value })}
-              >
-                <SelectTrigger id="creditAccount">
-                  <SelectValue placeholder={loadingAccounts ? "Loading accounts..." : "Select account"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {accounts.length === 0 ? (
-                    <SelectItem value="none" disabled>No accounts available</SelectItem>
-                  ) : (
-                    accounts.map((a: any) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {(a.name || "Account")} ({a.code})
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+
+            <div className="grid gap-2">
+              <Label htmlFor="propertyId">Property (Optional)</Label>
+              <SearchableSelect
+                source="properties"
+                value={formData.propertyId}
+                onChange={(value) => setFormData({ ...formData, propertyId: value || "", unitId: "" })}
+                placeholder="Select property..."
+                allowEmpty
+              />
             </div>
+
+            {formData.propertyId && (
+              <div className="grid gap-2">
+                <Label htmlFor="unitId">Unit (Optional)</Label>
+                <SearchableSelect
+                  source="units"
+                  value={formData.unitId}
+                  onChange={(value) => setFormData({ ...formData, unitId: value || "" })}
+                  placeholder="Select unit..."
+                  allowEmpty
+                  filters={{ propertyId: formData.propertyId }}
+                />
+              </div>
+            )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Amount</Label>
-            <Input
-              id="amount"
-              type="number"
-              placeholder="0.00"
-              step="0.01"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              required
-            />
-          </div>
+          {/* Journal Lines */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Journal Lines * (Minimum 2 lines)</Label>
+              <Button type="button" variant="outline" size="sm" onClick={addLine}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Line
+              </Button>
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="narration">Narration</Label>
-            <Textarea
-              id="narration"
-              placeholder="Additional notes..."
-              value={formData.narration}
-              onChange={(e) => setFormData({ ...formData, narration: e.target.value })}
-              rows={3}
-            />
+            <div className="space-y-3">
+              {lines.map((line, index) => (
+                <div key={line.id} className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Line {index + 1}</span>
+                    {lines.length > 2 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeLine(line.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div className="md:col-span-2 grid gap-2">
+                      <Label>Account *</Label>
+                      <SearchableSelect
+                        source="accounts"
+                        value={line.accountId}
+                        onChange={(value) => updateLine(line.id, "accountId", value || "")}
+                        placeholder="Select account (no cash/bank)..."
+                        required
+                        filters={{ postable: "true" }}
+                        transform={(item: any) => {
+                          // Exclude cash/bank accounts - mark as disabled
+                          const isCashBank = item.code?.startsWith("1111") || item.code?.startsWith("1112")
+                          
+                          return {
+                            id: item.id,
+                            label: `${item.code} - ${item.name}`,
+                            value: item.id,
+                            subtitle: item.type,
+                            metadata: item,
+                            disabled: isCashBank, // Disable cash/bank accounts instead of returning null
+                          }
+                        }}
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label>Debit</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={line.debit || ""}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          updateLine(line.id, "debit", val)
+                          if (val > 0) updateLine(line.id, "credit", 0)
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label>Credit</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={line.credit || ""}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0
+                          updateLine(line.id, "credit", val)
+                          if (val > 0) updateLine(line.id, "debit", 0)
+                        }}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label>Line Description</Label>
+                    <Input
+                      placeholder="Line item description"
+                      value={line.description}
+                      onChange={(e) => updateLine(line.id, "description", e.target.value)}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Balance Summary */}
+            <div className="border-t pt-4">
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Total Debit:</span>
+                  <span className="ml-2 font-semibold">Rs {totals.debit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Total Credit:</span>
+                  <span className="ml-2 font-semibold">Rs {totals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Difference:</span>
+                  <span className={cn("ml-2 font-semibold", isBalanced ? "text-green-600" : "text-red-600")}>
+                    Rs {totals.balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                </div>
+              </div>
+
+              {!isBalanced && (
+                <Alert variant="destructive" className="mt-2">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Entries must balance. Total Debit ({totals.debit.toFixed(2)}) must equal Total Credit ({totals.credit.toFixed(2)}).
+                  </AlertDescription>
+                </Alert>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Create Entry</Button>
+            <Button type="submit" disabled={loading || !isBalanced}>
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Creating...
+                </>
+              ) : (
+                "Create Journal Voucher (Draft)"
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>
