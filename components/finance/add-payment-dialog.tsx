@@ -14,8 +14,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Info } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { PaymentToasts, showErrorToast } from "@/lib/toast-utils"
+import { SearchableSelect } from "@/components/common/searchable-select"
 
 interface AddPaymentDialogProps {
   open: boolean
@@ -60,13 +63,18 @@ const defaultFormState = {
   remarks: "",
   systemId: "",
   manualUniqueId: "",
+  invoiceId: "", // Optional invoice linkage
 }
 
 export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDialogProps) {
   const [formData, setFormData] = useState(defaultFormState)
   const [deals, setDeals] = useState<DealOption[]>([])
+  const [invoices, setInvoices] = useState<any[]>([])
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null)
   const [loadingDeals, setLoadingDeals] = useState(false)
+  const [loadingInvoices, setLoadingInvoices] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
   const selectedDeal = useMemo(
     () => deals.find((deal) => deal.id === formData.dealId),
@@ -82,18 +90,26 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
     }
   }, [open])
 
+  useEffect(() => {
+    if (formData.dealId) {
+      fetchInvoicesForDeal()
+    } else {
+      setInvoices([])
+      setSelectedInvoice(null)
+    }
+  }, [formData.dealId])
+
   const fetchDeals = async () => {
     try {
       setLoadingDeals(true)
       const response = await apiService.deals.getAll() as any
-      // Handle nested response structure: { success: true, data: [...], pagination: {...} }
       const responseData = response.data?.data || response.data
       const data = Array.isArray(responseData) ? responseData : []
       setDeals(
         data.map((deal: any) => ({
           id: deal.id,
           title: deal.title,
-          trackingId: deal.trackingId,
+          trackingId: deal.trackingId || deal.dealCode || "",
           clientName: deal.client?.name || "Unassigned Client",
           propertyName: deal.property?.tid || deal.property?.name || "Unassigned Property",
           dealAmount:
@@ -113,26 +129,94 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
     }
   }
 
+  const fetchInvoicesForDeal = async () => {
+    if (!formData.dealId) return
+    
+    try {
+      setLoadingInvoices(true)
+      // Fetch invoices for the deal's tenant/client
+      const response: any = await apiService.invoices.getAll()
+      const responseData = response.data as any
+      const invoicesData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
+      
+      // Filter outstanding invoices (unpaid, partial)
+      const outstandingInvoices = invoicesData.filter((inv: any) =>
+        inv.status && ["unpaid", "partial", "overdue"].includes(inv.status.toLowerCase())
+      )
+      
+      setInvoices(outstandingInvoices)
+    } catch (error) {
+      console.error("Failed to load invoices", error)
+      setInvoices([])
+    } finally {
+      setLoadingInvoices(false)
+    }
+  }
+
   const resetForm = () => {
     setFormData(defaultFormState)
+    setSelectedInvoice(null)
+    setValidationErrors({})
     setSubmitting(false)
+  }
+
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {}
+
+    // BLOCK: Deal is required
+    if (!formData.dealId) {
+      errors.dealId = "Deal is required for payment recording"
+    }
+
+    // BLOCK: Amount must be > 0
+    const amount = Number(formData.amount || 0)
+    if (!amount || amount <= 0) {
+      errors.amount = "Payment amount must be greater than zero"
+    }
+
+    // BLOCK: Reference number required for cheque/transfer
+    if (["bank", "online_transfer"].includes(formData.paymentMode) && !formData.referenceNumber?.trim()) {
+      errors.referenceNumber = "Reference number is required for Bank/Online Transfer payments"
+    }
+
+    // Validate deal status
+    if (selectedDeal) {
+      if (selectedDeal.status === 'Closed' || selectedDeal.status === 'Cancelled') {
+        errors.dealId = `Cannot record payment for ${selectedDeal.status.toLowerCase()} deal`
+      }
+    }
+
+    // Validate invoice linkage if provided
+    if (formData.invoiceId && selectedInvoice) {
+      const isAdvance = formData.paymentType === 'token' || formData.paymentType === 'booking'
+      
+      if (!isAdvance && selectedInvoice.status === 'paid') {
+        errors.invoiceId = "Invoice is already fully paid. Use advance/token payment type for advance payments."
+      }
+
+      if (!isAdvance && selectedInvoice.remainingAmount < amount) {
+        errors.amount = `Payment amount (${amount}) exceeds outstanding invoice amount (${selectedInvoice.remainingAmount})`
+      }
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
   }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
 
-    if (!formData.dealId) {
-      showErrorToast("Validation Error", "Please select a deal.")
+    // Frontend validation
+    if (!validateForm()) {
+      const firstError = Object.values(validationErrors)[0]
+      showErrorToast("Validation Error", firstError)
       return
     }
 
     const amount = Number(formData.amount || 0)
-    if (!amount || amount <= 0) {
-      showErrorToast("Validation Error", "Payment amount must be greater than zero.")
-      return
-    }
-
     setSubmitting(true)
+    setValidationErrors({})
+    
     try {
       const payload: any = {
         dealId: formData.dealId,
@@ -155,6 +239,9 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
       if (formData.manualUniqueId?.trim()) {
         payload.manualUniqueId = formData.manualUniqueId.trim()
       }
+      // Note: invoiceId is not directly supported in payment API
+      // Payments are linked to deals, and invoices are resolved through deal/tenant relationship
+      // The invoice selection in UI is for user reference only
 
       await apiService.payments.create(payload)
 
@@ -166,13 +253,27 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
       console.error("Failed to record payment", error)
       
       // Extract validation errors from API response
-      if (error?.response?.data?.error) {
-        const apiError = error.response.data.error
-        let errorMessage = "Failed to record payment"
+      const errorMessage = error?.response?.data?.error || "Failed to record payment"
+      
+      // Handle ACCOUNTING_VIOLATION errors
+      if (errorMessage.includes('ACCOUNTING_VIOLATION')) {
+        const violationMessage = errorMessage.replace('ACCOUNTING_VIOLATION:', '').trim()
+        PaymentToasts.error(violationMessage)
         
-        if (Array.isArray(apiError)) {
-          // Zod validation errors
-          errorMessage = apiError
+        // Map errors to form fields
+        if (errorMessage.includes('Deal')) {
+          setValidationErrors({ dealId: violationMessage })
+        } else if (errorMessage.includes('amount')) {
+          setValidationErrors({ amount: violationMessage })
+        } else if (errorMessage.includes('reference')) {
+          setValidationErrors({ referenceNumber: violationMessage })
+        } else if (errorMessage.includes('Invoice')) {
+          setValidationErrors({ invoiceId: violationMessage })
+        }
+      } else {
+        // Handle other error formats
+        if (Array.isArray(errorMessage)) {
+          const zodErrors = errorMessage
             .map((err: any) => {
               if (typeof err === 'string') return err
               if (err?.message) return err.message
@@ -180,33 +281,60 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
               return JSON.stringify(err)
             })
             .join(', ')
-        } else if (typeof apiError === 'string') {
-          errorMessage = apiError
-        } else if (typeof apiError === 'object') {
-          errorMessage = apiError.message || apiError.error || JSON.stringify(apiError)
+          PaymentToasts.error(zodErrors)
+        } else if (typeof errorMessage === 'string') {
+          PaymentToasts.error(errorMessage)
+        } else {
+          PaymentToasts.error(error?.response?.data?.message || "Failed to record payment")
         }
-        
-        PaymentToasts.error(errorMessage)
-      } else {
-        PaymentToasts.error(error?.response?.data?.message || "Failed to record payment")
       }
     } finally {
       setSubmitting(false)
     }
   }
 
+  const handleInvoiceChange = (invoiceId: string) => {
+    if (!invoiceId) {
+      setSelectedInvoice(null)
+      setFormData((prev) => ({ ...prev, invoiceId: "" }))
+      return
+    }
+
+    const invoice = invoices.find((inv) => inv.id === invoiceId)
+    setSelectedInvoice(invoice || null)
+    setFormData((prev) => ({ ...prev, invoiceId }))
+    
+    // Auto-fill amount if invoice is selected
+    if (invoice && !formData.amount) {
+      const remainingAmount = invoice.remainingAmount || invoice.totalAmount || 0
+      setFormData((prev) => ({ ...prev, amount: remainingAmount.toString() }))
+    }
+  }
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[720px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[720px]">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[800px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[800px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Record Deal Payment</DialogTitle>
           <DialogDescription>
-            Capture token, booking, installment, or final payments against an approved deal. Ledger entries will
-            be created automatically.
+            Capture token, booking, installment, or final payments against an approved deal. 
+            Payment debits Cash/Bank and credits Accounts Receivable or Customer Advance.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Validation Errors */}
+          {Object.keys(validationErrors).length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {Object.values(validationErrors).map((error, idx) => (
+                  <div key={idx}>{error}</div>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>System ID (Auto-generated)</Label>
@@ -223,8 +351,9 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
               <p className="text-xs text-muted-foreground">Optional: Enter a custom unique identifier</p>
             </div>
             <div className="space-y-2">
-              <Label>Date</Label>
+              <Label htmlFor="date">Date *</Label>
               <Input
+                id="date"
                 type="date"
                 value={formData.date}
                 onChange={(event) => setFormData((prev) => ({ ...prev, date: event.target.value }))}
@@ -234,7 +363,7 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
           </div>
 
           <div className="space-y-2">
-            <Label>Deal</Label>
+            <Label htmlFor="dealId">Deal *</Label>
             <Select
               value={formData.dealId}
               onValueChange={(value) => {
@@ -242,7 +371,6 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
                 setFormData((prev) => ({
                   ...prev,
                   dealId: value,
-                  // Auto-update amount to deal amount when deal is selected
                   amount: selectedDeal ? selectedDeal.dealAmount.toString() : prev.amount,
                 }))
               }}
@@ -259,37 +387,74 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
                 ) : (
                   deals.map((deal) => (
                     <SelectItem key={deal.id} value={deal.id}>
-                      {deal.trackingId || deal.title} — {deal.clientName}
+                      {deal.trackingId || deal.title} — {deal.clientName} ({deal.status})
                     </SelectItem>
                   ))
                 )}
               </SelectContent>
             </Select>
+            {validationErrors.dealId && (
+              <p className="text-xs text-destructive">{validationErrors.dealId}</p>
+            )}
+            {selectedDeal && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription className="text-xs">
+                  Deal Status: {selectedDeal.status} | Stage: {selectedDeal.stage} | 
+                  Amount: Rs {selectedDeal.dealAmount.toLocaleString()}
+                </AlertDescription>
+              </Alert>
+            )}
           </div>
 
-          {selectedDeal && (
-            <div className="rounded-md border border-border px-4 py-3 text-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="font-medium">{selectedDeal.trackingId || selectedDeal.propertyName}</p>
-                  <p className="text-muted-foreground">{selectedDeal.clientName}</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Deal Amount</p>
-                  <p className="text-base font-semibold">
-                    {selectedDeal.dealAmount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </p>
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Stage: {selectedDeal.stage.replace("-", " ")} — Status: {selectedDeal.status.replace("_", " ")}
+          {/* Invoice Selection - Optional but recommended */}
+          {formData.dealId && (
+            <div className="space-y-2">
+              <Label htmlFor="invoiceId">Link to Invoice (Optional)</Label>
+              <Select
+                value={formData.invoiceId || "none"}
+                onValueChange={(value) => handleInvoiceChange(value === "none" ? "" : value)}
+                disabled={loadingInvoices}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={loadingInvoices ? "Loading invoices..." : "Select invoice (optional)"} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No invoice (advance payment)</SelectItem>
+                  {invoices.map((invoice) => {
+                    const invoiceNumber = invoice.invoiceNumber || invoice.id
+                    const remaining = invoice.remainingAmount || invoice.totalAmount || invoice.amount || 0
+                    return (
+                      <SelectItem key={invoice.id} value={invoice.id}>
+                        {invoiceNumber} - Rs {remaining.toLocaleString()} ({invoice.status})
+                      </SelectItem>
+                    )
+                  })}
+                </SelectContent>
+              </Select>
+              {selectedInvoice && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Invoice: {selectedInvoice.invoiceNumber} | 
+                    Total: Rs {selectedInvoice.totalAmount?.toLocaleString()} | 
+                    Outstanding: Rs {selectedInvoice.remainingAmount?.toLocaleString()} | 
+                    Status: {selectedInvoice.status}
+                  </AlertDescription>
+                </Alert>
+              )}
+              {validationErrors.invoiceId && (
+                <p className="text-xs text-destructive">{validationErrors.invoiceId}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Link payment to invoice to settle receivables. Leave empty for advance/token payments.
               </p>
             </div>
           )}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Payment Type</Label>
+              <Label htmlFor="paymentType">Payment Type</Label>
               <Select
                 value={formData.paymentType}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, paymentType: value }))}
@@ -307,10 +472,10 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Payment Mode</Label>
+              <Label htmlFor="paymentMode">Payment Mode</Label>
               <Select
                 value={formData.paymentMode}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, paymentMode: value }))}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, paymentMode: value, referenceNumber: "" }))}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -328,45 +493,76 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Amount</Label>
+              <Label htmlFor="amount">Amount *</Label>
               <Input
+                id="amount"
                 type="number"
-                min="0"
+                min="0.01"
                 step="0.01"
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(event) => setFormData((prev) => ({ ...prev, amount: event.target.value }))}
                 required
               />
+              {validationErrors.amount && (
+                <p className="text-xs text-destructive">{validationErrors.amount}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Transaction ID</Label>
+              <Label htmlFor="referenceNumber">
+                Reference Number {["bank", "online_transfer"].includes(formData.paymentMode) ? "*" : ""}
+              </Label>
               <Input
-                placeholder="Optional reference from POS/bank"
-                value={formData.transactionId}
-                onChange={(event) => setFormData((prev) => ({ ...prev, transactionId: event.target.value }))}
+                id="referenceNumber"
+                placeholder={formData.paymentMode === "bank" ? "Cheque number" : "Transaction ID"}
+                value={formData.referenceNumber}
+                onChange={(event) => setFormData((prev) => ({ ...prev, referenceNumber: event.target.value }))}
+                required={["bank", "online_transfer"].includes(formData.paymentMode)}
               />
+              {validationErrors.referenceNumber && (
+                <p className="text-xs text-destructive">{validationErrors.referenceNumber}</p>
+              )}
+              {["bank", "online_transfer"].includes(formData.paymentMode) && (
+                <p className="text-xs text-muted-foreground">
+                  Reference number is required for {formData.paymentMode === "bank" ? "cheque" : "online transfer"} payments
+                </p>
+              )}
             </div>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Reference Number</Label>
+              <Label htmlFor="transactionId">Transaction ID</Label>
               <Input
-                placeholder="Cheque or receipt number"
-                value={formData.referenceNumber}
-                onChange={(event) => setFormData((prev) => ({ ...prev, referenceNumber: event.target.value }))}
+                id="transactionId"
+                placeholder="Optional reference from POS/bank"
+                value={formData.transactionId}
+                onChange={(event) => setFormData((prev) => ({ ...prev, transactionId: event.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <Label>Notes</Label>
+              <Label htmlFor="remarks">Notes</Label>
               <Textarea
+                id="remarks"
                 placeholder="Internal remarks for finance team"
                 value={formData.remarks}
                 onChange={(event) => setFormData((prev) => ({ ...prev, remarks: event.target.value }))}
+                rows={2}
               />
             </div>
           </div>
+
+          {/* Accounting Info */}
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-xs">
+              <strong>Accounting Behavior:</strong> Payment will debit {formData.paymentMode === "cash" ? "Cash" : "Bank"} account and credit {
+                formData.paymentType === "token" || formData.paymentType === "booking" 
+                  ? "Customer Advance (Liability)" 
+                  : "Accounts Receivable"
+              }. Ledger entries are created automatically.
+            </AlertDescription>
+          </Alert>
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
@@ -381,4 +577,3 @@ export function AddPaymentDialog({ open, onOpenChange, onSuccess }: AddPaymentDi
     </Dialog>
   )
 }
-

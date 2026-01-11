@@ -1663,6 +1663,14 @@ router.put('/payment-plan/:id', authenticate, async (req: AuthRequest, res: Resp
 // POST /api/crm/deals/:id/payments
 router.post('/deals/:id/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT ACCOUNTING VALIDATION - Enforce deal payment safety rules
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateDealPayment({
+      dealId: req.params.id,
+      amount: req.body.amount,
+      paymentType: req.body.paymentType,
+    });
+
     const { PaymentService } = await import('../services/payment-service');
     const { PaymentPlanService } = await import('../services/payment-plan-service');
 
@@ -1775,6 +1783,15 @@ router.patch('/deals/:dealId/payments/smart-allocate', authenticate, async (req:
 
 router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT DEAL SAFETY VALIDATION - Enforce commercial contract rules
+    const { DealSafetyService } = await import('../services/deal-safety-service');
+    await DealSafetyService.validateDealCreation({
+      clientId: req.body.clientId,
+      propertyId: req.body.propertyId,
+      dealAmount: req.body.dealAmount,
+      stage: req.body.stage,
+    });
+
     const { DealService } = await import('../services/deal-service');
 
     const deal = await DealService.createDeal({
@@ -1806,6 +1823,27 @@ router.post('/deals', authenticate, async (req: AuthRequest, res: Response) => {
 
 router.put('/deals/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT DEAL SAFETY VALIDATION - Enforce commercial contract rules
+    const { DealSafetyService } = await import('../services/deal-safety-service');
+    
+    // Validate cancellation if status/stage is being set to cancelled
+    if (req.body.status === 'cancelled' || req.body.stage === 'closed-lost') {
+      await DealSafetyService.validateCancellation({
+        dealId: req.params.id,
+        reason: req.body.cancellationReason || req.body.notes,
+      });
+    }
+    
+    // Validate update
+    await DealSafetyService.validateDealUpdate({
+      dealId: req.params.id,
+      clientId: req.body.clientId,
+      propertyId: req.body.propertyId,
+      dealAmount: req.body.dealAmount,
+      stage: req.body.stage,
+      status: req.body.status,
+    });
+
     const { DealService } = await import('../services/deal-service');
 
     const deal = await DealService.updateDeal(req.params.id, {

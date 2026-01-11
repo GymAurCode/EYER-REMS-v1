@@ -734,6 +734,15 @@ router.post('/deals', requireAuth, requirePermission('crm.deals.create'), async 
       await validateManualUniqueId(manualUniqueId, 'dl');
     }
 
+    // STRICT DEAL SAFETY VALIDATION - Enforce commercial contract rules
+    const { DealSafetyService } = await import('../services/deal-safety-service');
+    await DealSafetyService.validateDealCreation({
+      clientId: data.clientId,
+      propertyId: data.propertyId,
+      dealAmount: data.dealAmount,
+      stage: data.stage,
+    });
+
     const { DealService } = await import('../services/deal-service');
     
     const deal = await DealService.createDeal({
@@ -806,6 +815,23 @@ router.put('/deals/:id/stage', requireAuth, requirePermission('crm.deals.update'
     if (!oldDeal) {
       return res.status(404).json({ error: 'Deal not found' });
     }
+
+    // STRICT DEAL SAFETY VALIDATION - Enforce stage-based restrictions
+    const { DealSafetyService } = await import('../services/deal-safety-service');
+    
+    // Validate cancellation if stage is being set to closed-lost
+    if (stage === 'closed-lost') {
+      await DealSafetyService.validateCancellation({
+        dealId: req.params.id,
+        reason: notes,
+      });
+    }
+    
+    await DealSafetyService.validateStageChange({
+      dealId: req.params.id,
+      newStage: stage,
+      currentStage: oldDeal.stage,
+    });
 
     // Update stage using service
     const deal = await DealService.updateDealStage(
@@ -1062,6 +1088,26 @@ router.put('/deals/:id', requireAuth, requirePermission('crm.deals.update'), asy
       return res.status(400).json({ error: 'TID cannot be changed after deal creation' });
     }
     const { tid, ...dataWithoutTid } = updateData;
+
+    // STRICT DEAL SAFETY VALIDATION - Enforce commercial contract rules
+    const { DealSafetyService } = await import('../services/deal-safety-service');
+    
+    // Validate cancellation if status/stage is being set to cancelled
+    if (dataWithoutTid.status === 'cancelled' || dataWithoutTid.stage === 'closed-lost') {
+      await DealSafetyService.validateCancellation({
+        dealId: id,
+        reason: dataWithoutTid.notes || dataWithoutTid.cancellationReason,
+      });
+    }
+    
+    await DealSafetyService.validateDealUpdate({
+      dealId: id,
+      clientId: dataWithoutTid.clientId,
+      propertyId: dataWithoutTid.propertyId,
+      dealAmount: dataWithoutTid.dealAmount,
+      stage: dataWithoutTid.stage,
+      status: dataWithoutTid.status,
+    });
 
     // Handle date conversions
     if (dataWithoutTid.dealDate) {

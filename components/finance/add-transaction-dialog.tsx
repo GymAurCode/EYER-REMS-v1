@@ -16,10 +16,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { AlertCircle, Info } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 import { Plus as PlusIcon } from "lucide-react"
+import { SearchableSelect } from "@/components/common/searchable-select"
 
 interface AddTransactionDialogProps {
   open: boolean
@@ -81,6 +84,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
   })
   const [submitting, setSubmitting] = useState(false)
   const [showCategoryDialog, setShowCategoryDialog] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
   const [categoryFormData, setCategoryFormData] = useState({
     name: "",
     description: "",
@@ -258,6 +262,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
       invoiceId: "",
       attachments: [],
     })
+    setValidationErrors({})
     setSubmitting(false)
   }
 
@@ -291,8 +296,49 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
     }
   }, [formData.invoiceId, invoices])
 
-  // Account selection removed - transactions now only store essential data
-  // Accounting entries are handled automatically by the backend based on transaction type and category
+  // Validate form - enforce lifecycle context
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {}
+
+    // BLOCK: Category is required
+    if (!formData.transactionCategoryId) {
+      errors.transactionCategoryId = "Transaction category is required"
+    }
+
+    // BLOCK: Amount must be > 0
+    const amount = Number(formData.amount || 0)
+    if (!amount || amount <= 0) {
+      errors.amount = "Transaction amount must be greater than zero"
+    }
+
+    // BLOCK: Description is required
+    if (!formData.description || formData.description.trim().length === 0) {
+      errors.description = "Transaction description/narration is required"
+    }
+
+    // ENFORCE: Transaction MUST resolve to a lifecycle event
+    // Must have at least one of: tenant, dealer, invoice, or property (for corporate-level)
+    const hasLifecycleContext = 
+      formData.tenantId || 
+      formData.dealerId || 
+      formData.invoiceId || 
+      (formData.propertyId && formData.transactionType === "income")
+
+    if (!hasLifecycleContext) {
+      errors.lifecycle = "Transaction must be linked to a tenant, dealer, invoice, or property (for corporate-level income)"
+    }
+
+    // BLOCK: Date cannot be in future
+    const transactionDate = new Date(formData.date)
+    const today = new Date()
+    today.setHours(23, 59, 59, 999)
+    if (transactionDate > today) {
+      errors.date = "Transaction date cannot be in the future"
+    }
+
+    setValidationErrors(errors)
+    return Object.keys(errors).length === 0
+  }
 
   const handleAttachmentUpload = async (files: FileList | null) => {
     if (!files || !files.length) return
@@ -349,35 +395,16 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validation: Required fields
-    if (!formData.transactionCategoryId) {
-      toast({ title: "Please select a category", variant: "destructive" })
+    // Frontend validation
+    if (!validateForm()) {
+      const firstError = Object.values(validationErrors)[0]
+      toast({ title: "Validation Error", description: firstError, variant: "destructive" })
       return
     }
-    
-    // Validation: Amount
-    const amount = Number(formData.amount || 0)
-    if (!amount || amount <= 0) {
-      toast({ title: "Amount must be greater than zero", variant: "destructive" })
-      return
-    }
-    
-    // Validation: Date (cannot be future for completed transactions)
-    const transactionDate = new Date(formData.date)
-    const today = new Date()
-    today.setHours(23, 59, 59, 999)
-    if (transactionDate > today) {
-      toast({ title: "Transaction date cannot be in the future", variant: "destructive" })
-      return
-    }
-    
-    // Validation: Description/Narration
-    if (!formData.description || formData.description.trim().length === 0) {
-      toast({ title: "Please provide a description", variant: "destructive" })
-      return
-    }
-    
+
     setSubmitting(true)
+    setValidationErrors({})
+    
     try {
       // Transaction creation - only essential data
       // Account selection and accounting entries are handled automatically by the backend
@@ -403,37 +430,90 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
         attachments: formData.attachments,
         ...(transactionStatus && { status: transactionStatus }),
       })
-      toast({ title: "Transaction recorded" })
+      toast({ title: "Transaction recorded successfully" })
       onSuccess?.()
       onOpenChange(false)
       resetForm()
       setTransactionCode(generateCode("TX"))
     } catch (error: any) {
-      const message = error?.response?.data?.error || "Failed to add transaction"
-      toast({ title: message, variant: "destructive" })
+      const errorMessage = error?.response?.data?.error || "Failed to add transaction"
+      
+      // Handle ACCOUNTING_VIOLATION errors
+      if (errorMessage.includes('ACCOUNTING_VIOLATION')) {
+        const violationMessage = errorMessage.replace('ACCOUNTING_VIOLATION:', '').trim()
+        toast({ title: "Accounting Violation", description: violationMessage, variant: "destructive" })
+        
+        // Map errors to form fields
+        if (errorMessage.includes('lifecycle') || errorMessage.includes('context')) {
+          setValidationErrors({ lifecycle: violationMessage })
+        } else if (errorMessage.includes('amount')) {
+          setValidationErrors({ amount: violationMessage })
+        } else if (errorMessage.includes('category')) {
+          setValidationErrors({ transactionCategoryId: violationMessage })
+        }
+      } else {
+        toast({ title: errorMessage, variant: "destructive" })
+      }
     } finally {
       setSubmitting(false)
     }
   }
 
+  // Determine lifecycle context type
+  const lifecycleContextType = useMemo(() => {
+    if (formData.invoiceId) return "invoice"
+    if (formData.tenantId) return "tenant"
+    if (formData.dealerId) return "dealer"
+    if (formData.propertyId && formData.transactionType === "income") return "corporate"
+    return null
+  }, [formData.invoiceId, formData.tenantId, formData.dealerId, formData.propertyId, formData.transactionType])
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[800px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[800px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:w-[900px] max-w-[95vw] sm:max-w-[90vw] md:max-w-[900px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Transaction</DialogTitle>
-          <DialogDescription>Capture a balanced income or expense transaction with full audit detail.</DialogDescription>
+          <DialogDescription>
+            Capture a controlled financial transaction. Transaction MUST resolve to Invoice creation, Payment recording, or Advance handling.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Validation Errors */}
+          {Object.keys(validationErrors).length > 0 && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                {Object.values(validationErrors).map((error, idx) => (
+                  <div key={idx}>{error}</div>
+                ))}
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Lifecycle Context Indicator */}
+          {lifecycleContextType && (
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                <strong>Lifecycle Context:</strong> {lifecycleContextType === "invoice" && "Linked to Invoice"}
+                {lifecycleContextType === "tenant" && "Linked to Tenant"}
+                {lifecycleContextType === "dealer" && "Linked to Dealer"}
+                {lifecycleContextType === "corporate" && "Corporate-level Income"}
+                {!lifecycleContextType && "⚠️ Transaction must be linked to tenant, dealer, invoice, or property"}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Transaction Code</Label>
-              <Input value={transactionCode} disabled />
+              <Input value={transactionCode} disabled className="bg-muted" />
             </div>
             <div className="space-y-2">
-              <Label>Transaction Type</Label>
+              <Label htmlFor="transactionType">Transaction Type</Label>
               <Select
                 value={formData.transactionType}
-                onValueChange={(value) => setFormData((prev) => ({ ...prev, transactionType: value }))}
+                onValueChange={(value) => setFormData((prev) => ({ ...prev, transactionType: value, transactionCategoryId: "" }))}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select type" />
@@ -448,7 +528,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Payment Method</Label>
+              <Label htmlFor="paymentMethod">Payment Method</Label>
               <Select
                 value={formData.paymentMethod}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, paymentMethod: value }))}
@@ -467,7 +547,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
             </div>
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label>Category</Label>
+                <Label htmlFor="transactionCategoryId">Category *</Label>
                 <Button
                   type="button"
                   variant="ghost"
@@ -486,6 +566,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
               <Select
                 value={formData.transactionCategoryId}
                 onValueChange={(value) => setFormData((prev) => ({ ...prev, transactionCategoryId: value }))}
+                required
               >
                 <SelectTrigger>
                   <SelectValue placeholder={loading.categories ? "Loading..." : "Select category"} />
@@ -506,13 +587,16 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
                   )}
                 </SelectContent>
               </Select>
+              {validationErrors.transactionCategoryId && (
+                <p className="text-xs text-destructive">{validationErrors.transactionCategoryId}</p>
+              )}
             </div>
           </div>
 
           {/* Invoice Selection - Only for Income transactions */}
           {formData.transactionType === "income" && (
             <div className="space-y-2">
-              <Label>Select Invoice (Optional)</Label>
+              <Label htmlFor="invoiceId">Select Invoice (Optional)</Label>
               <Select
                 value={formData.invoiceId || "none"}
                 onValueChange={(value) =>
@@ -544,22 +628,85 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
             </div>
           )}
 
+          {/* Lifecycle Context Fields */}
+          <div className="space-y-4 rounded-lg border p-4 bg-muted/30">
+            <div className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-muted-foreground" />
+              <p className="text-sm font-medium">Lifecycle Context (Required)</p>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3">
+              Transaction MUST be linked to at least one: Tenant, Dealer, Invoice, or Property (for corporate-level income)
+            </p>
+            
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="tenantId">Assign to Tenant</Label>
+                <SearchableSelect
+                  source="tenants"
+                  value={formData.tenantId}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, tenantId: value || "" }))}
+                  placeholder="Select tenant (optional)..."
+                  allowEmpty
+                  label=""
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dealerId">Assign to Dealer</Label>
+                <SearchableSelect
+                  source="dealers"
+                  value={formData.dealerId}
+                  onChange={(value) => setFormData((prev) => ({ ...prev, dealerId: value || "" }))}
+                  placeholder="Select dealer (optional)..."
+                  allowEmpty
+                  label=""
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="propertyId">Property (Optional)</Label>
+              <SearchableSelect
+                source="properties"
+                value={formData.propertyId}
+                onChange={(value) => setFormData((prev) => ({ ...prev, propertyId: value || "" }))}
+                placeholder="Select property (optional)..."
+                allowEmpty
+                label=""
+              />
+              <p className="text-xs text-muted-foreground">
+                Property linkage is recommended for corporate-level income transactions
+              </p>
+            </div>
+            
+            {validationErrors.lifecycle && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-xs">{validationErrors.lifecycle}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Amount</Label>
+              <Label htmlFor="amount">Amount *</Label>
               <Input
+                id="amount"
                 type="number"
-                min="0"
+                min="0.01"
                 step="0.01"
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData((prev) => ({ ...prev, amount: e.target.value }))}
                 required
               />
+              {validationErrors.amount && (
+                <p className="text-xs text-destructive">{validationErrors.amount}</p>
+              )}
             </div>
             <div className="space-y-2">
-              <Label>Tax Amount</Label>
+              <Label htmlFor="taxAmount">Tax Amount</Label>
               <Input
+                id="taxAmount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -570,95 +717,35 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
             </div>
           </div>
 
-          {/* Account selection removed - transactions only store essential data */}
-          {/* Accounting entries (debit/credit accounts) are handled automatically by the backend */}
-
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Date</Label>
+              <Label htmlFor="date">Date *</Label>
               <Input
+                id="date"
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData((prev) => ({ ...prev, date: e.target.value }))}
                 required
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Property (optional)</Label>
-              <Select
-                value={formData.propertyId || "none"}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, propertyId: value === "none" ? "" : value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loading.properties ? "Loading..." : "Select property"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {properties.map((property) => (
-                    <SelectItem key={property.id} value={property.id}>
-                      {property.name || property.title || property.propertyCode || property.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>Assign to Tenant</Label>
-              <Select
-                value={formData.tenantId || "none"}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, tenantId: value === "none" ? "" : value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loading.tenants ? "Loading..." : "Select tenant"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {tenants.map((tenant) => (
-                    <SelectItem key={tenant.id} value={tenant.id}>
-                      {tenant.name || tenant.fullName || tenant.email || tenant.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Assign to Dealer</Label>
-              <Select
-                value={formData.dealerId || "none"}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({ ...prev, dealerId: value === "none" ? "" : value }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={loading.dealers ? "Loading..." : "Select dealer"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Unassigned</SelectItem>
-                  {dealers.map((dealer) => (
-                    <SelectItem key={dealer.id} value={dealer.id}>
-                      {dealer.name || dealer.company || dealer.id}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {validationErrors.date && (
+                <p className="text-xs text-destructive">{validationErrors.date}</p>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label>Description / Memo</Label>
+            <Label htmlFor="description">Description / Memo *</Label>
             <Textarea
+              id="description"
               rows={3}
               placeholder="Provide transaction narration..."
               value={formData.description}
               onChange={(e) => setFormData((prev) => ({ ...prev, description: e.target.value }))}
+              required
             />
+            {validationErrors.description && (
+              <p className="text-xs text-destructive">{validationErrors.description}</p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -683,7 +770,7 @@ export function AddTransactionDialog({ open, onOpenChange, onSuccess }: AddTrans
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting || !lifecycleContextType}>
               {submitting ? "Saving..." : "Add Transaction"}
             </Button>
           </DialogFooter>

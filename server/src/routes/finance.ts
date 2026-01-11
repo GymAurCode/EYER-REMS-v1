@@ -506,6 +506,20 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
     }
 
     const totalAmount = Number((baseAmount + taxValue).toFixed(2));
+    
+    // STRICT ACCOUNTING VALIDATION - Enforce transaction safety rules
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateTransactionCreation({
+      transactionType,
+      amount: totalAmount,
+      debitAccountId: resolvedDebitAccountId,
+      creditAccountId: resolvedCreditAccountId,
+      invoiceId,
+      tenantId: assignToTenantId || tenantId || null,
+      dealerId: assignToDealerId || dealerId || null,
+      propertyId: assignToPropertyId || propertyId || null,
+    });
+
     const txnDate = normalizeDateInput(date);
     const attachmentData = normalizeAttachments(attachments);
     const transactionCode = req.body.transactionCode || generateDocumentCode('TX');
@@ -561,6 +575,8 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
       // Validate journal entry before creating
       if (journalLines.length > 0) {
         await AccountValidationService.validateJournalEntry(journalLines);
+        // Validate double-entry balance
+        AccountingSafetyService.validateDoubleEntryBalance(journalLines.map(l => ({ debit: l.debit || 0, credit: l.credit || 0 })));
       }
 
       // Only create journal entry if we have at least one line
@@ -608,13 +624,18 @@ router.post('/transactions', authenticate, async (req: AuthRequest, res: Respons
 
 router.put('/transactions/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT ACCOUNTING VALIDATION - Block editing posted transactions
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateRecordNotPosted('transaction', req.params.id);
+
     const item = await prisma.transaction.update({
       where: { id: req.params.id },
       data: req.body,
     });
     res.json(item);
-  } catch {
-    res.status(400).json({ error: 'Failed to update transaction' });
+  } catch (error: any) {
+    const message = error?.message || 'Failed to update transaction';
+    res.status(400).json({ error: message });
   }
 });
 
@@ -699,6 +720,7 @@ router.post('/invoices', authenticate, async (req: AuthRequest, res: Response) =
       tenantAccountId,
       incomeAccountId,
       description,
+      dealId,
     } = req.body;
 
     if (!amount || !billingDate || !dueDate) {
@@ -719,8 +741,23 @@ router.post('/invoices', authenticate, async (req: AuthRequest, res: Response) =
       return res.status(400).json({ error: 'discount exceeds total invoice amount' });
     }
 
-    const attachmentsData = normalizeAttachments(attachments);
+    // STRICT ACCOUNTING VALIDATION - Enforce accounting safety rules
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateInvoiceCreation({
+      tenantId,
+      propertyId,
+      amount: baseAmount,
+      totalAmount,
+      tenantAccountId,
+      incomeAccountId,
+      dealId,
+    });
+
+    // Validate duplicate invoice number
     const invoiceNumber = req.body.invoiceNumber || generateInvoiceNumber();
+    await AccountingSafetyService.validateDuplicateInvoiceNumber(invoiceNumber);
+
+    const attachmentsData = normalizeAttachments(attachments);
     const preparedDate = normalizeDateInput(billingDate);
     const dueDateValue = normalizeDateInput(dueDate);
 
@@ -752,6 +789,12 @@ router.post('/invoices', authenticate, async (req: AuthRequest, res: Response) =
       // Only create journal entry if both account IDs are provided
       let journalEntryId = null;
       if (tenantAccountId && incomeAccountId) {
+        // Validate double-entry balance before creating journal entry
+        AccountingSafetyService.validateDoubleEntryBalance([
+          { debit: totalAmount, credit: 0 },
+          { debit: 0, credit: totalAmount },
+        ]);
+
         const journalEntry = await tx.journalEntry.create({
           data: {
             entryNumber: generateDocumentCode('JV'),
@@ -819,13 +862,18 @@ router.post('/invoices', authenticate, async (req: AuthRequest, res: Response) =
 
 router.put('/invoices/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT ACCOUNTING VALIDATION - Block editing posted invoices
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateRecordNotPosted('invoice', req.params.id);
+
     const item = await prisma.invoice.update({
       where: { id: req.params.id },
       data: req.body,
     });
     res.json(item);
-  } catch {
-    res.status(400).json({ error: 'Failed to update invoice' });
+  } catch (error: any) {
+    const message = error?.message || 'Failed to update invoice';
+    res.status(400).json({ error: message });
   }
 });
 
@@ -904,6 +952,16 @@ router.post('/payments', authenticate, async (req: AuthRequest, res: Response) =
   try {
     const payload = createDealPaymentSchema.parse(req.body);
 
+    // STRICT ACCOUNTING VALIDATION - Enforce payment safety rules
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validatePaymentCreation({
+      dealId: payload.dealId,
+      amount: payload.amount,
+      paymentMode: payload.paymentMode,
+      referenceNumber: payload.referenceNumber,
+      paymentType: payload.paymentType,
+    });
+
     const { PaymentService } = await import('../services/payment-service');
 
     const payment = await PaymentService.createPayment({
@@ -956,6 +1014,10 @@ router.post('/payments', authenticate, async (req: AuthRequest, res: Response) =
 
 router.put('/payments/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
+    // STRICT ACCOUNTING VALIDATION - Block editing posted payments
+    const { AccountingSafetyService } = await import('../services/accounting-safety-service');
+    await AccountingSafetyService.validateRecordNotPosted('payment', req.params.id);
+
     const { PaymentService } = await import('../services/payment-service');
     const paymentId = req.params.id;
 
