@@ -226,8 +226,35 @@ export function AddPayrollDialog({ open, onOpenChange, onSuccess }: AddPayrollDi
       }
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || err.response?.data?.message || "Failed to create payroll"
-      setError(errorMessage)
-      PayrollToasts.error(errorMessage)
+      
+      // Handle accounting-specific errors with better messaging
+      let displayMessage = errorMessage
+      
+      if (errorMessage.includes("PAYROLL_ACCOUNTING_ERROR")) {
+        // Remove the error prefix for cleaner display
+        displayMessage = errorMessage.replace("PAYROLL_ACCOUNTING_ERROR:", "").trim()
+        
+        // Check if it's a configuration error (non-blocking warning)
+        if (errorMessage.includes("account mappings not configured")) {
+          // This is a warning, not a blocking error (backward compatibility)
+          // Log it but don't show as error - payroll was created successfully
+          console.warn("Payroll created but accounting not configured:", errorMessage)
+          // Continue with success flow - payroll is created even if accounting fails
+          PayrollToasts.created(
+            employees.find((e: any) => e.id === formData.employeeId)?.name || "Employee",
+            formData.month
+          )
+          onOpenChange(false)
+          if (onSuccess) {
+            onSuccess()
+          }
+          setLoading(false)
+          return
+        }
+      }
+      
+      setError(displayMessage)
+      PayrollToasts.error(displayMessage)
     } finally {
       setLoading(false)
     }

@@ -207,10 +207,40 @@ export default function PayrollDetailPage() {
       await fetchPayroll()
     } catch (err: any) {
       console.error("Failed to record payment:", err)
+      
+      // Extract error message from backend response
+      const errorMessage = err.response?.data?.error || 
+                          err.response?.data?.message || 
+                          err.message || 
+                          "Failed to record payment"
+      
+      // Handle accounting-specific errors with better messaging
+      let title = "Error"
+      let description = errorMessage
+      
+      if (errorMessage.includes("PAYROLL_ACCOUNTING_ERROR")) {
+        title = "Accounting Error"
+        // Remove the error prefix for cleaner display
+        description = errorMessage.replace("PAYROLL_ACCOUNTING_ERROR:", "").trim()
+        
+        // Check if it's a configuration error
+        if (errorMessage.includes("account mappings not configured")) {
+          title = "Configuration Required"
+          description = "Payroll account mappings are not configured. Please configure Salary Expense, Salary Payable, and Cash/Bank accounts in system settings."
+        } else if (errorMessage.includes("exceeds remaining balance") || errorMessage.includes("overpayment")) {
+          title = "Amount Validation Error"
+          description = errorMessage.replace("PAYROLL_ACCOUNTING_ERROR:", "").trim()
+        } else if (errorMessage.includes("must be approved and posted")) {
+          title = "Payroll Not Approved"
+          description = "This payroll must be approved before payments can be recorded. Please ensure the payroll has been created and approved."
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: err.message || "Failed to record payment",
+        title,
+        description,
         variant: "destructive",
+        duration: errorMessage.includes("PAYROLL_ACCOUNTING_ERROR") ? 8000 : 5000, // Longer duration for accounting errors
       })
     } finally {
       setRecordingPayment(false)
@@ -501,135 +531,316 @@ export default function PayrollDetailPage() {
         {/* Payment History */}
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-foreground">Payment History</h2>
-            <Badge variant="outline">{payroll.payments.length} {payroll.payments.length === 1 ? 'payment' : 'payments'}</Badge>
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">Payment History</h2>
+              <p className="text-sm text-muted-foreground">
+                Complete record of all payments made for this payroll
+              </p>
+            </div>
+            <Badge variant="outline" className="text-sm">
+              {payroll.payments.length} {payroll.payments.length === 1 ? 'payment' : 'payments'}
+            </Badge>
           </div>
           {payroll.payments.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No payments recorded yet.</p>
+            <div className="text-center py-12">
+              <FileText className="h-12 w-12 mx-auto text-muted-foreground opacity-50 mb-4" />
+              <p className="text-sm font-medium text-foreground mb-1">No payments recorded yet</p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Click "Record Payment" to add the first payment for this payroll
+              </p>
+            </div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Method</TableHead>
-                  <TableHead>Reference</TableHead>
-                  <TableHead>Transaction ID</TableHead>
-                  <TableHead>Recorded By</TableHead>
-                  <TableHead>Notes</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {payroll.payments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>{formatDate(payment.paymentDate)}</TableCell>
-                    <TableCell className="font-semibold">{formatCurrency(payment.amount)}</TableCell>
-                    <TableCell className="capitalize">{payment.paymentMethod}</TableCell>
-                    <TableCell className="font-mono text-xs">{payment.referenceNumber || "-"}</TableCell>
-                    <TableCell className="font-mono text-xs">{payment.transactionId || "-"}</TableCell>
-                    <TableCell>{payment.createdBy?.username || "-"}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{payment.notes || "-"}</TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Payment Date</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Method</TableHead>
+                    <TableHead>Reference #</TableHead>
+                    <TableHead>Transaction ID</TableHead>
+                    <TableHead>Recorded By</TableHead>
+                    <TableHead>Notes</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {payroll.payments.map((payment, index) => {
+                    const cumulativeAmount = payroll.payments
+                      .slice(0, index + 1)
+                      .reduce((sum, p) => sum + p.amount, 0);
+                    const isLastPayment = index === payroll.payments.length - 1;
+                    
+                    return (
+                      <TableRow 
+                        key={payment.id}
+                        className={isLastPayment ? "bg-muted/30" : ""}
+                      >
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{formatDate(payment.paymentDate)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {new Date(payment.paymentDate).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div>
+                            <p className="font-semibold text-success">{formatCurrency(payment.amount)}</p>
+                            <p className="text-xs text-muted-foreground">
+                              Total: {formatCurrency(cumulativeAmount)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="capitalize">
+                            {payment.paymentMethod}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {payment.referenceNumber ? (
+                            <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                              {payment.referenceNumber}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {payment.transactionId ? (
+                            <span className="font-mono text-xs bg-muted px-2 py-1 rounded">
+                              {payment.transactionId}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm">
+                            {payment.createdBy?.username || <span className="text-muted-foreground">System</span>}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-xs">
+                          {payment.notes ? (
+                            <p className="text-sm text-muted-foreground truncate" title={payment.notes}>
+                              {payment.notes}
+                            </p>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              
+              {/* Payment Summary */}
+              <div className="mt-4 pt-4 border-t">
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Total Payments</p>
+                    <p className="font-semibold text-lg">{formatCurrency(payroll.paidAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Remaining Balance</p>
+                    <p className="font-semibold text-lg text-warning">{formatCurrency(payroll.remainingBalance)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Payment Count</p>
+                    <p className="font-semibold text-lg">{payroll.payments.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
         </Card>
 
         {/* Payment Dialog */}
         <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
-          <DialogContent className="sm:max-w-[500px]">
+          <DialogContent className="sm:max-w-[600px]">
             <DialogHeader>
               <DialogTitle>Record Payment</DialogTitle>
               <DialogDescription>
-                Record a payment for this payroll. Remaining balance: {formatCurrency(payroll.remainingBalance)}
+                Record a payment for {payroll.employee.name}. Remaining balance: <strong>{formatCurrency(payroll.remainingBalance)}</strong>
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="amount">Amount <span className="text-destructive">*</span></Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  max={payroll.remainingBalance}
-                  placeholder="0.00"
-                  value={paymentForm.amount}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Maximum: {formatCurrency(payroll.remainingBalance)}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="paymentMethod">Payment Method <span className="text-destructive">*</span></Label>
-                <Select
-                  value={paymentForm.paymentMethod}
-                  onValueChange={(value) => setPaymentForm({ ...paymentForm, paymentMethod: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select payment method" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="cash">Cash</SelectItem>
-                    <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                    <SelectItem value="cheque">Cheque</SelectItem>
-                    <SelectItem value="online">Online Payment</SelectItem>
-                    <SelectItem value="other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="paymentDate">Payment Date</Label>
-                <Input
-                  id="paymentDate"
-                  type="date"
-                  value={paymentForm.paymentDate}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="referenceNumber">Reference Number</Label>
-                <Input
-                  id="referenceNumber"
-                  placeholder="Optional"
-                  value={paymentForm.referenceNumber}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="transactionId">Transaction ID</Label>
-                <Input
-                  id="transactionId"
-                  placeholder="Optional"
-                  value={paymentForm.transactionId}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Optional notes about this payment"
-                  value={paymentForm.notes}
-                  onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
-                  rows={3}
-                />
+              {/* Payment Summary Card */}
+              <Card className="p-4 bg-muted/50">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-muted-foreground">Net Pay</p>
+                    <p className="font-semibold text-lg">{formatCurrency(payroll.netPay)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Already Paid</p>
+                    <p className="font-semibold text-lg text-success">{formatCurrency(payroll.paidAmount)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Remaining Balance</p>
+                    <p className="font-semibold text-lg text-warning">{formatCurrency(payroll.remainingBalance)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Payment Progress</p>
+                    <p className="font-semibold text-lg">
+                      {((payroll.paidAmount / payroll.netPay) * 100).toFixed(1)}%
+                    </p>
+                  </div>
+                </div>
+              </Card>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="amount">
+                    Payment Amount <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    max={payroll.remainingBalance}
+                    placeholder="0.00"
+                    value={paymentForm.amount}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      const numValue = parseFloat(value);
+                      setPaymentForm({ ...paymentForm, amount: value });
+                      // Auto-fill remaining balance if user enters a value >= remaining balance
+                      if (numValue >= payroll.remainingBalance) {
+                        // Optionally auto-fill full amount button
+                      }
+                    }}
+                    className="text-lg font-semibold"
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPaymentForm({ ...paymentForm, amount: payroll.remainingBalance.toString() })}
+                      className="text-xs"
+                    >
+                      Fill Full Amount
+                    </Button>
+                    {payroll.remainingBalance > 0 && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setPaymentForm({ ...paymentForm, amount: (payroll.remainingBalance / 2).toFixed(2) })}
+                        className="text-xs"
+                      >
+                        Half Amount
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Maximum: {formatCurrency(payroll.remainingBalance)}
+                  </p>
+                  {paymentForm.amount && parseFloat(paymentForm.amount) > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      After this payment: {formatCurrency(Math.max(0, payroll.remainingBalance - parseFloat(paymentForm.amount || "0")))}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="paymentMethod">
+                    Payment Method <span className="text-destructive">*</span>
+                  </Label>
+                  <Select
+                    value={paymentForm.paymentMethod}
+                    onValueChange={(value) => setPaymentForm({ ...paymentForm, paymentMethod: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select payment method" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cash">Cash</SelectItem>
+                      <SelectItem value="bank">Bank Transfer</SelectItem>
+                      <SelectItem value="transfer">Transfer</SelectItem>
+                      <SelectItem value="cheque">Cheque</SelectItem>
+                      <SelectItem value="online">Online Payment</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Select the method used for this payment
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="paymentDate">Payment Date</Label>
+                  <Input
+                    id="paymentDate"
+                    type="date"
+                    value={paymentForm.paymentDate}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, paymentDate: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Date when payment was made
+                  </p>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="referenceNumber">Reference Number</Label>
+                  <Input
+                    id="referenceNumber"
+                    placeholder="e.g., CHQ-12345, TXN-ABC123"
+                    value={paymentForm.referenceNumber}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, referenceNumber: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Cheque number, reference code, etc.
+                  </p>
+                </div>
+
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="transactionId">Transaction ID</Label>
+                  <Input
+                    id="transactionId"
+                    placeholder="e.g., Bank transaction ID, payment gateway ID"
+                    value={paymentForm.transactionId}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, transactionId: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Transaction ID from bank or payment gateway (recommended for reconciliation)
+                  </p>
+                </div>
+
+                <div className="grid gap-2 md:col-span-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Additional notes or remarks about this payment..."
+                    value={paymentForm.notes}
+                    onChange={(e) => setPaymentForm({ ...paymentForm, notes: e.target.value })}
+                    rows={3}
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setShowPaymentDialog(false)}>
+              <Button variant="outline" onClick={() => setShowPaymentDialog(false)} disabled={recordingPayment}>
                 Cancel
               </Button>
-              <Button onClick={handleRecordPayment} disabled={recordingPayment}>
+              <Button 
+                onClick={handleRecordPayment} 
+                disabled={recordingPayment || !paymentForm.amount || parseFloat(paymentForm.amount) <= 0 || !paymentForm.paymentMethod}
+              >
                 {recordingPayment ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Recording...
+                    Recording Payment...
                   </>
                 ) : (
-                  "Record Payment"
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Record Payment
+                  </>
                 )}
               </Button>
             </DialogFooter>

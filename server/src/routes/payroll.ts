@@ -1,7 +1,6 @@
 import express, { Response } from 'express';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
-import { syncPayrollToFinanceLedger } from '../services/workflows';
 
 const router = (express as any).Router();
 
@@ -408,6 +407,38 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       );
     }
 
+    // AUTO-POST TO LEDGER: Payroll Approval → Expense Recognition + Liability Creation
+    // DR Salary Expense, CR Salary Payable
+    // This happens automatically on payroll creation (creation = approval)
+    // Only posts if account mappings are configured (backward compatible)
+    try {
+      const { PayrollAccountingService } = await import('../services/payroll-accounting-service');
+      const validation = await PayrollAccountingService.validatePayrollPosting();
+      
+      if (validation.valid) {
+        // Post payroll approval to ledger
+        const journalEntryId = await PayrollAccountingService.postPayrollApproval({
+          payrollId: payroll.id,
+          employeeId,
+          month,
+          amount: net,
+          userId: req.user?.id,
+        });
+        
+        // Update payroll with journal entry ID (already done in service)
+        // No need to update again
+      } else {
+        // Account mappings not configured - log warning but don't block payroll creation
+        // This maintains backward compatibility
+        console.warn('Payroll accounting not configured. Payroll created without ledger posting:', validation.error);
+      }
+    } catch (accountingError: any) {
+      // Log accounting error but don't fail payroll creation (backward compatibility)
+      // In strict mode, you might want to block creation if accounting fails
+      console.error('Failed to post payroll to ledger (non-blocking):', accountingError);
+      // Continue with payroll creation even if accounting fails
+    }
+
     // Fetch payroll with allowances and deductions
     const payrollWithDetails = await prisma.payroll.findUnique({
       where: { id: payroll.id },
@@ -483,6 +514,29 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     const wasPaid = oldPayroll.paymentStatus === 'paid';
     const isNowPaid = newPaymentStatus === 'paid';
 
+    // ENFORCE: Protect posted payroll entries from editing
+    // If payroll has been posted to ledger (has journalEntryId), block changes to financial amounts
+    if (oldPayroll.journalEntryId) {
+      // Check if user is trying to modify financial amounts
+      const isModifyingFinancials = 
+        baseSalary !== undefined || 
+        bonus !== undefined ||
+        allowances !== undefined ||
+        deductions !== undefined ||
+        grossSalary !== undefined ||
+        netPay !== undefined ||
+        taxAmount !== undefined ||
+        taxPercent !== undefined;
+      
+      if (isModifyingFinancials) {
+        return res.status(400).json({
+          success: false,
+          error: 'PAYROLL_ACCOUNTING_ERROR: Cannot modify payroll amounts after ledger posting. ' +
+            'Payroll has been posted to Chart of Accounts. Corrections must use explicit reversal entries.',
+        });
+      }
+    }
+
     const updatedPayroll = await prisma.payroll.update({
       where: { id },
       data: {
@@ -513,20 +567,14 @@ router.put('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
-    // Auto-sync to Finance Ledger if payment status changed to 'paid'
-    if (!wasPaid && isNowPaid) {
-      try {
-        await syncPayrollToFinanceLedger(id);
-      } catch (syncError) {
-        console.error('Failed to sync payroll to finance ledger:', syncError);
-        // Don't fail the request, just log the error
-      }
-    }
+    // NOTE: Finance Ledger sync is now handled by PayrollAccountingService
+    // Auto-posting happens when payroll is created (approval) and when payments are recorded
+    // Payment recording posts to ledger automatically in the payment endpoint
 
     res.json({
       success: true,
       data: updatedPayroll,
-      message: isNowPaid && !wasPaid ? 'Payroll marked as paid and synced to finance ledger' : 'Payroll updated successfully',
+      message: 'Payroll updated successfully',
     });
   } catch (error) {
     console.error('Update payroll error:', error);
@@ -545,12 +593,35 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
 
     const payroll = await prisma.payroll.findUnique({
       where: { id },
+      include: {
+        payments: true,
+      },
     });
 
     if (!payroll || payroll.isDeleted) {
       return res.status(404).json({
         success: false,
         error: 'Payroll record not found',
+      });
+    }
+
+    // ENFORCE: Block deletion if payroll has been posted to ledger
+    if (payroll.journalEntryId) {
+      return res.status(400).json({
+        success: false,
+        error: 'PAYROLL_ACCOUNTING_ERROR: Cannot delete payroll that has been posted to Chart of Accounts. ' +
+          'Payroll has been posted to ledger (journalEntryId exists). ' +
+          'Corrections must use explicit reversal entries instead of deletion.',
+      });
+    }
+
+    // ENFORCE: Block deletion if payments have been recorded
+    if (payroll.payments && payroll.payments.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'PAYROLL_ACCOUNTING_ERROR: Cannot delete payroll with recorded payments. ' +
+          'Payments have been recorded against this payroll. ' +
+          'To correct, use explicit reversal entries instead of deletion.',
       });
     }
 
@@ -621,6 +692,88 @@ router.post('/calculate-overtime', authenticate, async (req: AuthRequest, res: R
   }
 });
 
+// Calculate attendance-based payroll deductions and allowances
+router.post('/calculate-attendance-based', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const {
+      employeeId,
+      month,
+      baseSalary,
+      absentDeductionRate,
+      lateDeductionRate,
+      halfDayDeductionRate,
+      overtimeHourlyRate,
+      standardWorkingHours,
+      standardWorkingDays,
+      includeLeaveDays,
+    } = req.body;
+
+    if (!employeeId || !month || !baseSalary) {
+      return res.status(400).json({
+        success: false,
+        error: 'employeeId, month, and baseSalary are required',
+      });
+    }
+
+    const { AttendancePayrollIntegrationService } = await import('../services/attendance-payroll-integration-service');
+    
+    const calculations = await AttendancePayrollIntegrationService.calculateAttendanceBasedPayroll({
+      employeeId,
+      month,
+      baseSalary: parseFloat(baseSalary),
+      absentDeductionRate: absentDeductionRate ? parseFloat(absentDeductionRate) : undefined,
+      lateDeductionRate: lateDeductionRate ? parseFloat(lateDeductionRate) : undefined,
+      halfDayDeductionRate: halfDayDeductionRate ? parseFloat(halfDayDeductionRate) : undefined,
+      overtimeHourlyRate: overtimeHourlyRate ? parseFloat(overtimeHourlyRate) : undefined,
+      standardWorkingHours: standardWorkingHours ? parseInt(standardWorkingHours) : undefined,
+      standardWorkingDays: standardWorkingDays ? parseInt(standardWorkingDays) : undefined,
+      includeLeaveDays: includeLeaveDays === true || includeLeaveDays === 'true',
+    });
+
+    res.json({
+      success: true,
+      data: calculations,
+    });
+  } catch (error) {
+    console.error('Calculate attendance-based payroll error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to calculate attendance-based payroll',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get attendance summary for payroll month
+router.get('/attendance-summary/:employeeId/:month', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId, month } = req.params;
+
+    if (!employeeId || !month) {
+      return res.status(400).json({
+        success: false,
+        error: 'employeeId and month are required',
+      });
+    }
+
+    const { AttendancePayrollIntegrationService } = await import('../services/attendance-payroll-integration-service');
+    
+    const summary = await AttendancePayrollIntegrationService.getAttendanceSummaryForMonth(employeeId, month);
+
+    res.json({
+      success: true,
+      data: summary,
+    });
+  } catch (error) {
+    console.error('Get attendance summary error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch attendance summary',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 // Record payment for payroll
 router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -641,7 +794,29 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
       });
     }
 
-    // Get payroll record
+    // STRICT PAYROLL PAYMENT VALIDATION - Enforce liability settlement rules
+    const { PayrollPaymentSafetyService } = await import('../services/payroll-payment-safety-service');
+    
+    const paymentAmount = parseFloat(amount);
+    const paymentDateObj = paymentDate ? new Date(paymentDate) : new Date();
+    
+    // Validate payment creation
+    const validation = await PayrollPaymentSafetyService.validatePaymentCreation({
+      payrollId: id,
+      amount: paymentAmount,
+      paymentMethod,
+      paymentDate: paymentDateObj,
+      userId: req.user?.id,
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'Payment validation failed',
+      });
+    }
+
+    // Get payroll record (validation already checked it exists)
     const payroll = await prisma.payroll.findUnique({
       where: { id },
       include: {
@@ -656,19 +831,12 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
       });
     }
 
-    // Calculate current paid amount
+    // Calculate remaining balance (already validated)
     const currentPaid = payroll.payments.reduce((sum, p) => sum + p.amount, 0);
-    const paymentAmount = parseFloat(amount);
     const newPaidAmount = currentPaid + paymentAmount;
-    const remainingBalance = Math.max(0, payroll.netPay - newPaidAmount);
-
-    // Validate payment doesn't exceed net pay
-    if (newPaidAmount > payroll.netPay) {
-      return res.status(400).json({
-        success: false,
-        error: `Payment amount exceeds remaining balance. Maximum payment: ${(payroll.netPay - currentPaid).toFixed(2)}`,
-      });
-    }
+    const remainingBalance = validation.remainingBalance !== undefined 
+      ? validation.remainingBalance 
+      : Math.max(0, payroll.netPay - newPaidAmount);
 
     // Determine new payment status
     let newPaymentStatus = 'created';
@@ -743,6 +911,37 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
       return { payment, payroll: updatedPayroll };
     });
 
+    // AUTO-POST TO LEDGER: Payroll Payment → Liability Settlement
+    // DR Salary Payable, CR Cash/Bank
+    // Only posts if account mappings are configured (backward compatible)
+    try {
+      const { PayrollAccountingService } = await import('../services/payroll-accounting-service');
+      const paymentValidation = await PayrollAccountingService.validatePaymentPosting(
+        id,
+        paymentAmount
+      );
+      
+      if (paymentValidation.valid) {
+        // Post payment to ledger
+        await PayrollAccountingService.postPayrollPayment({
+          paymentId: result.payment.id,
+          payrollId: id,
+          employeeId: payroll.employeeId,
+          amount: paymentAmount,
+          paymentMethod,
+          userId: req.user?.id,
+        });
+      } else {
+        // Account mappings not configured or validation failed
+        console.warn('Payroll payment accounting not posted:', paymentValidation.error);
+        // Don't block payment recording for backward compatibility
+      }
+    } catch (accountingError: any) {
+      // Log accounting error but don't fail payment recording (backward compatibility)
+      console.error('Failed to post payroll payment to ledger (non-blocking):', accountingError);
+      // Continue with payment recording even if accounting fails
+    }
+
     res.json({
       success: true,
       data: result.payment,
@@ -753,6 +952,60 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
     res.status(500).json({
       success: false,
       error: 'Failed to record payment',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get payment analytics
+router.get('/analytics/payments', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate, department, employeeId } = req.query;
+    
+    const { PayrollPaymentAnalyticsService } = await import('../services/payroll-payment-analytics-service');
+    
+    const analytics = await PayrollPaymentAnalyticsService.getPaymentAnalytics({
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined,
+      department: department as string | undefined,
+      employeeId: employeeId as string | undefined,
+    });
+    
+    res.json({
+      success: true,
+      data: analytics,
+    });
+  } catch (error) {
+    console.error('Get payment analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payment analytics',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+// Get payment reconciliation
+router.get('/reconciliation/payments', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { month, paymentMethod } = req.query;
+    
+    const { PayrollPaymentAnalyticsService } = await import('../services/payroll-payment-analytics-service');
+    
+    const reconciliation = await PayrollPaymentAnalyticsService.getPaymentReconciliation({
+      month: month as string | undefined,
+      paymentMethod: paymentMethod as string | undefined,
+    });
+    
+    res.json({
+      success: true,
+      data: reconciliation,
+    });
+  } catch (error) {
+    console.error('Get payment reconciliation error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch payment reconciliation',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

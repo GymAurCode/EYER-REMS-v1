@@ -7,9 +7,10 @@ import { Badge } from "@/components/ui/badge"
 import { Calendar } from "@/components/ui/calendar"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Clock, CheckCircle, XCircle, CalendarIcon, Loader2, Users, UserCheck, UserX, AlertCircle, Briefcase } from "lucide-react"
+import { Clock, CheckCircle, XCircle, CalendarIcon, Loader2, Users, UserCheck, UserX, AlertCircle, Briefcase, Lock } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
+import { EarlyCheckoutWarningDialog } from "./early-checkout-warning-dialog"
 
 interface Employee {
   id: string
@@ -54,6 +55,13 @@ export function AttendancePortalView() {
   const [stats, setStats] = useState<AttendanceStats>({ present: 0, late: 0, absent: 0, onLeave: 0 })
   
   const [elapsedTime, setElapsedTime] = useState<string>("00:00:00")
+  const [showEarlyCheckoutDialog, setShowEarlyCheckoutDialog] = useState(false)
+  const [earlyCheckoutData, setEarlyCheckoutData] = useState<{
+    workedHours: number
+    minimumHours: number
+    earlyCheckoutMinutes: number
+    checkInTime: string
+  } | null>(null)
 
   // Initial Fetch
   useEffect(() => {
@@ -72,10 +80,15 @@ export function AttendancePortalView() {
     }
   }, [selectedEmployeeId])
 
-  // Timer Logic
+  // Timer Logic - Only run when state is CHECKED_IN (authoritative state from backend)
   useEffect(() => {
-    if (!todayAttendance?.checkIn || todayAttendance?.checkOut) {
-      if (!todayAttendance?.checkIn) setElapsedTime("00:00:00")
+    // Use authoritative state to determine if timer should run
+    const state = todayAttendance?._state
+    const isCheckedIn = state === 'CHECKED_IN'
+    
+    // Only run timer if state is CHECKED_IN (not just if checkIn exists)
+    if (!isCheckedIn || !todayAttendance?.checkIn || todayAttendance?.checkOut) {
+      if (!isCheckedIn) setElapsedTime("00:00:00")
       return
     }
 
@@ -147,11 +160,25 @@ export function AttendancePortalView() {
   const fetchTodayAttendance = async (employeeId: string) => {
     try {
       const response = await apiService.attendance.getToday(employeeId)
-      if ((response.data as any).success) {
-        setTodayAttendance((response.data as any).data)
+      const responseData = response?.data as any
+      
+      if (responseData?.success) {
+        const data = responseData.data
+        const state = responseData.state // AUTHORITATIVE STATE: Derived from timestamps by backend
+        
+        // CRITICAL: Always use backend-computed state, never derive state in frontend
+        // If state is missing, fallback to NOT_STARTED (but this should never happen)
+        const authoritativeState = state || (!data ? 'NOT_STARTED' : null)
+        
+        // Store both data and state - state is the single source of truth
+        setTodayAttendance(data ? { ...data, _state: authoritativeState } : null)
+      } else {
+        // If API call succeeded but no data, set to null (NOT_STARTED)
+        setTodayAttendance(null)
       }
     } catch (error) {
       console.error('Failed to fetch today attendance:', error)
+      // On error, set to null to show NOT_STARTED state
       setTodayAttendance(null)
     }
   }
@@ -161,19 +188,115 @@ export function AttendancePortalView() {
 
     try {
       setActionLoading(true)
-      await apiService.attendance.checkIn({ employeeId: selectedEmployeeId })
+      const response = await apiService.attendance.checkIn({ employeeId: selectedEmployeeId })
+      const responseData = response?.data as any
+      
+      // IMMEDIATE STATE UPDATE: Use authoritative state from backend response
+      // This ensures UI updates instantly without waiting for refresh
+      if (responseData?.success && responseData?.data && responseData?.state) {
+        // Update todayAttendance immediately with new state from backend
+        setTodayAttendance({
+          ...responseData.data,
+          _state: responseData.state, // Authoritative state from backend
+        })
+      }
       
       toast({
         title: "Success",
         description: "Checked in successfully",
       })
 
-      // Refresh data
-      await fetchTodayAttendance(selectedEmployeeId)
-      await fetchStats()
-      await fetchAttendanceRecords()
+      // Refresh all data to ensure consistency
+      await Promise.all([
+        fetchTodayAttendance(selectedEmployeeId), // Re-fetch to ensure latest state
+        fetchStats(),
+        fetchAttendanceRecords(),
+      ])
     } catch (err: any) {
       const errorMessage = err.response?.data?.error || "Failed to check in"
+      toast({
+        title: "Error",
+        description: errorMessage,
+        variant: "destructive",
+      })
+      // On error, refresh to get accurate state
+      await fetchTodayAttendance(selectedEmployeeId)
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
+  const handleCheckOut = async (earlyCheckoutReason?: string) => {
+    if (!selectedEmployeeId) return
+
+    try {
+      setActionLoading(true)
+      
+      // Call checkout API with early checkout reason if provided
+      const response = await apiService.attendance.checkOut({ 
+        employeeId: selectedEmployeeId,
+        earlyCheckoutReason,
+        forceEarlyCheckout: !!earlyCheckoutReason,
+      })
+      
+      // Check if response indicates early checkout warning
+      const responseData = response?.data as any
+      if (responseData?.warning && responseData?.isEarlyCheckout && !earlyCheckoutReason) {
+        // Show early checkout warning dialog
+        setEarlyCheckoutData({
+          workedHours: parseFloat(responseData.workedHours),
+          minimumHours: responseData.minimumHours,
+          earlyCheckoutMinutes: responseData.earlyCheckoutMinutes,
+          checkInTime: todayAttendance?.checkIn || new Date().toISOString(),
+        })
+        setShowEarlyCheckoutDialog(true)
+        setActionLoading(false)
+        return
+      }
+      
+      // IMMEDIATE STATE UPDATE: Use authoritative state from backend response
+      // This ensures UI updates instantly without waiting for refresh
+      if (responseData?.success && responseData?.data && responseData?.state) {
+        // Update todayAttendance immediately with new state from backend
+        setTodayAttendance({
+          ...responseData.data,
+          _state: responseData.state, // Authoritative state from backend
+        })
+      }
+      
+      toast({
+        title: "Success",
+        description: responseData?.isEarlyCheckout 
+          ? "Checked out successfully (Early checkout recorded)" 
+          : "Checked out successfully",
+      })
+
+      // Refresh all data to ensure consistency
+      await Promise.all([
+        fetchTodayAttendance(selectedEmployeeId), // Re-fetch to ensure latest state
+        fetchStats(),
+        fetchAttendanceRecords(),
+      ])
+      
+      // Close dialog if open
+      setShowEarlyCheckoutDialog(false)
+      setEarlyCheckoutData(null)
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || "Failed to check out"
+      
+      // Check if it requires reason
+      if (err.response?.data?.requiresReason) {
+        setEarlyCheckoutData({
+          workedHours: parseFloat(err.response?.data?.workedHours || "0"),
+          minimumHours: err.response?.data?.minimumHours || 8,
+          earlyCheckoutMinutes: err.response?.data?.earlyCheckoutMinutes || 0,
+          checkInTime: todayAttendance?.checkIn || new Date().toISOString(),
+        })
+        setShowEarlyCheckoutDialog(true)
+        setActionLoading(false)
+        return
+      }
+      
       toast({
         title: "Error",
         description: errorMessage,
@@ -184,32 +307,14 @@ export function AttendancePortalView() {
     }
   }
 
-  const handleCheckOut = async () => {
-    if (!selectedEmployeeId) return
+  const handleEarlyCheckoutConfirm = async (reason: string) => {
+    await handleCheckOut(reason)
+  }
 
-    try {
-      setActionLoading(true)
-      await apiService.attendance.checkOut({ employeeId: selectedEmployeeId })
-      
-      toast({
-        title: "Success",
-        description: "Checked out successfully",
-      })
-
-      // Refresh data
-      await fetchTodayAttendance(selectedEmployeeId)
-      await fetchStats()
-      await fetchAttendanceRecords()
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.error || "Failed to check out"
-      toast({
-        title: "Error",
-        description: errorMessage,
-        variant: "destructive",
-      })
-    } finally {
-      setActionLoading(false)
-    }
+  const handleEarlyCheckoutCancel = () => {
+    setShowEarlyCheckoutDialog(false)
+    setEarlyCheckoutData(null)
+    setActionLoading(false)
   }
 
   const formatTime = (isoString: string | null) => {
@@ -316,67 +421,131 @@ export function AttendancePortalView() {
             {selectedEmployeeId ? (
               <div className="mt-8 border rounded-lg p-6 bg-muted/30">
                 <div className="flex flex-col items-center justify-center text-center space-y-4">
-                  {!todayAttendance || todayAttendance.status === 'Absent' ? (
-                    <>
-                      <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
-                        <Clock className="h-8 w-8 text-primary" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">{todayAttendance?.status === 'Absent' ? 'Marked Absent' : 'Not Checked In'}</h3>
-                        <p className="text-sm text-muted-foreground">
-                          {todayAttendance?.status === 'Absent' ? 'Employee was marked absent. Check in to update status.' : 'No attendance record for today.'}
-                        </p>
-                      </div>
-                      <Button size="lg" className="w-48" onClick={handleCheckIn} disabled={actionLoading}>
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                        Check In
-                      </Button>
-                    </>
-                  ) : todayAttendance.status === 'On Leave' || todayAttendance.status === 'Leave' ? (
-                    <>
-                      <div className="h-16 w-16 bg-blue-500/10 rounded-full flex items-center justify-center">
-                        <Briefcase className="h-8 w-8 text-blue-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">On Leave</h3>
-                        <p className="text-sm text-muted-foreground">Employee is on marked leave for today.</p>
-                      </div>
-                      <Button size="lg" variant="outline" className="w-48" disabled>
-                        On Leave
-                      </Button>
-                    </>
-                  ) : !todayAttendance.checkOut ? (
-                    <>
-                      <div className="h-16 w-16 bg-yellow-500/10 rounded-full flex items-center justify-center animate-pulse">
-                        <Clock className="h-8 w-8 text-yellow-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">Currently Working</h3>
-                        <p className="text-sm text-muted-foreground">Checked in at {formatTime(todayAttendance.checkIn)}</p>
-                        <p className="text-2xl font-bold font-mono text-primary mt-2">{elapsedTime}</p>
-                      </div>
-                      <Button size="lg" variant="destructive" className="w-48" onClick={handleCheckOut} disabled={actionLoading}>
-                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
-                        Check Out
-                      </Button>
-                    </>
-                  ) : (
-                    <>
-                      <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center">
-                        <CheckCircle className="h-8 w-8 text-green-600" />
-                      </div>
-                      <div>
-                        <h3 className="text-lg font-semibold">Attendance Completed</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Shift: {formatTime(todayAttendance.checkIn)} - {formatTime(todayAttendance.checkOut)}
-                        </p>
-                        <p className="font-medium mt-1">Total Hours: {todayAttendance.totalWorkDuration || todayAttendance.hours?.toFixed(2) + ' hrs'}</p>
-                      </div>
-                      <Button size="lg" variant="outline" className="w-48" disabled>
-                        Completed
-                      </Button>
-                    </>
-                  )}
+                  {(() => {
+                    // AUTHORITATIVE STATE: Use backend-computed state from timestamps
+                    // This is the SINGLE SOURCE OF TRUTH - never compute state in frontend
+                    const state = todayAttendance?._state ?? (!todayAttendance ? 'NOT_STARTED' : null)
+                    
+                    // DEFENSIVE: If state is somehow null/undefined but attendance exists, 
+                    // this indicates a backend issue - log it but don't crash
+                    if (todayAttendance && !state) {
+                      console.warn('⚠️ ATTENDANCE_STATE_WARNING: Attendance data exists but state is missing. Backend may not be returning state field.', {
+                        attendanceId: todayAttendance.id,
+                        checkIn: todayAttendance.checkIn,
+                        checkOut: todayAttendance.checkOut,
+                        status: todayAttendance.status,
+                      })
+                      // Fallback: Treat as NOT_STARTED if state is missing (safety net)
+                      // This should never happen if backend is working correctly
+                    }
+                    
+                    // Handle LOCKED state (manual override)
+                    if (state === 'LOCKED' || (todayAttendance && todayAttendance.isManualOverride)) {
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-orange-500/10 rounded-full flex items-center justify-center">
+                            <Lock className="h-8 w-8 text-orange-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">Attendance Locked</h3>
+                            <p className="text-sm text-muted-foreground">This attendance record has been manually locked and cannot be modified.</p>
+                          </div>
+                          <Button size="lg" variant="outline" className="w-48" disabled>
+                            Locked
+                          </Button>
+                        </>
+                      )
+                    }
+                    
+                    // Handle leave status (from status field, but only if state allows)
+                    if (state !== 'CHECKED_IN' && state !== 'CHECKED_OUT' && (todayAttendance?.status === 'On Leave' || todayAttendance?.status === 'Leave')) {
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-blue-500/10 rounded-full flex items-center justify-center">
+                            <Briefcase className="h-8 w-8 text-blue-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">On Leave</h3>
+                            <p className="text-sm text-muted-foreground">Employee is on marked leave for today.</p>
+                          </div>
+                          <Button size="lg" variant="outline" className="w-48" disabled>
+                            On Leave
+                          </Button>
+                        </>
+                      )
+                    }
+                    
+                    // STATE-DRIVEN LOGIC: Use authoritative state from backend
+                    if (state === 'NOT_STARTED' || !todayAttendance) {
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center">
+                            <Clock className="h-8 w-8 text-primary" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">
+                              {todayAttendance?.status === 'Absent' ? 'Marked Absent' : 'Not Checked In'}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {todayAttendance?.status === 'Absent' 
+                                ? 'Employee was marked absent. Check in to update status.' 
+                                : 'No attendance record for today.'}
+                            </p>
+                          </div>
+                          <Button size="lg" className="w-48" onClick={handleCheckIn} disabled={actionLoading}>
+                            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle className="h-4 w-4 mr-2" />}
+                            Check In
+                          </Button>
+                        </>
+                      )
+                    }
+                    
+                    // CHECKED_IN: Only checkIn exists (authoritative state from backend)
+                    if (state === 'CHECKED_IN') {
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-yellow-500/10 rounded-full flex items-center justify-center animate-pulse">
+                            <Clock className="h-8 w-8 text-yellow-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">Currently Working</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Checked in at {todayAttendance.checkIn ? formatTime(todayAttendance.checkIn) : 'N/A'}
+                            </p>
+                            <p className="text-2xl font-bold font-mono text-primary mt-2">{elapsedTime}</p>
+                          </div>
+                          <Button size="lg" variant="destructive" className="w-48" onClick={() => handleCheckOut()} disabled={actionLoading}>
+                            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                            Check Out
+                          </Button>
+                        </>
+                      )
+                    }
+                    
+                    // CHECKED_OUT: Both checkIn and checkOut exist (authoritative state from backend)
+                    if (state === 'CHECKED_OUT') {
+                      return (
+                        <>
+                          <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center">
+                            <CheckCircle className="h-8 w-8 text-green-600" />
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-semibold">Attendance Completed</h3>
+                            <p className="text-sm text-muted-foreground">
+                              Shift: {todayAttendance.checkIn ? formatTime(todayAttendance.checkIn) : 'N/A'} - {todayAttendance.checkOut ? formatTime(todayAttendance.checkOut) : 'N/A'}
+                            </p>
+                            <p className="font-medium mt-1">Total Hours: {todayAttendance.totalWorkDuration || (todayAttendance.hours ? todayAttendance.hours.toFixed(2) + ' hrs' : 'N/A')}</p>
+                          </div>
+                          <Button size="lg" variant="outline" className="w-48" disabled>
+                            Completed
+                          </Button>
+                        </>
+                      )
+                    }
+                    
+                    // Fallback (should not happen if state is properly set)
+                    return null
+                  })()}
                 </div>
               </div>
             ) : (
@@ -465,6 +634,21 @@ export function AttendancePortalView() {
           </Table>
         </CardContent>
       </Card>
+
+      {/* Early Checkout Warning Dialog */}
+      {earlyCheckoutData && (
+        <EarlyCheckoutWarningDialog
+          open={showEarlyCheckoutDialog}
+          onOpenChange={setShowEarlyCheckoutDialog}
+          onConfirm={handleEarlyCheckoutConfirm}
+          onCancel={handleEarlyCheckoutCancel}
+          workedHours={earlyCheckoutData.workedHours}
+          minimumHours={earlyCheckoutData.minimumHours}
+          earlyCheckoutMinutes={earlyCheckoutData.earlyCheckoutMinutes}
+          checkInTime={earlyCheckoutData.checkInTime}
+          loading={actionLoading}
+        />
+      )}
     </div>
   )
 }

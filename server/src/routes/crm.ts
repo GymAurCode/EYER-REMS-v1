@@ -1017,7 +1017,6 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
             clientCode: true,
             status: true,
             tid: true,
-            cnic: true,
           },
         },
         dealer: {
@@ -1037,33 +1036,6 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
             tid: true,
             address: true,
             city: true,
-            propertyCode: true,
-            manualUniqueId: true,
-            category: true,
-            amenities: true,
-            type: true,
-            size: true,
-            location: true,
-          },
-        },
-        unit: {
-          select: {
-            unitName: true,
-            floor: {
-              select: {
-                name: true,
-              },
-            },
-          },
-        },
-        subsidiaryOption: {
-          select: {
-            name: true,
-          },
-        },
-        location: {
-          select: {
-            name: true,
           },
         },
         paymentPlan: {
@@ -1121,7 +1093,7 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
     });
 
     // Calculate financial summary
-    const payments = (deal as any).payments || [];
+    const payments = deal.payments || [];
     const totalPaid = payments.reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
     const dealAmount = deal.dealAmount || 0;
     const remainingBalance = Math.max(0, dealAmount - totalPaid);
@@ -1129,8 +1101,8 @@ router.get('/deals/:id', authenticate, async (req: AuthRequest, res: Response) =
 
     // Payment plan summary
     let paymentPlanSummary = null;
-    if ((deal as any).paymentPlan) {
-      const plan = (deal as any).paymentPlan;
+    if (deal.paymentPlan) {
+      const plan = deal.paymentPlan;
       const totalExpected = plan.totalExpected || plan.totalAmount || 0;
       const totalPaidPlan = plan.totalPaid || 0;
       const remainingPlan = plan.remaining || (totalExpected - totalPaidPlan);

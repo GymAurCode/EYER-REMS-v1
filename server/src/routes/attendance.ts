@@ -8,10 +8,10 @@ const router = (express as any).Router();
 // Get attendance stats for today
 router.get('/stats', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // Get today's date in UTC for timezone-safe date comparison
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
     const attendanceRecords = await prisma.attendance.findMany({
       where: {
@@ -112,25 +112,43 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       orderBy: { date: 'desc' },
     });
 
+    // AUTHORITATIVE STATE DERIVATION: Compute state from timestamps for all records
+    const { AttendanceStateService } = await import('../services/attendance-state-service');
+    
     // Format attendance data for frontend
     // Return full timestamps for backend-driven timing calculations
-    const formattedAttendance = attendance.map((record) => ({
-      id: record.id,
-      employee: record.employee.name,
-      employeeId: record.employee.id, // Database UUID for matching
-      employeeIdString: record.employee.employeeId, // Employee ID string like "EMP0001"
-      tid: record.employee.tid, // Tracking ID
-      department: record.employee.department,
-      date: record.date,
-      // Return full ISO timestamp strings for accurate time calculations
-      checkIn: record.checkIn ? record.checkIn.toISOString() : null,
-      checkOut: record.checkOut ? record.checkOut.toISOString() : null,
-      // Also include formatted times for display convenience
-      checkInFormatted: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-      checkOutFormatted: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
-      hours: record.hours || 0,
-      status: record.status,
-    }));
+    const formattedAttendance = attendance.map((record) => {
+      // Compute authoritative state from timestamps
+      const state = AttendanceStateService.getAttendanceState({
+        id: record.id,
+        employeeId: record.employeeId,
+        date: record.date,
+        checkIn: record.checkIn,
+        checkOut: record.checkOut,
+        status: record.status,
+        isManualOverride: record.isManualOverride || false,
+      });
+      
+      return {
+        id: record.id,
+        employee: record.employee.name,
+        employeeId: record.employee.id, // Database UUID for matching
+        employeeIdString: record.employee.employeeId, // Employee ID string like "EMP0001"
+        tid: record.employee.tid, // Tracking ID
+        department: record.employee.department,
+        date: record.date,
+        // Return full ISO timestamp strings for accurate time calculations
+        checkIn: record.checkIn ? record.checkIn.toISOString() : null,
+        checkOut: record.checkOut ? record.checkOut.toISOString() : null,
+        // Also include formatted times for display convenience
+        checkInFormatted: record.checkIn ? new Date(record.checkIn).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+        checkOutFormatted: record.checkOut ? new Date(record.checkOut).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : null,
+        hours: record.hours || 0,
+        status: record.status, // Keep for backward compatibility
+        state: state, // AUTHORITATIVE STATE: Derived from timestamps
+        isManualOverride: record.isManualOverride || false,
+      };
+    });
 
     res.json({
       success: true,
@@ -228,11 +246,10 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // Check if attendance already exists for this date
-    const attendanceDate = new Date(date);
-    attendanceDate.setHours(0, 0, 0, 0);
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+    // Check if attendance already exists for this date (timezone-safe UTC comparison)
+    const dateObj = new Date(date);
+    const attendanceDate = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate(), 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(dateObj.getUTCFullYear(), dateObj.getUTCMonth(), dateObj.getUTCDate(), 23, 59, 59, 999));
 
     const existingAttendance = await prisma.attendance.findFirst({
       where: {
@@ -328,11 +345,25 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
       });
     }
 
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // STRICT STATE-DRIVEN VALIDATION
+    const { AttendanceStateService } = await import('../services/attendance-state-service');
+    const now = new Date();
+    const validation = await AttendanceStateService.validateCheckIn({
+      employeeId,
+      checkInTime: now,
+    });
+
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'Check-in validation failed',
+      });
+    }
+
+    // Get today's date in UTC for timezone-safe date comparison
+    const nowForDate = new Date();
+    const today = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 23, 59, 59, 999));
 
     // Check if attendance already exists for today
     let attendance = await prisma.attendance.findFirst({
@@ -343,30 +374,14 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
       },
     });
 
-    const now = new Date();
     // Company timing rule: Check-in before 9:00 AM is present, after is late
     const companyStartTime = new Date(now);
     companyStartTime.setHours(9, 0, 0, 0); // 9:00 AM
     const status = now <= companyStartTime ? 'present' : 'late';
 
     if (attendance) {
-      // Prevent multiple check-ins if already checked out (Strict Mode)
-      if (attendance.checkIn && attendance.checkOut) {
-        return res.status(400).json({
-          success: false,
-          error: 'Attendance already completed for today. Multiple check-ins are not allowed.',
-        });
-      }
-
-      // Prevent check-in if already checked in
-      if (attendance.checkIn) {
-        return res.status(400).json({
-          success: false,
-          error: 'Already checked in. Please check out before checking in again.',
-        });
-      }
-
       // Update existing attendance (only if no checkIn, e.g., was marked absent)
+      // State validation already ensures this is safe
       attendance = await prisma.attendance.update({
         where: { id: attendance.id },
         data: {
@@ -423,13 +438,15 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
           });
 
           if (attendance) {
-             if (attendance.checkIn) {
+             // Re-validate state (race condition protection)
+             const stateValidation = AttendanceStateService.getAttendanceState(attendance);
+             if (stateValidation !== 'NOT_STARTED') {
                 return res.status(400).json({
                    success: false,
                    error: 'Already checked in. Please check out before checking in again.',
                 });
              }
-             // If it exists but no checkIn (unlikely in race condition unless it was absent record), update it
+             // If it exists but no checkIn, update it
              attendance = await prisma.attendance.update({
                 where: { id: attendance.id },
                 data: { checkIn: now, status },
@@ -444,7 +461,18 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
       }
     }
 
-    // Return attendance with full ISO timestamp strings for backend-driven timing
+    // Compute authoritative state after check-in (reuse imported service)
+    const checkInState = AttendanceStateService.getAttendanceState({
+      id: attendance.id,
+      employeeId: attendance.employeeId,
+      date: attendance.date,
+      checkIn: attendance.checkIn,
+      checkOut: attendance.checkOut,
+      status: attendance.status,
+      isManualOverride: attendance.isManualOverride || false,
+    });
+
+    // Return attendance with full ISO timestamp strings and authoritative state
     res.json({
       success: true,
       data: {
@@ -453,6 +481,7 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
         checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
         date: attendance.date.toISOString(),
       },
+      state: checkInState, // AUTHORITATIVE STATE: Derived from timestamps
     });
   } catch (error: any) {
     console.error('Check-in error:', error);
@@ -467,7 +496,7 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
 // Check-out
 router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { employeeId } = req.body;
+    const { employeeId, earlyCheckoutReason, forceEarlyCheckout } = req.body;
 
     if (!employeeId) {
       return res.status(400).json({
@@ -476,13 +505,27 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    // Get today's date
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // STRICT STATE-DRIVEN VALIDATION
+    const { AttendanceStateService } = await import('../services/attendance-state-service');
+    const now = new Date();
+    const validation = await AttendanceStateService.validateCheckOut({
+      employeeId,
+      checkOutTime: now,
+    });
 
-    // Find today's attendance
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: validation.error || 'Check-out validation failed',
+      });
+    }
+
+    // Get today's date in UTC for timezone-safe date comparison
+    const nowForDate = new Date();
+    const today = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 23, 59, 59, 999));
+
+    // Find today's attendance (validation already ensures it exists)
     const attendance = await prisma.attendance.findFirst({
       where: {
         employeeId,
@@ -498,21 +541,46 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       });
     }
 
-    if (attendance.checkOut) {
-      return res.status(400).json({
-        success: false,
-        error: 'Already checked out for today',
-      });
-    }
-
-    const now = new Date();
+    // Calculate hours worked
     let hours = null;
     let totalWorkDuration = null;
+    let isEarlyCheckout = false;
+    let earlyCheckoutMinutes = 0;
+    const minimumDutyHours = 8; // Standard 8-hour work day
 
     if (attendance.checkIn) {
       const checkInTime = new Date(attendance.checkIn);
       const durationMs = now.getTime() - checkInTime.getTime();
       hours = durationMs / (1000 * 60 * 60);
+
+      // Check if early checkout (less than minimum duty hours)
+      if (hours < minimumDutyHours) {
+        isEarlyCheckout = true;
+        earlyCheckoutMinutes = Math.floor((minimumDutyHours - hours) * 60);
+        
+        // If forceEarlyCheckout is not true, return warning
+        if (!forceEarlyCheckout) {
+          return res.status(200).json({
+            success: false,
+            warning: true,
+            isEarlyCheckout: true,
+            message: `You are checking out ${earlyCheckoutMinutes} minutes early. Minimum duty time is ${minimumDutyHours} hours.`,
+            workedHours: hours.toFixed(2),
+            minimumHours: minimumDutyHours,
+            earlyCheckoutMinutes,
+            requiresReason: true,
+          });
+        }
+
+        // If forceEarlyCheckout is true but no reason provided, require reason
+        if (forceEarlyCheckout && !earlyCheckoutReason) {
+          return res.status(400).json({
+            success: false,
+            error: 'Early checkout reason is required when checking out before minimum duty time.',
+            requiresReason: true,
+          });
+        }
+      }
 
       // Calculate HH:MM:SS format
       const totalSeconds = Math.floor(durationMs / 1000);
@@ -522,13 +590,22 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       totalWorkDuration = `${String(hours_part).padStart(2, '0')}:${String(minutes_part).padStart(2, '0')}:${String(seconds_part).padStart(2, '0')}`;
     }
 
+    // Update attendance with checkout data
+    const updateData: any = {
+      checkOut: now,
+      hours,
+      totalWorkDuration,
+    };
+
+    // Mark as suspicious if early checkout
+    if (isEarlyCheckout) {
+      updateData.isSuspicious = true;
+      updateData.suspiciousReason = `Early checkout: ${earlyCheckoutMinutes} minutes before minimum duty time. Reason: ${earlyCheckoutReason || 'Not provided'}`;
+    }
+
     const updatedAttendance = await prisma.attendance.update({
       where: { id: attendance.id },
-      data: {
-        checkOut: now,
-        hours,
-        totalWorkDuration,
-      },
+      data: updateData,
       include: {
         employee: {
           select: {
@@ -541,7 +618,18 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
       },
     });
 
-    // Return with full ISO timestamp strings for backend-driven timing
+    // Compute authoritative state after check-out
+    const checkOutState = AttendanceStateService.getAttendanceState({
+      id: updatedAttendance.id,
+      employeeId: updatedAttendance.employeeId,
+      date: updatedAttendance.date,
+      checkIn: updatedAttendance.checkIn,
+      checkOut: updatedAttendance.checkOut,
+      status: updatedAttendance.status,
+      isManualOverride: updatedAttendance.isManualOverride || false,
+    });
+
+    // Return with full ISO timestamp strings and authoritative state
     res.json({
       success: true,
       data: {
@@ -550,6 +638,9 @@ router.post('/checkout', authenticate, async (req: AuthRequest, res: Response) =
         checkOut: updatedAttendance.checkOut ? updatedAttendance.checkOut.toISOString() : null,
         date: updatedAttendance.date.toISOString(),
       },
+      state: checkOutState, // AUTHORITATIVE STATE: Derived from timestamps
+      isEarlyCheckout,
+      earlyCheckoutMinutes,
     });
   } catch (error) {
     console.error('Check-out error:', error);
@@ -693,10 +784,11 @@ router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
+    // Get today's date in server timezone (company timezone)
+    // Using UTC midnight for consistency - dates are stored in UTC
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
     const attendance = await prisma.attendance.findFirst({
       where: {
@@ -716,13 +808,19 @@ router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
       },
     });
 
+    // AUTHORITATIVE STATE DERIVATION: Use AttendanceStateService to compute state from timestamps
+    const { AttendanceStateService } = await import('../services/attendance-state-service');
+    const state = AttendanceStateService.getAttendanceState(attendance);
+
     if (!attendance) {
       return res.json({
         success: true,
         data: null,
+        state: 'NOT_STARTED', // Explicit state when no record exists
       });
     }
 
+    // Return attendance with authoritative state computed from timestamps
     res.json({
       success: true,
       data: {
@@ -731,6 +829,7 @@ router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
         checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
         date: attendance.date.toISOString(),
       },
+      state: state, // AUTHORITATIVE STATE: Derived from timestamps, not status field
     });
   } catch (error) {
     console.error('Get today attendance error:', error);
