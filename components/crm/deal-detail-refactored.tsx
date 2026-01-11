@@ -159,30 +159,42 @@ export function DealDetailRefactored({ dealId }: DealDetailRefactoredProps) {
   const handleSave = async () => {
     try {
       setSaving(true)
-      
-      // Construct update payload
-      // Note: We need to reverse-map some fields if they are nested. 
-      // However, for this refactor, if we are just updating top-level fields or known nested ones, we can construct the object.
-      // The API update usually expects a partial object.
-      
-      const updatePayload: any = { ...formData }
-      
-      // Remove read-only fields or derived fields if necessary
-      // For now, we send what's in formData.
-      
+
+      // Get current fields based on edit section
+      let currentFields: DealField[] = []
+      if (editSection === "Order Details") {
+        currentFields = orderDetails
+      } else if (editSection === "Property Details") {
+        currentFields = propertyDetails
+      }
+
+      // Only include editable fields (not readOnly)
+      const editableKeys = currentFields.filter(f => !f.readOnly).map(f => f.key)
+      const updatePayload: any = {}
+      editableKeys.forEach(key => {
+        if (formData[key] !== undefined) {
+          // Handle date fields
+          if (currentFields.find(f => f.key === key)?.type === 'date' && formData[key]) {
+            updatePayload[key] = new Date(formData[key]).toISOString()
+          } else {
+            updatePayload[key] = formData[key]
+          }
+        }
+      })
+
       // Special handling for dates if needed (convert to ISO string)
       // Special handling for nested updates (e.g. client name usually can't be updated via deal update, only client ID)
       // If the user modifies "Customer", we might not be able to save it if it's just a name string.
       // We'll assume for now we are updating direct properties of the Deal or using special endpoints.
       // Given the constraints and "Production ready", we should only allow editing fields that are editable on the Deal model.
-      
+
       await apiService.deals.update(dealId, updatePayload)
-      
+
       toast({
         title: "Success",
         description: "Deal updated successfully",
       })
-      
+
       setEditSection(null)
       loadDeal() // Refresh data
     } catch (error: any) {
@@ -280,8 +292,8 @@ export function DealDetailRefactored({ dealId }: DealDetailRefactoredProps) {
 
   // 3. Payment Plan Summary
   const paymentPlanDetails: DealField[] = [
-    { label: "Plot Value", key: "plotValue", value: formatValue(deal.listingPriceSnapshot || deal.price, true), readOnly: true },
-    { label: "Per Square Rate", key: "perSquareRate", value: formatValue(deal.property?.size ? (deal.listingPriceSnapshot || deal.price) / deal.property.size : 0, true), readOnly: true },
+    { label: "Plot Value", key: "plotValue", value: formatValue(deal.dealAmount || deal.listingPriceSnapshot || deal.price, true), readOnly: true },
+    { label: "Per Square Rate", key: "perSquareRate", value: formatValue(deal.property?.size ? (deal.dealAmount || deal.listingPriceSnapshot || deal.price) / deal.property.size : 0, true), readOnly: true },
     { label: "Total Monthly Installments", key: "totalMonthlyInstallments", value: deal.paymentPlan?.numberOfInstallments || "-", readOnly: true },
     { label: "Monthly Installment", key: "monthlyInstallment", value: formatValue(deal.paymentPlan?.monthlyInstallment || (deal.paymentPlan?.numberOfInstallments ? deal.paymentPlan.totalAmount / deal.paymentPlan.numberOfInstallments : 0), true), readOnly: true },
     { label: "Balloting Payment", key: "ballotingPayment", value: formatValue(deal.paymentPlan?.ballotingPayment || getInstallmentAmountByType('balloting'), true), readOnly: true },
