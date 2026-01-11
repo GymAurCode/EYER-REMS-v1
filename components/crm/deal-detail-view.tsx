@@ -4,15 +4,19 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, DollarSign, User, Building, Calendar, FileText, Loader2, CreditCard, Eye } from "lucide-react"
+import { ArrowLeft, DollarSign, User, Building, Calendar, FileText, Loader2, CreditCard, Eye, Edit, Save, X } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { DealTimeline } from "./deal-timeline"
 import { DocumentViewer } from "@/components/shared/document-viewer"
 import { AccountsFooterBar } from "@/components/shared/accounts-footer-bar"
+import { useDropdownOptions } from "@/hooks/use-dropdowns"
 
 // Utility functions for frontend
 const formatCurrency = (amount: number) => {
@@ -46,6 +50,13 @@ export function DealDetailView({ dealId }: DealDetailViewProps) {
   const [attachments, setAttachments] = useState<Array<{ id?: string; url: string; name: string; fileType: string; size?: number }>>([])
   const [documentViewerOpen, setDocumentViewerOpen] = useState(false)
   const [selectedDocument, setSelectedDocument] = useState<{ id?: string; url: string; name: string; fileType: string } | null>(null)
+
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [editFormData, setEditFormData] = useState<any>({})
+  const [saving, setSaving] = useState(false)
+
+  const { options: stageOptions } = useDropdownOptions("deal.stage")
+  const { options: statusOptions } = useDropdownOptions("deal.status")
 
   useEffect(() => {
     loadDeal()

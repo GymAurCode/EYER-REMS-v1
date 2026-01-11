@@ -168,3 +168,12 @@
     font-feature-settings: "rlig" 1, "calt" 1;
   }
 }
+
+/* Remove focus rings from all input elements */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+}

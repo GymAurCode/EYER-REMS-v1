@@ -12,7 +12,7 @@ import { AttendanceView } from "./attendance-view"
 import { PayrollView } from "./payroll-view"
 import { LeaveView } from "./leave-view"
 import { AddEmployeeDialog } from "./add-employee-dialog"
-import { RealTimeAttendancePortal } from "./real-time-attendance-portal"
+import { AttendancePortalView } from "./attendance-portal-view"
 import { ReportGenerator } from "@/components/shared/report-generator"
 
 export function HRView() {
@@ -252,7 +252,7 @@ export function HRView() {
         </TabsContent>
 
         <TabsContent value="attendance-portal">
-          <RealTimeAttendancePortal />
+          <AttendancePortalView />
         </TabsContent>
 
         <TabsContent value="attendance">
