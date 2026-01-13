@@ -421,16 +421,27 @@ export class PayrollAccountingService {
         { accountId: paymentAccountId, debit: 0, credit: amount }, // CR Cash/Bank
       ];
 
+      // Validate journal entry before creation
       await AccountValidationService.validateJournalEntry(journalLines);
+
+      // Verify double-entry balance (debit = credit)
+      const totalDebit = journalLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+      const totalCredit = journalLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+      if (Math.abs(totalDebit - totalCredit) > 0.01) {
+        throw new Error(
+          `PAYROLL_ACCOUNTING_ERROR: Double-entry balance mismatch. Debit: ${totalDebit}, Credit: ${totalCredit}`
+        );
+      }
 
       // Generate entry number
       const entryNumber = await generateSystemId('je'); // Journal Entry
+      const voucherNo = `PAYROLL-PAY-${paymentId.slice(0, 8)}`;
 
       // Create journal entry
       const journalEntry = await tx.journalEntry.create({
         data: {
           entryNumber,
-          voucherNo: `PAYROLL-PAY-${paymentId.slice(0, 8)}`,
+          voucherNo,
           date: new Date(),
           description: `Payroll Payment - ${payroll.employee?.name || employeeId} - ${payroll.month}`,
           narration: `Salary payment settlement for ${payroll.month}. Employee: ${payroll.employee?.name || employeeId}. Payment method: ${paymentMethod}`,
@@ -457,6 +468,22 @@ export class PayrollAccountingService {
           lines: true,
         },
       });
+
+      // Verify journal entry was created with correct lines
+      if (!journalEntry.lines || journalEntry.lines.length !== 2) {
+        throw new Error(
+          `PAYROLL_ACCOUNTING_ERROR: Journal entry created with incorrect number of lines. Expected 2, got ${journalEntry.lines?.length || 0}`
+        );
+      }
+
+      // Verify double-entry balance in created journal entry
+      const createdDebit = journalEntry.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
+      const createdCredit = journalEntry.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+      if (Math.abs(createdDebit - createdCredit) > 0.01 || Math.abs(createdDebit - amount) > 0.01) {
+        throw new Error(
+          `PAYROLL_ACCOUNTING_ERROR: Journal entry balance verification failed. Debit: ${createdDebit}, Credit: ${createdCredit}, Expected: ${amount}`
+        );
+      }
 
       // Note: If PayrollPayment model had journalEntryId field, we would update it here
       // For backward compatibility, we're not adding it yet

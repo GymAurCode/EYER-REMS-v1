@@ -17,6 +17,11 @@ export interface VoucherLineInput {
   unitId?: string;
 }
 
+export interface InvoiceAllocation {
+  invoiceId: string;
+  amount: number;
+}
+
 export interface CreateVoucherPayload {
   type: VoucherType;
   date: Date;
@@ -31,6 +36,7 @@ export interface CreateVoucherPayload {
   dealId?: string;
   lines: VoucherLineInput[];
   attachments?: Array<{ url: string; name: string; mimeType?: string; size?: number }>;
+  invoiceAllocations?: InvoiceAllocation[]; // For BRV: partial payment allocation against invoices
   preparedByUserId?: string;
 }
 
@@ -47,6 +53,7 @@ export interface UpdateVoucherPayload {
   dealId?: string;
   lines?: VoucherLineInput[];
   attachments?: Array<{ url: string; name: string; mimeType?: string; size?: number }>;
+  invoiceAllocations?: InvoiceAllocation[]; // For BRV: partial payment allocation against invoices
 }
 
 export class VoucherService {
@@ -200,17 +207,16 @@ export class VoucherService {
       case 'JV': // Journal Voucher
         // JV: No cash/bank movement, multi-line debit/credit
         // Validate no cash/bank accounts (unless elevated approval)
-        for (const line of lines) {
-          const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-          if (!lineAccount) {
-            throw new Error(`Line account not found: ${line.accountId}`);
-          }
-          const isCashBank = lineAccount.code.startsWith('1111') || lineAccount.code.startsWith('1112');
-          if (isCashBank) {
-            throw new Error(
-              `Journal Voucher cannot use cash/bank accounts directly. Account ${lineAccount.code} (${lineAccount.name}) is a cash/bank account. Use BPV/BRV/CPV/CRV instead.`
-            );
-          }
+        // Note: Elevated approval check would be passed as parameter if needed
+        // For now, we'll use the safety service validation
+        const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+        const jvCheck = await VoucherAccountingSafetyService.validateJournalVoucherCashBank(
+          lines.map(l => ({ accountId: l.accountId })),
+          false, // hasElevatedApproval - would need to be passed from API
+          tx
+        );
+        if (!jvCheck.valid) {
+          throw new Error(jvCheck.error);
         }
         // Validate multi-line entries
         if (lines.length < 2) {
@@ -230,30 +236,18 @@ export class VoucherService {
     voucherId: string | undefined,
     tx: Prisma.TransactionClient
   ): Promise<void> {
-    // Only validate for bank payments/receipts with cheque/transfer
-    if (!['BPV', 'BRV'].includes(type) || !['Cheque', 'Transfer'].includes(paymentMethod)) {
-      return;
-    }
-
-    if (!referenceNumber) {
-      throw new Error(`${paymentMethod} ${type} requires a reference number (cheque number/transaction ID)`);
-    }
-
-    // Check for duplicate reference numbers
-    const existing = await tx.voucher.findFirst({
-      where: {
+    const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+    
+    const check = await VoucherAccountingSafetyService.validateDuplicateReference(
         type,
         paymentMethod,
         referenceNumber,
-        status: { in: ['submitted', 'approved', 'posted'] },
-        id: voucherId ? { not: voucherId } : undefined,
-      },
-    });
+      voucherId,
+      tx
+    );
 
-    if (existing) {
-      throw new Error(
-        `Duplicate ${paymentMethod} reference number: ${referenceNumber}. Already used in voucher ${existing.voucherNumber}`
-      );
+    if (!check.valid) {
+      throw new Error(check.error);
     }
   }
 
@@ -273,39 +267,27 @@ export class VoucherService {
   }
 
   /**
-   * Validate property/unit linkage
+   * Validate property/unit linkage (hardened with mandatory enforcement)
    */
   private static async validatePropertyUnitLinkage(
     propertyId: string | undefined,
     unitId: string | undefined,
     lines: VoucherLineInput[],
+    type: VoucherType,
     tx: Prisma.TransactionClient
   ): Promise<void> {
-    if (unitId) {
-      // If unit is specified, validate it exists and belongs to property
-      const unit = await tx.unit.findUnique({
-        where: { id: unitId },
-        include: { property: true },
-      });
+    const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+    
+    const check = await VoucherAccountingSafetyService.validatePropertyUnitLinkage(
+      type,
+      propertyId,
+      unitId,
+      lines,
+      tx
+    );
 
-      if (!unit) {
-        throw new Error(`Unit not found: ${unitId}`);
-      }
-
-      if (propertyId && unit.propertyId !== propertyId) {
-        throw new Error(`Unit ${unit.unitName} does not belong to the specified property`);
-      }
-    }
-
-    if (propertyId) {
-      // Validate property exists
-      const property = await tx.property.findUnique({
-        where: { id: propertyId },
-      });
-
-      if (!property) {
-        throw new Error(`Property not found: ${propertyId}`);
-      }
+    if (!check.valid) {
+      throw new Error(check.error);
     }
   }
 
@@ -408,9 +390,17 @@ export class VoucherService {
    */
   static async createVoucher(payload: CreateVoucherPayload): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+
       // Validate lines
       if (!payload.lines || payload.lines.length === 0) {
         throw new Error('Voucher must have at least one line item');
+      }
+
+      // Global line-level accounting validation (one-sided lines, totals > 0, balanced)
+      const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(payload.type, payload.lines);
+      if (!lineValidation.valid) {
+        throw new Error(lineValidation.error);
       }
 
       // Calculate total amount
@@ -429,11 +419,24 @@ export class VoucherService {
         // Structure is valid, will be enforced on submit/post
       }
 
-      // Validate property/unit linkage
-      await this.validatePropertyUnitLinkage(payload.propertyId, payload.unitId, payload.lines, tx);
+      // Validate property/unit linkage (hardened)
+      await this.validatePropertyUnitLinkage(payload.propertyId, payload.unitId, payload.lines, payload.type, tx);
 
       // Validate payee entity
       await this.validatePayeeEntity(payload.payeeType, payload.payeeId, payload.type, tx);
+
+      // CRITICAL: Validate invoice allocations for BRV
+      if (payload.type === 'BRV' && payload.invoiceAllocations) {
+        const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+        const allocationCheck = await VoucherAccountingSafetyService.validateInvoiceAllocation(
+          payload.invoiceAllocations,
+          amount,
+          tx
+        );
+        if (!allocationCheck.valid) {
+          throw new Error(allocationCheck.error);
+        }
+      }
 
       // Validate all line accounts are postable
       for (const line of payload.lines) {
@@ -456,6 +459,15 @@ export class VoucherService {
         voucherNumber = `${payload.type}-${dateStr}-${random}`;
       }
 
+      // Prepare attachments JSON (includes invoice allocations metadata for BRV)
+      let attachmentsData: any = null;
+      if (payload.attachments || (payload.invoiceAllocations && payload.invoiceAllocations.length > 0)) {
+        attachmentsData = {
+          files: payload.attachments ? JSON.parse(JSON.stringify(payload.attachments)) : [],
+          invoiceAllocations: payload.invoiceAllocations || undefined, // Store invoice allocations in metadata
+        };
+      }
+
       // Create voucher
       const voucher = await tx.voucher.create({
         data: {
@@ -468,7 +480,7 @@ export class VoucherService {
           referenceNumber: payload.referenceNumber,
           amount,
           status: 'draft',
-          attachments: payload.attachments ? JSON.parse(JSON.stringify(payload.attachments)) : null,
+          attachments: attachmentsData ? JSON.parse(JSON.stringify(attachmentsData)) : null,
           propertyId: payload.propertyId,
           unitId: payload.unitId,
           payeeType: payload.payeeType,
@@ -508,6 +520,8 @@ export class VoucherService {
    */
   static async updateVoucher(voucherId: string, payload: UpdateVoucherPayload, userId: string): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+
       const existing = await tx.voucher.findUnique({
         where: { id: voucherId },
         include: { lines: true },
@@ -546,11 +560,12 @@ export class VoucherService {
         }
 
         // Validate property/unit if changed
-        if (payload.propertyId !== undefined || payload.unitId !== undefined) {
+        if (payload.propertyId !== undefined || payload.unitId !== undefined || payload.lines) {
           await this.validatePropertyUnitLinkage(
             payload.propertyId ?? existing.propertyId ?? undefined,
             payload.unitId ?? existing.unitId ?? undefined,
-            payload.lines,
+            payload.lines || existing.lines.map(l => ({ accountId: l.accountId, debit: l.debit, credit: l.credit, description: l.description || undefined, propertyId: l.propertyId || undefined, unitId: l.unitId || undefined })),
+            existing.type as VoucherType,
             tx
           );
         }
@@ -563,6 +578,12 @@ export class VoucherService {
             existing.type as VoucherType,
             tx
           );
+        }
+
+        // Global line-level accounting validation (one-sided lines, totals > 0, balanced)
+        const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(existing.type as VoucherType, payload.lines);
+        if (!lineValidation.valid) {
+          throw new Error(lineValidation.error);
         }
 
         // Calculate new amount
@@ -600,6 +621,16 @@ export class VoucherService {
           )
         : existing.amount;
 
+      // Prepare attachments JSON (includes invoice allocations metadata for BRV)
+      let attachmentsData: any = undefined;
+      if (payload.attachments || payload.invoiceAllocations) {
+        const existingAttachments = existing.attachments as any;
+        attachmentsData = {
+          files: payload.attachments ? JSON.parse(JSON.stringify(payload.attachments)) : (existingAttachments?.files || []),
+          invoiceAllocations: payload.invoiceAllocations || existingAttachments?.invoiceAllocations || undefined,
+        };
+      }
+
       // Update voucher
       const updated = await tx.voucher.update({
         where: { id: voucherId },
@@ -610,7 +641,7 @@ export class VoucherService {
           description: payload.description,
           referenceNumber: payload.referenceNumber,
           amount: calculatedAmount,
-          attachments: payload.attachments ? JSON.parse(JSON.stringify(payload.attachments)) : undefined,
+          attachments: attachmentsData ? JSON.parse(JSON.stringify(attachmentsData)) : undefined,
           propertyId: payload.propertyId,
           unitId: payload.unitId,
           payeeType: payload.payeeType,
@@ -726,6 +757,8 @@ export class VoucherService {
    */
   static async postVoucher(voucherId: string, postedByUserId: string, postingDate?: Date): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+      const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+
       const voucher = await tx.voucher.findUnique({
         where: { id: voucherId },
         include: {
@@ -743,6 +776,19 @@ export class VoucherService {
 
       if (voucher.status !== 'approved') {
         throw new Error(`Cannot post voucher in ${voucher.status} status. Only approved vouchers can be posted.`);
+      }
+
+      // CRITICAL: Validate idempotency - prevent double posting
+      const idempotencyCheck = await VoucherAccountingSafetyService.validateIdempotency(voucherId, tx);
+      if (!idempotencyCheck.valid) {
+        throw new Error(idempotencyCheck.error);
+      }
+
+      // CRITICAL: Validate financial period is open
+      const actualPostingDate = postingDate || voucher.date;
+      const periodCheck = await VoucherAccountingSafetyService.validateFinancialPeriod(actualPostingDate, tx);
+      if (!periodCheck.valid) {
+        throw new Error(periodCheck.error);
       }
 
       // Validate attachments are present
@@ -763,10 +809,68 @@ export class VoucherService {
 
       await AccountValidationService.validateJournalEntry(journalLines);
 
-      // Validate account balances (prevent negative balances)
+      // Global line-level accounting validation (one-sided lines, totals > 0, balanced)
+      const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(voucher.type as VoucherType, voucher.lines);
+      if (!lineValidation.valid) {
+        throw new Error(lineValidation.error);
+      }
+
+      // CRITICAL: Validate account balances with hardened enforcement
       for (const line of voucher.lines) {
         if (line.credit > 0) {
+          // Check if it's a cash account
+          const account = await tx.account.findUnique({ where: { id: line.accountId } });
+          if (account && (account.code.startsWith('1111') || account.code.startsWith('111101') || account.code.startsWith('111102'))) {
+            const cashCheck = await VoucherAccountingSafetyService.validateCashBalance(
+              line.accountId,
+              line.credit,
+              actualPostingDate,
+              tx
+            );
+            if (!cashCheck.valid) {
+              throw new Error(cashCheck.error);
+            }
+          } else if (account && (account.code.startsWith('1112') || account.code.startsWith('111201') || account.code.startsWith('111202'))) {
+            const bankCheck = await VoucherAccountingSafetyService.validateBankBalance(
+              line.accountId,
+              line.credit,
+              tx
+            );
+            if (!bankCheck.valid) {
+              throw new Error(bankCheck.error);
+            }
+          } else {
+            // Fallback to original validation for other accounts
           await this.validateAccountBalance(line.accountId, line.credit, tx);
+          }
+        }
+      }
+
+      // CRITICAL: Apply invoice allocations for BRV (update invoice remainingAmount)
+      if (voucher.type === 'BRV' && voucher.attachments) {
+        const attachmentsData = voucher.attachments as any;
+        const invoiceAllocations = attachmentsData?.invoiceAllocations as InvoiceAllocation[] | undefined;
+        
+        if (invoiceAllocations && invoiceAllocations.length > 0) {
+          for (const allocation of invoiceAllocations) {
+            // Update invoice remainingAmount
+            const invoice = await tx.invoice.findUnique({
+              where: { id: allocation.invoiceId },
+            });
+
+            if (invoice) {
+              const newRemainingAmount = Math.max(0, invoice.remainingAmount - allocation.amount);
+              const newStatus = newRemainingAmount === 0 ? 'paid' : invoice.status;
+
+              await tx.invoice.update({
+                where: { id: allocation.invoiceId },
+                data: {
+                  remainingAmount: newRemainingAmount,
+                  status: newStatus,
+                },
+              });
+            }
+          }
         }
       }
 
@@ -781,8 +885,6 @@ export class VoucherService {
       };
       const randomSuffix = () => Math.floor(100 + Math.random() * 900).toString();
       const entryNumber = `JV-${dateSegment()}-${randomSuffix()}`;
-
-      const actualPostingDate = postingDate || voucher.date;
 
       const journalEntry = await tx.journalEntry.create({
         data: {

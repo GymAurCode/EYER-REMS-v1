@@ -20,7 +20,9 @@ import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { SearchableSelect } from "@/components/common/searchable-select"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { cn } from "@/lib/utils"
+import { HelpCircle } from "lucide-react"
 
 interface AddVoucherDialogProps {
   open: boolean
@@ -182,7 +184,30 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
   }
 
   const updateLine = (id: string, field: keyof VoucherLine, value: any) => {
-    setLines(lines.map((line) => (line.id === id ? { ...line, [field]: value } : line)))
+    setLines(lines.map((line) => {
+      if (line.id !== id) return line
+
+      // Enforce one-sided per line at state level
+      if (field === "debit") {
+        const debitVal = Number(value) || 0
+        return {
+          ...line,
+          debit: debitVal,
+          credit: debitVal > 0 ? 0 : line.credit, // If debit > 0, force credit = 0
+        }
+      }
+
+      if (field === "credit") {
+        const creditVal = Number(value) || 0
+        return {
+          ...line,
+          credit: creditVal,
+          debit: creditVal > 0 ? 0 : line.debit, // If credit > 0, force debit = 0
+        }
+      }
+
+      return { ...line, [field]: value }
+    }))
   }
 
   // Auto-generate lines when primary account is selected
@@ -316,6 +341,23 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
       toast({
         title: "All lines must have accounts",
         description: "Please select accounts for all line items",
+        variant: "destructive",
+      })
+      return
+    }
+
+    // Enforce one-sided, non-zero lines at UI level before hitting backend
+    const hasInvalidLine = lines.some((line) => {
+      const debit = Number(line.debit || 0)
+      const credit = Number(line.credit || 0)
+      // Both sides > 0 OR both sides == 0 is invalid
+      return (debit > 0 && credit > 0) || (debit <= 0 && credit <= 0)
+    })
+
+    if (hasInvalidLine) {
+      toast({
+        title: "Invalid line entries",
+        description: "Each line must have either Debit > 0 or Credit > 0 (but not both). Zero-value lines are not allowed.",
         variant: "destructive",
       })
       return
@@ -575,7 +617,17 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="primaryAccount">{isBank ? "Bank" : "Cash"} Account *</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="primaryAccount">{isBank ? "Bank" : "Cash"} Account *</Label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>This account is auto-selected based on voucher type and cannot be changed.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <SearchableSelect
                   source="accounts"
                   value={formData.accountId}
@@ -600,14 +652,29 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                     }
                   }}
                 />
+                {formData.accountId && (
+                  <p className="text-xs text-muted-foreground">
+                    {isBank ? "Bank" : "Cash"} account is system-controlled for this voucher.
+                  </p>
+                )}
               </div>
 
               {(isBank && ["Cheque", "Transfer"].includes(formData.paymentMethod)) && (
                 <div className="grid gap-2">
-                  <Label htmlFor="referenceNumber">Reference Number *</Label>
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="referenceNumber">Reference Number *</Label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Must be unique. Duplicate references are not allowed.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
                   <Input
                     id="referenceNumber"
-                    placeholder={formData.paymentMethod === "Cheque" ? "Cheque number" : "Transaction ID"}
+                    placeholder="Cheque / Transfer / Reference number"
                     value={formData.referenceNumber}
                     onChange={(e) => setFormData({ ...formData, referenceNumber: e.target.value })}
                     required
@@ -670,6 +737,9 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                   placeholder="Select property..."
                   allowEmpty
                 />
+                <p className="text-xs text-muted-foreground">
+                  Property selection is required if any line uses a property-linked account.
+                </p>
               </div>
 
               {formData.propertyId && (
@@ -708,13 +778,34 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                 </Button>
               </div>
 
+              {/* Voucher-specific guidance */}
+              {isPayment && (
+                <p className="text-sm text-muted-foreground">
+                  Enter amounts in Debit for expense or payable accounts. {isBank ? "Bank" : "Cash"} will be credited automatically.
+                </p>
+              )}
+              {isReceipt && (
+                <p className="text-sm text-muted-foreground">
+                  Enter amounts in Credit for income or receivable accounts. {isBank ? "Bank" : "Cash"} will be debited automatically.
+                </p>
+              )}
+
               <div className="space-y-3">
                 {lines.map((line, index) => {
                   const isPrimaryAccount = line.accountId === formData.accountId
+                  const hasDebit = (line.debit || 0) > 0
+                  const hasCredit = (line.credit || 0) > 0
+                  const debitDisabled = isPrimaryAccount || hasCredit
+                  const creditDisabled = isPrimaryAccount || hasDebit
                   return (
                     <div key={line.id} className="border rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium">Line {index + 1}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">Line {index + 1}</span>
+                          {isPrimaryAccount && (
+                            <span className="text-xs text-muted-foreground italic">Auto-generated system line</span>
+                          )}
+                        </div>
                         {lines.length > 1 && (
                           <Button
                             type="button"
@@ -729,12 +820,24 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div className="md:col-span-2 grid gap-2">
-                          <Label>Account *</Label>
+                          <div className="flex items-center gap-2">
+                            <Label>Account *</Label>
+                            {isPrimaryAccount && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>This account is auto-selected based on voucher type and cannot be changed.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
                           <SearchableSelect
                             source="accounts"
                             value={line.accountId}
                             onChange={(value) => updateLine(line.id, "accountId", value || "")}
-                            placeholder="Select account..."
+                            placeholder={isPrimaryAccount ? "System-controlled account" : "Select expense, income, payable, or receivable account"}
                             required
                             filters={{ postable: "true" }}
                             transform={(item: any) => {
@@ -762,45 +865,99 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                               }
                             }}
                           />
-                          {isPrimaryAccount && (
+                          {isPrimaryAccount ? (
                             <p className="text-xs text-muted-foreground">
-                              {isPayment ? "Will be credited" : "Will be debited"} automatically
+                              {isBank ? "Bank" : "Cash"} account is system-controlled for this voucher.
                             </p>
-                          )}
+                          ) : line.accountId ? (
+                            <p className="text-xs text-muted-foreground">
+                              This account represents where the amount is posted.
+                            </p>
+                          ) : null}
                         </div>
 
                         <div className="grid gap-2">
-                          <Label>Debit</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={line.debit || ""}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0
-                              updateLine(line.id, "debit", val)
-                              if (val > 0) updateLine(line.id, "credit", 0)
-                            }}
-                            disabled={isPrimaryAccount}
-                            placeholder="0.00"
-                          />
+                          <div className="flex items-center gap-2">
+                            <Label>Debit</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Amount is entered using Debit or Credit. Only one side is allowed per line.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="w-full">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={line.debit || ""}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0
+                                    updateLine(line.id, "debit", val)
+                                  }}
+                                  disabled={debitDisabled}
+                                  placeholder="Enter amount"
+                                  className={debitDisabled ? "cursor-not-allowed" : ""}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            {debitDisabled ? (
+                              <TooltipContent>
+                                <p>This amount is calculated automatically by the system.</p>
+                              </TooltipContent>
+                            ) : (
+                              <TooltipContent>
+                                <p>Enter the amount to debit this account. Credit will be set to zero.</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
                         </div>
 
                         <div className="grid gap-2">
-                          <Label>Credit</Label>
-                          <Input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={line.credit || ""}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0
-                              updateLine(line.id, "credit", val)
-                              if (val > 0) updateLine(line.id, "debit", 0)
-                            }}
-                            disabled={isPrimaryAccount}
-                            placeholder="0.00"
-                          />
+                          <div className="flex items-center gap-2">
+                            <Label>Credit</Label>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Amount is entered using Debit or Credit. Only one side is allowed per line.</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </div>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="w-full">
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={line.credit || ""}
+                                  onChange={(e) => {
+                                    const val = parseFloat(e.target.value) || 0
+                                    updateLine(line.id, "credit", val)
+                                  }}
+                                  disabled={creditDisabled}
+                                  placeholder="Enter amount"
+                                  className={creditDisabled ? "cursor-not-allowed" : ""}
+                                />
+                              </div>
+                            </TooltipTrigger>
+                            {creditDisabled ? (
+                              <TooltipContent>
+                                <p>This amount is calculated automatically by the system.</p>
+                              </TooltipContent>
+                            ) : (
+                              <TooltipContent>
+                                <p>Enter the amount to credit this account. Debit will be set to zero.</p>
+                              </TooltipContent>
+                            )}
+                          </Tooltip>
                         </div>
                       </div>
 
@@ -819,6 +976,17 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
 
               {/* Balance Summary */}
               <div className="border-t pt-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm font-medium">Balance Summary</span>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Total Debit must equal Total Credit before submission.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <span className="text-muted-foreground">Total Debit:</span>
@@ -840,7 +1008,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                   <Alert variant="destructive" className="mt-2">
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Entries must balance. Total Debit ({totals.debit.toFixed(2)}) must equal Total Credit ({totals.credit.toFixed(2)}).
+                      Voucher is not balanced. Please review entered amounts. Total Debit ({totals.debit.toFixed(2)}) must equal Total Credit ({totals.credit.toFixed(2)}).
                     </AlertDescription>
                   </Alert>
                 )}
@@ -850,6 +1018,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
             {/* Attachments */}
             <div className="grid gap-2">
               <Label>Attachments *</Label>
+              <p className="text-xs text-muted-foreground">Attachment is required for audit and compliance.</p>
               <div className="space-y-2">
                 <div className="border-2 border-dashed rounded-lg p-4 text-center">
                   <FileText className="h-6 w-6 mx-auto text-muted-foreground mb-2" />

@@ -800,7 +800,7 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
     const paymentAmount = parseFloat(amount);
     const paymentDateObj = paymentDate ? new Date(paymentDate) : new Date();
     
-    // Validate payment creation
+    // Validate payment creation (amount, remaining balance, method, date)
     const validation = await PayrollPaymentSafetyService.validatePaymentCreation({
       payrollId: id,
       amount: paymentAmount,
@@ -813,6 +813,23 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
       return res.status(400).json({
         success: false,
         error: validation.error || 'Payment validation failed',
+      });
+    }
+
+    // CRITICAL ACCOUNTING GUARDRAIL:
+    // Validate Chart of Accounts mapping BEFORE creating payment record.
+    // If CoA mappings are missing or invalid, we MUST REJECT the payment
+    // instead of guessing or falling back to arbitrary accounts.
+    const { PayrollAccountingService } = await import('../services/payroll-accounting-service');
+    const coaValidation = await PayrollAccountingService.validatePaymentPosting(
+      id,
+      paymentAmount
+    );
+
+    if (!coaValidation.valid) {
+      return res.status(400).json({
+        success: false,
+        error: coaValidation.error || 'PAYROLL_ACCOUNTING_ERROR: Payroll account mappings not configured. Payment cannot be recorded without proper Chart of Accounts configuration.',
       });
     }
 
@@ -911,19 +928,12 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
       return { payment, payroll: updatedPayroll };
     });
 
-    // AUTO-POST TO LEDGER: Payroll Payment → Liability Settlement
+    // AUTO-POST TO LINES: Payroll Payment → Liability Settlement
     // DR Salary Payable, CR Cash/Bank
-    // Only posts if account mappings are configured (backward compatible)
+    // At this point CoA mappings have already been validated above.
+    let journalEntryId: string | null = null;
     try {
-      const { PayrollAccountingService } = await import('../services/payroll-accounting-service');
-      const paymentValidation = await PayrollAccountingService.validatePaymentPosting(
-        id,
-        paymentAmount
-      );
-      
-      if (paymentValidation.valid) {
-        // Post payment to ledger
-        await PayrollAccountingService.postPayrollPayment({
+        journalEntryId = await PayrollAccountingService.postPayrollPayment({
           paymentId: result.payment.id,
           payrollId: id,
           employeeId: payroll.employeeId,
@@ -931,15 +941,16 @@ router.post('/:id/payments', authenticate, async (req: AuthRequest, res: Respons
           paymentMethod,
           userId: req.user?.id,
         });
-      } else {
-        // Account mappings not configured or validation failed
-        console.warn('Payroll payment accounting not posted:', paymentValidation.error);
-        // Don't block payment recording for backward compatibility
-      }
+        console.log(`✅ Payroll payment posted to ledger. Journal Entry ID: ${journalEntryId}, Payment ID: ${result.payment.id}`);
     } catch (accountingError: any) {
-      // Log accounting error but don't fail payment recording (backward compatibility)
-      console.error('Failed to post payroll payment to ledger (non-blocking):', accountingError);
-      // Continue with payment recording even if accounting fails
+      // Log accounting error but don't fail payment recording (backward compatible)
+      console.error('❌ Failed to post payroll payment to ledger (non-blocking):', {
+        error: accountingError?.message || accountingError,
+        paymentId: result.payment.id,
+        payrollId: id,
+        amount: paymentAmount,
+        stack: accountingError?.stack,
+      });
     }
 
     res.json({

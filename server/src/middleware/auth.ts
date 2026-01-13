@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
+import { File } from 'multer';
 
 export interface AuthRequest extends Request {
    user?: {
@@ -10,6 +11,9 @@ export interface AuthRequest extends Request {
      email: string;
      roleId: string;
    };
+   // Support multer uploads
+   file?: File;
+   files?: File[] | { [fieldname: string]: File[] };
  }
 
 export const authenticate = async (

@@ -1335,6 +1335,7 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
       dealId,
       lines, // Array of { accountId, debit, credit, description, propertyId?, unitId? }
       attachments,
+      invoiceAllocations, // For BRV: Array of { invoiceId, amount }
       preparedByUserId,
     } = req.body;
 
@@ -1378,6 +1379,12 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
         unitId: line.unitId,
       })),
       attachments: validAttachments.length > 0 ? validAttachments : undefined,
+      invoiceAllocations: invoiceAllocations && Array.isArray(invoiceAllocations) 
+        ? invoiceAllocations.map((alloc: any) => ({
+            invoiceId: alloc.invoiceId,
+            amount: parseFloat(alloc.amount) || 0,
+          }))
+        : undefined,
       preparedByUserId: preparedByUserId || req.user?.id,
     });
 
@@ -1424,6 +1431,7 @@ router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response
       dealId,
       lines,
       attachments,
+      invoiceAllocations, // For BRV: Array of { invoiceId, amount }
     } = req.body;
 
     const normalizedAttachments = normalizeAttachments(attachments);
@@ -1459,8 +1467,34 @@ router.put('/vouchers/:id', authenticate, async (req: AuthRequest, res: Response
         unitId: line.unitId,
       }));
     }
-    if (validAttachments.length > 0) {
-      updatePayload.attachments = validAttachments;
+    if (validAttachments.length > 0 || invoiceAllocations) {
+      // Merge attachments with invoice allocations metadata
+      const existingVoucher = await prisma.voucher.findUnique({
+        where: { id: req.params.id },
+        select: { attachments: true },
+      });
+      
+      let attachmentsData: any = null;
+      if (validAttachments.length > 0 || invoiceAllocations) {
+        const existingAttachments = existingVoucher?.attachments as any;
+        attachmentsData = {
+          files: validAttachments.length > 0 ? validAttachments : (existingAttachments?.files || []),
+          invoiceAllocations: invoiceAllocations || existingAttachments?.invoiceAllocations || undefined,
+        };
+      }
+      
+      if (attachmentsData) {
+        updatePayload.attachments = attachmentsData;
+      }
+    }
+
+    if (invoiceAllocations !== undefined) {
+      updatePayload.invoiceAllocations = invoiceAllocations && Array.isArray(invoiceAllocations)
+        ? invoiceAllocations.map((alloc: any) => ({
+            invoiceId: alloc.invoiceId,
+            amount: parseFloat(alloc.amount) || 0,
+          }))
+        : undefined;
     }
 
     const voucher = await VoucherService.updateVoucher(req.params.id, updatePayload, req.user!.id);

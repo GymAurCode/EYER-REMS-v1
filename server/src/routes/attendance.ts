@@ -810,8 +810,7 @@ router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
 
     // AUTHORITATIVE STATE DERIVATION: Use AttendanceStateService to compute state from timestamps
     const { AttendanceStateService } = await import('../services/attendance-state-service');
-    const state = AttendanceStateService.getAttendanceState(attendance);
-
+    
     if (!attendance) {
       return res.json({
         success: true,
@@ -819,6 +818,9 @@ router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
         state: 'NOT_STARTED', // Explicit state when no record exists
       });
     }
+
+    // Compute state AFTER null check to ensure attendance exists
+    const state = AttendanceStateService.getAttendanceState(attendance);
 
     // Return attendance with authoritative state computed from timestamps
     res.json({

@@ -424,54 +424,65 @@ export function AttendancePortalView() {
                   {(() => {
                     // AUTHORITATIVE STATE: Use backend-computed state from timestamps
                     // This is the SINGLE SOURCE OF TRUTH - never compute state in frontend
-                    const state = todayAttendance?._state ?? (!todayAttendance ? 'NOT_STARTED' : null)
+                    let state = todayAttendance?._state
                     
                     // DEFENSIVE: If state is somehow null/undefined but attendance exists, 
-                    // this indicates a backend issue - log it but don't crash
+                    // compute fallback state from timestamps (should never happen, but safety net)
                     if (todayAttendance && !state) {
-                      console.warn('⚠️ ATTENDANCE_STATE_WARNING: Attendance data exists but state is missing. Backend may not be returning state field.', {
+                      console.warn('⚠️ ATTENDANCE_STATE_WARNING: Attendance data exists but state is missing. Computing fallback state from timestamps.', {
                         attendanceId: todayAttendance.id,
                         checkIn: todayAttendance.checkIn,
                         checkOut: todayAttendance.checkOut,
                         status: todayAttendance.status,
                       })
-                      // Fallback: Treat as NOT_STARTED if state is missing (safety net)
-                      // This should never happen if backend is working correctly
+                      // Fallback: Compute state from timestamps if backend didn't provide it
+                      if (todayAttendance.checkIn && todayAttendance.checkOut) {
+                        state = 'CHECKED_OUT'
+                      } else if (todayAttendance.checkIn && !todayAttendance.checkOut) {
+                        state = 'CHECKED_IN'
+                      } else {
+                        state = 'NOT_STARTED'
+                      }
+                    }
+                    
+                    // If no attendance record, state is NOT_STARTED
+                    if (!todayAttendance) {
+                      state = 'NOT_STARTED'
                     }
                     
                     // Handle LOCKED state (manual override)
                     if (state === 'LOCKED' || (todayAttendance && todayAttendance.isManualOverride)) {
                       return (
-                        <>
+                    <>
                           <div className="h-16 w-16 bg-orange-500/10 rounded-full flex items-center justify-center">
                             <Lock className="h-8 w-8 text-orange-600" />
-                          </div>
-                          <div>
+                      </div>
+                      <div>
                             <h3 className="text-lg font-semibold">Attendance Locked</h3>
                             <p className="text-sm text-muted-foreground">This attendance record has been manually locked and cannot be modified.</p>
-                          </div>
+                      </div>
                           <Button size="lg" variant="outline" className="w-48" disabled>
                             Locked
-                          </Button>
-                        </>
+                      </Button>
+                    </>
                       )
                     }
                     
                     // Handle leave status (from status field, but only if state allows)
                     if (state !== 'CHECKED_IN' && state !== 'CHECKED_OUT' && (todayAttendance?.status === 'On Leave' || todayAttendance?.status === 'Leave')) {
                       return (
-                        <>
-                          <div className="h-16 w-16 bg-blue-500/10 rounded-full flex items-center justify-center">
-                            <Briefcase className="h-8 w-8 text-blue-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold">On Leave</h3>
-                            <p className="text-sm text-muted-foreground">Employee is on marked leave for today.</p>
-                          </div>
-                          <Button size="lg" variant="outline" className="w-48" disabled>
-                            On Leave
-                          </Button>
-                        </>
+                    <>
+                      <div className="h-16 w-16 bg-blue-500/10 rounded-full flex items-center justify-center">
+                        <Briefcase className="h-8 w-8 text-blue-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">On Leave</h3>
+                        <p className="text-sm text-muted-foreground">Employee is on marked leave for today.</p>
+                      </div>
+                      <Button size="lg" variant="outline" className="w-48" disabled>
+                        On Leave
+                      </Button>
+                    </>
                       )
                     }
                     
@@ -503,43 +514,43 @@ export function AttendancePortalView() {
                     // CHECKED_IN: Only checkIn exists (authoritative state from backend)
                     if (state === 'CHECKED_IN') {
                       return (
-                        <>
-                          <div className="h-16 w-16 bg-yellow-500/10 rounded-full flex items-center justify-center animate-pulse">
-                            <Clock className="h-8 w-8 text-yellow-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold">Currently Working</h3>
+                    <>
+                      <div className="h-16 w-16 bg-yellow-500/10 rounded-full flex items-center justify-center animate-pulse">
+                        <Clock className="h-8 w-8 text-yellow-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Currently Working</h3>
                             <p className="text-sm text-muted-foreground">
                               Checked in at {todayAttendance.checkIn ? formatTime(todayAttendance.checkIn) : 'N/A'}
                             </p>
-                            <p className="text-2xl font-bold font-mono text-primary mt-2">{elapsedTime}</p>
-                          </div>
+                        <p className="text-2xl font-bold font-mono text-primary mt-2">{elapsedTime}</p>
+                      </div>
                           <Button size="lg" variant="destructive" className="w-48" onClick={() => handleCheckOut()} disabled={actionLoading}>
-                            {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
-                            Check Out
-                          </Button>
-                        </>
+                        {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <XCircle className="h-4 w-4 mr-2" />}
+                        Check Out
+                      </Button>
+                    </>
                       )
                     }
                     
                     // CHECKED_OUT: Both checkIn and checkOut exist (authoritative state from backend)
                     if (state === 'CHECKED_OUT') {
                       return (
-                        <>
-                          <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center">
-                            <CheckCircle className="h-8 w-8 text-green-600" />
-                          </div>
-                          <div>
-                            <h3 className="text-lg font-semibold">Attendance Completed</h3>
-                            <p className="text-sm text-muted-foreground">
+                    <>
+                      <div className="h-16 w-16 bg-green-500/10 rounded-full flex items-center justify-center">
+                        <CheckCircle className="h-8 w-8 text-green-600" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold">Attendance Completed</h3>
+                        <p className="text-sm text-muted-foreground">
                               Shift: {todayAttendance.checkIn ? formatTime(todayAttendance.checkIn) : 'N/A'} - {todayAttendance.checkOut ? formatTime(todayAttendance.checkOut) : 'N/A'}
-                            </p>
+                        </p>
                             <p className="font-medium mt-1">Total Hours: {todayAttendance.totalWorkDuration || (todayAttendance.hours ? todayAttendance.hours.toFixed(2) + ' hrs' : 'N/A')}</p>
-                          </div>
-                          <Button size="lg" variant="outline" className="w-48" disabled>
-                            Completed
-                          </Button>
-                        </>
+                      </div>
+                      <Button size="lg" variant="outline" className="w-48" disabled>
+                        Completed
+                      </Button>
+                    </>
                       )
                     }
                     

@@ -1795,7 +1795,7 @@ router.post('/', authenticate, upload.any(), validateBody(createPropertySchema),
     const subsidiaryOptionIdExists = await columnExists('Property', 'subsidiaryOptionId');
 
     // Handle file uploads
-    const files = (req as any).files as Express.Multer.File[] || [];
+    const files = (req as any).files as import('multer').File[] || [];
     const photoFile = files.find(f => f.fieldname === 'photo');
     const attachmentFiles = files.filter(f => f.fieldname === 'attachments');
 
