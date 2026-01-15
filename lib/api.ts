@@ -1259,6 +1259,16 @@ export const apiService = {
         api.get(`/construction/reports/wip-movement/${projectId}`, { params }),
     },
   },
+
+  // AI Intelligence
+  aiIntelligence: {
+    getOverview: () => api.get('/ai-intelligence/overview'),
+    getAllEngines: () => api.get('/ai-intelligence/engines'),
+    getEngine: (engineName: string) => api.get(`/ai-intelligence/engines/${engineName}`),
+    assistantQuery: (query: string) => api.post('/ai-intelligence/assistant/query', { query }),
+    invalidateCache: (engineName: string) => api.post(`/ai-intelligence/cache/invalidate/${engineName}`),
+    clearCache: () => api.post('/ai-intelligence/cache/clear'),
+  },
 }
 
 export default api
