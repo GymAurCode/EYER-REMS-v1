@@ -38,17 +38,23 @@ import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
+import { PermissionMatrix } from "./permission-matrix"
+import { PermissionInspectionPanel } from "./permission-inspection-panel"
 
 interface Role {
   id: string
   name: string
   permissions: string[]
+  explicitPermissions?: string[] // Explicit permissions from backend
+  availablePermissions?: Record<string, string[]> // Available permissions structure
+  hasExplicitPermissions?: boolean // Whether role has explicit permissions
   defaultPassword?: string | null // Hashed password - null means not set
   createdAt: string
   updatedAt: string
   _count?: {
     users: number
     inviteLinks: number
+    rolePermissions?: number
   }
 }
 
@@ -104,6 +110,7 @@ export function RolesView() {
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [showCreateRoleDialog, setShowCreateRoleDialog] = useState(false)
   const [showRoleSelectionDialog, setShowRoleSelectionDialog] = useState(false)
+  const [showInspectionPanel, setShowInspectionPanel] = useState(false)
   const [showInviteDialog, setShowInviteDialog] = useState(false)
   const [showNotifications, setShowNotifications] = useState(false)
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null)
@@ -112,6 +119,15 @@ export function RolesView() {
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [pendingPermissions, setPendingPermissions] = useState<string[] | null>(null) // Track pending permission changes
   const [savingPermissions, setSavingPermissions] = useState(false) // Track saving state
+  const [explicitPermissions, setExplicitPermissions] = useState<any[]>([]) // Explicit permissions from backend
+  const [availablePermissions, setAvailablePermissions] = useState<Record<string, string[]>>({}) // Available permissions structure
+  const [loadingPermissions, setLoadingPermissions] = useState(false) // Loading state for permissions
+  const [pendingExplicitPermissions, setPendingExplicitPermissions] = useState<Array<{
+    module: string
+    submodule?: string
+    action: string
+    granted: boolean
+  }> | null>(null) // Pending explicit permission changes
 
   // Create role form
   const [createRoleData, setCreateRoleData] = useState({
@@ -639,7 +655,7 @@ export function RolesView() {
     setPendingPermissions(updatedPermissions)
   }
 
-  // Save pending permission changes
+  // Save pending permission changes (legacy)
   const savePermissions = async () => {
     if (!selectedRole || !pendingPermissions) return
 
@@ -694,16 +710,103 @@ export function RolesView() {
     }
   }
 
+  // Save explicit permission changes
+  const saveExplicitPermissions = async () => {
+    if (!selectedRole || !pendingExplicitPermissions) return
+
+    setSavingPermissions(true)
+    const originalPermissions = [...explicitPermissions]
+
+    try {
+      // Save to backend using new API
+      await apiService.auth.updateRolePermissions(selectedRole.id, pendingExplicitPermissions)
+
+      // Refresh permissions
+      await fetchExplicitPermissions()
+
+      // Clear pending permissions
+      setPendingExplicitPermissions(null)
+
+      toast({
+        title: "Success",
+        description: "Permissions updated successfully",
+      })
+    } catch (error: any) {
+      console.error("Failed to update explicit permissions:", error)
+      
+      // Revert on error
+      setExplicitPermissions(originalPermissions)
+      setPendingExplicitPermissions(null)
+
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || "Failed to update permissions",
+        variant: "destructive",
+      })
+    } finally {
+      setSavingPermissions(false)
+    }
+  }
+
   // Cancel pending changes
   const cancelPermissions = () => {
     setPendingPermissions(null)
+    setPendingExplicitPermissions(null)
+  }
+
+  // Fetch explicit permissions for selected role
+  const fetchExplicitPermissions = async () => {
+    if (!selectedRole) return
+
+    try {
+      setLoadingPermissions(true)
+      // Fetch role with available permissions structure
+      const roleResponse = await apiService.auth.getRoleById(selectedRole.id)
+      const roleData = roleResponse.data as any
+      
+      if (roleData.availablePermissions) {
+        setAvailablePermissions(roleData.availablePermissions)
+      } else {
+        // Fallback: use empty object if not available
+        setAvailablePermissions({})
+      }
+
+      // Fetch explicit permissions
+      try {
+        const permissionsResponse = await apiService.auth.getRolePermissions(selectedRole.id)
+        setExplicitPermissions(permissionsResponse.data || [])
+      } catch (permError: any) {
+        // If endpoint doesn't exist or fails, use empty array
+        console.warn("Could not fetch explicit permissions:", permError)
+        setExplicitPermissions([])
+      }
+    } catch (error: any) {
+      console.error("Failed to fetch role data:", error)
+      setAvailablePermissions({})
+      setExplicitPermissions([])
+    } finally {
+      setLoadingPermissions(false)
+    }
+  }
+
+  // Handle explicit permission changes from matrix
+  const handleExplicitPermissionsChange = (permissions: Array<{
+    module: string
+    submodule?: string
+    action: string
+    granted: boolean
+  }>) => {
+    setPendingExplicitPermissions(permissions)
   }
 
   // Reset pending permissions when role changes
   useEffect(() => {
     if (selectedRole) {
       setPendingPermissions(null)
+      setPendingExplicitPermissions(null)
+      fetchExplicitPermissions()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRole?.id])
 
   const unreadCount = notifications.filter((n) => !n.read).length
@@ -817,10 +920,19 @@ export function RolesView() {
               )}
             </Button>
             {selectedRole && user?.role?.toLowerCase() === "admin" && (
-              <Button onClick={() => setShowInviteDialog(true)}>
-                <LinkIcon className="h-4 w-4 mr-2" />
-                Generate Invite Link
-              </Button>
+              <>
+                <Button onClick={() => setShowInviteDialog(true)}>
+                  <LinkIcon className="h-4 w-4 mr-2" />
+                  Generate Invite Link
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setShowInspectionPanel(true)}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Inspect Permissions
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -976,18 +1088,79 @@ export function RolesView() {
               </div>
             </Card>
 
-            {/* Detailed Permissions */}
+            {/* Detailed Permissions - Permission Matrix */}
             <Card className="p-6">
-              <h2 className="text-xl font-semibold text-foreground mb-4">
-                Detailed Permissions
-              </h2>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {(pendingPermissions || selectedRole.permissions || []).map((permission) => (
-                  <Badge key={permission} variant="secondary" className="p-2">
-                    {permission}
-                  </Badge>
-                ))}
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">
+                    Detailed Permissions
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Manage granular permissions for modules and submodules
+                  </p>
+                </div>
+                {pendingExplicitPermissions !== null && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={cancelPermissions}
+                      disabled={savingPermissions}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={saveExplicitPermissions}
+                      disabled={savingPermissions}
+                    >
+                      {savingPermissions ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        "Save Changes"
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
+              
+              {selectedRole.name?.toLowerCase() === "admin" ? (
+                <div className="p-4 border border-border rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">
+                    Admin role has full access to all modules and actions
+                  </p>
+                </div>
+              ) : user?.role?.toLowerCase() === "admin" ? (
+                <PermissionMatrix
+                  roleId={selectedRole.id}
+                  roleName={selectedRole.name}
+                  permissions={pendingExplicitPermissions 
+                    ? pendingExplicitPermissions.map((p, idx) => ({
+                        id: `pending-${idx}`,
+                        roleId: selectedRole.id,
+                        module: p.module,
+                        submodule: p.submodule || null,
+                        action: p.action,
+                        granted: p.granted,
+                        createdAt: new Date().toISOString(),
+                        createdBy: null,
+                      }))
+                    : explicitPermissions}
+                  availablePermissions={availablePermissions}
+                  loading={loadingPermissions}
+                  onPermissionsChange={handleExplicitPermissionsChange}
+                  readOnly={false}
+                />
+              ) : (
+                <div className="p-4 border border-border rounded-lg bg-muted/50">
+                  <p className="text-sm text-muted-foreground">
+                    Only admin can view and modify detailed permissions
+                  </p>
+                </div>
+              )}
             </Card>
 
             {/* Users with this Role */}
@@ -1612,6 +1785,17 @@ export function RolesView() {
             </div>
           </ScrollArea>
         </div>
+      )}
+
+      {/* Permission Inspection Panel */}
+      {selectedRole && (
+        <PermissionInspectionPanel
+          open={showInspectionPanel}
+          onOpenChange={setShowInspectionPanel}
+          type="role"
+          id={selectedRole.id}
+          name={selectedRole.name}
+        />
       )}
     </div>
   )

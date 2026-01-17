@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
 import { File } from 'multer';
+import { resolveRolePermissions } from '../services/permissions/compatibility-resolver';
 
 export interface AuthRequest extends Request {
    user?: {
@@ -167,6 +168,11 @@ export const requireAdmin = async (
   }
 };
 
+/**
+ * Legacy checkPermission - DEPRECATED
+ * Use requirePermission from rbac.ts instead
+ * This is kept for backward compatibility but should be migrated
+ */
 export const checkPermission = (requiredPermission: string) => {
   return async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -177,6 +183,13 @@ export const checkPermission = (requiredPermission: string) => {
 
       const role = await prisma.role.findUnique({
         where: { id: req.user.roleId },
+        include: {
+          rolePermissions: {
+            where: {
+              granted: true,
+            },
+          },
+        },
       });
 
       if (!role) {
@@ -184,14 +197,30 @@ export const checkPermission = (requiredPermission: string) => {
         return;
       }
 
-      const permissions = role.permissions as string[];
-      if (!permissions.includes(requiredPermission) && role.name !== 'Admin') {
+      // Get legacy permissions for compatibility
+      let legacyPermissions: string[] = [];
+      if (role.permissions) {
+        if (Array.isArray(role.permissions)) {
+          legacyPermissions = role.permissions as string[];
+        } else if (typeof role.permissions === 'string') {
+          legacyPermissions = [role.permissions];
+        }
+      }
+      
+      // Resolve to explicit permissions (with auto-conversion)
+      const explicitPermissions = await resolveRolePermissions(role.id, legacyPermissions);
+      
+      // Check if permission is in explicit list
+      const hasPermission = explicitPermissions.includes(requiredPermission);
+      
+      if (!hasPermission) {
         res.status(403).json({ error: 'Insufficient permissions' });
         return;
       }
 
       next();
-    } catch (error) {
+    } catch (error: any) {
+      logger.error('Error checking permissions:', error);
       res.status(500).json({ error: 'Error checking permissions' });
     }
   };

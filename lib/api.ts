@@ -1060,6 +1060,13 @@ export const apiService = {
     getMe: () => api.get('/auth/me'),
     getRoles: () => api.get('/roles'),
     getRoleById: (id: string) => api.get(`/roles/${id}`),
+    getRolePermissions: (id: string) => api.get(`/roles/${id}/permissions`),
+    updateRolePermissions: (id: string, permissions: Array<{
+      module: string
+      submodule?: string
+      action: string
+      granted: boolean
+    }>) => api.put(`/roles/${id}/permissions`, { permissions }),
     createRole: (data: {
       name: string
       permissions?: string[]
@@ -1081,6 +1088,11 @@ export const apiService = {
     getInviteLinks: (roleId: string) => api.get(`/roles/${roleId}/invites`),
     getUsersByRole: (roleId: string) => api.get(`/roles/${roleId}/users`),
     getInviteLinkByToken: (token: string) => api.get(`/roles/invite/${token}`),
+    inspectPermissions: (type: 'role' | 'user', id: string, reason?: string) => {
+      const params = new URLSearchParams({ type, id })
+      if (reason) params.append('reason', reason)
+      return api.get(`/permissions/inspect?${params.toString()}`)
+    },
     getNotifications: () => api.get('/notifications'),
     markNotificationRead: (id: string) =>
       api.patch(`/notifications/${id}/read`),

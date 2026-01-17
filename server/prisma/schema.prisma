@@ -42,15 +42,78 @@ model User {
 model Role {
   id              String           @id @default(uuid())
   name            String           @unique
-  permissions     Json
+  permissions     Json             // Legacy: kept for backward compatibility
   createdBy       String?
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   defaultPassword String?
   inviteLinks     RoleInviteLink[]
   users           User[]
+  rolePermissions RolePermission[] // New: explicit permissions
 
   @@index([name])
+}
+
+// Explicit permission model: Module → Submodule → Action
+model RolePermission {
+  id          String   @id @default(uuid())
+  roleId      String
+  module      String   // e.g., "finance", "properties", "hr"
+  submodule   String?  // Optional: e.g., "transactions", "reports"
+  action      String   // e.g., "view", "create", "edit", "delete", "approve", "export", "override"
+  granted     Boolean  @default(true) // Explicit grant/deny
+  createdAt   DateTime @default(now())
+  createdBy   String?  // User who granted this permission
+  role        Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module, submodule, action], name: "roleId_module_submodule_action")
+  @@index([roleId])
+  @@index([module])
+  @@index([module, submodule, action])
+}
+
+// Audit log for permission changes
+model PermissionAuditLog {
+  id              String   @id @default(uuid())
+  actorId         String   // User who made the change
+  actorUsername   String
+  roleId          String
+  roleName        String
+  permissionPath  String   // Full path: "module.submodule.action"
+  oldValue        Json?    // Previous permission state
+  newValue        Json     // New permission state
+  changeType      String   // "grant", "revoke", "update", "bulk_update"
+  context         Json?    // Additional context (request path, IP, etc.)
+  createdAt       DateTime @default(now())
+
+  @@index([actorId])
+  @@index([roleId])
+  @@index([permissionPath])
+  @@index([createdAt])
+}
+
+// Audit log for sensitive action execution
+model ActionAuditLog {
+  id              String   @id @default(uuid())
+  userId          String
+  username        String
+  roleId          String
+  roleName        String
+  permissionUsed  String   // Permission that authorized this action
+  action          String   // Action performed: "create", "delete", "override", etc.
+  entityType      String   // Entity affected: "Transaction", "JournalEntry", etc.
+  entityId        String?  // ID of affected entity
+  requestPath     String   // API endpoint
+  requestMethod   String   // HTTP method
+  requestContext  Json?    // Additional request context
+  result          String   // "allowed", "denied", "refused"
+  createdAt       DateTime @default(now())
+
+  @@index([userId])
+  @@index([roleId])
+  @@index([permissionUsed])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 model RoleInviteLink {

@@ -3,7 +3,21 @@ import { z } from 'zod';
 import crypto from 'crypto';
 import prisma from '../prisma/client';
 import { hashPassword } from '../utils/password';
+import logger from '../utils/logger';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
+import {
+  getRolePermissions,
+  grantPermission,
+  revokePermission,
+  bulkUpdatePermissions,
+  getAllAvailablePermissions,
+  parsePermission,
+} from '../services/permissions/permission-service';
+import {
+  logPermissionChange,
+  getPermissionAuditLogs,
+} from '../services/permissions/audit-logger';
+import { resolveRolePermissions } from '../services/permissions/compatibility-resolver';
 
 const router = (express as any).Router();
 
@@ -30,32 +44,95 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       select: {
         id: true,
         name: true,
-        permissions: true,
-        defaultPassword: true, // Include defaultPassword for admin to see if password is set
+        permissions: true, // Legacy permissions
+        defaultPassword: true,
         createdAt: true,
         updatedAt: true,
         _count: {
           select: {
             users: true,
             inviteLinks: true,
+            rolePermissions: true, // Count explicit permissions
           },
         },
-      } as any, // Type assertion until Prisma client is regenerated
+      } as any,
     });
 
-    res.json(roles);
-  } catch (error) {
+    // Resolve permissions for each role (with backward compatibility)
+    const rolesWithPermissions = await Promise.all(
+      roles.map(async (role) => {
+        try {
+          // Safely extract legacy permissions from JSON
+          let legacyPermissions: string[] = [];
+          const permissionsValue = role.permissions;
+          if (permissionsValue) {
+            if (Array.isArray(permissionsValue)) {
+              // Type guard: ensure all elements are strings
+              const perms = permissionsValue as unknown[];
+              const filtered: string[] = perms.filter((p): p is string => typeof p === 'string');
+              legacyPermissions = filtered;
+            } else if (typeof permissionsValue === 'string') {
+              legacyPermissions = [permissionsValue];
+            }
+          }
+          
+          // Extract roleId and ensure types are explicit
+          // Type assertion needed because of 'as any' in select clause
+          // Convert to unknown first, then to string (as TypeScript suggests)
+          const roleId = role.id as unknown as string;
+          const permissionsArray: string[] = legacyPermissions;
+          
+          // Resolve explicit permissions (with error handling)
+          let explicitPermissions: string[] = [];
+          try {
+            explicitPermissions = await resolveRolePermissions(roleId, permissionsArray);
+          } catch (permError: any) {
+            // Log but don't fail the entire request - use empty array as fallback
+            console.error(`Failed to resolve permissions for role ${role.name}:`, permError.message);
+            explicitPermissions = [];
+          }
+          
+          return {
+            ...role,
+            explicitPermissions, // Include resolved explicit permissions
+            hasExplicitPermissions: (role._count as any).rolePermissions > 0,
+          };
+        } catch (roleError: any) {
+          // If individual role processing fails, return role without explicit permissions
+          console.error(`Error processing role ${role.name}:`, roleError.message);
+          return {
+            ...role,
+            explicitPermissions: [],
+            hasExplicitPermissions: false,
+          };
+        }
+      })
+    );
+
+    res.json(rolesWithPermissions);
+  } catch (error: any) {
     console.error('Get roles error:', error);
-    res.status(500).json({ error: 'Failed to fetch roles' });
+    console.error('Error stack:', error?.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch roles',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined
+    });
   }
 });
 
-// Get role by ID
+// Get role by ID with explicit permissions
 router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const role = await prisma.role.findUnique({
       where: { id: req.params.id },
       include: {
+        rolePermissions: {
+          orderBy: [
+            { module: 'asc' },
+            { submodule: 'asc' },
+            { action: 'asc' },
+          ],
+        },
         _count: {
           select: {
             users: true,
@@ -69,10 +146,256 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Role not found' });
     }
 
-    res.json(role);
+    // Resolve permissions (with backward compatibility)
+    let legacyPermissions: string[] = [];
+    const permissionsValue = role.permissions;
+    if (permissionsValue) {
+      if (Array.isArray(permissionsValue)) {
+        // Type guard: ensure all elements are strings
+        const perms = permissionsValue as unknown[];
+        legacyPermissions = perms.filter((p): p is string => typeof p === 'string');
+      } else if (typeof permissionsValue === 'string') {
+        legacyPermissions = [permissionsValue];
+      }
+    }
+    
+    // Extract roleId and ensure types are explicit
+    // Type assertion needed because of 'as any' in select clause
+    // Convert to unknown first, then to string (as TypeScript suggests)
+    const roleId = role.id as unknown as string;
+    const permissionsArray: string[] = legacyPermissions;
+    
+    // Resolve explicit permissions (with error handling)
+    let explicitPermissions: string[] = [];
+    try {
+      explicitPermissions = await resolveRolePermissions(roleId, permissionsArray);
+    } catch (permError: any) {
+      // Log but don't fail the entire request - use empty array as fallback
+      console.error(`Failed to resolve permissions for role ${role.name}:`, permError.message);
+      explicitPermissions = [];
+    }
+
+    res.json({
+      ...role,
+      explicitPermissions,
+      availablePermissions: getAllAvailablePermissions(),
+    });
   } catch (error) {
     console.error('Get role error:', error);
     res.status(500).json({ error: 'Failed to fetch role' });
+  }
+});
+
+// Get explicit permissions for a role
+router.get('/:id/permissions', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const permissions = await getRolePermissions(req.params.id);
+    res.json(permissions);
+  } catch (error) {
+    console.error('Get role permissions error:', error);
+    res.status(500).json({ error: 'Failed to fetch permissions' });
+  }
+});
+
+// Update role permissions (Admin only)
+router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { permissions } = z.object({
+      permissions: z.array(z.object({
+        module: z.string().min(1).max(50),
+        submodule: z.string().max(50).optional(),
+        action: z.string().min(1).max(50),
+        granted: z.boolean(),
+      })),
+    }).parse(req.body);
+
+    // Validate permission paths against available permissions
+    const availablePermissions = getAllAvailablePermissions();
+    const validModules = Object.keys(availablePermissions);
+    
+    for (const perm of permissions) {
+      // Validate module exists
+      if (!validModules.includes(perm.module)) {
+        return res.status(400).json({ 
+          error: 'Invalid module', 
+          module: perm.module,
+          validModules 
+        });
+      }
+      
+      // Validate action is standard or restricted
+      const standardActions = ['view', 'create', 'edit', 'delete', 'approve', 'export'];
+      const restrictedActions = ['override'];
+      const validActions = [...standardActions, ...restrictedActions];
+      
+      if (!validActions.includes(perm.action)) {
+        return res.status(400).json({ 
+          error: 'Invalid action', 
+          action: perm.action,
+          validActions 
+        });
+      }
+      
+      // Validate permission path format
+      const permissionPath = perm.submodule 
+        ? `${perm.module}.${perm.submodule}.${perm.action}`
+        : `${perm.module}.${perm.action}`;
+      
+      if (permissionPath.length > 255) {
+        return res.status(400).json({ 
+          error: 'Permission path too long', 
+          maxLength: 255 
+        });
+      }
+      
+      // Validate against alphanumeric + dots only
+      if (!/^[a-z0-9.]+$/.test(permissionPath)) {
+        return res.status(400).json({ 
+          error: 'Invalid permission path format', 
+          path: permissionPath,
+          message: 'Only lowercase letters, numbers, and dots allowed'
+        });
+      }
+    }
+
+    const role = await prisma.role.findUnique({
+      where: { id: req.params.id },
+    });
+
+    if (!role) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+
+    // Validate user is authenticated
+    if (!req.user || !req.user.id) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    const actorId = req.user.id;
+    const actorUsername = req.user.username || req.user.email || 'unknown';
+
+    // Get old permissions for audit
+    let oldPermissions: any[] = [];
+    try {
+      oldPermissions = await getRolePermissions(req.params.id);
+    } catch (oldPermError: any) {
+      console.warn(`Failed to fetch old permissions for role ${req.params.id}: ${oldPermError?.message}`);
+      // Continue without old permissions for audit - not critical
+    }
+
+    // Bulk update permissions
+    try {
+      await bulkUpdatePermissions(
+        req.params.id,
+        permissions,
+        actorId
+      );
+    } catch (bulkError: any) {
+      const errorDetails = {
+        message: bulkError?.message,
+        stack: bulkError?.stack,
+        code: bulkError?.code,
+        meta: bulkError?.meta,
+        permissions: permissions.length,
+        roleId: req.params.id,
+        actorId,
+      };
+      console.error(`Failed to bulk update permissions for role ${req.params.id}:`, errorDetails);
+      
+      // Preserve the original error message but add context
+      const errorMessage = bulkError?.message || 'Database error';
+      const errorCode = bulkError?.code || 'UNKNOWN';
+      throw new Error(`Failed to update permissions: ${errorMessage} (Code: ${errorCode})`);
+    }
+
+    // Log permission changes (non-blocking)
+    const logPromises = permissions.map(async (perm) => {
+      try {
+        const oldPerm = oldPermissions.find(
+          (p) => p.module === perm.module &&
+                 p.submodule === (perm.submodule || null) &&
+                 p.action === perm.action
+        );
+
+        await logPermissionChange({
+          actorId,
+          actorUsername,
+          roleId: role.id,
+          roleName: role.name,
+          permissionPath: perm.submodule
+            ? `${perm.module}.${perm.submodule}.${perm.action}`
+            : `${perm.module}.${perm.action}`,
+          oldValue: oldPerm ? { granted: oldPerm.granted } : null,
+          newValue: { granted: perm.granted },
+          changeType: oldPerm ? 'update' : 'bulk_update',
+          context: {
+            requestPath: req.path,
+            requestMethod: req.method,
+          },
+        });
+      } catch (logError: any) {
+        console.warn(`Failed to log permission change: ${logError?.message}`);
+        // Don't throw - logging failures shouldn't break the update
+      }
+    });
+    
+    // Wait for all logs, but don't fail if logging fails
+    await Promise.allSettled(logPromises);
+
+    // Get updated permissions
+    let updatedPermissions: any[] = [];
+    try {
+      updatedPermissions = await getRolePermissions(req.params.id);
+    } catch (fetchError: any) {
+      console.error(`Failed to fetch updated permissions for role ${req.params.id}: ${fetchError?.message}`);
+      // Return the permissions that were sent (assuming they were updated successfully)
+      // This is not ideal but better than returning an error after successful update
+      updatedPermissions = permissions.map(perm => ({
+        roleId: req.params.id,
+        module: perm.module,
+        submodule: perm.submodule || null,
+        action: perm.action,
+        granted: perm.granted,
+      }));
+    }
+
+    res.json(updatedPermissions);
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    const errorInfo = {
+      message: error?.message,
+      stack: error?.stack,
+      name: error?.name,
+      code: error?.code,
+      meta: error?.meta,
+      roleId: req.params.id,
+      userId: req.user?.id,
+    };
+    console.error('Update role permissions error:', errorInfo);
+    
+    const isDev = process.env.NODE_ENV === 'development';
+    res.status(500).json({ 
+      error: 'Failed to update permissions',
+      ...(isDev && {
+        details: error?.message,
+        code: error?.code,
+        stack: error?.stack,
+        errorType: error?.name,
+      }),
+    });
+  }
+});
+
+// Get permission audit logs
+router.get('/:id/audit-logs', authenticate, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const logs = await getPermissionAuditLogs(req.params.id, 100);
+    res.json(logs);
+  } catch (error) {
+    console.error('Get audit logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch audit logs' });
   }
 });
 

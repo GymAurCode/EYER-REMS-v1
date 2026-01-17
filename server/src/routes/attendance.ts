@@ -164,6 +164,90 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   }
 });
 
+// Get today's attendance for specific employee
+// NOTE: This route MUST be defined BEFORE /:id to prevent route collision
+router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
+  try {
+    const { employeeId } = req.query;
+
+    if (!employeeId || typeof employeeId !== 'string') {
+      return res.status(400).json({
+        success: false,
+        error: 'Employee ID is required',
+      });
+    }
+
+    // Check if employee exists and is not deleted
+    const employee = await prisma.employee.findUnique({
+      where: { id: employeeId },
+    });
+
+    if (!employee || employee.isDeleted) {
+      return res.status(404).json({
+        success: false,
+        error: 'Employee not found',
+      });
+    }
+
+    // Get today's date in server timezone (company timezone)
+    // Using UTC midnight for consistency - dates are stored in UTC
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+
+    const attendance = await prisma.attendance.findFirst({
+      where: {
+        employeeId,
+        date: { gte: today, lte: endOfDay },
+        isDeleted: false,
+      },
+      include: {
+        employee: {
+          select: {
+            id: true,
+            employeeId: true,
+            name: true,
+            department: true,
+          },
+        },
+      },
+    });
+
+    // AUTHORITATIVE STATE DERIVATION: Use AttendanceStateService to compute state from timestamps
+    const { AttendanceStateService } = await import('../services/attendance-state-service');
+    
+    if (!attendance) {
+      return res.json({
+        success: true,
+        data: null,
+        state: 'NOT_STARTED', // Explicit state when no record exists
+      });
+    }
+
+    // Compute state AFTER null check to ensure attendance exists
+    const state = AttendanceStateService.getAttendanceState(attendance);
+
+    // Return attendance with authoritative state computed from timestamps
+    res.json({
+      success: true,
+      data: {
+        ...attendance,
+        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
+        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
+        date: attendance.date.toISOString(),
+      },
+      state: state, // AUTHORITATIVE STATE: Derived from timestamps, not status field
+    });
+  } catch (error) {
+    console.error('Get today attendance error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch today\'s attendance',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 // Get attendance by ID
 router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -348,15 +432,35 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
     // STRICT STATE-DRIVEN VALIDATION
     const { AttendanceStateService } = await import('../services/attendance-state-service');
     const now = new Date();
-    const validation = await AttendanceStateService.validateCheckIn({
-      employeeId,
-      checkInTime: now,
-    });
+    let validation;
+    try {
+      validation = await AttendanceStateService.validateCheckIn({
+        employeeId,
+        checkInTime: now,
+      });
+    } catch (validationError: any) {
+      console.error('Check-in validation error:', {
+        employeeId,
+        error: validationError?.message,
+        stack: validationError?.stack,
+      });
+      return res.status(500).json({
+        success: false,
+        error: 'Validation service error',
+        message: validationError?.message || 'Failed to validate check-in',
+      });
+    }
 
     if (!validation.valid) {
+      console.warn('Check-in validation failed:', {
+        employeeId,
+        error: validation.error,
+        state: validation.state,
+      });
       return res.status(400).json({
         success: false,
         error: validation.error || 'Check-in validation failed',
+        state: validation.state,
       });
     }
 
@@ -755,89 +859,6 @@ router.delete('/:id', authenticate, async (req: AuthRequest, res: Response) => {
     res.status(500).json({
       success: false,
       error: 'Failed to delete attendance',
-      message: error instanceof Error ? error.message : 'Unknown error',
-    });
-  }
-});
-
-// Get today's attendance for specific employee
-router.get('/today', authenticate, async (req: AuthRequest, res: Response) => {
-  try {
-    const { employeeId } = req.query;
-
-    if (!employeeId || typeof employeeId !== 'string') {
-      return res.status(400).json({
-        success: false,
-        error: 'Employee ID is required',
-      });
-    }
-
-    // Check if employee exists
-    const employee = await prisma.employee.findUnique({
-      where: { id: employeeId },
-    });
-
-    if (!employee) {
-      return res.status(404).json({
-        success: false,
-        error: 'Employee not found',
-      });
-    }
-
-    // Get today's date in server timezone (company timezone)
-    // Using UTC midnight for consistency - dates are stored in UTC
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-    const endOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-
-    const attendance = await prisma.attendance.findFirst({
-      where: {
-        employeeId,
-        date: { gte: today, lte: endOfDay },
-        isDeleted: false,
-      },
-      include: {
-        employee: {
-          select: {
-            id: true,
-            employeeId: true,
-            name: true,
-            department: true,
-          },
-        },
-      },
-    });
-
-    // AUTHORITATIVE STATE DERIVATION: Use AttendanceStateService to compute state from timestamps
-    const { AttendanceStateService } = await import('../services/attendance-state-service');
-    
-    if (!attendance) {
-      return res.json({
-        success: true,
-        data: null,
-        state: 'NOT_STARTED', // Explicit state when no record exists
-      });
-    }
-
-    // Compute state AFTER null check to ensure attendance exists
-    const state = AttendanceStateService.getAttendanceState(attendance);
-
-    // Return attendance with authoritative state computed from timestamps
-    res.json({
-      success: true,
-      data: {
-        ...attendance,
-        checkIn: attendance.checkIn ? attendance.checkIn.toISOString() : null,
-        checkOut: attendance.checkOut ? attendance.checkOut.toISOString() : null,
-        date: attendance.date.toISOString(),
-      },
-      state: state, // AUTHORITATIVE STATE: Derived from timestamps, not status field
-    });
-  } catch (error) {
-    console.error('Get today attendance error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to fetch today\'s attendance',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
   }

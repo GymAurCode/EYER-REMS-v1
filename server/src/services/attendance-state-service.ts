@@ -69,11 +69,10 @@ export class AttendanceStateService {
     const employeeId = payload.employeeId;
     const checkInTime = payload.checkInTime || new Date();
 
-    // Get today's date range
-    const today = new Date(checkInTime);
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(checkInTime);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Get today's date range using UTC (matching route handler logic)
+    const nowForDate = new Date(checkInTime);
+    const today = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 23, 59, 59, 999));
 
     // Find existing attendance for today
     const attendance = await prisma.attendance.findFirst({
@@ -146,11 +145,10 @@ export class AttendanceStateService {
     const employeeId = payload.employeeId;
     const checkOutTime = payload.checkOutTime || new Date();
 
-    // Get today's date range
-    const today = new Date(checkOutTime);
-    today.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(checkOutTime);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Get today's date range using UTC (matching route handler logic)
+    const nowForDate = new Date(checkOutTime);
+    const today = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 0, 0, 0, 0));
+    const endOfDay = new Date(Date.UTC(nowForDate.getUTCFullYear(), nowForDate.getUTCMonth(), nowForDate.getUTCDate(), 23, 59, 59, 999));
 
     // Find existing attendance for today
     const attendance = await prisma.attendance.findFirst({
@@ -327,10 +325,9 @@ export class AttendanceStateService {
     employeeId: string,
     date: Date
   ): Promise<{ state: AttendanceState; attendance: AttendanceRecord | null }> {
-    const dateStart = new Date(date);
-    dateStart.setHours(0, 0, 0, 0);
-    const dateEnd = new Date(date);
-    dateEnd.setHours(23, 59, 59, 999);
+    // Use UTC for consistent date comparisons (matching route handler logic)
+    const dateStart = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 0, 0, 0, 0));
+    const dateEnd = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999));
 
     const attendance = await prisma.attendance.findFirst({
       where: {

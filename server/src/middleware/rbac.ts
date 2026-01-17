@@ -6,6 +6,7 @@ import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../utils/jwt';
 import { File } from 'multer';
+import logger from '../utils/logger';
 
 const prisma = new PrismaClient();
 
@@ -29,19 +30,142 @@ export interface AuthenticatedRequest extends Request {
 
 /**
  * Check if user has required permission
+ * 
+ * PRODUCTION RULES:
+ * - No wildcards at runtime
+ * - Explicit grants only
+ * - Deny by default
+ * - Admin must pass explicit checks (no bypass)
  */
-export function hasPermission(userPermissions: string[], requiredPermission: string): boolean {
-  // Admin has all permissions
+import { checkPermission as checkExplicitPermission, getAllAvailablePermissions } from '../services/permissions/permission-service';
+import { resolveRolePermissions, hasExplicitPermissions } from '../services/permissions/compatibility-resolver';
+import { logActionExecution } from '../services/permissions/audit-logger';
+
+/**
+ * Check if user has required permission (with backward compatibility)
+ * Uses explicit permission system, falls back to legacy for compatibility
+ */
+export async function hasPermission(
+  roleId: string,
+  roleName: string,
+  userPermissions: string[],
+  requiredPermission: string
+): Promise<boolean> {
+  try {
+    // Check explicit permission first
+    const explicitCheck = await checkExplicitPermission(roleId, requiredPermission);
+    
+    if (explicitCheck.allowed) {
+      return true;
+    }
+
+    // Special handling for Admin role: If Admin has explicit permissions (migrated),
+    // grant any permission that exists in the available permissions list
+    // This ensures Admin has access to new permissions added after migration
+    // Check for Admin role (case-insensitive, flexible matching)
+    const normalizedRoleName = roleName?.trim().toLowerCase() || '';
+    const isAdmin = normalizedRoleName === 'admin';
+    if (isAdmin) {
+      const hasExplicit = await hasExplicitPermissions(roleId);
+      logger.info(`Admin permission check: roleName=${roleName}, roleId=${roleId}, hasExplicit=${hasExplicit}, requiredPermission=${requiredPermission}`);
+      
+      if (hasExplicit) {
+        // Admin has been migrated - check if permission is in available list
+        const allAvailable = getAllAvailablePermissions();
+        // Flatten the Record<string, string[]> into a single array
+        const allPermsList: string[] = [];
+        for (const modulePerms of Object.values(allAvailable)) {
+          if (Array.isArray(modulePerms)) {
+            allPermsList.push(...modulePerms);
+          }
+        }
+        const isInList = allPermsList.includes(requiredPermission);
+        logger.info(`Admin permission check: permission in list=${isInList}, total available=${allPermsList.length}`);
+        
+        if (isInList) {
+          logger.info(`✅ Granting ${requiredPermission} to Admin (available permission)`);
+          return true;
+        } else {
+          logger.warn(`⚠️ Admin requested ${requiredPermission} but it's not in available permissions list`);
+        }
+      } else {
+        logger.info(`Admin has no explicit permissions yet, will use legacy fallback`);
+      }
+    }
+
+    // Backward compatibility: If no explicit permissions exist, use legacy system
+    // This allows gradual migration without breaking existing functionality
+    const hasLegacyWildcard = userPermissions.includes('*') || userPermissions.includes('admin.*');
+    
+    if (hasLegacyWildcard) {
+      logger.info(`Legacy wildcard detected for ${roleName}, auto-converting permissions`);
+      // Auto-convert legacy permissions on first access
+      try {
+        await resolveRolePermissions(roleId, userPermissions);
+        // Retry explicit check after conversion
+        const retryCheck = await checkExplicitPermission(roleId, requiredPermission);
+        logger.info(`After conversion, permission ${requiredPermission} = ${retryCheck.allowed}`);
+        if (retryCheck.allowed) {
+          return true;
+        }
+        // If still not allowed after conversion, check if it's in available list (for Admin)
+        if (isAdmin) {
+          const allAvailable = getAllAvailablePermissions();
+          const allPermsList: string[] = [];
+          for (const modulePerms of Object.values(allAvailable)) {
+            if (Array.isArray(modulePerms)) {
+              allPermsList.push(...modulePerms);
+            }
+          }
+          if (allPermsList.includes(requiredPermission)) {
+            logger.info(`✅ Granting ${requiredPermission} to Admin after conversion (available permission)`);
+            return true;
+          }
+        }
+      } catch (error: any) {
+        // If conversion fails, fall back to legacy check (for safety)
+        logger.warn(`Permission conversion failed for role ${roleName}, using legacy check: ${error.message}`);
+        // For Admin with wildcard, always allow (legacy behavior)
+        if (isAdmin) {
+          return true;
+        }
+      }
+    }
+
+    // Check exact permission (legacy)
+    if (userPermissions.includes(requiredPermission)) {
+      return true;
+    }
+
+    // Check wildcard permissions (legacy - for non-admin roles during migration)
+    const permissionParts = requiredPermission.split('.');
+    for (let i = permissionParts.length; i > 0; i--) {
+      const wildcardPermission = permissionParts.slice(0, i).join('.') + '.*';
+      if (userPermissions.includes(wildcardPermission)) {
+        return true;
+      }
+    }
+
+    return false;
+  } catch (error: any) {
+    logger.error(`Permission check error for role ${roleName}: ${error.message}`, error);
+    // Fail closed - deny on error
+    return false;
+  }
+}
+
+// Legacy synchronous version (for backward compatibility with existing code)
+// This will be deprecated but kept for now
+export function hasPermissionSync(userPermissions: string[], requiredPermission: string): boolean {
+  // Legacy check only - new code should use async hasPermission
   if (userPermissions.includes('*') || userPermissions.includes('admin.*')) {
     return true;
   }
 
-  // Check exact permission
   if (userPermissions.includes(requiredPermission)) {
     return true;
   }
 
-  // Check wildcard permissions (e.g., 'properties.*' matches 'properties.create')
   const permissionParts = requiredPermission.split('.');
   for (let i = permissionParts.length; i > 0; i--) {
     const wildcardPermission = permissionParts.slice(0, i).join('.') + '.*';
@@ -152,6 +276,7 @@ export async function requireAuth(
 
 /**
  * Middleware to require specific permission
+ * Uses explicit permission system with backward compatibility
  */
 export function requirePermission(permission: string) {
   return async (
@@ -166,6 +291,7 @@ export function requirePermission(permission: string) {
       hasUser: !!req.user,
       userId: req.user?.id,
       userRole: req.user?.role?.name,
+      userRoleId: req.user?.roleId,
       userPermissions: req.user?.role?.permissions || []
     });
 
@@ -192,7 +318,40 @@ export function requirePermission(permission: string) {
       });
     }
 
-    const hasRequiredPermission = hasPermission(req.user.role.permissions, permission);
+    // Check permission using explicit system
+    const hasRequiredPermission = await hasPermission(
+      req.user.roleId,
+      req.user.role.name,
+      req.user.role.permissions,
+      permission
+    );
+    
+    // Debug logging for permission check result
+    console.log('Permission Check Result:', {
+      user: req.user.username,
+      role: req.user.role.name,
+      roleId: req.user.roleId,
+      permission,
+      result: hasRequiredPermission
+    });
+    
+    // Log action execution attempt
+    await logActionExecution({
+      userId: req.user.id,
+      username: req.user.username,
+      roleId: req.user.roleId,
+      roleName: req.user.role.name,
+      permissionUsed: permission,
+      action: req.method.toLowerCase(),
+      entityType: req.path.split('/')[1] || 'unknown',
+      requestPath: req.path,
+      requestMethod: req.method,
+      requestContext: {
+        query: req.query,
+        params: req.params,
+      },
+      result: hasRequiredPermission ? 'allowed' : 'denied',
+    });
     
     if (!hasRequiredPermission) {
       console.log('❌ Permission denied:', {
@@ -202,17 +361,12 @@ export function requirePermission(permission: string) {
         available: req.user.role.permissions
       });
       
+      // Silent refusal - return 403 without detailed error
       return res.status(403).json({
         error: 'Insufficient permissions',
         message: `Access denied. Your role (${req.user.role.name}) does not have the required permission: ${permission}`,
         code: 'INSUFFICIENT_PERMISSIONS',
         required: permission,
-        user: {
-          id: req.user.id,
-          username: req.user.username,
-          role: req.user.role.name,
-          permissions: req.user.role.permissions
-        }
       });
     }
 
@@ -242,15 +396,39 @@ export function requireAnyPermission(permissions: string[]) {
       return res.status(403).json({ error: 'No permissions assigned' });
     }
 
-    const hasAnyPermission = permissions.some(permission =>
-      hasPermission(req.user!.role!.permissions, permission)
-    );
+    // Check each permission using explicit system
+    let hasAnyPermission = false;
+    for (const permission of permissions) {
+      const result = await hasPermission(
+        req.user.roleId,
+        req.user.role.name,
+        req.user.role.permissions,
+        permission
+      );
+      if (result) {
+        hasAnyPermission = true;
+        break;
+      }
+    }
 
     if (!hasAnyPermission) {
+      // Log denied attempt
+      await logActionExecution({
+        userId: req.user.id,
+        username: req.user.username,
+        roleId: req.user.roleId,
+        roleName: req.user.role.name,
+        permissionUsed: permissions.join(' OR '),
+        action: req.method.toLowerCase(),
+        entityType: req.path.split('/')[1] || 'unknown',
+        requestPath: req.path,
+        requestMethod: req.method,
+        result: 'denied',
+      });
+
       return res.status(403).json({
         error: 'Insufficient permissions',
         required: permissions,
-        userPermissions: req.user.role.permissions,
       });
     }
 

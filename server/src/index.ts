@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { validateEnv } from './utils/env-validation';
 import authRoutes from './routes/auth';
 import roleRoutes from './routes/roles';
+import permissionsRoutes from './routes/permissions';
 import notificationRoutes from './routes/notifications';
 import propertiesRoutes from './routes/properties';
 import unitsRoutes from './routes/units';
@@ -258,6 +259,7 @@ app.use('/api/bulk/excel', excelBulkRoutes);
 app.use('/api/recycle-bin', recycleBinRoutes);
 app.use('/api/construction', constructionRoutes);
 app.use('/api/ai-intelligence', aiIntelligenceRoutes);
+app.use('/api/permissions', permissionsRoutes);
 
 // Health check with DB connection test
 app.get('/api/health', async (req: Request, res: Response) => {
