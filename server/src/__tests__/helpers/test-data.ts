@@ -43,6 +43,8 @@ export async function cleanupDatabase(): Promise<void> {
   await prisma.payroll.deleteMany();
   await prisma.employee.deleteMany();
   
+  await prisma.voucherLine.deleteMany();
+  await prisma.voucher.deleteMany();
   await prisma.invoice.deleteMany();
   await prisma.payment.deleteMany();
   await prisma.transaction.deleteMany();
@@ -205,23 +207,20 @@ export async function createTestLead(data: {
  * Create test unit
  */
 export async function createTestUnit(data: {
-  unitNumber: string;
+  unitName: string;
   propertyId: string;
   blockId?: string;
-  type: string;
+  type?: string;
   status?: string;
-  rentAmount?: number;
-  unitCode?: string;
+  monthlyRent?: number;
 }) {
   return await prisma.unit.create({
     data: {
-      unitNumber: data.unitNumber,
+      unitName: data.unitName,
       propertyId: data.propertyId,
       blockId: data.blockId,
-      type: data.type,
-      status: data.status || 'Available',
-      rentAmount: data.rentAmount,
-      unitCode: data.unitCode || `unit-24-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: data.status || 'Vacant',
+      monthlyRent: data.monthlyRent,
     },
   });
 }
@@ -256,11 +255,11 @@ export async function createTestTenant(data: {
  */
 export async function createTestEmployee(data: {
   name: string;
-  email?: string;
+  email: string;
   phone?: string;
   position?: string;
   department?: string;
-  employeeCode?: string;
+  employeeId?: string;
   isActive?: boolean;
 }) {
   return await prisma.employee.create({
@@ -270,8 +269,8 @@ export async function createTestEmployee(data: {
       phone: data.phone,
       position: data.position || 'Staff',
       department: data.department || 'General',
-      employeeCode: data.employeeCode || `emp-24-${Math.floor(1000 + Math.random() * 9000)}`,
-      isActive: data.isActive !== false,
+      employeeId: data.employeeId || `emp-24-${Math.floor(1000 + Math.random() * 9000)}`,
+      status: data.isActive === false ? 'inactive' : 'active',
       salary: 50000,
     },
   });

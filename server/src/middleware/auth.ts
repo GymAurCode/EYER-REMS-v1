@@ -149,8 +149,15 @@ export const requireAdmin = async (
       return;
     }
 
+    // Use explicit select to avoid querying category column if it doesn't exist
     const role = await prisma.role.findUnique({
       where: { id: req.user.roleId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        // Don't select category - may not exist yet
+      },
     });
 
     // Case-insensitive check for Admin role
@@ -181,9 +188,15 @@ export const checkPermission = (requiredPermission: string) => {
         return;
       }
 
+      // Use explicit select to avoid querying category column if it doesn't exist
       const role = await prisma.role.findUnique({
         where: { id: req.user.roleId },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          permissions: true,
+          // Don't select category - may not exist yet
           rolePermissions: {
             where: {
               granted: true,

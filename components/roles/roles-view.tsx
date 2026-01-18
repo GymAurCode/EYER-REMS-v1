@@ -33,6 +33,8 @@ import {
   DollarSign,
   UserCircle,
   Home,
+  AlertTriangle,
+  Info,
 } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
@@ -44,6 +46,7 @@ import { PermissionInspectionPanel } from "./permission-inspection-panel"
 interface Role {
   id: string
   name: string
+  status?: string // PART 1: Role lifecycle state (ACTIVE | DEACTIVATED | SYSTEM_LOCKED)
   permissions: string[]
   explicitPermissions?: string[] // Explicit permissions from backend
   availablePermissions?: Record<string, string[]> // Available permissions structure
@@ -115,6 +118,8 @@ export function RolesView() {
   const [showNotifications, setShowNotifications] = useState(false)
   const [generatedInviteLink, setGeneratedInviteLink] = useState<string | null>(null)
   const [showInviteLinkDialog, setShowInviteLinkDialog] = useState(false)
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false)
+  const [deactivatingRole, setDeactivatingRole] = useState(false)
   const [notifications, setNotifications] = useState<any[]>([])
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const [pendingPermissions, setPendingPermissions] = useState<string[] | null>(null) // Track pending permission changes
@@ -613,6 +618,54 @@ export function RolesView() {
     }
   }
 
+  // PART 1: Handle role deactivation (hard block if users exist)
+  const handleDeactivateRole = async () => {
+    if (!selectedRole) return
+
+    // Hard block: Cannot deactivate if users exist
+    const activeUsersCount = selectedRole._count?.users || 0
+    if (activeUsersCount > 0) {
+      toast({
+        title: "Deactivation Blocked",
+        description: `Cannot deactivate role with ${activeUsersCount} active user(s). All users must be reassigned before deactivation.`,
+        variant: "destructive",
+      })
+      return
+    }
+
+    // No users, can deactivate immediately
+    try {
+      setDeactivatingRole(true)
+      await apiService.auth.deactivateRole(selectedRole.id, {
+        reason: 'Role deactivated by administrator',
+      })
+
+      toast({
+        title: "Success",
+        description: `Role "${selectedRole.name}" has been deactivated`,
+      })
+
+      // Refresh roles
+      await fetchRoles()
+      setShowDeactivateDialog(false)
+      
+      // Clear selection if deactivated role was selected
+      const updatedRoles = await apiService.auth.getRoles()
+      const updatedRole = (updatedRoles.data as Role[]).find(r => r.id === selectedRole.id)
+      if (updatedRole?.status === 'DEACTIVATED') {
+        setSelectedRole(updatedRole)
+      }
+    } catch (error: any) {
+      console.error("Failed to deactivate role:", error)
+      toast({
+        title: "Error",
+        description: error.response?.data?.error || error.response?.data?.message || "Failed to deactivate role",
+        variant: "destructive",
+      })
+    } finally {
+      setDeactivatingRole(false)
+    }
+  }
 
   // Check if role has access to a module (check pending permissions if available)
   const hasModuleAccess = (permissions: string[], module: string): boolean => {
@@ -851,13 +904,34 @@ export function RolesView() {
                   className={`p-3 cursor-pointer transition-all ${
                     selectedRole?.id === role.id
                       ? "bg-primary text-primary-foreground"
-                      : "hover:bg-muted"
+                      : role.status === 'DEACTIVATED' 
+                        ? "opacity-60 hover:opacity-80"
+                        : "hover:bg-muted"
                   }`}
                   onClick={() => setSelectedRole(role)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{role.name}</p>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className={`font-medium ${role.status === 'DEACTIVATED' ? 'line-through' : ''}`}>
+                          {role.name}
+                        </p>
+                        {role.status === 'SYSTEM_LOCKED' && (
+                          <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-300">
+                            System
+                          </Badge>
+                        )}
+                        {role.status === 'DEACTIVATED' && (
+                          <Badge variant="outline" className="text-xs bg-gray-100 text-gray-600 border-gray-300">
+                            Deactivated
+                          </Badge>
+                        )}
+                        {(!role.status || role.status === 'ACTIVE') && (
+                          <Badge variant="outline" className="text-xs bg-green-50 text-green-700 border-green-300">
+                            Active
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-xs opacity-70">
                         {role._count?.users || 0} users
                       </p>
@@ -921,10 +995,10 @@ export function RolesView() {
             </Button>
             {selectedRole && user?.role?.toLowerCase() === "admin" && (
               <>
-                <Button onClick={() => setShowInviteDialog(true)}>
-                  <LinkIcon className="h-4 w-4 mr-2" />
-                  Generate Invite Link
-                </Button>
+              <Button onClick={() => setShowInviteDialog(true)}>
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Generate Invite Link
+              </Button>
                 <Button 
                   variant="outline" 
                   onClick={() => setShowInspectionPanel(true)}
@@ -932,6 +1006,18 @@ export function RolesView() {
                   <Shield className="h-4 w-4 mr-2" />
                   Inspect Permissions
                 </Button>
+                {/* PART 1: Deactivate Role button (only for non-system roles) */}
+                {selectedRole.status !== 'SYSTEM_LOCKED' && 
+                 selectedRole.name?.toLowerCase() !== 'admin' &&
+                 selectedRole.status !== 'DEACTIVATED' && (
+                  <Button 
+                    variant="destructive"
+                    onClick={() => setShowDeactivateDialog(true)}
+                  >
+                    <X className="h-4 w-4 mr-2" />
+                    Deactivate Role
+                  </Button>
+                )}
               </>
             )}
           </div>
@@ -939,12 +1025,44 @@ export function RolesView() {
 
         {selectedRole ? (
           <div className="space-y-6">
+            {/* PART 2: System Role Warning for Admin */}
+            {selectedRole.status === 'SYSTEM_LOCKED' || selectedRole.name?.toLowerCase() === 'admin' ? (
+              <Card className="p-4 bg-yellow-50 border-yellow-200">
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-yellow-900 mb-1">System Role - Non-Editable</div>
+                    <div className="text-sm text-yellow-800">
+                      This role is system-locked and cannot be modified, deactivated, or deleted. 
+                      The Admin role maintains full access to ensure system integrity and prevent privilege loss.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : selectedRole.status === 'DEACTIVATED' ? (
+              <Card className="p-4 bg-gray-50 border-gray-200">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-gray-900 mb-1">Deactivated Role - Read Only</div>
+                    <div className="text-sm text-gray-700">
+                      This role is deactivated. Permissions are frozen and cannot be modified. 
+                      The role does not grant permissions at runtime.
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+
             {/* Module Access Toggles */}
-            <Card className="p-6">
+            <Card className={`p-6 ${(selectedRole.status === 'DEACTIVATED' || selectedRole.status === 'SYSTEM_LOCKED') ? 'opacity-60' : ''}`}>
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">
                     Module Access
+                    {(selectedRole.status === 'DEACTIVATED' || selectedRole.status === 'SYSTEM_LOCKED') && (
+                      <span className="ml-2 text-sm text-muted-foreground">(Read Only)</span>
+                    )}
                   </h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Toggle access to different modules for this role
@@ -1093,12 +1211,12 @@ export function RolesView() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h2 className="text-xl font-semibold text-foreground">
-                    Detailed Permissions
-                  </h2>
+                Detailed Permissions
+              </h2>
                   <p className="text-sm text-muted-foreground mt-1">
                     Manage granular permissions for modules and submodules
                   </p>
-                </div>
+              </div>
                 {pendingExplicitPermissions !== null && (
                   <div className="flex gap-2">
                     <Button
@@ -1797,6 +1915,153 @@ export function RolesView() {
           name={selectedRole.name}
         />
       )}
+
+      {/* PART 1: Deactivation Warning Modal */}
+      <Dialog open={showDeactivateDialog} onOpenChange={setShowDeactivateDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertTriangle className="h-5 w-5" />
+              Deactivate Role: {selectedRole?.name}
+            </DialogTitle>
+            <DialogDescription>
+              This action is irreversible. The role will be deactivated but not deleted.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* User Impact Summary */}
+            {selectedRole && (selectedRole._count?.users || 0) > 0 ? (
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-yellow-900 mb-2">User Impact</div>
+                    <div className="text-sm text-yellow-800 space-y-1">
+                      <p>This role has <strong>{selectedRole._count?.users || 0} active user(s)</strong> assigned to it.</p>
+                      <p className="mt-2 font-medium">All users must be reassigned to another role before deactivation can proceed.</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-blue-900 mb-1">No Active Users</div>
+                    <div className="text-sm text-blue-800">
+                      This role has no active users assigned. Deactivation will proceed immediately.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Audit Notice */}
+            <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <Shield className="h-5 w-5 text-gray-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <div className="font-semibold text-gray-900 mb-1">Audit Notice</div>
+                  <div className="text-sm text-gray-700 space-y-1">
+                    <p>• This action will be logged in the audit trail</p>
+                    <p>• Role permissions will be frozen at the time of deactivation</p>
+                    <p>• Deactivated roles will not grant permissions at runtime</p>
+                    <p>• Role history and audit logs will be preserved</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Required Reassignment Warning */}
+            {(selectedRole?._count?.users || 0) > 0 && (
+              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <X className="h-5 w-5 text-red-600 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-semibold text-red-900 mb-1">Reassignment Required</div>
+                    <div className="text-sm text-red-800 mb-3">
+                      All {selectedRole?._count?.users || 0} user(s) must be reassigned to another active role before this role can be deactivated.
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-xs text-red-700 font-medium">
+                        To reassign users, use the User Reassignment API endpoint:
+                      </p>
+                      <code className="block text-xs bg-red-50 p-2 rounded border border-red-200 text-red-800">
+                        POST /api/users/:userId/roles/reassign
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          if (!selectedRole) return
+                          
+                          // PART 1: Close modal and navigate with context
+                          setShowDeactivateDialog(false)
+                          
+                          // Navigate with query params and state
+                          const queryParams = new URLSearchParams({
+                            role: selectedRole.id,
+                            status: 'active',
+                            context: 'ROLE_DEACTIVATION',
+                            sourceRoleId: selectedRole.id,
+                            sourceRoleName: selectedRole.name,
+                            returnTo: `/roles`
+                          })
+                          
+                          router.push(`/users?${queryParams.toString()}`)
+                        }}
+                        className="w-full"
+                      >
+                        Close & View Users List
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeactivateDialog(false)}
+              disabled={deactivatingRole}
+            >
+              Cancel
+            </Button>
+            {/* PART 5: Block Deactivation UI - Disable confirm button until activeUsersCount === 0 */}
+            {(selectedRole?._count?.users || 0) === 0 ? (
+              <Button
+                variant="destructive"
+                onClick={handleDeactivateRole}
+                disabled={deactivatingRole}
+              >
+                {deactivatingRole ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Deactivating...
+                  </>
+                ) : (
+                  <>
+                    <X className="h-4 w-4 mr-2" />
+                    Confirm Deactivation
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                variant="outline"
+                disabled={true}
+                className="opacity-50 cursor-not-allowed"
+              >
+                Cannot Deactivate (Users Assigned)
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

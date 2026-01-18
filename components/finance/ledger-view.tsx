@@ -156,7 +156,9 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
       
       // Ensure entityName exists
       if (!data.entityName) {
-        data.entityName = `${type.charAt(0).toUpperCase() + type.slice(1)} ${id.substring(0, 8)}...`
+        const typeStr = type || "Entity"
+        const idStr = id || ""
+        data.entityName = `${typeStr.charAt(0).toUpperCase() + typeStr.slice(1)} ${idStr.substring(0, 8)}...`
       }
       
       // Ensure entityId exists
@@ -403,7 +405,9 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
                     <div className="flex items-center gap-2">
                       {selectedEntry.linkedEntityType && (
                         <Badge variant="outline">
-                          {selectedEntry.linkedEntityType.charAt(0).toUpperCase() + selectedEntry.linkedEntityType.slice(1)}
+                          {selectedEntry.linkedEntityType.charAt ? 
+                            selectedEntry.linkedEntityType.charAt(0).toUpperCase() + selectedEntry.linkedEntityType.slice(1) :
+                            String(selectedEntry.linkedEntityType)}
                         </Badge>
                       )}
                       <span className="font-medium">{selectedEntry.linkedEntityName || selectedEntry.linkedEntityId || "—"}</span>

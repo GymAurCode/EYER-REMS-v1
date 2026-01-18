@@ -157,15 +157,43 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
     }
   }
 
-  // Calculate totals
+  // Calculate totals including system-generated line
   const totals = useMemo(() => {
-    const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0)
-    const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0)
-    return { debit: totalDebit, credit: totalCredit, balance: Math.abs(totalDebit - totalCredit) }
-  }, [lines])
+    // User-entered lines only (exclude system lines)
+    const userLines = lines.filter((line) => line.accountId !== formData.accountId)
+    const userDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0)
+    const userCredit = userLines.reduce((sum, line) => sum + (line.credit || 0), 0)
+    
+    // Calculate system line amount
+    let systemDebit = 0
+    let systemCredit = 0
+    
+    if (formData.accountId && ['BPV', 'BRV', 'CPV', 'CRV'].includes(voucherTypeCode)) {
+      if (isPayment) {
+        // BPV/CPV: System credits bank/cash = sum of user debits
+        systemCredit = userDebit
+      } else {
+        // BRV/CRV: System debits bank/cash = sum of user credits
+        systemDebit = userCredit
+      }
+    }
+    
+    const totalDebit = userDebit + systemDebit
+    const totalCredit = userCredit + systemCredit
+    
+    return { 
+      debit: totalDebit, 
+      credit: totalCredit, 
+      balance: Math.abs(totalDebit - totalCredit),
+      userDebit,
+      userCredit,
+      systemDebit,
+      systemCredit,
+    }
+  }, [lines, formData.accountId, voucherTypeCode, isPayment])
 
   // Validate balance
-  const isBalanced = totals.balance < 0.01
+  const isBalanced = (totals?.balance || 0) < 0.01
 
   const addLine = () => {
     setLines([...lines, { id: Date.now().toString(), accountId: "", debit: 0, credit: 0, description: "" }])
@@ -210,51 +238,17 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
     }))
   }
 
-  // Auto-generate lines when primary account is selected
+  // Handle primary account change - no auto-setup needed, system line is calculated
   const handlePrimaryAccountChange = (accountId: string) => {
     setFormData({ ...formData, accountId })
     
-    // Auto-setup lines based on voucher type
-    if (lines.length === 1 && !lines[0].accountId) {
-      const newLines: VoucherLine[] = []
-      
-      if (isPayment) {
-        // BPV/CPV: Credit primary account, Debit expense (user will add lines)
-        newLines.push({
-          id: "1",
-          accountId: accountId,
-          debit: 0,
-          credit: 0,
-          description: `${isBank ? "Bank" : "Cash"} Payment`,
-        })
-        // Add one expense line
-        newLines.push({
-          id: "2",
-          accountId: "",
-          debit: 0,
-          credit: 0,
-          description: "Expense",
-        })
-      } else {
-        // BRV/CRV: Debit primary account, Credit income (user will add lines)
-        newLines.push({
-          id: "1",
-          accountId: accountId,
-          debit: 0,
-          credit: 0,
-          description: `${isBank ? "Bank" : "Cash"} Receipt`,
-        })
-        // Add one income line
-        newLines.push({
-          id: "2",
-          accountId: "",
-          debit: 0,
-          credit: 0,
-          description: "Income",
-        })
-      }
-      
-      setLines(newLines)
+    // Remove any existing system lines (user shouldn't manually add them)
+    const userLines = lines.filter((line) => line.accountId !== accountId)
+    if (userLines.length === 0) {
+      // Add one empty user line if none exist
+      setLines([{ id: Date.now().toString(), accountId: "", debit: 0, credit: 0, description: "" }])
+    } else {
+      setLines(userLines)
     }
   }
 
@@ -346,23 +340,64 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
       return
     }
 
-    // Enforce one-sided, non-zero lines at UI level before hitting backend
-    const hasInvalidLine = lines.some((line) => {
-      const debit = Number(line.debit || 0)
-      const credit = Number(line.credit || 0)
-      // Both sides > 0 OR both sides == 0 is invalid
-      return (debit > 0 && credit > 0) || (debit <= 0 && credit <= 0)
-    })
+    // Filter out system lines - only send user-entered lines
+    const userLines = lines.filter((line) => line.accountId !== formData.accountId)
 
-    if (hasInvalidLine) {
+    if (userLines.length === 0) {
       toast({
-        title: "Invalid line entries",
-        description: "Each line must have either Debit > 0 or Credit > 0 (but not both). Zero-value lines are not allowed.",
+        title: "At least one line required",
+        description: "Please add at least one line item",
         variant: "destructive",
       })
       return
     }
 
+    // Enforce voucher type rules at UI level
+    if (isPayment) {
+      // BPV/CPV: Only debit allowed, reject credit
+      const hasCredit = userLines.some((line) => (line.credit || 0) > 0)
+      if (hasCredit) {
+        toast({
+          title: "Invalid entry",
+          description: "Manual credit entries are not allowed in Bank/Cash Payment Voucher. Credit will be auto-posted to Bank/Cash.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      const hasDebit = userLines.some((line) => (line.debit || 0) > 0)
+      if (!hasDebit) {
+        toast({
+          title: "Debit required",
+          description: `${voucherTypeCode} requires at least one debit entry`,
+          variant: "destructive",
+        })
+        return
+      }
+    } else {
+      // BRV/CRV: Only credit allowed, reject debit
+      const hasDebit = userLines.some((line) => (line.debit || 0) > 0)
+      if (hasDebit) {
+        toast({
+          title: "Invalid entry",
+          description: "Manual debit entries are not allowed in Bank/Cash Receipt Voucher. Debit will be auto-posted to Bank/Cash.",
+          variant: "destructive",
+        })
+        return
+      }
+      
+      const hasCredit = userLines.some((line) => (line.credit || 0) > 0)
+      if (!hasCredit) {
+        toast({
+          title: "Credit required",
+          description: `${voucherTypeCode} requires at least one credit entry`,
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    // Validate balance (including system line)
     if (!isBalanced) {
       toast({
         title: "Entries must balance",
@@ -405,16 +440,8 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
     try {
       setLoading(true)
 
-      // Prepare lines - separate primary account line from others
-      const nonPrimaryLines = lines.filter((line) => line.accountId !== formData.accountId)
-      const primaryLine = lines.find((line) => line.accountId === formData.accountId)
-      
-      // Calculate totals from non-primary lines
-      const otherLinesDebit = nonPrimaryLines.reduce((sum, line) => sum + (line.debit || 0), 0)
-      const otherLinesCredit = nonPrimaryLines.reduce((sum, line) => sum + (line.credit || 0), 0)
-      
-      // Prepare non-primary lines
-      const preparedNonPrimaryLines = nonPrimaryLines.map((line) => ({
+      // CRITICAL: Only send user-entered lines (backend will auto-generate system line)
+      const preparedLines = userLines.map((line) => ({
         accountId: line.accountId,
         debit: line.debit || 0,
         credit: line.credit || 0,
@@ -422,62 +449,6 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
         propertyId: line.propertyId || formData.propertyId || undefined,
         unitId: line.unitId || formData.unitId || undefined,
       }))
-      
-      // Prepare primary account line - auto-calculate based on voucher type
-      let preparedPrimaryLine
-      if (primaryLine) {
-        // Primary account line exists, adjust it based on voucher type
-        if (isPayment) {
-          // Payment: Credit bank/cash, amount = total debit from expense lines
-          preparedPrimaryLine = {
-            accountId: formData.accountId,
-            debit: 0,
-            credit: otherLinesDebit,
-            description: primaryLine.description || `${isBank ? "Bank" : "Cash"} Payment`,
-          }
-        } else {
-          // Receipt: Debit bank/cash, amount = total credit from income lines
-          preparedPrimaryLine = {
-            accountId: formData.accountId,
-            debit: otherLinesCredit,
-            credit: 0,
-            description: primaryLine.description || `${isBank ? "Bank" : "Cash"} Receipt`,
-          }
-        }
-      } else {
-        // Primary account line missing, add it
-        if (isPayment) {
-          preparedPrimaryLine = {
-            accountId: formData.accountId,
-            debit: 0,
-            credit: otherLinesDebit,
-            description: `${isBank ? "Bank" : "Cash"} Payment`,
-          }
-        } else {
-          preparedPrimaryLine = {
-            accountId: formData.accountId,
-            debit: otherLinesCredit,
-            credit: 0,
-            description: `${isBank ? "Bank" : "Cash"} Receipt`,
-          }
-        }
-      }
-      
-      // Combine all lines
-      const preparedLines = [...preparedNonPrimaryLines, preparedPrimaryLine]
-
-      // Verify final balance
-      const finalDebit = preparedLines.reduce((sum, l) => sum + (l.debit || 0), 0)
-      const finalCredit = preparedLines.reduce((sum, l) => sum + (l.credit || 0), 0)
-      
-      if (Math.abs(finalDebit - finalCredit) > 0.01) {
-        toast({
-          title: "Balance error",
-          description: `Unable to balance entries. Debit: ${finalDebit.toFixed(2)}, Credit: ${finalCredit.toFixed(2)}`,
-          variant: "destructive",
-        })
-        return
-      }
 
       const voucherPayload = {
         type: voucherTypeCode,
@@ -491,7 +462,7 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
         payeeType: formData.payeeType || undefined,
         payeeId: formData.payeeId || undefined,
         dealId: formData.dealId || undefined,
-        lines: preparedLines,
+        lines: preparedLines, // Only user lines - backend auto-generates system line
         attachments: attachments.map((a) => ({
           url: a.url,
           name: a.name,
@@ -780,33 +751,76 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
 
               {/* Voucher-specific guidance */}
               {isPayment && (
-                <p className="text-sm text-muted-foreground">
-                  Enter amounts in Debit for expense or payable accounts. {isBank ? "Bank" : "Cash"} will be credited automatically.
-                </p>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-sm text-blue-800">
+                    Enter amounts in <strong>Debit</strong> for expense or payable accounts. {isBank ? "Bank" : "Cash"} will be <strong>credited automatically</strong> by the system.
+                  </AlertDescription>
+                </Alert>
               )}
               {isReceipt && (
-                <p className="text-sm text-muted-foreground">
-                  Enter amounts in Credit for income or receivable accounts. {isBank ? "Bank" : "Cash"} will be debited automatically.
-                </p>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-sm text-blue-800">
+                    Enter amounts in <strong>Credit</strong> for income or receivable accounts. {isBank ? "Bank" : "Cash"} will be <strong>debited automatically</strong> by the system.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {/* System-generated line preview */}
+              {formData.accountId && ['BPV', 'BRV', 'CPV', 'CRV'].includes(voucherTypeCode) && (
+                <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 bg-blue-50">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-sm font-semibold text-blue-800">System-Generated Line</span>
+                    <span className="text-xs px-2 py-0.5 bg-blue-200 text-blue-800 rounded">Auto-generated</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-sm">
+                    <div className="md:col-span-2">
+                      <span className="text-muted-foreground">Account:</span>
+                      <span className="ml-2 font-medium">
+                        {accounts.find((a: any) => a.id === formData.accountId)?.code || 'N/A'} - {accounts.find((a: any) => a.id === formData.accountId)?.name || 'N/A'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Debit:</span>
+                      <span className="ml-2 font-semibold">
+                        {(totals?.systemDebit || 0) > 0 ? `Rs ${(totals?.systemDebit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Rs 0.00'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Credit:</span>
+                      <span className="ml-2 font-semibold">
+                        {(totals?.systemCredit || 0) > 0 ? `Rs ${(totals?.systemCredit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Rs 0.00'}
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-blue-700 mt-2 italic">
+                    This line is automatically generated by the system and cannot be edited.
+                  </p>
+                </div>
               )}
 
               <div className="space-y-3">
                 {lines.map((line, index) => {
-                  const isPrimaryAccount = line.accountId === formData.accountId
+                  // Skip system lines in rendering (they're shown separately)
+                  if (line.accountId === formData.accountId) {
+                    return null
+                  }
+                  
                   const hasDebit = (line.debit || 0) > 0
                   const hasCredit = (line.credit || 0) > 0
-                  const debitDisabled = isPrimaryAccount || hasCredit
-                  const creditDisabled = isPrimaryAccount || hasDebit
+                  
+                  // Disable columns based on voucher type
+                  const debitDisabled = isReceipt // BRV/CRV: Debit disabled
+                  const creditDisabled = isPayment // BPV/CPV: Credit disabled
+                  
                   return (
                     <div key={line.id} className="border rounded-lg p-4 space-y-3">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium">Line {index + 1}</span>
-                          {isPrimaryAccount && (
-                            <span className="text-xs text-muted-foreground italic">Auto-generated system line</span>
-                          )}
                         </div>
-                        {lines.length > 1 && (
+                        {lines.filter((l) => l.accountId !== formData.accountId).length > 1 && (
                           <Button
                             type="button"
                             variant="ghost"
@@ -822,31 +836,24 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                         <div className="md:col-span-2 grid gap-2">
                           <div className="flex items-center gap-2">
                             <Label>Account *</Label>
-                            {isPrimaryAccount && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>This account is auto-selected based on voucher type and cannot be changed.</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                           </div>
                           <SearchableSelect
                             source="accounts"
                             value={line.accountId}
                             onChange={(value) => updateLine(line.id, "accountId", value || "")}
-                            placeholder={isPrimaryAccount ? "System-controlled account" : "Select expense, income, payable, or receivable account"}
+                            placeholder={isPayment ? "Select expense or payable account" : "Select income, receivable, or advance account"}
                             required
                             filters={{ postable: "true" }}
                             transform={(item: any) => {
-                              // Filter accounts based on voucher type and line position
+                              // Filter accounts based on voucher type
                               let isRelevant = true
                               
-                              if (isPrimaryAccount) {
-                                // Primary account already selected - disable it
-                                isRelevant = false
+                              // CRITICAL: Block bank/cash accounts from being selected in line items
+                              const isBankAccount = item.code?.startsWith("1112") || item.name?.toLowerCase().includes("bank")
+                              const isCashAccount = item.code?.startsWith("1111") || item.name?.toLowerCase().includes("cash")
+                              
+                              if (isBankAccount || isCashAccount) {
+                                isRelevant = false // System accounts cannot be manually added
                               } else if (isPayment) {
                                 // Payment: Only expense/liability
                                 isRelevant = item.type === "Expense" || item.type === "Liability"
@@ -861,104 +868,72 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                                 value: item.id,
                                 subtitle: item.type,
                                 metadata: item,
-                                disabled: !isRelevant, // Disable irrelevant accounts instead of returning null
+                                disabled: !isRelevant,
                               }
                             }}
                           />
-                          {isPrimaryAccount ? (
-                            <p className="text-xs text-muted-foreground">
-                              {isBank ? "Bank" : "Cash"} account is system-controlled for this voucher.
-                            </p>
-                          ) : line.accountId ? (
+                          {line.accountId ? (
                             <p className="text-xs text-muted-foreground">
                               This account represents where the amount is posted.
                             </p>
                           ) : null}
                         </div>
 
-                        <div className="grid gap-2">
-                          <div className="flex items-center gap-2">
-                            <Label>Debit</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Amount is entered using Debit or Credit. Only one side is allowed per line.</p>
-                              </TooltipContent>
-                            </Tooltip>
+                        {!isReceipt && (
+                          <div className="grid gap-2">
+                            <div className="flex items-center gap-2">
+                              <Label>Debit *</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Enter the amount to debit this account. Credit will be auto-posted to {isBank ? "Bank" : "Cash"}.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={line.debit || ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0
+                                updateLine(line.id, "debit", val)
+                              }}
+                              placeholder="Enter debit amount"
+                              required
+                            />
                           </div>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="w-full">
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={line.debit || ""}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0
-                                    updateLine(line.id, "debit", val)
-                                  }}
-                                  disabled={debitDisabled}
-                                  placeholder="Enter amount"
-                                  className={debitDisabled ? "cursor-not-allowed" : ""}
-                                />
-                              </div>
-                            </TooltipTrigger>
-                            {debitDisabled ? (
-                              <TooltipContent>
-                                <p>This amount is calculated automatically by the system.</p>
-                              </TooltipContent>
-                            ) : (
-                              <TooltipContent>
-                                <p>Enter the amount to debit this account. Credit will be set to zero.</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </div>
+                        )}
 
-                        <div className="grid gap-2">
-                          <div className="flex items-center gap-2">
-                            <Label>Credit</Label>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>Amount is entered using Debit or Credit. Only one side is allowed per line.</p>
-                              </TooltipContent>
-                            </Tooltip>
+                        {!isPayment && (
+                          <div className="grid gap-2">
+                            <div className="flex items-center gap-2">
+                              <Label>Credit *</Label>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Enter the amount to credit this account. Debit will be auto-posted to {isBank ? "Bank" : "Cash"}.</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </div>
+                            <Input
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={line.credit || ""}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0
+                                updateLine(line.id, "credit", val)
+                              }}
+                              placeholder="Enter credit amount"
+                              required
+                            />
                           </div>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="w-full">
-                                <Input
-                                  type="number"
-                                  step="0.01"
-                                  min="0"
-                                  value={line.credit || ""}
-                                  onChange={(e) => {
-                                    const val = parseFloat(e.target.value) || 0
-                                    updateLine(line.id, "credit", val)
-                                  }}
-                                  disabled={creditDisabled}
-                                  placeholder="Enter amount"
-                                  className={creditDisabled ? "cursor-not-allowed" : ""}
-                                />
-                              </div>
-                            </TooltipTrigger>
-                            {creditDisabled ? (
-                              <TooltipContent>
-                                <p>This amount is calculated automatically by the system.</p>
-                              </TooltipContent>
-                            ) : (
-                              <TooltipContent>
-                                <p>Enter the amount to credit this account. Debit will be set to zero.</p>
-                              </TooltipContent>
-                            )}
-                          </Tooltip>
-                        </div>
+                        )}
                       </div>
 
                       <div className="grid gap-2">
@@ -987,20 +962,38 @@ export function AddVoucherDialog({ open, onOpenChange, voucherType = "bank-payme
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <span className="text-muted-foreground">Total Debit:</span>
-                    <span className="ml-2 font-semibold">Rs {totals.debit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                <div className="space-y-2">
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">User Debit:</span>
+                      <span className="ml-2 font-semibold">Rs {(totals?.userDebit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">User Credit:</span>
+                      <span className="ml-2 font-semibold">Rs {(totals?.userCredit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">System {isPayment ? "Credit" : "Debit"}:</span>
+                      <span className="ml-2 font-semibold text-blue-600">
+                        Rs {(isPayment ? (totals?.systemCredit || 0) : (totals?.systemDebit || 0)).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
-                  <div>
-                    <span className="text-muted-foreground">Total Credit:</span>
-                    <span className="ml-2 font-semibold">Rs {totals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Difference:</span>
-                    <span className={cn("ml-2 font-semibold", isBalanced ? "text-green-600" : "text-red-600")}>
-                      Rs {totals.balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </span>
+                  <div className="border-t pt-2 grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-muted-foreground">Total Debit:</span>
+                      <span className="ml-2 font-semibold">Rs {(totals?.debit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Total Credit:</span>
+                      <span className="ml-2 font-semibold">Rs {(totals?.credit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-muted-foreground">Difference:</span>
+                      <span className={cn("ml-2 font-semibold", isBalanced ? "text-green-600" : "text-red-600")}>
+                        Rs {(totals?.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
                   </div>
                 </div>
 

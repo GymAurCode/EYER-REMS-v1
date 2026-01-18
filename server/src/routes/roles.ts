@@ -18,6 +18,7 @@ import {
   getPermissionAuditLogs,
 } from '../services/permissions/audit-logger';
 import { resolveRolePermissions } from '../services/permissions/compatibility-resolver';
+import { determineRoleCategory } from '../services/permissions/role-category';
 
 const router = (express as any).Router();
 
@@ -39,11 +40,12 @@ const generateInviteLinkSchema = z.object({
 // Get all roles
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const roles = await prisma.role.findMany({
+      const roles = await prisma.role.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
         id: true,
         name: true,
+        status: true, // PART 1: Role lifecycle state
         permissions: true, // Legacy permissions
         defaultPassword: true,
         createdAt: true,
@@ -125,7 +127,17 @@ router.get('/:id', authenticate, async (req: Request, res: Response) => {
   try {
     const role = await prisma.role.findUnique({
       where: { id: req.params.id },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        permissions: true,
+        defaultPassword: true,
+        createdAt: true,
+        updatedAt: true,
+        createdBy: true,
+        // Don't select category if column doesn't exist yet - will be determined dynamically
+        // category: true,
         rolePermissions: {
           orderBy: [
             { module: 'asc' },
@@ -269,6 +281,17 @@ router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthReque
     // Validate user is authenticated
     if (!req.user || !req.user.id) {
       return res.status(401).json({ error: 'User not authenticated' });
+    }
+
+    // PART 2: Admin Role Governance - Prevent permission modification
+    const roleStatus = (role as any).status || 'ACTIVE';
+    if (roleStatus === 'SYSTEM_LOCKED' || role.name.toLowerCase() === 'admin') {
+      logger.warn(`Security event: Attempt to modify permissions for system-locked role ${role.name} by user ${req.user.id}`);
+      return res.status(403).json({ 
+        error: 'Cannot modify system role permissions',
+        message: `The role "${role.name}" is system-locked and its permissions cannot be modified`,
+        isSystemRole: true,
+      });
     }
 
     const actorId = req.user.id;
@@ -437,6 +460,17 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
     // Check if role already exists
     let role = await prisma.role.findUnique({
       where: { name },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        permissions: true,
+        defaultPassword: true,
+        createdBy: true,
+        createdAt: true,
+        updatedAt: true,
+        // Don't select category - may not exist yet
+      },
     });
 
     // Hash password
@@ -446,23 +480,41 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
     if (!role) {
       // Default permissions if not provided
       const defaultPermissions = permissions || [];
+      
+      // PART 1: Determine role category (immutable after creation)
+      const category = determineRoleCategory(name);
 
       role = await prisma.role.create({
         data: {
           name,
+          status: 'ACTIVE', // PART 1: New roles default to ACTIVE
+          category, // PART 1: Set category on creation
           permissions: defaultPermissions,
           defaultPassword: hashedPassword, // Store the password with the role
           createdBy: req.user!.id,
         } as any, // Type assertion until Prisma client is regenerated
       });
     } else {
-      // If role exists, update its default password
-      role = await prisma.role.update({
-        where: { id: role.id },
-        data: {
-          defaultPassword: hashedPassword, // Update the default password
-        } as any, // Type assertion until Prisma client is regenerated
-      });
+      // If role exists, ensure it has a category (backfill if missing)
+      const existingRole = role as any;
+      if (!existingRole.category) {
+        const category = determineRoleCategory(name, existingRole.status);
+        role = await prisma.role.update({
+          where: { id: role.id },
+          data: {
+            category, // Backfill category if missing
+            defaultPassword: hashedPassword, // Update the default password
+          } as any,
+        });
+      } else {
+        // Just update the default password
+        role = await prisma.role.update({
+          where: { id: role.id },
+          data: {
+            defaultPassword: hashedPassword, // Update the default password
+          } as any, // Type assertion until Prisma client is regenerated
+        });
+      }
     }
 
     // Create user
@@ -511,15 +563,28 @@ router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Res
 
     const role = await prisma.role.findUnique({
       where: { id: req.params.id },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        permissions: true,
+        // Don't select category - may not exist yet
+      },
     });
 
     if (!role) {
       return res.status(404).json({ error: 'Role not found' });
     }
 
-    // Don't allow updating Admin role
-    if (role.name === 'Admin') {
-      return res.status(403).json({ error: 'Cannot update Admin role' });
+    // PART 2: Admin Role Governance - System Lock
+    const roleStatus = (role as any).status || 'ACTIVE';
+    if (roleStatus === 'SYSTEM_LOCKED' || role.name.toLowerCase() === 'admin') {
+      logger.warn(`Security event: Attempt to update system-locked role ${role.name} by user ${req.user?.id}`);
+      return res.status(403).json({ 
+        error: 'Cannot update system role',
+        message: `The role "${role.name}" is system-locked and cannot be modified`,
+        isSystemRole: true,
+      });
     }
 
     const updatedRole = await prisma.role.update({
@@ -566,6 +631,13 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
     // Check if role exists
     const role = await prisma.role.findUnique({
       where: { id: roleId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        defaultPassword: true,
+        // Don't select category - may not exist yet
+      },
     }) as any; // Type assertion until Prisma client is regenerated
 
     if (!role) {
@@ -831,6 +903,238 @@ router.get('/:id/users', authenticate, requireAdmin, async (req: Request, res: R
     res.status(500).json({ error: 'Failed to fetch users' });
   }
 });
+
+// PART 1: Hard Block Role Deactivation - No reassignment in same request
+router.post('/:id/deactivate', authenticate, requireAdmin, async (req: AuthRequest, res: Response) => {
+  try {
+    const { reason } = z.object({
+      reason: z.string().optional(),
+    }).parse(req.body);
+
+    const roleId = req.params.id;
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        // Don't select category - may not exist yet
+        users: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+          },
+        },
+      },
+    }) as any;
+
+    if (!role) {
+      return res.status(404).json({ error: 'Role not found' });
+    }
+
+    const roleStatus = role.status || 'ACTIVE';
+
+    // PART 2: Admin Role Governance - System Lock
+    if (roleStatus === 'SYSTEM_LOCKED' || role.name.toLowerCase() === 'admin') {
+      // Log security event
+      logger.warn(`Security event: Attempt to deactivate system-locked role ${role.name} by user ${req.user?.id}`);
+      return res.status(403).json({ 
+        error: 'Cannot deactivate system role',
+        message: `The role "${role.name}" is system-locked and cannot be deactivated`,
+        isSystemRole: true,
+      });
+    }
+
+    // PART 1: Deactivation Rules - Check if already deactivated
+    if (roleStatus === 'DEACTIVATED') {
+      return res.status(400).json({ 
+        error: 'Role already deactivated',
+        message: `The role "${role.name}" is already deactivated`,
+      });
+    }
+
+    // PART 1: Hard Block - Refuse deactivation if users are assigned
+    const affectedUsers = role.users || [];
+    const activeUsersCount = affectedUsers.length;
+    
+    if (activeUsersCount > 0) {
+      // Log the blocked attempt
+      logger.warn(`ROLE_DEACTIVATION_BLOCKED: Attempt to deactivate role ${role.name} (${roleId}) with ${activeUsersCount} active user(s) by user ${req.user?.id}`);
+      
+      return res.status(400).json({ 
+        error: 'ROLE_DEACTIVATION_BLOCKED',
+        message: `Cannot deactivate role with ${activeUsersCount} active user(s). All users must be reassigned to another role before deactivation.`,
+        roleId,
+        activeUsersCount,
+        affectedUsers: affectedUsers.map((u: any) => ({ id: u.id, username: u.username, email: u.email })),
+        requiresReassignment: true,
+      });
+    }
+
+    // PART 1: Update role status to DEACTIVATED (only if no users)
+    const updatedRole = await prisma.role.update({
+      where: { id: roleId },
+      data: {
+        status: 'DEACTIVATED',
+      } as any,
+    });
+
+    // PART 1: Mandatory Audit Logging
+    const actorId = req.user!.id;
+    const actorUsername = req.user!.username || req.user!.email || 'unknown';
+    
+    try {
+      await prisma.roleLifecycleAuditLog.create({
+        data: {
+          actorId,
+          actorUsername,
+          roleId: role.id,
+          roleName: role.name,
+          previousStatus: roleStatus,
+          newStatus: 'DEACTIVATED',
+          affectedUsers: affectedUsers.map((u: any) => ({ id: u.id, username: u.username, email: u.email })),
+          reassignmentMap: {}, // No reassignments in deactivation endpoint
+          reason: reason || 'Role deactivated by administrator',
+          context: {
+            requestPath: req.path,
+            requestMethod: req.method,
+            ip: req.ip,
+          },
+        } as any,
+      });
+    } catch (auditError: any) {
+      // Audit logging failure should rollback the transaction
+      logger.error(`Failed to create role lifecycle audit log: ${auditError.message}`);
+      // Rollback role status if audit logging fails
+      await prisma.role.update({ 
+        where: { id: roleId }, 
+        data: { status: roleStatus } as any 
+      });
+      return res.status(500).json({ 
+        error: 'Audit logging failed',
+        message: 'Role deactivation was rolled back due to audit logging failure',
+      });
+    }
+
+    logger.info(`Role ${role.name} (${roleId}) deactivated by ${actorUsername}. Affected users: ${affectedUsers.length}`);
+
+    res.json({
+      success: true,
+      role: {
+        id: updatedRole.id,
+        name: updatedRole.name,
+        status: 'DEACTIVATED',
+      },
+      affectedUsers: affectedUsers.length,
+    });
+  } catch (error: any) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
+    }
+    logger.error('Deactivate role error:', error);
+    res.status(500).json({ 
+      error: 'Failed to deactivate role',
+      details: process.env.NODE_ENV === 'development' ? error?.message : undefined,
+    });
+  }
+});
+
+// PART 1: No Orphan Users Rule - Helper function to validate user has ≥1 ACTIVE role
+// This should be called before any role removal operation
+async function validateUserHasActiveRole(userId: string): Promise<{ valid: boolean; error?: string }> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      role: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          // Don't select category - may not exist yet
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    return { valid: false, error: 'User not found' };
+  }
+
+  const roleStatus = (user.role as any).status || 'ACTIVE';
+  if (roleStatus !== 'ACTIVE') {
+    return { valid: false, error: `User's current role is ${roleStatus}, not ACTIVE` };
+  }
+
+  return { valid: true };
+}
+
+// PART 2: System Lock Admin Role on Startup/Migration
+// This ensures Admin role is always SYSTEM_LOCKED and has all permissions
+async function ensureAdminRoleLocked() {
+  try {
+    // Use explicit select to avoid querying category column if it doesn't exist
+    const adminRole = await prisma.role.findUnique({
+      where: { name: 'Admin' },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        // Don't select category - it may not exist yet
+        // category: true,
+      },
+    }) as any;
+
+    if (!adminRole) {
+      logger.warn('Admin role not found');
+      return;
+    }
+
+    // Ensure Admin is SYSTEM_LOCKED
+    if (adminRole.status !== 'SYSTEM_LOCKED') {
+      await prisma.role.update({
+        where: { id: adminRole.id },
+        data: { status: 'SYSTEM_LOCKED' } as any,
+      });
+      logger.info('Admin role locked as SYSTEM_LOCKED');
+    }
+
+    // Ensure Admin has all permissions explicitly granted
+    const { ensureAdminHasAllPermissions } = await import('../services/permissions/initialize-admin-permissions');
+    await ensureAdminHasAllPermissions();
+  } catch (error: any) {
+    // Check if error is due to missing category column
+    if (error.message?.includes('category') && error.message?.includes('does not exist')) {
+      logger.warn('Category column does not exist - migration may be pending. Admin role lock skipped category-related operations.');
+      // Try to continue without category
+      try {
+        const adminRole = await prisma.role.findUnique({
+          where: { name: 'Admin' },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        }) as any;
+        
+        if (adminRole && adminRole.status !== 'SYSTEM_LOCKED') {
+          await prisma.role.update({
+            where: { id: adminRole.id },
+            data: { status: 'SYSTEM_LOCKED' } as any,
+          });
+          logger.info('Admin role locked as SYSTEM_LOCKED (category migration pending)');
+        }
+      } catch (retryError: any) {
+        logger.warn(`Failed to lock Admin role after retry: ${retryError.message}`);
+      }
+    } else {
+      logger.warn(`Failed to lock Admin role: ${error.message}`);
+    }
+  }
+}
+
+// Call on module load
+ensureAdminRoleLocked().catch(() => {});
 
 export default router;
 

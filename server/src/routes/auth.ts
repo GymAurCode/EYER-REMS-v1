@@ -48,9 +48,20 @@ router.post('/login', async (req: Request, res: Response) => {
     const { email, password, deviceId: clientDeviceId } = loginSchema.parse(req.body);
 
     // Find user by email
+    // Use explicit select to avoid querying category column if it doesn't exist
     const user = await prisma.user.findUnique({
       where: { email },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -151,9 +162,20 @@ router.post('/role-login', async (req: Request, res: Response) => {
     const { username, password, deviceId: clientDeviceId } = roleLoginSchema.parse(req.body);
 
     // Find user by username
+    // Use explicit select to avoid querying category column if it doesn't exist
     const user = await prisma.user.findUnique({
       where: { username },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -266,9 +288,20 @@ router.post('/invite-login', async (req: Request, res: Response) => {
     const { token, password, username: providedUsername, deviceId: clientDeviceId } = inviteLoginSchema.parse(req.body);
 
     // Find invite link
+    // Use explicit select to avoid querying category column if it doesn't exist
     const inviteLink = await prisma.roleInviteLink.findUnique({
       where: { token },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!inviteLink) {
@@ -303,9 +336,20 @@ router.post('/invite-login', async (req: Request, res: Response) => {
     }
 
     // Check if user already exists
+    // Use explicit select to avoid querying category column if it doesn't exist
     let user = await prisma.user.findUnique({
       where: { email: inviteLink.email },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (user) {
@@ -316,7 +360,17 @@ router.post('/invite-login', async (req: Request, res: Response) => {
           password: inviteLink.password, // Already hashed
           roleId: inviteLink.roleId,
         },
-        include: { role: true },
+        include: {
+          role: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              permissions: true,
+              // Don't select category - may not exist yet
+            },
+          },
+        },
       });
     } else {
       // Create new user
@@ -327,7 +381,17 @@ router.post('/invite-login', async (req: Request, res: Response) => {
           password: inviteLink.password, // Already hashed
           roleId: inviteLink.roleId,
         },
-        include: { role: true },
+        include: {
+          role: {
+            select: {
+              id: true,
+              name: true,
+              status: true,
+              permissions: true,
+              // Don't select category - may not exist yet
+            },
+          },
+        },
       });
     }
 
@@ -436,7 +500,18 @@ router.get('/me', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const user = await prisma.user.findUnique({
       where: { id: req.user!.id },
-      include: { role: true },
+      include: { 
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category if column doesn't exist yet
+            // category: true,
+          },
+        },
+      },
     });
 
     if (!user) {
@@ -472,9 +547,20 @@ router.post('/refresh', async (req: Request, res: Response) => {
     }
 
     // Get user
+    // Use explicit select to avoid querying category column if it doesn't exist
     const user = await prisma.user.findUnique({
       where: { id: verification.userId },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!user) {

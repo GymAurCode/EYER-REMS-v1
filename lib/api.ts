@@ -1059,6 +1059,16 @@ export const apiService = {
       api.post('/auth/logout', data || {}),
     getMe: () => api.get('/auth/me'),
     getRoles: () => api.get('/roles'),
+    deactivateRole: (id: string, data: { reason?: string }) =>
+      api.post(`/roles/${id}/deactivate`, data),
+    reassignUserRole: (userId: string, data: { fromRoleId: string, toRoleId: string, reason?: string }) =>
+      api.post(`/users/${userId}/roles/reassign`, data),
+    getUsers: (roleId?: string, status?: string) => {
+      const params = new URLSearchParams()
+      if (roleId) params.append('role', roleId)
+      if (status) params.append('status', status)
+      return api.get(`/users?${params.toString()}`)
+    },
     getRoleById: (id: string) => api.get(`/roles/${id}`),
     getRolePermissions: (id: string) => api.get(`/roles/${id}/permissions`),
     updateRolePermissions: (id: string, permissions: Array<{

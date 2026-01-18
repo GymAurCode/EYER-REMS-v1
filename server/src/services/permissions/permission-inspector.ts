@@ -107,6 +107,7 @@ export interface PermissionInspectionResult {
     type: 'role' | 'user';
     id: string;
     name: string;
+    status?: string; // PART 3: Role status (ACTIVE | DEACTIVATED | SYSTEM_LOCKED)
     roles?: string[]; // For user inspections
   };
   inspectionMetadata: {
@@ -235,9 +236,15 @@ export async function inspectRolePermissions(
   try {
     let role;
     try {
+      // Use explicit select to avoid querying category column if it doesn't exist
       role = await prisma.role.findUnique({
         where: { id: roleId },
-        include: {
+        select: {
+          id: true,
+          name: true,
+          status: true,
+          permissions: true,
+          // Don't select category - may not exist yet
           rolePermissions: true,
           users: {
             select: {
@@ -257,6 +264,17 @@ export async function inspectRolePermissions(
 
     if (!role) {
       throw new Error(`Role ${roleId} not found`);
+    }
+
+    // PART 3: Include role status in inspection
+    const roleStatus = (role as any).status || 'ACTIVE';
+    const isDeactivated = roleStatus === 'DEACTIVATED';
+    const isSystemLocked = roleStatus === 'SYSTEM_LOCKED';
+
+    // PART 3: Add warning if role is deactivated
+    const warnings: string[] = [];
+    if (isDeactivated) {
+      warnings.push(`Role "${role.name}" is DEACTIVATED. Permissions are frozen and not granted at runtime.`);
     }
 
     // Get legacy permissions for compatibility resolution
@@ -286,7 +304,7 @@ export async function inspectRolePermissions(
 
   // Build permission inspection details
   const modules: Record<string, ModuleInspection> = {};
-  const warnings: string[] = [];
+  // Warnings already initialized above with deactivation warning
   let totalPermissions = 0;
   let effectiveAllowedCount = 0; // Runtime effective access
   let explicitlyDefinedCount = 0; // Explicitly granted or denied
@@ -604,6 +622,7 @@ export async function inspectRolePermissions(
       type: 'role',
       id: role.id,
       name: role.name,
+      status: roleStatus, // PART 3: Include role status
     },
     inspectionMetadata: {
       timestamp: new Date(),
@@ -616,14 +635,14 @@ export async function inspectRolePermissions(
       modules,
       summary: {
         totalPermissions,
-        effectiveAllowed: effectiveAllowedCount,
+        effectiveAllowed: isDeactivated ? 0 : effectiveAllowedCount, // PART 3: Deactivated roles have 0 effective access
         explicitlyDefined: explicitlyDefinedCount,
         systemRestricted: systemRestrictedCount,
         sensitive: sensitiveCount,
         cannotDetermine: cannotDetermineCount,
       },
     },
-    warnings,
+    warnings, // PART 3: Already includes deactivation warning
   };
   } catch (error: any) {
     logger.error(`Error in inspectRolePermissions for role ${roleId}:`, {
@@ -692,7 +711,17 @@ export async function logInspectionEvent(
     // Get inspector's role for logging
     const inspector = await prisma.user.findUnique({
       where: { id: inspectorId },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     // Log to ActionAuditLog

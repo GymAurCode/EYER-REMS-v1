@@ -66,15 +66,18 @@ export function AccountingView() {
     }
   }
 
-  const getStatusBadge = (status: VoucherStatus) => {
-    const variants: Record<VoucherStatus, "default" | "secondary" | "outline" | "destructive"> = {
+  const getStatusBadge = (status: VoucherStatus | string | undefined) => {
+    if (!status) {
+      return <Badge variant="outline">Unknown</Badge>
+    }
+    const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       draft: "outline",
       submitted: "secondary",
       approved: "default",
       posted: "default",
       reversed: "destructive",
     }
-    const colors: Record<VoucherStatus, string> = {
+    const colors: Record<string, string> = {
       draft: "bg-gray-100 text-gray-800",
       submitted: "bg-blue-100 text-blue-800",
       approved: "bg-green-100 text-green-800",
@@ -82,23 +85,48 @@ export function AccountingView() {
       reversed: "bg-red-100 text-red-800",
     }
     return (
-      <Badge variant={variants[status]} className={colors[status]}>
+      <Badge variant={variants[status] || "outline"} className={colors[status] || "bg-gray-100 text-gray-800"}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </Badge>
     )
   }
 
+  // Helper to format date
+  const formatVoucherDate = (date: string | Date | undefined, fallback?: Date) => {
+    if (!date && !fallback) return "N/A"
+    try {
+      const dateObj = date ? new Date(date) : (fallback || new Date())
+      return dateObj.toISOString().split("T")[0]
+    } catch {
+      return "N/A"
+    }
+  }
+
+  // Helper to get payee name
+  const getPayeeName = (voucher: any) => {
+    if (voucher.payeeType && voucher.payeeId) {
+      // Try to get actual payee name from related entity
+      if (voucher.payeeType === "Tenant" && voucher.payee?.name) return voucher.payee.name
+      if (voucher.payeeType === "Client" && voucher.payee?.name) return voucher.payee.name
+      if (voucher.payeeType === "Employee" && voucher.payee?.name) return voucher.payee.name
+      if (voucher.payeeType === "Dealer" && voucher.payee?.name) return voucher.payee.name
+      return `${voucher.payeeType} (${voucher.payeeId.substring(0, 8)}...)`
+    }
+    return voucher.description || "N/A"
+  }
+
   // Filter vouchers by type
   const bankPaymentVouchers = useMemo(() => {
+    if (!Array.isArray(vouchers)) return []
     return vouchers
-      .filter((v) => v.type === "BPV")
+      .filter((v) => v && v.type === "BPV")
       .map((v) => ({
         ...v,
         id: v.id,
         voucherNumber: v.voucherNumber || v.id,
-        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
-        payee: v.payeeType && v.payeeId ? `${v.payeeType}: ${v.payeeId}` : v.description || "Payee",
-        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        date: formatVoucherDate(v.date, v.createdAt),
+        payee: getPayeeName(v),
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         amountRaw: v.amount || 0,
         description: v.description || "Bank payment",
         status: (v.status || "draft") as VoucherStatus,
@@ -107,15 +135,16 @@ export function AccountingView() {
   }, [vouchers])
 
   const bankReceiptVouchers = useMemo(() => {
+    if (!Array.isArray(vouchers)) return []
     return vouchers
-      .filter((v) => v.type === "BRV")
+      .filter((v) => v && v.type === "BRV")
       .map((v) => ({
         ...v,
         id: v.id,
         voucherNumber: v.voucherNumber || v.id,
-        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        date: formatVoucherDate(v.date, v.createdAt),
         from: v.description || v.account?.name || "Customer",
-        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         amountRaw: v.amount || 0,
         description: v.description || "Bank receipt",
         status: (v.status || "draft") as VoucherStatus,
@@ -130,9 +159,9 @@ export function AccountingView() {
         ...v,
         id: v.id,
         voucherNumber: v.voucherNumber || v.id,
-        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+        date: formatVoucherDate(v.date, v.createdAt),
         from: v.description || v.account?.name || "Customer",
-        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         amountRaw: v.amount || 0,
         description: v.description || "Cash receipt",
         status: (v.status || "draft") as VoucherStatus,
@@ -141,15 +170,16 @@ export function AccountingView() {
   }, [vouchers])
 
   const cashPaymentVouchers = useMemo(() => {
+    if (!Array.isArray(vouchers)) return []
     return vouchers
-      .filter((v) => v.type === "CPV")
+      .filter((v) => v && v.type === "CPV")
       .map((v) => ({
         ...v,
         id: v.id,
         voucherNumber: v.voucherNumber || v.id,
-        date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
-        payee: v.payeeType && v.payeeId ? `${v.payeeType}: ${v.payeeId}` : v.description || "Payee",
-        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN")}`,
+        date: formatVoucherDate(v.date, v.createdAt),
+        payee: getPayeeName(v),
+        amount: `Rs ${Number(v.amount || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
         amountRaw: v.amount || 0,
         description: v.description || "Cash payment",
         status: (v.status || "draft") as VoucherStatus,
@@ -158,19 +188,24 @@ export function AccountingView() {
   }, [vouchers])
 
   const journalVouchers = useMemo(() => {
+    if (!Array.isArray(vouchers)) return []
     return vouchers
-      .filter((v) => v.type === "JV")
+      .filter((v) => v && v.type === "JV")
       .map((v) => {
-        const totalDebit = v.lines?.reduce((sum: number, line: any) => sum + (line.debit || 0), 0) || 0
-        const totalCredit = v.lines?.reduce((sum: number, line: any) => sum + (line.credit || 0), 0) || 0
+        const totalDebit = Array.isArray(v.lines) 
+          ? v.lines.reduce((sum: number, line: any) => sum + (line?.debit || 0), 0) 
+          : 0
+        const totalCredit = Array.isArray(v.lines) 
+          ? v.lines.reduce((sum: number, line: any) => sum + (line?.credit || 0), 0) 
+          : 0
         return {
           ...v,
           id: v.id,
           voucherNumber: v.voucherNumber || v.id,
-          date: new Date(v.date || v.createdAt).toISOString().split("T")[0],
+          date: formatVoucherDate(v.date, v.createdAt),
           description: v.description || "Journal entry",
-          debit: `Rs ${totalDebit.toLocaleString("en-IN")}`,
-          credit: `Rs ${totalCredit.toLocaleString("en-IN")}`,
+          debit: `Rs ${totalDebit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+          credit: `Rs ${totalCredit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
           status: (v.status || "draft") as VoucherStatus,
           linesCount: v.lines?.length || 0,
         }

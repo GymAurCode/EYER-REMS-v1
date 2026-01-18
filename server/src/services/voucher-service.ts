@@ -58,12 +58,27 @@ export interface UpdateVoucherPayload {
 
 export class VoucherService {
   /**
+   * Check if an account is a bank account
+   */
+  private static isBankAccount(accountCode: string): boolean {
+    return accountCode.startsWith('1112') || accountCode.startsWith('111201') || accountCode.startsWith('111202');
+  }
+
+  /**
+   * Check if an account is a cash account
+   */
+  private static isCashAccount(accountCode: string): boolean {
+    return accountCode.startsWith('1111') || accountCode.startsWith('111101') || accountCode.startsWith('111102');
+  }
+
+  /**
    * Validate voucher type-specific rules
+   * CRITICAL: This validates USER-SUBMITTED lines only. System-generated lines are added separately.
    */
   private static async validateVoucherTypeRules(
     type: VoucherType,
     accountId: string,
-    lines: VoucherLineInput[],
+    userLines: VoucherLineInput[], // Only user-submitted lines (excluding system lines)
     tx: Prisma.TransactionClient
   ): Promise<void> {
     const account = await tx.account.findUnique({
@@ -78,33 +93,50 @@ export class VoucherService {
     // Validate account is postable
     await AccountValidationService.validateAccountPostable(accountId);
 
-    // Calculate totals
-    const totalDebit = lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-    const totalCredit = lines.reduce((sum, line) => sum + (line.credit || 0), 0);
+    // CRITICAL: Reject any manual bank/cash account lines
+    for (const line of userLines) {
+      const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
+      if (!lineAccount) {
+        throw new Error(`Line account not found: ${line.accountId}`);
+      }
 
-    // Validate double-entry balance
-    if (Math.abs(totalDebit - totalCredit) > 0.01) {
-      throw new Error(
-        `Double-entry validation failed: Total Debit (${totalDebit.toFixed(2)}) must equal Total Credit (${totalCredit.toFixed(2)})`
-      );
+      // Block manual bank/cash entries for BPV/BRV/CPV/CRV
+      if (['BPV', 'BRV', 'CPV', 'CRV'].includes(type)) {
+        const isBank = this.isBankAccount(lineAccount.code);
+        const isCash = this.isCashAccount(lineAccount.code);
+        
+        if (isBank || isCash) {
+          throw new Error(
+            `System account lines cannot be submitted from UI. ${type} automatically generates the ${isBank ? 'bank' : 'cash'} account line.`
+          );
+        }
+      }
     }
 
     switch (type) {
       case 'BPV': // Bank Payment Voucher
-        // BPV: Credit Bank, Debit Expense/Payable
-        // Validate account is a bank account
-        if (!account.code.startsWith('1112') && !account.code.startsWith('111201') && !account.code.startsWith('111202')) {
+        // BPV: User enters DEBIT only, system auto-generates CREDIT to bank
+        if (!this.isBankAccount(account.code)) {
           throw new Error(`BPV requires a bank account. Account ${account.code} (${account.name}) is not a bank account.`);
         }
-        // Validate all lines debit (expense/payable accounts)
-        for (const line of lines) {
+        
+        // Validate all user lines are DEBIT only (no credit allowed)
+        for (const line of userLines) {
           const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
           if (!lineAccount) {
             throw new Error(`Line account not found: ${line.accountId}`);
           }
+          
+          // Reject credit entries
+          if (line.credit > 0) {
+            throw new Error('Manual credit entries are not allowed in Bank Payment Voucher. Credit will be auto-posted to Bank.');
+          }
+          
+          // Require debit entries
           if (line.debit <= 0) {
             throw new Error(`BPV line items must have debit amounts (expense/payable accounts)`);
           }
+          
           // Validate account type is expense or liability
           if (lineAccount.type !== 'Expense' && lineAccount.type !== 'Liability') {
             throw new Error(
@@ -112,28 +144,31 @@ export class VoucherService {
             );
           }
         }
-        // Validate bank account is credited
-        const bankLine = lines.find((l) => l.accountId === accountId);
-        if (!bankLine || bankLine.credit <= 0) {
-          throw new Error(`BPV must credit bank account ${account.code}`);
-        }
         break;
 
       case 'BRV': // Bank Receipt Voucher
-        // BRV: Debit Bank, Credit Income/Receivable
-        // Validate account is a bank account
-        if (!account.code.startsWith('1112') && !account.code.startsWith('111201') && !account.code.startsWith('111202')) {
+        // BRV: User enters CREDIT only, system auto-generates DEBIT to bank
+        if (!this.isBankAccount(account.code)) {
           throw new Error(`BRV requires a bank account. Account ${account.code} (${account.name}) is not a bank account.`);
         }
-        // Validate all lines credit (income/receivable accounts)
-        for (const line of lines) {
+        
+        // Validate all user lines are CREDIT only (no debit allowed)
+        for (const line of userLines) {
           const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
           if (!lineAccount) {
             throw new Error(`Line account not found: ${line.accountId}`);
           }
+          
+          // Reject debit entries
+          if (line.debit > 0) {
+            throw new Error('Manual debit entries are not allowed in Bank Receipt Voucher. Debit will be auto-posted to Bank.');
+          }
+          
+          // Require credit entries
           if (line.credit <= 0) {
             throw new Error(`BRV line items must have credit amounts (income/receivable accounts)`);
           }
+          
           // Validate account type is revenue, asset (receivable), or liability (advance)
           if (!['Revenue', 'Asset', 'Liability'].includes(lineAccount.type)) {
             throw new Error(
@@ -141,86 +176,94 @@ export class VoucherService {
             );
           }
         }
-        // Validate bank account is debited
-        const bankDebitLine = lines.find((l) => l.accountId === accountId);
-        if (!bankDebitLine || bankDebitLine.debit <= 0) {
-          throw new Error(`BRV must debit bank account ${account.code}`);
-        }
         break;
 
       case 'CPV': // Cash Payment Voucher
-        // CPV: Credit Cash, Debit Expense
-        // Validate account is a cash account
-        if (!account.code.startsWith('1111') && !account.code.startsWith('111101') && !account.code.startsWith('111102')) {
+        // CPV: User enters DEBIT only, system auto-generates CREDIT to cash
+        if (!this.isCashAccount(account.code)) {
           throw new Error(`CPV requires a cash account. Account ${account.code} (${account.name}) is not a cash account.`);
         }
-        // Validate all lines debit (expense accounts)
-        for (const line of lines) {
+        
+        // Validate all user lines are DEBIT only (no credit allowed)
+        for (const line of userLines) {
           const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
           if (!lineAccount) {
             throw new Error(`Line account not found: ${line.accountId}`);
           }
+          
+          // Reject credit entries
+          if (line.credit > 0) {
+            throw new Error('Manual credit entries are not allowed in Cash Payment Voucher. Credit will be auto-posted to Cash.');
+          }
+          
+          // Require debit entries
           if (line.debit <= 0) {
             throw new Error(`CPV line items must have debit amounts (expense accounts)`);
           }
+          
           if (lineAccount.type !== 'Expense' && lineAccount.type !== 'Liability') {
             throw new Error(
               `CPV line account must be Expense or Liability. ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
             );
           }
         }
-        // Validate cash account is credited
-        const cashLine = lines.find((l) => l.accountId === accountId);
-        if (!cashLine || cashLine.credit <= 0) {
-          throw new Error(`CPV must credit cash account ${account.code}`);
-        }
         break;
 
       case 'CRV': // Cash Receipt Voucher
-        // CRV: Debit Cash, Credit Income/Advance
-        // Validate account is a cash account
-        if (!account.code.startsWith('1111') && !account.code.startsWith('111101') && !account.code.startsWith('111102')) {
+        // CRV: User enters CREDIT only, system auto-generates DEBIT to cash
+        if (!this.isCashAccount(account.code)) {
           throw new Error(`CRV requires a cash account. Account ${account.code} (${account.name}) is not a cash account.`);
         }
-        // Validate all lines credit (income/receivable/advance accounts)
-        for (const line of lines) {
+        
+        // Validate all user lines are CREDIT only (no debit allowed)
+        for (const line of userLines) {
           const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
           if (!lineAccount) {
             throw new Error(`Line account not found: ${line.accountId}`);
           }
+          
+          // Reject debit entries
+          if (line.debit > 0) {
+            throw new Error('Manual debit entries are not allowed in Cash Receipt Voucher. Debit will be auto-posted to Cash.');
+          }
+          
+          // Require credit entries
           if (line.credit <= 0) {
             throw new Error(`CRV line items must have credit amounts (income/receivable/advance accounts)`);
           }
+          
           if (!['Revenue', 'Asset', 'Liability'].includes(lineAccount.type)) {
             throw new Error(
               `CRV line account must be Revenue, Asset (Receivable), or Liability (Advance). ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
             );
           }
         }
-        // Validate cash account is debited
-        const cashDebitLine = lines.find((l) => l.accountId === accountId);
-        if (!cashDebitLine || cashDebitLine.debit <= 0) {
-          throw new Error(`CRV must debit cash account ${account.code}`);
-        }
         break;
 
       case 'JV': // Journal Voucher
-        // JV: No cash/bank movement, multi-line debit/credit
-        // Validate no cash/bank accounts (unless elevated approval)
-        // Note: Elevated approval check would be passed as parameter if needed
-        // For now, we'll use the safety service validation
+        // JV: User enters both debit and credit, no system lines
         const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
         const jvCheck = await VoucherAccountingSafetyService.validateJournalVoucherCashBank(
-          lines.map(l => ({ accountId: l.accountId })),
+          userLines.map(l => ({ accountId: l.accountId })),
           false, // hasElevatedApproval - would need to be passed from API
           tx
         );
         if (!jvCheck.valid) {
           throw new Error(jvCheck.error);
         }
+        
         // Validate multi-line entries
-        if (lines.length < 2) {
+        if (userLines.length < 2) {
           throw new Error(`Journal Voucher must have at least 2 line items (minimum double-entry)`);
+        }
+        
+        // Validate balance for JV
+        const totalDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        const totalCredit = userLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+        if (Math.abs(totalDebit - totalCredit) > 0.01) {
+          throw new Error(
+            `Journal Voucher must balance: total debit (${totalDebit.toFixed(2)}) ≠ total credit (${totalCredit.toFixed(2)})`
+          );
         }
         break;
     }
@@ -386,30 +429,161 @@ export class VoucherService {
   }
 
   /**
+   * Auto-generate system line for bank/cash vouchers
+   */
+  private static generateSystemLine(
+    type: VoucherType,
+    accountId: string,
+    amount: number,
+    accountName: string
+  ): VoucherLineInput {
+    const isBank = type === 'BPV' || type === 'BRV';
+    const isPayment = type === 'BPV' || type === 'CPV';
+    
+    if (isPayment) {
+      // BPV/CPV: Credit bank/cash
+      return {
+        accountId,
+        debit: 0,
+        credit: amount,
+        description: `[SYSTEM] ${isBank ? 'Bank' : 'Cash'} Payment - Auto-generated`,
+      };
+    } else {
+      // BRV/CRV: Debit bank/cash
+      return {
+        accountId,
+        debit: amount,
+        credit: 0,
+        description: `[SYSTEM] ${isBank ? 'Bank' : 'Cash'} Receipt - Auto-generated`,
+      };
+    }
+  }
+
+  /**
    * Create a new voucher (draft status)
+   * CRITICAL: Backend is source of truth. System lines are auto-generated.
    */
   static async createVoucher(payload: CreateVoucherPayload): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
 
-      // Validate lines
-      if (!payload.lines || payload.lines.length === 0) {
+      // TASK 1: Validate mandatory header fields
+      if (!payload.type) {
+        throw new Error('Voucher type is required');
+      }
+      if (!payload.date) {
+        throw new Error('Voucher date is required');
+      }
+      if (!payload.paymentMethod) {
+        throw new Error('Payment method is required');
+      }
+      if (!payload.accountId) {
+        throw new Error('Bank/Cash account is required');
+      }
+      if (!payload.lines || !Array.isArray(payload.lines) || payload.lines.length === 0) {
         throw new Error('Voucher must have at least one line item');
       }
 
+      // Validate reference number for cheque/transfer payments
+      if (['BPV', 'BRV'].includes(payload.type) && ['Cheque', 'Transfer'].includes(payload.paymentMethod)) {
+        if (!payload.referenceNumber || payload.referenceNumber.trim() === '') {
+          throw new Error('Reference number is required for Cheque/Transfer payments');
+        }
+      }
+
+      // CRITICAL: Filter out any system lines that might have been submitted
+      // System lines are identified by accountId matching the primary account
+      const userLines = payload.lines.filter((line) => line.accountId !== payload.accountId);
+
+      // Validate user lines exist
+      if (!userLines || userLines.length === 0) {
+        throw new Error('Voucher must have at least one user-entered line item');
+      }
+
+      // Get primary account details
+      const primaryAccount = await tx.account.findUnique({
+        where: { id: payload.accountId },
+      });
+
+      if (!primaryAccount) {
+        throw new Error(`Primary account not found: ${payload.accountId}`);
+      }
+
+      // CRITICAL: Validate primary account is postable before proceeding
+      await AccountValidationService.validateAccountPostable(payload.accountId);
+
+      // Validate voucher type rules (user lines only)
+      await this.validateVoucherTypeRules(payload.type, payload.accountId, userLines, tx);
+
+      // Calculate totals from user lines
+      const userTotalDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+      const userTotalCredit = userLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+      // Auto-generate system line for BPV/BRV/CPV/CRV
+      let systemLine: VoucherLineInput | null = null;
+      let finalLines: VoucherLineInput[];
+
+      if (['BPV', 'BRV', 'CPV', 'CRV'].includes(payload.type)) {
+        // Calculate system line amount
+        const systemAmount = payload.type === 'BPV' || payload.type === 'CPV' 
+          ? userTotalDebit  // Payment: Credit bank/cash = sum of debits
+          : userTotalCredit; // Receipt: Debit bank/cash = sum of credits
+
+        if (systemAmount <= 0) {
+          throw new Error(
+            `${payload.type} requires at least one ${payload.type === 'BPV' || payload.type === 'CPV' ? 'debit' : 'credit'} entry with amount > 0`
+          );
+        }
+
+        // Generate system line
+        systemLine = this.generateSystemLine(
+          payload.type,
+          payload.accountId,
+          systemAmount,
+          primaryAccount.name
+        );
+
+        // Combine user lines + system line
+        finalLines = [...userLines, systemLine];
+      } else {
+        // JV: No system line, user must balance
+        finalLines = userLines;
+        
+        // Validate JV balance
+        if (Math.abs(userTotalDebit - userTotalCredit) > 0.01) {
+          throw new Error(
+            `Journal Voucher must balance: total debit (${userTotalDebit.toFixed(2)}) ≠ total credit (${userTotalCredit.toFixed(2)})`
+          );
+        }
+      }
+
       // Global line-level accounting validation (one-sided lines, totals > 0, balanced)
-      const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(payload.type, payload.lines);
+      const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(payload.type, finalLines);
       if (!lineValidation.valid) {
         throw new Error(lineValidation.error);
       }
 
-      // Calculate total amount
-      const totalDebit = payload.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-      const totalCredit = payload.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
-      const amount = Math.max(totalDebit, totalCredit);
+      // CRITICAL: Calculate total amount based on voucher type (server-side calculation)
+      // BPV/CPV: total_amount = sum(user debit lines)
+      // BRV/CRV: total_amount = sum(user credit lines)
+      // JV: total_amount = sum(debit) [since debit = credit]
+      let amount: number;
+      if (payload.type === 'BPV' || payload.type === 'CPV') {
+        // Payment vouchers: amount = sum of user debit entries
+        amount = userTotalDebit;
+      } else if (payload.type === 'BRV' || payload.type === 'CRV') {
+        // Receipt vouchers: amount = sum of user credit entries
+        amount = userTotalCredit;
+      } else {
+        // JV: amount = sum of debit (debit equals credit)
+        const totalDebit = finalLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        amount = totalDebit;
+      }
 
-      // Validate voucher type rules
-      await this.validateVoucherTypeRules(payload.type, payload.accountId, payload.lines, tx);
+      // Validate amount is positive
+      if (amount <= 0) {
+        throw new Error(`Voucher total amount must be greater than zero. Calculated amount: ${amount}`);
+      }
 
       // Validate reference number
       await this.validateReferenceNumber(payload.type, payload.paymentMethod, payload.referenceNumber, undefined, tx);
@@ -419,15 +593,14 @@ export class VoucherService {
         // Structure is valid, will be enforced on submit/post
       }
 
-      // Validate property/unit linkage (hardened)
-      await this.validatePropertyUnitLinkage(payload.propertyId, payload.unitId, payload.lines, payload.type, tx);
+      // Validate property/unit linkage (hardened) - use final lines
+      await this.validatePropertyUnitLinkage(payload.propertyId, payload.unitId, finalLines, payload.type, tx);
 
       // Validate payee entity
       await this.validatePayeeEntity(payload.payeeType, payload.payeeId, payload.type, tx);
 
       // CRITICAL: Validate invoice allocations for BRV
       if (payload.type === 'BRV' && payload.invoiceAllocations) {
-        const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
         const allocationCheck = await VoucherAccountingSafetyService.validateInvoiceAllocation(
           payload.invoiceAllocations,
           amount,
@@ -439,13 +612,28 @@ export class VoucherService {
       }
 
       // Validate all line accounts are postable
-      for (const line of payload.lines) {
+      for (const line of finalLines) {
         await AccountValidationService.validateAccountPostable(line.accountId);
       }
 
-      // Generate voucher number using generateSystemId
-      // Note: generateSystemId expects specific prefixes, so we'll use a generic 'vch' prefix
-      // and add the type to the number manually
+      // DATA INTEGRITY SAFEGUARD: Assert system line count
+      if (['BPV', 'BRV', 'CPV', 'CRV'].includes(payload.type)) {
+        const systemLineCount = finalLines.filter((line) => line.accountId === payload.accountId).length;
+        if (systemLineCount !== 1) {
+          throw new Error(
+            `Data integrity violation: ${payload.type} must have exactly one system-generated line. Found ${systemLineCount}.`
+          );
+        }
+      } else {
+        // JV: No system lines
+        const systemLineCount = finalLines.filter((line) => {
+          const lineAccount = finalLines.find((l) => l.accountId === line.accountId);
+          // Check if account is bank/cash (shouldn't be in JV)
+          return false; // JV validation already handled above
+        }).length;
+        // JV should have zero system lines (already validated in validateVoucherTypeRules)
+      }
+
       // Generate voucher number: TYPE-YYYYMMDD-XXX
       const date = new Date();
       const dateStr = `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
@@ -464,11 +652,11 @@ export class VoucherService {
       if (payload.attachments || (payload.invoiceAllocations && payload.invoiceAllocations.length > 0)) {
         attachmentsData = {
           files: payload.attachments ? JSON.parse(JSON.stringify(payload.attachments)) : [],
-          invoiceAllocations: payload.invoiceAllocations || undefined, // Store invoice allocations in metadata
+          invoiceAllocations: payload.invoiceAllocations || undefined,
         };
       }
 
-      // Create voucher
+      // Create voucher with final lines (user + system)
       const voucher = await tx.voucher.create({
         data: {
           voucherNumber,
@@ -488,7 +676,7 @@ export class VoucherService {
           dealId: payload.dealId,
           preparedByUserId: payload.preparedByUserId,
           lines: {
-            create: payload.lines.map((line) => ({
+            create: finalLines.map((line) => ({
               accountId: line.accountId,
               debit: line.debit || 0,
               credit: line.credit || 0,
@@ -517,6 +705,7 @@ export class VoucherService {
 
   /**
    * Update a draft voucher
+   * CRITICAL: Applies same auto-generation logic as createVoucher
    */
   static async updateVoucher(voucherId: string, payload: UpdateVoucherPayload, userId: string): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
@@ -531,32 +720,114 @@ export class VoucherService {
         throw new Error(`Voucher not found: ${voucherId}`);
       }
 
+      // TASK 5: Prevent editing posted vouchers - only allow draft status
       if (existing.status !== 'draft') {
-        throw new Error(`Cannot update voucher in ${existing.status} status. Only draft vouchers can be updated.`);
+        if (existing.status === 'posted') {
+          throw new Error(
+            'Cannot edit posted voucher. Posted vouchers can only be modified via reversal voucher. ' +
+            'Create a reversal voucher to undo this transaction.'
+          );
+        }
+        throw new Error(
+          `Cannot update voucher in ${existing.status} status. Only draft vouchers can be updated. ` +
+          `To modify a ${existing.status} voucher, it must first be reversed (if posted) or returned to draft status.`
+        );
       }
 
-      // If lines are being updated, validate them
-      let lines = existing.lines;
+      const voucherType = existing.type as VoucherType;
+      const accountId = payload.accountId || existing.accountId;
+
+      // If lines are being updated, apply same auto-generation logic
+      let finalLines: VoucherLineInput[] = [];
+      let calculatedAmount = existing.amount;
+
       if (payload.lines) {
-        if (payload.lines.length === 0) {
-          throw new Error('Voucher must have at least one line item');
+        // CRITICAL: Filter out system lines (identified by accountId match or [SYSTEM] prefix)
+        const userLines = payload.lines.filter((line) => {
+          // Filter out system lines
+          if (line.accountId === accountId) {
+            return false; // System line
+          }
+          if (line.description?.includes('[SYSTEM]')) {
+            return false; // System line by description
+          }
+          return true;
+        });
+
+        if (userLines.length === 0) {
+          throw new Error('Voucher must have at least one user-entered line item');
         }
 
-        // Get updated account ID if changed
-        const accountId = payload.accountId || existing.accountId;
+        // Validate voucher type rules (user lines only)
+        await this.validateVoucherTypeRules(voucherType, accountId, userLines, tx);
 
-        // Validate voucher type rules
-        await this.validateVoucherTypeRules(existing.type as VoucherType, accountId, payload.lines, tx);
+        // Get primary account details
+        const primaryAccount = await tx.account.findUnique({
+          where: { id: accountId },
+        });
 
-        // Validate reference number if changed
-        if (payload.referenceNumber !== undefined) {
-          await this.validateReferenceNumber(
-            existing.type as VoucherType,
-            (payload.paymentMethod || existing.paymentMethod) as PaymentMode,
-            payload.referenceNumber,
-            voucherId,
-            tx
+        if (!primaryAccount) {
+          throw new Error(`Primary account not found: ${accountId}`);
+        }
+
+        // Calculate totals from user lines
+        const userTotalDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+        const userTotalCredit = userLines.reduce((sum, line) => sum + (line.credit || 0), 0);
+
+        // Auto-generate system line for BPV/BRV/CPV/CRV
+        if (['BPV', 'BRV', 'CPV', 'CRV'].includes(voucherType)) {
+          const systemAmount = voucherType === 'BPV' || voucherType === 'CPV' 
+            ? userTotalDebit  // Payment: Credit bank/cash = sum of debits
+            : userTotalCredit; // Receipt: Debit bank/cash = sum of credits
+
+          if (systemAmount <= 0) {
+            throw new Error(
+              `${voucherType} requires at least one ${voucherType === 'BPV' || voucherType === 'CPV' ? 'debit' : 'credit'} entry with amount > 0`
+            );
+          }
+
+          const systemLine = this.generateSystemLine(
+            voucherType,
+            accountId,
+            systemAmount,
+            primaryAccount.name
           );
+
+          finalLines = [...userLines, systemLine];
+        } else {
+          // JV: No system line, user must balance
+          finalLines = userLines;
+          
+          if (Math.abs(userTotalDebit - userTotalCredit) > 0.01) {
+            throw new Error(
+              `Journal Voucher must balance: total debit (${userTotalDebit.toFixed(2)}) ≠ total credit (${userTotalCredit.toFixed(2)})`
+            );
+          }
+        }
+
+        // Global line-level accounting validation
+        const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(voucherType, finalLines);
+        if (!lineValidation.valid) {
+          throw new Error(lineValidation.error);
+        }
+
+        // CRITICAL: Calculate total amount based on voucher type (same logic as create)
+        // BPV/CPV: total_amount = sum(user debit lines)
+        // BRV/CRV: total_amount = sum(user credit lines)
+        // JV: total_amount = sum(debit) [since debit = credit]
+        if (voucherType === 'BPV' || voucherType === 'CPV') {
+          calculatedAmount = userTotalDebit;
+        } else if (voucherType === 'BRV' || voucherType === 'CRV') {
+          calculatedAmount = userTotalCredit;
+        } else {
+          // JV: amount = sum of debit (debit equals credit)
+          const totalDebit = finalLines.reduce((sum, line) => sum + (line.debit || 0), 0);
+          calculatedAmount = totalDebit;
+        }
+
+        // Validate amount is positive
+        if (calculatedAmount <= 0) {
+          throw new Error(`Voucher total amount must be greater than zero. Calculated amount: ${calculatedAmount}`);
         }
 
         // Validate property/unit if changed
@@ -564,8 +835,8 @@ export class VoucherService {
           await this.validatePropertyUnitLinkage(
             payload.propertyId ?? existing.propertyId ?? undefined,
             payload.unitId ?? existing.unitId ?? undefined,
-            payload.lines || existing.lines.map(l => ({ accountId: l.accountId, debit: l.debit, credit: l.credit, description: l.description || undefined, propertyId: l.propertyId || undefined, unitId: l.unitId || undefined })),
-            existing.type as VoucherType,
+            finalLines,
+            voucherType,
             tx
           );
         }
@@ -575,29 +846,33 @@ export class VoucherService {
           await this.validatePayeeEntity(
             payload.payeeType ?? (existing.payeeType as PayeeType | undefined) ?? undefined,
             payload.payeeId ?? existing.payeeId ?? undefined,
-            existing.type as VoucherType,
+            voucherType,
             tx
           );
         }
 
-        // Global line-level accounting validation (one-sided lines, totals > 0, balanced)
-        const lineValidation = VoucherAccountingSafetyService.validateLinesAndTotals(existing.type as VoucherType, payload.lines);
-        if (!lineValidation.valid) {
-          throw new Error(lineValidation.error);
+        // Validate all line accounts are postable
+        for (const line of finalLines) {
+          await AccountValidationService.validateAccountPostable(line.accountId);
         }
 
-        // Calculate new amount
-        const totalDebit = payload.lines.reduce((sum, line) => sum + (line.debit || 0), 0);
-        const totalCredit = payload.lines.reduce((sum, line) => sum + (line.credit || 0), 0);
-        const amount = Math.max(totalDebit, totalCredit);
+        // DATA INTEGRITY SAFEGUARD: Assert system line count
+        if (['BPV', 'BRV', 'CPV', 'CRV'].includes(voucherType)) {
+          const systemLineCount = finalLines.filter((line) => line.accountId === accountId).length;
+          if (systemLineCount !== 1) {
+            throw new Error(
+              `Data integrity violation: ${voucherType} must have exactly one system-generated line. Found ${systemLineCount}.`
+            );
+          }
+        }
 
         // Delete existing lines and create new ones
         await tx.voucherLine.deleteMany({
           where: { voucherId },
         });
 
-        lines = await Promise.all(
-          payload.lines.map((line) =>
+        await Promise.all(
+          finalLines.map((line) =>
             tx.voucherLine.create({
               data: {
                 voucherId,
@@ -613,13 +888,16 @@ export class VoucherService {
         );
       }
 
-      // Calculate amount if lines were updated
-      const calculatedAmount = payload.lines 
-        ? Math.max(
-            payload.lines.reduce((sum, line) => sum + (line.debit || 0), 0),
-            payload.lines.reduce((sum, line) => sum + (line.credit || 0), 0)
-          )
-        : existing.amount;
+      // Validate reference number if changed
+      if (payload.referenceNumber !== undefined) {
+        await this.validateReferenceNumber(
+          voucherType,
+          (payload.paymentMethod || existing.paymentMethod) as PaymentMode,
+          payload.referenceNumber,
+          voucherId,
+          tx
+        );
+      }
 
       // Prepare attachments JSON (includes invoice allocations metadata for BRV)
       let attachmentsData: any = undefined;
@@ -1032,9 +1310,11 @@ export class VoucherService {
 
   /**
    * Get voucher by ID
+   * TASK 4: Returns voucher header fields + all lines (including system lines)
+   * Used for both viewing and editing
    */
   static async getVoucherById(voucherId: string): Promise<any> {
-    return await prisma.voucher.findUnique({
+    const voucher = await prisma.voucher.findUnique({
       where: { id: voucherId },
       include: {
         account: true,
@@ -1052,6 +1332,10 @@ export class VoucherService {
             property: true,
             unit: true,
           },
+          // Note: VoucherLine doesn't have createdAt, order by id to maintain consistency
+          orderBy: {
+            id: 'asc',
+          },
         },
         journalEntry: {
           include: {
@@ -1064,8 +1348,31 @@ export class VoucherService {
         },
         preparedBy: true,
         approvedBy: true,
+        // Note: postedBy relation doesn't exist in schema, only postedByUserId field exists
       },
     });
+
+    if (!voucher) {
+      return null;
+    }
+
+    // Ensure all header fields are present (no N/A placeholders)
+    // The database should have these, but we ensure they're returned
+    return {
+      ...voucher,
+      // Ensure amount is always present and matches stored value
+      amount: voucher.amount || 0,
+      // Ensure all required fields are present
+      voucherNumber: voucher.voucherNumber,
+      type: voucher.type,
+      date: voucher.date,
+      paymentMethod: voucher.paymentMethod,
+      accountId: voucher.accountId,
+      description: voucher.description || null,
+      referenceNumber: voucher.referenceNumber || null,
+      status: voucher.status,
+      // Lines are already included with accounts
+    };
   }
 
   /**

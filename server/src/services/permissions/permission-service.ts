@@ -11,6 +11,7 @@
 
 import prisma from '../../prisma/client';
 import logger from '../../utils/logger';
+import { permissionCache } from './permission-cache';
 
 export interface PermissionPath {
   module: string;
@@ -87,20 +88,37 @@ export async function checkPermission(
   permission: string
 ): Promise<PermissionCheckResult> {
   try {
-    const parsed = parsePermission(permission);
-    if (!parsed) {
-      logger.warn(`Invalid permission format: ${permission}`);
+    // Check cache first
+    const cached = permissionCache.get(roleId, permission);
+    if (cached) {
       return {
-        allowed: false,
-        reason: 'Invalid permission format',
+        allowed: cached.allowed,
+        reason: cached.reason,
         permissionPath: permission,
       };
     }
 
+    const parsed = parsePermission(permission);
+    if (!parsed) {
+      logger.warn(`Invalid permission format: ${permission}`);
+      const result = {
+        allowed: false,
+        reason: 'Invalid permission format',
+        permissionPath: permission,
+      };
+      permissionCache.set(roleId, permission, false, result.reason);
+      return result;
+    }
+
     // Get role with permissions
+    // Use explicit select to avoid querying category column if it doesn't exist
     const role = await prisma.role.findUnique({
       where: { id: roleId },
-      include: {
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        // Don't select category - may not exist yet
         rolePermissions: {
           where: {
             module: parsed.module,
@@ -113,37 +131,57 @@ export async function checkPermission(
     });
 
     if (!role) {
-      return {
+      const result = {
         allowed: false,
         reason: 'Role not found',
         permissionPath: permission,
       };
+      permissionCache.set(roleId, permission, false, result.reason);
+      return result;
+    }
+
+    // PART 1: Check role status - deactivated roles don't grant permissions
+    const roleStatus = (role as any).status || 'ACTIVE';
+    if (roleStatus === 'DEACTIVATED') {
+      const result = {
+        allowed: false,
+        reason: 'Role is deactivated',
+        permissionPath: permission,
+      };
+      permissionCache.set(roleId, permission, false, result.reason);
+      return result;
     }
 
     // Check explicit permission
     const hasExplicitPermission = role.rolePermissions.length > 0;
 
     if (hasExplicitPermission) {
-      return {
+      const result = {
         allowed: true,
         permissionPath: permission,
       };
+      permissionCache.set(roleId, permission, true);
+      return result;
     }
 
     // Deny by default - no explicit grant found
-    return {
+    const result = {
       allowed: false,
       reason: 'No explicit permission granted',
       permissionPath: permission,
     };
+    permissionCache.set(roleId, permission, false, result.reason);
+    return result;
   } catch (error: any) {
     logger.error(`Permission check error: ${error.message}`, error);
     // Fail closed - deny on error
-    return {
+    const result = {
       allowed: false,
       reason: 'Permission check failed',
       permissionPath: permission,
     };
+    permissionCache.set(roleId, permission, false, result.reason);
+    return result;
   }
 }
 
@@ -171,9 +209,12 @@ export async function checkAnyPermission(
  * Get all permissions for a role
  */
 export async function getRolePermissions(roleId: string): Promise<RolePermission[]> {
+  // Use explicit select to avoid querying category column if it doesn't exist
   const role = await prisma.role.findUnique({
     where: { id: roleId },
-    include: {
+    select: {
+      id: true,
+      // Don't select category - may not exist yet
       rolePermissions: {
         orderBy: [
           { module: 'asc' },
@@ -197,31 +238,48 @@ export async function grantPermission(
   action: string,
   actorId: string
 ): Promise<void> {
-  // Build where clause - Prisma's compound unique constraint handles null properly
-  // but TypeScript types are strict, so we use type assertion
-  await prisma.rolePermission.upsert({
+  // Normalize submodule: convert empty string or undefined to null
+  const submoduleValue: string | null = 
+    submodule && submodule.trim() !== '' 
+      ? submodule.trim() 
+      : null;
+
+  // Use findFirst + create/update pattern instead of upsert to handle nullable submodule
+  // Prisma's upsert doesn't work well with nullable fields in compound unique constraints
+  const existing = await prisma.rolePermission.findFirst({
     where: {
-      roleId_module_submodule_action: {
-        roleId,
-        module,
-        // @ts-ignore - Prisma's generated types don't properly handle nullable fields in compound unique constraints
-        submodule: submodule ?? null,
-        action,
-      },
-    },
-    create: {
       roleId,
       module,
-      submodule: submodule ?? null,
+      submodule: submoduleValue,
       action,
-      granted: true,
-      createdBy: actorId,
-    },
-    update: {
-      granted: true,
-      createdBy: actorId,
     },
   });
+
+  if (existing) {
+    // Update existing permission
+    await prisma.rolePermission.update({
+      where: { id: existing.id },
+      data: {
+        granted: true,
+        createdBy: actorId,
+      },
+    });
+  } else {
+    // Create new permission
+    await prisma.rolePermission.create({
+      data: {
+        roleId,
+        module,
+        submodule: submoduleValue,
+        action,
+        granted: true,
+        createdBy: actorId,
+      },
+    });
+  }
+
+  // Invalidate cache for this role
+  permissionCache.invalidateRole(roleId);
 }
 
 /**
@@ -246,6 +304,9 @@ export async function revokePermission(
       createdBy: actorId,
     },
   });
+
+  // Invalidate cache for this role
+  permissionCache.invalidateRole(roleId);
 }
 
 /**
@@ -333,6 +394,9 @@ export async function bulkUpdatePermissions(
         timeout: 10000, // Maximum time the transaction can run
       }
     );
+
+    // Invalidate cache for this role after bulk update
+    permissionCache.invalidateRole(roleId);
   } catch (error: any) {
     const errorDetails = {
       message: error?.message,

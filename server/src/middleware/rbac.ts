@@ -52,6 +52,19 @@ export async function hasPermission(
   requiredPermission: string
 ): Promise<boolean> {
   try {
+    // PART 4: Permission Resolution Safety - Check role status first
+    // DEACTIVATED roles must not grant permissions, even via legacy fallbacks
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
+      select: { status: true },
+    }) as any;
+    
+    const roleStatus = role?.status || 'ACTIVE';
+    if (roleStatus === 'DEACTIVATED') {
+      logger.info(`Permission denied: Role ${roleName} (${roleId}) is DEACTIVATED`);
+      return false; // No fallback, no legacy behavior - hard deny
+    }
+
     // Check explicit permission first
     const explicitCheck = await checkExplicitPermission(roleId, requiredPermission);
     
@@ -59,38 +72,16 @@ export async function hasPermission(
       return true;
     }
 
-    // Special handling for Admin role: If Admin has explicit permissions (migrated),
-    // grant any permission that exists in the available permissions list
-    // This ensures Admin has access to new permissions added after migration
-    // Check for Admin role (case-insensitive, flexible matching)
+    // NOTE: Admin role should have ALL permissions explicitly granted via migration
+    // The explicit permission check above should handle Admin permissions
+    // If Admin doesn't have a permission explicitly granted, it should be added via migration
+    // This removes the need for special-case logic and ensures proper audit trail
     const normalizedRoleName = roleName?.trim().toLowerCase() || '';
     const isAdmin = normalizedRoleName === 'admin';
-    if (isAdmin) {
-      const hasExplicit = await hasExplicitPermissions(roleId);
-      logger.info(`Admin permission check: roleName=${roleName}, roleId=${roleId}, hasExplicit=${hasExplicit}, requiredPermission=${requiredPermission}`);
-      
-      if (hasExplicit) {
-        // Admin has been migrated - check if permission is in available list
-        const allAvailable = getAllAvailablePermissions();
-        // Flatten the Record<string, string[]> into a single array
-        const allPermsList: string[] = [];
-        for (const modulePerms of Object.values(allAvailable)) {
-          if (Array.isArray(modulePerms)) {
-            allPermsList.push(...modulePerms);
-          }
-        }
-        const isInList = allPermsList.includes(requiredPermission);
-        logger.info(`Admin permission check: permission in list=${isInList}, total available=${allPermsList.length}`);
-        
-        if (isInList) {
-          logger.info(`✅ Granting ${requiredPermission} to Admin (available permission)`);
-          return true;
-        } else {
-          logger.warn(`⚠️ Admin requested ${requiredPermission} but it's not in available permissions list`);
-        }
-      } else {
-        logger.info(`Admin has no explicit permissions yet, will use legacy fallback`);
-      }
+    if (isAdmin && !explicitCheck.allowed) {
+      // Log warning if Admin doesn't have explicit permission
+      // This indicates the permission needs to be added to Admin role
+      logger.warn(`Admin role missing explicit permission: ${requiredPermission}. Consider adding via migration.`);
     }
 
     // Backward compatibility: If no explicit permissions exist, use legacy system
@@ -228,9 +219,20 @@ export async function requireAuth(
     }
 
     // Get user with role
+    // Use explicit select to avoid querying category column if it doesn't exist
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!user) {

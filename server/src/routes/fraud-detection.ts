@@ -21,7 +21,17 @@ router.get('/red-flags', authenticate, async (req: AuthRequest, res: Response) =
 
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
-      include: { role: true },
+      include: {
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            permissions: true,
+            // Don't select category - may not exist yet
+          },
+        },
+      },
     });
 
     if (!user || !user.role || (user.role.name !== 'Admin' && user.role.name !== 'Finance Manager')) {

@@ -79,8 +79,9 @@ export function ViewReceiptDialog({ open, onOpenChange, receiptId, onEdit }: Vie
     }
   }
 
-  const formatCurrency = (amount: number) => {
-    return `Rs ${amount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  const formatCurrency = (amount: number | undefined | null) => {
+    const safeAmount = amount || 0
+    return `Rs ${safeAmount.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
   }
 
   const formatDate = (date: string | Date) => {

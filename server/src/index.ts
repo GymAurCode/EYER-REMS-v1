@@ -8,6 +8,7 @@ import rateLimit from 'express-rate-limit';
 import { validateEnv } from './utils/env-validation';
 import authRoutes from './routes/auth';
 import roleRoutes from './routes/roles';
+import userRoutes from './routes/users';
 import permissionsRoutes from './routes/permissions';
 import notificationRoutes from './routes/notifications';
 import propertiesRoutes from './routes/properties';
@@ -221,6 +222,7 @@ app.use('/uploads', (express as any).static(path.join(process.cwd(), 'public', '
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
+app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/properties', propertiesRoutes);
 app.use('/api/locations', locationRoutes);

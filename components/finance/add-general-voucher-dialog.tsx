@@ -63,7 +63,7 @@ export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGe
   }, [lines])
 
   // Validate balance
-  const isBalanced = totals.balance < 0.01
+  const isBalanced = (totals?.balance || 0) < 0.01
 
   const addLine = () => {
     setLines([...lines, { id: Date.now().toString(), accountId: "", debit: 0, credit: 0, description: "" }])
@@ -509,16 +509,16 @@ export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGe
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Total Debit:</span>
-                  <span className="ml-2 font-semibold">Rs {totals.debit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="ml-2 font-semibold">Rs {(totals?.debit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Total Credit:</span>
-                  <span className="ml-2 font-semibold">Rs {totals.credit.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span className="ml-2 font-semibold">Rs {(totals?.credit || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Difference:</span>
                   <span className={cn("ml-2 font-semibold", isBalanced ? "text-green-600" : "text-red-600")}>
-                    Rs {totals.balance.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    Rs {(totals?.balance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               </div>
@@ -527,7 +527,7 @@ export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGe
                 <Alert variant="destructive" className="mt-2">
                   <AlertCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Voucher is not balanced. Please review entered amounts. Total Debit ({totals.debit.toFixed(2)}) must equal Total Credit ({totals.credit.toFixed(2)}).
+                    Voucher is not balanced. Please review entered amounts. Total Debit ({(totals?.debit || 0).toFixed(2)}) must equal Total Credit ({(totals?.credit || 0).toFixed(2)}).
                   </AlertDescription>
                 </Alert>
               )}

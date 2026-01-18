@@ -27,8 +27,15 @@ export async function convertLegacyPermissions(
   legacyPermissions: string[],
   actorId: string = 'system'
 ): Promise<void> {
+  // Use explicit select to avoid querying category column if it doesn't exist
   const role = await prisma.role.findUnique({
     where: { id: roleId },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      // Don't select category - may not exist yet
+    },
   });
 
   if (!role) {
@@ -143,9 +150,14 @@ export async function resolveRolePermissions(
   }
 
   // Get explicit permissions
+  // Use explicit select to avoid querying category column if it doesn't exist
   const role = await prisma.role.findUnique({
     where: { id: roleId },
-    include: {
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      // Don't select category - may not exist yet
       rolePermissions: {
         where: { granted: true },
       },
@@ -153,6 +165,14 @@ export async function resolveRolePermissions(
   });
 
   if (!role) {
+    return [];
+  }
+
+  // PART 4: Permission Resolution After Deactivation
+  // Deactivated roles do not grant permissions at runtime
+  const roleStatus = (role as any).status || 'ACTIVE';
+  if (roleStatus === 'DEACTIVATED') {
+    logger.info(`Role ${role.name} (${roleId}) is DEACTIVATED - returning empty permissions`);
     return [];
   }
 

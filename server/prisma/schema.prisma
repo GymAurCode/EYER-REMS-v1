@@ -42,6 +42,8 @@ model User {
 model Role {
   id              String           @id @default(uuid())
   name            String           @unique
+  status          String           @default("ACTIVE") // ACTIVE | DEACTIVATED | SYSTEM_LOCKED
+  category        String?          // ADMIN | DEALER | STAFF | TENANT | SYSTEM (immutable after creation)
   permissions     Json             // Legacy: kept for backward compatibility
   createdBy       String?
   createdAt       DateTime         @default(now())
@@ -52,6 +54,8 @@ model Role {
   rolePermissions RolePermission[] // New: explicit permissions
 
   @@index([name])
+  @@index([status])
+  @@index([category])
 }
 
 // Explicit permission model: Module → Submodule → Action
@@ -113,6 +117,26 @@ model ActionAuditLog {
   @@index([roleId])
   @@index([permissionUsed])
   @@index([entityType, entityId])
+  @@index([createdAt])
+}
+
+// Audit log for role lifecycle changes (deactivation, status changes)
+model RoleLifecycleAuditLog {
+  id                String   @id @default(uuid())
+  actorId           String   // User who made the change
+  actorUsername     String
+  roleId            String
+  roleName          String
+  previousStatus    String   // Previous status: ACTIVE, DEACTIVATED, SYSTEM_LOCKED
+  newStatus         String   // New status: ACTIVE, DEACTIVATED, SYSTEM_LOCKED
+  affectedUsers     Json     // Array of user IDs affected by this change
+  reassignmentMap   Json?    // Mapping of old role → new role for reassigned users
+  reason            String?  // Optional reason for the change
+  context           Json?    // Additional context (request path, IP, etc.)
+  createdAt         DateTime @default(now())
+
+  @@index([actorId])
+  @@index([roleId])
   @@index([createdAt])
 }
 

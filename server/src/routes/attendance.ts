@@ -435,9 +435,9 @@ router.post('/checkin', authenticate, async (req: AuthRequest, res: Response) =>
     let validation;
     try {
       validation = await AttendanceStateService.validateCheckIn({
-        employeeId,
-        checkInTime: now,
-      });
+      employeeId,
+      checkInTime: now,
+    });
     } catch (validationError: any) {
       console.error('Check-in validation error:', {
         employeeId,

@@ -1568,32 +1568,12 @@ router.put('/vouchers/:id/reverse', authenticate, async (req: AuthRequest, res: 
 });
 
 // GET /finance/vouchers/:id/pdf - Generate voucher PDF
+// TASK 3: Returns voucher with all header fields, uses persisted amount
 router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const voucher = await prisma.voucher.findUnique({
-      where: { id: req.params.id },
-      include: {
-        account: true,
-        expenseCategory: true,
-        preparedBy: true,
-        approvedBy: true,
-        journalEntry: {
-          include: {
-            lines: {
-              include: {
-                account: true,
-              },
-            },
-          },
-        },
-        deal: {
-          include: {
-            client: true,
-            property: true,
-          },
-        },
-      },
-    });
+    const { VoucherService } = await import('../services/voucher-service');
+    // TASK 3: Use getVoucherById to ensure all fields are included
+    const voucher = await VoucherService.getVoucherById(req.params.id);
 
     if (!voucher) {
       return res.status(404).json({ error: 'Voucher not found' });
@@ -1602,26 +1582,37 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
     // Generate PDF using the pdf-generator utility
     const { generateReceiptPDF } = await import('../utils/pdf-generator');
 
-    // Transform voucher data to PDF format
+    // TASK 3: Transform voucher data to PDF format - use persisted header fields, no N/A placeholders
+    const getVoucherTypeLabel = (type: string) => {
+      const labels: Record<string, string> = {
+        BPV: "Bank Payment Voucher",
+        BRV: "Bank Receipt Voucher",
+        CPV: "Cash Payment Voucher",
+        CRV: "Cash Receipt Voucher",
+        JV: "Journal Voucher",
+      }
+      return labels[type] || type
+    }
+
     const pdfData = {
       receipt: {
         receiptNo: voucher.voucherNumber,
-        amount: voucher.amount,
+        amount: voucher.amount, // TASK 3: Use persisted amount from voucher table
         method: voucher.paymentMethod,
         date: voucher.date,
-        notes: voucher.description || undefined,
+        notes: voucher.description || '',
       },
       deal: voucher.deal ? {
         dealCode: voucher.deal.dealCode || undefined,
-        title: voucher.deal.title,
-        dealAmount: voucher.deal.dealAmount,
+        title: voucher.deal.title || 'N/A',
+        dealAmount: voucher.deal.dealAmount || 0,
       } : {
         dealCode: undefined,
         title: 'N/A',
         dealAmount: 0,
       },
       client: voucher.deal?.client ? {
-        name: voucher.deal.client.name,
+        name: voucher.deal.client.name || 'N/A',
         email: voucher.deal.client.email || undefined,
         phone: voucher.deal.client.phone || undefined,
         address: voucher.deal.client.address || undefined,
@@ -1664,10 +1655,13 @@ router.get('/vouchers/export', authenticate, async (req: AuthRequest, res: Respo
       if (endDate) where.date.lte = new Date(endDate as string);
     }
 
+    // TASK 3: Fetch vouchers with all header fields - use persisted amount from voucher table
     const vouchers = await prisma.voucher.findMany({
       where,
       include: {
         account: true,
+        property: true,
+        unit: true,
         expenseCategory: true,
         preparedBy: true,
         approvedBy: true,
@@ -1681,20 +1675,41 @@ router.get('/vouchers/export', authenticate, async (req: AuthRequest, res: Respo
       orderBy: { date: 'desc' },
     });
 
-    // Generate CSV
+    // TASK 3: Generate CSV with all header fields, use voucher.amount (persisted value)
+    const getVoucherTypeLabel = (type: string) => {
+      const labels: Record<string, string> = {
+        BPV: "Bank Payment Voucher",
+        BRV: "Bank Receipt Voucher",
+        CPV: "Cash Payment Voucher",
+        CRV: "Cash Receipt Voucher",
+        JV: "Journal Voucher",
+      }
+      return labels[type] || type
+    }
+
     const csvRows = [
-      ['Voucher Number', 'Type', 'Date', 'Payment Method', 'Amount', 'Description', 'Account', 'Category', 'Prepared By'].join(','),
-      ...vouchers.map(v => [
-        v.voucherNumber,
-        v.type,
-        v.date.toISOString().split('T')[0],
-        v.paymentMethod,
-        v.amount,
-        v.description || '',
-        v.account.name,
-        v.expenseCategory?.name || '',
-        v.preparedBy?.username || '',
-      ].map(field => `"${String(field).replace(/"/g, '""')}"`).join(','))
+      ['Voucher Number', 'Type', 'Type Label', 'Date', 'Payment Method', 'Reference Number', 'Amount', 'Description', 'Account Code', 'Account Name', 'Status', 'Prepared By'].join(','),
+      ...vouchers.map(v => {
+        const fields = [
+          v.voucherNumber || '',
+          v.type || '',
+          getVoucherTypeLabel(v.type || ''),
+          v.date.toISOString().split('T')[0],
+          v.paymentMethod || '',
+          v.referenceNumber || '',
+          v.amount || 0, // TASK 3: Use persisted amount from voucher table
+          v.description || '',
+          v.account?.code || '',
+          v.account?.name || '',
+          v.status || 'draft',
+          v.preparedBy?.username || v.preparedBy?.email || '',
+        ];
+        return fields.map(field => {
+          const fieldStr = String(field);
+          const escaped = fieldStr.replace(/"/g, '""');
+          return `"${escaped}"`;
+        }).join(',');
+      })
     ];
 
     const csvContent = csvRows.join('\n');
