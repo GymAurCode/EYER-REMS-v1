@@ -481,40 +481,47 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
       // Default permissions if not provided
       const defaultPermissions = permissions || [];
       
-      // PART 1: Determine role category (immutable after creation)
-      const category = determineRoleCategory(name);
+      // Try to create role with category if supported, fallback without
+      try {
+        // PART 1: Determine role category (immutable after creation)
+        const category = determineRoleCategory(name);
 
-      role = await prisma.role.create({
-        data: {
-          name,
-          status: 'ACTIVE', // PART 1: New roles default to ACTIVE
-          category, // PART 1: Set category on creation
-          permissions: defaultPermissions,
-          defaultPassword: hashedPassword, // Store the password with the role
-          createdBy: req.user!.id,
-        } as any, // Type assertion until Prisma client is regenerated
-      });
-    } else {
-      // If role exists, ensure it has a category (backfill if missing)
-      const existingRole = role as any;
-      if (!existingRole.category) {
-        const category = determineRoleCategory(name, existingRole.status);
-        role = await prisma.role.update({
-          where: { id: role.id },
+        role = await prisma.role.create({
           data: {
-            category, // Backfill category if missing
-            defaultPassword: hashedPassword, // Update the default password
-          } as any,
-        });
-      } else {
-        // Just update the default password
-        role = await prisma.role.update({
-          where: { id: role.id },
-          data: {
-            defaultPassword: hashedPassword, // Update the default password
+            name,
+            status: 'ACTIVE', // PART 1: New roles default to ACTIVE
+            category, // PART 1: Set category on creation
+            permissions: defaultPermissions,
+            defaultPassword: hashedPassword, // Store the password with the role
+            createdBy: req.user!.id,
           } as any, // Type assertion until Prisma client is regenerated
         });
+      } catch (createError: any) {
+        // If category column doesn't exist, create without it
+        if (createError.code === 'P2022' && createError.meta?.column?.includes('category')) {
+          logger.warn('Category column not found, creating role without category');
+          role = await prisma.role.create({
+            data: {
+              name,
+              status: 'ACTIVE',
+              permissions: defaultPermissions,
+              defaultPassword: hashedPassword,
+              createdBy: req.user!.id,
+            } as any,
+          });
+        } else {
+          throw createError;
+        }
       }
+    } else {
+      // If role exists, just update the default password
+      // Skip category backfill to avoid errors if column doesn't exist
+      role = await prisma.role.update({
+        where: { id: role.id },
+        data: {
+          defaultPassword: hashedPassword, // Update the default password
+        } as any, // Type assertion until Prisma client is regenerated
+      });
     }
 
     // Create user
