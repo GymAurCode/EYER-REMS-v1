@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
@@ -299,17 +299,297 @@ function filterValidInsights(insights: AIInsight[]): AIInsight[] {
   )
 }
 
-export function AIIntelligenceView() {
-  const [activeTab, setActiveTab] = useState("overview")
-  const [chatMessage, setChatMessage] = useState("")
-  const [chatHistory, setChatHistory] = useState<Array<{ role: "user" | "ai"; message: string }>>([
+// Chat message type for AI Assistant
+interface ChatMessageType {
+  id: string
+  role: "user" | "assistant"
+  content: string
+  timestamp: Date
+  isLoading?: boolean
+  error?: string
+}
+
+// AI Chat Assistant Component - Ollama Powered
+function AIChatAssistant() {
+  const [messages, setMessages] = useState<ChatMessageType[]>([
     {
-      role: "ai",
-      message:
-        "Hello! I'm your AI assistant. I can help you understand insights from your real estate data. Ask me anything!",
+      id: "welcome",
+      role: "assistant",
+      content: "Hello. I am the AI Assistant for this Real Estate ERP system. I can help you understand the software features and modules. Ask me any questions about the system.",
+      timestamp: new Date(),
     },
   ])
-  const [expandedBreakdowns, setExpandedBreakdowns] = useState<Record<string, boolean>>({})
+  const [inputMessage, setInputMessage] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [serviceStatus, setServiceStatus] = useState<{
+    available: boolean
+    model: string
+    modelAvailable: boolean
+    checked: boolean
+  }>({
+    available: false,
+    model: "phi3",
+    modelAvailable: false,
+    checked: false,
+  })
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Check AI service status on mount
+  useEffect(() => {
+    const checkStatus = async () => {
+      try {
+        const response = await apiService.aiChat.getStatus()
+        const data = (response.data as any)?.data || response.data
+        setServiceStatus({
+          available: data.available || false,
+          model: data.model || "phi3",
+          modelAvailable: data.modelAvailable || false,
+          checked: true,
+        })
+      } catch (error) {
+        setServiceStatus((prev) => ({ ...prev, checked: true }))
+      }
+    }
+    checkStatus()
+  }, [])
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  // Send message to AI
+  const handleSendMessage = async () => {
+    const trimmedMessage = inputMessage.trim()
+    if (!trimmedMessage || isLoading) return
+
+    // Create user message
+    const userMessage: ChatMessageType = {
+      id: `user-${Date.now()}`,
+      role: "user",
+      content: trimmedMessage,
+      timestamp: new Date(),
+    }
+
+    // Add user message and loading indicator
+    setMessages((prev) => [
+      ...prev,
+      userMessage,
+      {
+        id: `loading-${Date.now()}`,
+        role: "assistant",
+        content: "",
+        timestamp: new Date(),
+        isLoading: true,
+      },
+    ])
+    setInputMessage("")
+    setIsLoading(true)
+
+    try {
+      // Build conversation history for context (exclude welcome and loading messages)
+      const history = messages
+        .filter((m) => m.id !== "welcome" && !m.isLoading && !m.error)
+        .map((m) => ({
+          role: m.role,
+          content: m.content,
+        }))
+
+      const response = await apiService.aiChat.sendMessage(trimmedMessage, history)
+      const data = (response.data as any)?.data || response.data
+      
+      // Replace loading message with actual response
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => !m.isLoading)
+        return [
+          ...filtered,
+          {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content: data.response || "This information is not available in the system.",
+            timestamp: new Date(),
+          },
+        ]
+      })
+    } catch (error: any) {
+      // Replace loading message with error
+      const errorMessage = error.response?.data?.message || error.message || "An error occurred"
+      setMessages((prev) => {
+        const filtered = prev.filter((m) => !m.isLoading)
+        return [
+          ...filtered,
+          {
+            id: `error-${Date.now()}`,
+            role: "assistant",
+            content: "I apologize, but I could not process your request. Please try again.",
+            timestamp: new Date(),
+            error: errorMessage,
+          },
+        ]
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  // Handle Enter key
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      handleSendMessage()
+    }
+  }
+
+  // Clear chat history
+  const handleClearChat = () => {
+    setMessages([
+      {
+        id: "welcome",
+        role: "assistant",
+        content: "Hello. I am the AI Assistant for this Real Estate ERP system. I can help you understand the software features and modules. Ask me any questions about the system.",
+        timestamp: new Date(),
+      },
+    ])
+  }
+
+  return (
+    <Card className="border-primary/20">
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              AI Assistant
+            </CardTitle>
+            <CardDescription>
+              Ask questions about the software features and modules
+            </CardDescription>
+          </div>
+          <div className="flex items-center gap-2">
+            {serviceStatus.checked && (
+              <Badge
+                variant={serviceStatus.available && serviceStatus.modelAvailable ? "default" : "destructive"}
+                className="text-xs"
+              >
+                {serviceStatus.available && serviceStatus.modelAvailable
+                  ? `${serviceStatus.model} Ready`
+                  : "AI Offline"}
+              </Badge>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearChat}
+              disabled={messages.length <= 1}
+            >
+              Clear Chat
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {/* Service Warning */}
+          {serviceStatus.checked && !serviceStatus.available && (
+            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-destructive">AI Service Unavailable</p>
+                  <p className="text-muted-foreground mt-1">
+                    Ollama is not running. Start it with: <code className="bg-muted px-1 rounded">ollama serve</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {serviceStatus.checked && serviceStatus.available && !serviceStatus.modelAvailable && (
+            <div className="p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-orange-600 dark:text-orange-400">Model Not Installed</p>
+                  <p className="text-muted-foreground mt-1">
+                    Install the model with: <code className="bg-muted px-1 rounded">ollama pull {serviceStatus.model}</code>
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Chat Messages */}
+          <div className="h-[400px] overflow-y-auto space-y-3 p-4 bg-muted/30 rounded-lg">
+            {messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              >
+                <div
+                  className={`max-w-[80%] rounded-lg p-3 ${
+                    message.role === "user"
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-card border border-border"
+                  }`}
+                >
+                  {message.isLoading ? (
+                    <div className="flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Thinking...</span>
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      {message.error && (
+                        <div className="mt-2 pt-2 border-t border-destructive/20">
+                          <p className="text-xs text-destructive">{message.error}</p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input Area */}
+          <div className="flex gap-2">
+            <Input
+              placeholder="Ask about software features, modules, or how to use the system..."
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading || !serviceStatus.available || !serviceStatus.modelAvailable}
+              className="flex-1"
+            />
+            <Button
+              onClick={handleSendMessage}
+              disabled={isLoading || !inputMessage.trim() || !serviceStatus.available || !serviceStatus.modelAvailable}
+            >
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+
+          {/* Info Footer */}
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <Info className="h-3 w-3" />
+            <span>
+              This assistant provides information about the software only. It does not access or modify your data.
+            </span>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function AIIntelligenceView() {
+  const [activeTab, setActiveTab] = useState("overview")
   
   // Engine data states
   const [loading, setLoading] = useState(true)
@@ -351,40 +631,6 @@ export function AIIntelligenceView() {
   useEffect(() => {
     fetchAllInsights()
   }, [fetchAllInsights])
-
-  const handleSendMessage = async () => {
-    if (!chatMessage.trim()) return
-
-    const userMessage = chatMessage
-    setChatHistory((prev) => [...prev, { role: "user", message: userMessage }])
-    setChatMessage("")
-
-    try {
-      const response = await apiService.aiIntelligence.assistantQuery(userMessage)
-      const aiResponse = (response.data as any)?.response || (response.data as any)?.data?.response || 
-        "I'm processing your query. Please try again in a moment."
-      
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          message: aiResponse,
-        },
-      ])
-    } catch (err: any) {
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          message: "I apologize, but I encountered an error processing your query. Please try again.",
-        },
-      ])
-    }
-  }
-
-  const toggleBreakdown = (id: string) => {
-    setExpandedBreakdowns((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
 
   // Get filtered insights for a specific engine
   const getEngineInsights = (engineName: string): AIInsight[] => {
@@ -688,66 +934,9 @@ export function AIIntelligenceView() {
           })()}
         </TabsContent>
 
-        {/* 9. AI Assistant Tab */}
+        {/* 9. AI Assistant Tab - Ollama Powered */}
         <TabsContent value="assistant" className="space-y-4">
-          <Card className="border-primary/20">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5 text-primary" />
-                AI Assistant
-              </CardTitle>
-              <CardDescription>
-                Ask questions about your business data and insights
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="h-[400px] overflow-y-auto space-y-3 p-4 bg-muted/30 rounded-lg">
-                  {chatHistory.map((chat, idx) => (
-                    <div
-                      key={idx}
-                      className={`flex ${chat.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
-                      <div
-                        className={`max-w-[80%] rounded-lg p-3 ${
-                          chat.role === "user"
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-card border border-border"
-                        }`}
-                      >
-                        <p className="text-sm">{chat.message}</p>
-                        {chat.role === "ai" && (
-                          <div className="mt-2 pt-2 border-t border-border/50">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <Info className="h-3 w-3" />
-                              <span>Based on data from Finance, CRM, and Properties modules</span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Ask me anything about your business data..."
-                    value={chatMessage}
-                    onChange={(e) => setChatMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === "Enter" && handleSendMessage()}
-                  />
-                  <Button onClick={handleSendMessage}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Database className="h-3 w-3" />
-                  <span>
-                    AI responses are based on aggregated data from all accessible modules
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <AIChatAssistant />
         </TabsContent>
       </Tabs>
     </div>

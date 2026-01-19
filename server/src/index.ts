@@ -48,6 +48,7 @@ import fraudDetectionRoutes from './routes/fraud-detection';
 import filesRoutes from './routes/files';
 import constructionRoutes from './routes/construction';
 import aiIntelligenceRoutes from './routes/ai-intelligence';
+import aiChatRoutes from './routes/ai-chat';
 import { csrfProtection } from './middleware/csrf';
 import { apiLoggingMiddleware } from './middleware/api-logging';
 import path from 'path';
@@ -261,6 +262,7 @@ app.use('/api/bulk/excel', excelBulkRoutes);
 app.use('/api/recycle-bin', recycleBinRoutes);
 app.use('/api/construction', constructionRoutes);
 app.use('/api/ai-intelligence', aiIntelligenceRoutes);
+app.use('/api/ai-chat', aiChatRoutes);
 app.use('/api/permissions', permissionsRoutes);
 
 // Health check with DB connection test

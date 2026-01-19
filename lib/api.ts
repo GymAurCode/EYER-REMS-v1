@@ -1291,6 +1291,13 @@ export const apiService = {
     invalidateCache: (engineName: string) => api.post(`/ai-intelligence/cache/invalidate/${engineName}`),
     clearCache: () => api.post('/ai-intelligence/cache/clear'),
   },
+
+  // AI Chat (Ollama)
+  aiChat: {
+    sendMessage: (message: string, history?: Array<{ role: 'user' | 'assistant'; content: string }>) =>
+      api.post('/ai-chat', { message, history }),
+    getStatus: () => api.get('/ai-chat/status'),
+  },
 }
 
 export default api

@@ -5,7 +5,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { PrismaClient } from '@prisma/client';
 import { verifyToken } from '../utils/jwt';
-import { File } from 'multer';
 import logger from '../utils/logger';
 
 const prisma = new PrismaClient();
@@ -24,8 +23,8 @@ export interface AuthenticatedRequest extends Request {
    };
    cookies: any;
    // Support multer uploads
-   file?: File;
-   files?: File[] | { [fieldname: string]: File[] };
+   file?: Express.Multer.File;
+   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
  }
 
 /**

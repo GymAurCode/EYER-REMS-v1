@@ -520,48 +520,31 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
     if (!role) {
       // Default permissions if not provided
       const defaultPermissions = permissions || [];
+      
+      // PART 1: Determine role category (immutable after creation)
+      const category = determineRoleCategory(name);
 
       role = await prisma.role.create({
         data: {
           name,
-          status: 'ACTIVE', // New roles default to ACTIVE
-          // IMPORTANT: Do not set category here because the underlying
-          // database may not have the Role.category column yet.
+          status: 'ACTIVE', // PART 1: New roles default to ACTIVE
+          category, // PART 1: Set category on creation
           permissions: defaultPermissions,
           defaultPassword: hashedPassword, // Store the password with the role
           createdBy: req.user!.id,
-        },
-        select: {
-          id: true,
-          name: true,
-          status: true,
-          permissions: true,
-          defaultPassword: true,
-          createdBy: true,
-          createdAt: true,
-          updatedAt: true,
-        },
+        } as any, // Type assertion until Prisma client is regenerated
       });
     } else {
       // If role exists, ensure it has a category (backfill if missing)
       const existingRole = role as any;
       if (!existingRole.category) {
+        const category = determineRoleCategory(name, existingRole.status);
         role = await prisma.role.update({
           where: { id: role.id },
           data: {
+            category, // Backfill category if missing
             defaultPassword: hashedPassword, // Update the default password
-          },
-          // Select only columns that are guaranteed to exist
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            permissions: true,
-            defaultPassword: true,
-            createdBy: true,
-            createdAt: true,
-            updatedAt: true,
-          },
+          } as any,
         });
       } else {
         // Just update the default password
@@ -569,17 +552,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
           where: { id: role.id },
           data: {
             defaultPassword: hashedPassword, // Update the default password
-          },
-          select: {
-            id: true,
-            name: true,
-            status: true,
-            permissions: true,
-            defaultPassword: true,
-            createdBy: true,
-            createdAt: true,
-            updatedAt: true,
-          },
+          } as any, // Type assertion until Prisma client is regenerated
         });
       }
     }

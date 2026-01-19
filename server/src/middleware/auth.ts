@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
-import { File } from 'multer';
 import { resolveRolePermissions } from '../services/permissions/compatibility-resolver';
 
 export interface AuthRequest extends Request {
@@ -13,8 +12,8 @@ export interface AuthRequest extends Request {
      roleId: string;
    };
    // Support multer uploads
-   file?: File;
-   files?: File[] | { [fieldname: string]: File[] };
+   file?: Express.Multer.File;
+   files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
  }
 
 export const authenticate = async (
