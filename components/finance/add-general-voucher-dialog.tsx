@@ -266,7 +266,7 @@ export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGe
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1200px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1200px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1200px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>New Journal Voucher (JV)</DialogTitle>
           <DialogDescription>
@@ -275,7 +275,7 @@ export function AddGeneralVoucherDialog({ open, onOpenChange, onSuccess }: AddGe
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-6 py-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="date">Date *</Label>

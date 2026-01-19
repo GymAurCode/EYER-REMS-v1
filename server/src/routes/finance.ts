@@ -1579,57 +1579,76 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
       return res.status(404).json({ error: 'Voucher not found' });
     }
 
-    // Generate PDF using the pdf-generator utility
-    const { generateReceiptPDF } = await import('../utils/pdf-generator');
+    // Generate PDF using the new professional voucher PDF generator
+    const { generateVoucherPDF } = await import('../utils/pdf-generator');
 
-    // TASK 3: Transform voucher data to PDF format - use persisted header fields, no N/A placeholders
-    const getVoucherTypeLabel = (type: string) => {
-      const labels: Record<string, string> = {
-        BPV: "Bank Payment Voucher",
-        BRV: "Bank Receipt Voucher",
-        CPV: "Cash Payment Voucher",
-        CRV: "Cash Receipt Voucher",
-        JV: "Journal Voucher",
-      }
-      return labels[type] || type
-    }
-
+    // Transform voucher data to PDF format - include all voucher details
     const pdfData = {
-      receipt: {
-        receiptNo: voucher.voucherNumber,
-        amount: voucher.amount, // TASK 3: Use persisted amount from voucher table
-        method: voucher.paymentMethod,
+      voucher: {
+        voucherNumber: voucher.voucherNumber || '',
+        type: voucher.type || '',
         date: voucher.date,
-        notes: voucher.description || '',
+        paymentMethod: voucher.paymentMethod || null,
+        referenceNumber: voucher.referenceNumber || null,
+        amount: voucher.amount || 0,
+        description: voucher.description || null,
+        status: voucher.status || 'draft',
+        account: voucher.account ? {
+          code: voucher.account.code || null,
+          name: voucher.account.name || null,
+        } : null,
+        property: voucher.property ? {
+          name: voucher.property.name || null,
+          code: voucher.property.code || null,
+        } : null,
+        unit: voucher.unit ? {
+          unitName: voucher.unit.unitName || voucher.unit.name || null,
+          unitNumber: voucher.unit.unitNumber || null,
+        } : null,
+        payeeType: voucher.payeeType || null,
+        payeeId: voucher.payeeId || null,
+        deal: voucher.deal ? {
+          dealCode: voucher.deal.dealCode || null,
+          title: voucher.deal.title || null,
+          dealAmount: voucher.deal.dealAmount || null,
+          client: voucher.deal.client ? {
+            name: voucher.deal.client.name || null,
+            email: voucher.deal.client.email || null,
+            phone: voucher.deal.client.phone || null,
+          } : null,
+        } : null,
+        preparedBy: voucher.preparedBy ? {
+          username: voucher.preparedBy.username || null,
+          email: voucher.preparedBy.email || null,
+        } : null,
+        approvedBy: voucher.approvedBy ? {
+          username: voucher.approvedBy.username || null,
+          email: voucher.approvedBy.email || null,
+        } : null,
+        postedAt: voucher.postedAt || null,
+        createdAt: voucher.createdAt || null,
       },
-      deal: voucher.deal ? {
-        dealCode: voucher.deal.dealCode || undefined,
-        title: voucher.deal.title || 'N/A',
-        dealAmount: voucher.deal.dealAmount || 0,
-      } : {
-        dealCode: undefined,
-        title: 'N/A',
-        dealAmount: 0,
-      },
-      client: voucher.deal?.client ? {
-        name: voucher.deal.client.name || 'N/A',
-        email: voucher.deal.client.email || undefined,
-        phone: voucher.deal.client.phone || undefined,
-        address: voucher.deal.client.address || undefined,
-      } : {
-        name: 'N/A',
-        email: undefined,
-        phone: undefined,
-        address: undefined,
-      },
-      allocations: [],
-      receivedBy: voucher.preparedBy ? {
-        username: voucher.preparedBy.username || undefined,
-        email: voucher.preparedBy.email || undefined,
-      } : undefined,
+      lines: (voucher.lines || []).map((line: any) => ({
+        id: line.id || '',
+        accountId: line.accountId || '',
+        account: line.account ? {
+          code: line.account.code || null,
+          name: line.account.name || null,
+        } : null,
+        debit: line.debit || 0,
+        credit: line.credit || 0,
+        description: line.description || null,
+        property: line.property ? {
+          name: line.property.name || null,
+        } : null,
+        unit: line.unit ? {
+          unitName: line.unit.unitName || line.unit.name || null,
+        } : null,
+      })),
+      companyName: 'Real Estate Management System',
     };
 
-    const pdfBuffer = await generateReceiptPDF(pdfData);
+    const pdfBuffer = await generateVoucherPDF(pdfData);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="voucher-${voucher.voucherNumber}.pdf"`);

@@ -972,3 +972,389 @@ export function generatePropertiesReportPDF(data: PropertiesReportData, res: Res
   doc.end();
 }
 
+export interface VoucherPDFData {
+  voucher: {
+    voucherNumber: string;
+    type: string;
+    date: Date | string;
+    paymentMethod?: string | null;
+    referenceNumber?: string | null;
+    amount: number;
+    description?: string | null;
+    status: string;
+    account?: {
+      code?: string | null;
+      name?: string | null;
+    } | null;
+    property?: {
+      name?: string | null;
+      code?: string | null;
+    } | null;
+    unit?: {
+      unitName?: string | null;
+      unitNumber?: string | null;
+    } | null;
+    payeeType?: string | null;
+    payeeId?: string | null;
+    deal?: {
+      dealCode?: string | null;
+      title?: string | null;
+      dealAmount?: number | null;
+      client?: {
+        name?: string | null;
+        email?: string | null;
+        phone?: string | null;
+      } | null;
+    } | null;
+    preparedBy?: {
+      username?: string | null;
+      email?: string | null;
+    } | null;
+    approvedBy?: {
+      username?: string | null;
+      email?: string | null;
+    } | null;
+    postedAt?: Date | string | null;
+    createdAt?: Date | string | null;
+  };
+  lines: Array<{
+    id: string;
+    accountId: string;
+    account?: {
+      code?: string | null;
+      name?: string | null;
+    } | null;
+    debit: number;
+    credit: number;
+    description?: string | null;
+    property?: {
+      name?: string | null;
+    } | null;
+    unit?: {
+      unitName?: string | null;
+    } | null;
+  }>;
+  companyName?: string;
+}
+
+/**
+ * Generate Professional Voucher PDF Report
+ * Shows complete voucher details including all lines, accounts, and totals
+ */
+export async function generateVoucherPDF(data: VoucherPDFData): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const buffers: Buffer[] = [];
+
+    doc.on('data', buffers.push.bind(buffers));
+    doc.on('end', () => {
+      const pdfBuffer = Buffer.concat(buffers);
+      resolve(pdfBuffer);
+    });
+    doc.on('error', reject);
+
+    // Helper functions
+    const formatCurrency = (amount: number | null | undefined): string => {
+      const safeAmount = amount || 0;
+      return `Rs ${safeAmount.toLocaleString('en-IN', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })}`;
+    };
+
+    const formatDate = (date: string | Date | null | undefined): string => {
+      if (!date) return '-';
+      try {
+        const d = typeof date === 'string' ? new Date(date) : date;
+        if (isNaN(d.getTime())) return '-';
+        return d.toLocaleDateString('en-IN', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        });
+      } catch {
+        return '-';
+      }
+    };
+
+    const getVoucherTypeLabel = (type: string): string => {
+      const labels: Record<string, string> = {
+        BPV: 'Bank Payment Voucher',
+        BRV: 'Bank Receipt Voucher',
+        CPV: 'Cash Payment Voucher',
+        CRV: 'Cash Receipt Voucher',
+        JV: 'Journal Voucher',
+      };
+      return labels[type] || type;
+    };
+
+    const getStatusLabel = (status: string): string => {
+      return status.charAt(0).toUpperCase() + status.slice(1);
+    };
+
+    // ============ HEADER SECTION ============
+    const companyName = data.companyName || 'Real Estate Management System';
+    doc.fontSize(24).font('Helvetica-Bold').text(companyName, { align: 'center' });
+    doc.moveDown(0.3);
+    doc.fontSize(16).font('Helvetica-Bold').text(getVoucherTypeLabel(data.voucher.type), { align: 'center' });
+    doc.moveDown(0.2);
+    doc.fontSize(10).font('Helvetica').text(`Generated on ${new Date().toLocaleString('en-IN')}`, { align: 'center' });
+    doc.moveDown(1);
+
+    // ============ VOUCHER HEADER INFORMATION ============
+    doc.fontSize(14).font('Helvetica-Bold').text('Voucher Information', { underline: true });
+    doc.moveDown(0.5);
+    doc.fontSize(10).font('Helvetica');
+    
+    const leftCol = 50;
+    const rightCol = 300;
+    let currentY = doc.y;
+
+    doc.text(`Voucher Number:`, leftCol, currentY);
+    doc.font('Helvetica-Bold').text(data.voucher.voucherNumber || '-', rightCol, currentY);
+    doc.font('Helvetica');
+    currentY += 15;
+
+    doc.text(`Voucher Type:`, leftCol, currentY);
+    doc.text(`${data.voucher.type} - ${getVoucherTypeLabel(data.voucher.type)}`, rightCol, currentY);
+    currentY += 15;
+
+    doc.text(`Date:`, leftCol, currentY);
+    doc.text(formatDate(data.voucher.date), rightCol, currentY);
+    currentY += 15;
+
+    doc.text(`Status:`, leftCol, currentY);
+    doc.font('Helvetica-Bold').text(getStatusLabel(data.voucher.status), rightCol, currentY);
+    doc.font('Helvetica');
+    currentY += 15;
+
+    if (data.voucher.paymentMethod) {
+      doc.text(`Payment Method:`, leftCol, currentY);
+      doc.text(data.voucher.paymentMethod, rightCol, currentY);
+      currentY += 15;
+    }
+
+    if (data.voucher.referenceNumber) {
+      doc.text(`Reference Number:`, leftCol, currentY);
+      doc.text(data.voucher.referenceNumber, rightCol, currentY);
+      currentY += 15;
+    }
+
+    doc.text(`Total Amount:`, leftCol, currentY);
+    doc.font('Helvetica-Bold').text(formatCurrency(data.voucher.amount), rightCol, currentY);
+    doc.font('Helvetica');
+    currentY += 15;
+
+    if (data.voucher.account) {
+      doc.text(`${data.voucher.type === 'BPV' || data.voucher.type === 'BRV' ? 'Bank' : 'Cash'} Account:`, leftCol, currentY);
+      doc.text(`${data.voucher.account.code || '-'} - ${data.voucher.account.name || '-'}`, rightCol, currentY);
+      currentY += 15;
+    }
+
+    if (data.voucher.description) {
+      doc.text(`Description:`, leftCol, currentY);
+      doc.text(data.voucher.description, rightCol, currentY, { width: 250 });
+      currentY += 20;
+    }
+
+    doc.y = currentY + 10;
+    doc.moveDown(0.5);
+
+    // ============ PAYEE INFORMATION (for Payment Vouchers) ============
+    if ((data.voucher.type === 'BPV' || data.voucher.type === 'CPV') && data.voucher.payeeType) {
+      doc.fontSize(14).font('Helvetica-Bold').text('Payee Information', { underline: true });
+      doc.moveDown(0.4);
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Payee Type: ${data.voucher.payeeType}`);
+      if (data.voucher.deal?.client) {
+        doc.text(`Name: ${data.voucher.deal.client.name || '-'}`);
+        if (data.voucher.deal.client.email) doc.text(`Email: ${data.voucher.deal.client.email}`);
+        if (data.voucher.deal.client.phone) doc.text(`Phone: ${data.voucher.deal.client.phone}`);
+      }
+      doc.moveDown(0.5);
+    }
+
+    // ============ PROPERTY/UNIT INFORMATION ============
+    if (data.voucher.property || data.voucher.unit) {
+      doc.fontSize(14).font('Helvetica-Bold').text('Property/Unit Information', { underline: true });
+      doc.moveDown(0.4);
+      doc.fontSize(10).font('Helvetica');
+      if (data.voucher.property) {
+        doc.text(`Property: ${data.voucher.property.name || '-'}`);
+        if (data.voucher.property.code) doc.text(`Property Code: ${data.voucher.property.code}`);
+      }
+      if (data.voucher.unit) {
+        doc.text(`Unit: ${data.voucher.unit.unitName || '-'}`);
+        if (data.voucher.unit.unitNumber) doc.text(`Unit Number: ${data.voucher.unit.unitNumber}`);
+      }
+      doc.moveDown(0.5);
+    }
+
+    // ============ DEAL INFORMATION ============
+    if (data.voucher.deal) {
+      doc.fontSize(14).font('Helvetica-Bold').text('Deal Information', { underline: true });
+      doc.moveDown(0.4);
+      doc.fontSize(10).font('Helvetica');
+      if (data.voucher.deal.dealCode) doc.text(`Deal Code: ${data.voucher.deal.dealCode}`);
+      doc.text(`Title: ${data.voucher.deal.title || '-'}`);
+      if (data.voucher.deal.dealAmount) {
+        doc.text(`Deal Amount: ${formatCurrency(data.voucher.deal.dealAmount)}`);
+      }
+      doc.moveDown(0.5);
+    }
+
+    // ============ VOUCHER LINES TABLE ============
+    if (data.lines && data.lines.length > 0) {
+      doc.fontSize(14).font('Helvetica-Bold').text('Voucher Lines', { underline: true });
+      doc.moveDown(0.5);
+
+      const tableTop = doc.y;
+      const itemHeight = 20;
+      const tableLeft = 50;
+      const col1 = tableLeft; // Account
+      const col2 = col1 + 200; // Description
+      const col3 = col2 + 120; // Debit
+      const col4 = col3 + 100; // Credit
+
+      // Table Header
+      doc.fontSize(9).font('Helvetica-Bold');
+      doc.text('Account', col1, tableTop);
+      doc.text('Description', col2, tableTop);
+      doc.text('Debit', col3, tableTop, { align: 'right' });
+      doc.text('Credit', col4, tableTop, { align: 'right' });
+
+      // Draw header line
+      doc.moveTo(tableLeft, tableTop + 15).lineTo(550, tableTop + 15).stroke();
+
+      // Table Rows
+      doc.fontSize(9).font('Helvetica');
+      let currentY = tableTop + 25;
+      let totalDebit = 0;
+      let totalCredit = 0;
+
+      data.lines.forEach((line) => {
+        // Check if we need a new page
+        if (currentY > 700) {
+          doc.addPage();
+          currentY = 50;
+          // Redraw header on new page
+          doc.fontSize(9).font('Helvetica-Bold');
+          doc.text('Account', col1, currentY);
+          doc.text('Description', col2, currentY);
+          doc.text('Debit', col3, currentY, { align: 'right' });
+          doc.text('Credit', col4, currentY, { align: 'right' });
+          doc.moveTo(tableLeft, currentY + 15).lineTo(550, currentY + 15).stroke();
+          currentY += 25;
+          doc.fontSize(9).font('Helvetica');
+        }
+
+        const accountLabel = line.account
+          ? `${line.account.code || '-'} - ${line.account.name || '-'}`
+          : line.accountId || '-';
+        
+        const isSystemLine = line.description?.includes('[SYSTEM]') || false;
+
+        // Account column
+        if (isSystemLine) {
+          doc.font('Helvetica-Bold').fillColor('#0066cc');
+        }
+        doc.text(accountLabel, col1, currentY, { width: 190 });
+        if (isSystemLine) {
+          doc.font('Helvetica').fillColor('black');
+          doc.fontSize(7).text('(System)', col1, currentY + 10);
+          doc.fontSize(9);
+        }
+
+        // Description column
+        doc.text(line.description || '-', col2, currentY, { width: 110 });
+
+        // Debit column
+        if (line.debit > 0) {
+          doc.text(formatCurrency(line.debit), col3, currentY, { align: 'right' });
+          totalDebit += line.debit;
+        } else {
+          doc.text('-', col3, currentY, { align: 'right' });
+        }
+
+        // Credit column
+        if (line.credit > 0) {
+          doc.text(formatCurrency(line.credit), col4, currentY, { align: 'right' });
+          totalCredit += line.credit;
+        } else {
+          doc.text('-', col4, currentY, { align: 'right' });
+        }
+
+        // Draw row separator
+        doc.moveTo(tableLeft, currentY + 12).lineTo(550, currentY + 12).stroke();
+        currentY += itemHeight;
+      });
+
+      // Totals Row
+      if (currentY > 700) {
+        doc.addPage();
+        currentY = 50;
+      }
+
+      doc.moveTo(tableLeft, currentY - 5).lineTo(550, currentY - 5).stroke();
+      doc.fontSize(10).font('Helvetica-Bold');
+      doc.text('TOTAL', col1, currentY);
+      doc.text(formatCurrency(totalDebit), col3, currentY, { align: 'right' });
+      doc.text(formatCurrency(totalCredit), col4, currentY, { align: 'right' });
+
+      // Balance check
+      currentY += 20;
+      const balance = Math.abs(totalDebit - totalCredit);
+      if (balance < 0.01) {
+        doc.fontSize(9).font('Helvetica').fillColor('#00aa00');
+        doc.text('✓ Voucher is Balanced', col1, currentY);
+      } else {
+        doc.fontSize(9).font('Helvetica').fillColor('#cc0000');
+        doc.text(`⚠ Difference: ${formatCurrency(balance)}`, col1, currentY);
+      }
+      doc.fillColor('black');
+
+      doc.y = currentY + 20;
+    }
+
+    // ============ WORKFLOW INFORMATION ============
+    doc.moveDown(1);
+    doc.fontSize(14).font('Helvetica-Bold').text('Workflow Information', { underline: true });
+    doc.moveDown(0.4);
+    doc.fontSize(10).font('Helvetica');
+    
+    currentY = doc.y;
+    if (data.voucher.preparedBy) {
+      doc.text(`Prepared By: ${data.voucher.preparedBy.username || data.voucher.preparedBy.email || '-'}`, leftCol, currentY);
+      if (data.voucher.createdAt) {
+        doc.text(`on ${formatDate(data.voucher.createdAt)}`, rightCol, currentY);
+      }
+      currentY += 15;
+    }
+    if (data.voucher.approvedBy) {
+      doc.text(`Approved By: ${data.voucher.approvedBy.username || data.voucher.approvedBy.email || '-'}`, leftCol, currentY);
+      currentY += 15;
+    }
+    if (data.voucher.postedAt) {
+      doc.text(`Posted At: ${formatDate(data.voucher.postedAt)}`, leftCol, currentY);
+      currentY += 15;
+    }
+
+    doc.y = currentY + 10;
+
+    // ============ FOOTER ============
+    const pageHeight = doc.page.height;
+    const pageWidth = doc.page.width;
+    
+    doc.moveDown(2);
+    doc.fontSize(8).font('Helvetica');
+    doc.text(
+      'This is a computer-generated voucher document. No signature required. | Real Estate Management System',
+      pageWidth / 2,
+      pageHeight - 40,
+      { align: 'center', width: pageWidth - 100 }
+    );
+
+    doc.end();
+  });
+}
+

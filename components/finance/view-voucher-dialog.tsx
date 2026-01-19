@@ -230,7 +230,7 @@ export function ViewVoucherDialog({ open, onOpenChange, voucherId, onEdit }: Vie
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1000px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1000px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] sm:w-[90vw] lg:w-[1000px] max-w-[95vw] sm:max-w-[90vw] lg:max-w-[1000px] max-h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -247,7 +247,7 @@ export function ViewVoucherDialog({ open, onOpenChange, voucherId, onEdit }: Vie
           </div>
         </DialogHeader>
         
-        <div className="space-y-6 py-4 max-h-[70vh] overflow-y-auto">
+        <div className="flex-1 overflow-y-auto space-y-6 py-4">
           {/* Basic Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
