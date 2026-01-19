@@ -109,7 +109,14 @@ router.post('/', authenticate, async (req: AuthRequest, res: Response) => {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        role: true,
+        // Avoid selecting columns that may not exist on legacy databases (e.g., category)
+        role: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+          },
+        },
       },
     });
 
