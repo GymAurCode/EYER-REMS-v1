@@ -1535,15 +1535,54 @@ router.put('/vouchers/:id/post', authenticate, async (req: AuthRequest, res: Res
   try {
     const { VoucherService } = await import('../services/voucher-service');
     const { postingDate } = req.body;
+    
+    // Validate voucher ID format
+    if (!req.params.id || typeof req.params.id !== 'string') {
+      return res.status(400).json({ error: 'Invalid voucher ID' });
+    }
+    
+    // Validate and normalize posting date if provided
+    let normalizedPostingDate: Date | undefined;
+    if (postingDate) {
+      try {
+        normalizedPostingDate = normalizeDateInput(postingDate);
+      } catch (dateError: any) {
+        return res.status(400).json({ 
+          error: 'Invalid posting date format',
+          details: dateError.message 
+        });
+      }
+    }
+    
     const voucher = await VoucherService.postVoucher(
       req.params.id,
       req.user!.id,
-      postingDate ? normalizeDateInput(postingDate) : undefined
+      normalizedPostingDate
     );
     res.json({ success: true, data: voucher });
   } catch (error: any) {
-    logger.error('Post voucher error:', error);
-    res.status(400).json({ error: error.message || 'Failed to post voucher' });
+    logger.error('Post voucher error:', {
+      voucherId: req.params.id,
+      userId: req.user?.id,
+      error: error.message,
+      stack: error.stack,
+      code: error.code,
+    });
+    
+    // Return more detailed error information
+    const errorMessage = error.message || 'Failed to post voucher';
+    const statusCode = error.statusCode || 400;
+    
+    res.status(statusCode).json({ 
+      error: errorMessage,
+      ...(process.env.NODE_ENV === 'development' && {
+        details: {
+          voucherId: req.params.id,
+          code: error.code,
+          type: error.name,
+        }
+      })
+    });
   }
 });
 

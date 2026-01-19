@@ -209,23 +209,37 @@ export async function checkAnyPermission(
  * Get all permissions for a role
  */
 export async function getRolePermissions(roleId: string): Promise<RolePermission[]> {
-  // Use explicit select to avoid querying category column if it doesn't exist
-  const role = await prisma.role.findUnique({
-    where: { id: roleId },
-    select: {
-      id: true,
-      // Don't select category - may not exist yet
-      rolePermissions: {
-        orderBy: [
-          { module: 'asc' },
-          { submodule: 'asc' },
-          { action: 'asc' },
-        ],
+  try {
+    // Use explicit select to avoid querying category column if it doesn't exist
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
+      select: {
+        id: true,
+        // Don't select category - may not exist yet
+        rolePermissions: {
+          orderBy: [
+            { module: 'asc' },
+            { submodule: 'asc' },
+            { action: 'asc' },
+          ],
+        },
       },
-    },
-  });
+    });
 
-  return role?.rolePermissions || [];
+    if (!role) {
+      logger.warn(`Role ${roleId} not found when fetching permissions`);
+      return [];
+    }
+
+    return role.rolePermissions || [];
+  } catch (error: any) {
+    logger.error(`Failed to get role permissions for ${roleId}:`, {
+      message: error?.message,
+      code: error?.code,
+      stack: error?.stack,
+    });
+    throw error;
+  }
 }
 
 /**
@@ -326,9 +340,16 @@ export async function bulkUpdatePermissions(
     // Use a transaction to ensure atomicity and avoid issues with nullable fields in compound unique constraints
     await prisma.$transaction(
       async (tx) => {
-        for (const perm of permissions) {
-          try {
-            // Normalize submodule: convert empty string or undefined to null
+        // Batch process permissions to avoid timeout issues with large sets
+        const batchSize = 50;
+        for (let i = 0; i < permissions.length; i += batchSize) {
+          const batch = permissions.slice(i, i + batchSize);
+          
+          // Process batch sequentially to avoid database contention
+          // (Parallel processing within transaction can cause deadlocks)
+          for (const perm of batch) {
+            try {
+              // Normalize submodule: convert empty string or undefined to null
             const submoduleValue: string | null = 
               perm.submodule && perm.submodule.trim() !== '' 
                 ? perm.submodule.trim() 
@@ -339,6 +360,7 @@ export async function bulkUpdatePermissions(
               : `${perm.module}.${perm.action}`;
             
             // Find existing permission using the compound unique constraint fields
+            // Use findFirst to handle nullable submodule properly
             const existing = await tx.rolePermission.findFirst({
               where: {
                 roleId,
@@ -358,17 +380,50 @@ export async function bulkUpdatePermissions(
                 },
               });
             } else {
-              // Create new permission
-              await tx.rolePermission.create({
-                data: {
-                  roleId,
-                  module: perm.module,
-                  submodule: submoduleValue,
-                  action: perm.action,
-                  granted: perm.granted,
-                  createdBy: actorId,
-                },
-              });
+              // Try to create new permission
+              // If it fails due to unique constraint violation (race condition),
+              // find and update instead
+              try {
+                await tx.rolePermission.create({
+                  data: {
+                    roleId,
+                    module: perm.module,
+                    submodule: submoduleValue,
+                    action: perm.action,
+                    granted: perm.granted,
+                    createdBy: actorId,
+                  },
+                });
+              } catch (createError: any) {
+                // If unique constraint violation, the record was created by another transaction
+                // Find it and update instead
+                if (createError.code === 'P2002' || createError.code === '23505') {
+                  const raceConditionRecord = await tx.rolePermission.findFirst({
+                    where: {
+                      roleId,
+                      module: perm.module,
+                      submodule: submoduleValue,
+                      action: perm.action,
+                    },
+                  });
+                  
+                  if (raceConditionRecord) {
+                    await tx.rolePermission.update({
+                      where: { id: raceConditionRecord.id },
+                      data: {
+                        granted: perm.granted,
+                        createdBy: actorId,
+                      },
+                    });
+                  } else {
+                    // Record doesn't exist, rethrow original error
+                    throw createError;
+                  }
+                } else {
+                  // Different error, rethrow
+                  throw createError;
+                }
+              }
             }
           } catch (permError: any) {
             // Log the specific permission that failed with detailed error info
@@ -386,12 +441,13 @@ export async function bulkUpdatePermissions(
             };
             logger.error(`Failed to update permission ${permPath} for role ${roleId}:`, errorDetails);
             throw new Error(`Failed to update permission ${permPath}: ${permError?.message || 'Database error'} (Code: ${permError?.code || 'UNKNOWN'})`);
+            }
           }
         }
       },
       {
-        maxWait: 5000, // Maximum time to wait for a transaction slot
-        timeout: 10000, // Maximum time the transaction can run
+        maxWait: 10000, // Maximum time to wait for a transaction slot (increased from 5s)
+        timeout: 30000, // Maximum time the transaction can run (increased from 10s to 30s for large permission sets)
       }
     );
 
