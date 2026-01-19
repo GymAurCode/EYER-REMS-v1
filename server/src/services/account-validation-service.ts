@@ -423,7 +423,18 @@ export class AccountValidationService {
     }
 
     // Revenue and Expense accounts require Property ID
-    if (account.type === 'Revenue' || account.type === 'Expense') {
+    // EXCEPTION: Certain overhead Expense accounts (e.g. Office Expense) are
+    // treated as global/corporate and do not need to be tied to a property.
+    const expenseWithoutPropertyAllowedCodes = [
+      '531102', // Office Expense
+    ];
+
+    const requiresProperty =
+      account.type === 'Revenue' ||
+      (account.type === 'Expense' &&
+       !expenseWithoutPropertyAllowedCodes.includes(account.code));
+
+    if (requiresProperty) {
       if (!propertyId) {
         throw new Error(
           `Property ID is required for ${account.type} accounts. ` +
@@ -433,8 +444,10 @@ export class AccountValidationService {
       }
 
       // For sale/rent revenue, Unit ID is also required
-      if (account.type === 'Revenue' && 
-          (account.code === '411101' || account.code === '411102')) {
+      if (
+        account.type === 'Revenue' &&
+        (account.code === '411101' || account.code === '411102')
+      ) {
         if (!unitId) {
           throw new Error(
             `Unit ID is required for ${account.name}. ` +
