@@ -19,8 +19,10 @@ import {
   Trash,
   UserPlus,
   UserCheck,
+  UploadCloud,
 } from "lucide-react"
 import { AddLeadDialog } from "./add-lead-dialog"
+import { LeadImportDialog } from "./lead-import-dialog"
 import { apiService } from "@/lib/api"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -51,6 +53,7 @@ export function LeadsView() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [editingLead, setEditingLead] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [showImportDialog, setShowImportDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -139,6 +142,10 @@ export function LeadsView() {
               {filter.label}
             </Button>
           ))}
+          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+            <UploadCloud className="h-4 w-4 mr-2" />
+            Import Leads
+          </Button>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
@@ -344,6 +351,13 @@ export function LeadsView() {
         onSuccess={fetchLeads}
         initialData={editingLead}
         mode={editingLead ? "edit" : "create"}
+      />
+
+      {/* Lead Import Dialog (staging-first pipeline) */}
+      <LeadImportDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImported={fetchLeads}
       />
 
       <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

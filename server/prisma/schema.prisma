@@ -940,6 +940,61 @@ model Lead {
   @@index([isDeleted])
 }
 
+// =========================
+// LEAD IMPORT STAGING MODELS
+// =========================
+
+model LeadImportBatch {
+  id              String           @id @default(uuid())
+  fileName        String
+  fileHash        String
+  filePath        String
+  rowCount        Int
+  readyCount      Int              @default(0)
+  duplicateCount  Int              @default(0)
+  invalidCount    Int              @default(0)
+  status          String           @default("uploaded") // uploaded | validated | committed | failed
+  createdByUserId String
+  createdAt       DateTime         @default(now())
+  committedAt     DateTime?
+  errorSummary    String?
+  rows            LeadImportRow[]
+
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model LeadImportRow {
+  id                 String    @id @default(uuid())
+  batchId            String
+  rowNumber          Int
+  fullName           String?
+  phone              String?
+  email              String?
+  cnic               String?
+  leadSource         String?
+  sourceDetails      String?
+  dealerTid          String?
+  dealerEmail        String?
+  notes              String?
+  status             String    @default("PENDING") // PENDING | READY | DUPLICATE | INVALID
+  errors             Json?
+  duplicateOfLeadId  String?
+  duplicateOfClientId String?
+  resolvedDealerId   String?
+  assignmentMode     String?   // CSV_DEFINED | AUTO_ASSIGN | UNASSIGNED
+  createdLeadId      String?
+  createdAt          DateTime  @default(now())
+
+  batch              LeadImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([batchId])
+  @@index([status])
+  @@index([resolvedDealerId])
+  @@index([createdLeadId])
+}
+
 model Client {
   id                  String            @id @default(uuid())
   name                String

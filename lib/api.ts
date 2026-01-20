@@ -672,6 +672,22 @@ export const apiService = {
     convertToClient: (id: string) => api.post(`/crm/leads/${id}/convert`),
   },
 
+  // CRM - Lead Import (staging-first pipeline)
+  leadImport: {
+    upload: (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+      return api.post('/crm-enhanced/leads/import/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+    },
+    // Placeholders for future steps once backend is implemented
+    validate: (batchId: string, body?: any) =>
+      api.post(`/crm-enhanced/leads/import/${batchId}/validate`, body || {}),
+    commit: (batchId: string) =>
+      api.post(`/crm-enhanced/leads/import/${batchId}/commit`, {}),
+  },
+
   // CRM - Clients
   clients: {
     getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
