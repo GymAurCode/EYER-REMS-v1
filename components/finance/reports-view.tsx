@@ -5,7 +5,6 @@ import { Card } from "@/components/ui/card"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts"
 import { TrendingUp, DollarSign } from "lucide-react"
 import { apiService } from "@/lib/api"
-import { ReportGenerator } from "@/components/shared/report-generator"
 
 type MonthRow = { month: string; revenue: number; expenses: number }
 type CategoryRow = { category: string; amount: number }
@@ -94,29 +93,6 @@ export function ReportsView() {
         <div>
           <h2 className="text-lg sm:text-xl font-semibold text-foreground">Financial Reports</h2>
           <p className="text-xs sm:text-sm text-muted-foreground mt-1">Comprehensive financial analytics and insights</p>
-        </div>
-        <div className="w-full sm:w-auto">
-          <ReportGenerator
-          moduleName="Financial Reports"
-          availableFields={[
-            "Date",
-            "Type",
-            "Category",
-            "Amount",
-            "Description",
-            "Status",
-            "Payment Method",
-          ]}
-          getData={async () => {
-            const txRes = await apiService.transactions.getAll()
-            const responseData = txRes.data as any
-            return Array.isArray(responseData?.data) 
-              ? responseData.data 
-              : Array.isArray(responseData)
-              ? responseData
-              : []
-          }}
-          />
         </div>
       </div>
 

@@ -12,7 +12,13 @@ import { syncDealToFinanceLedger } from '../services/workflows';
 import { getFollowUpReminders, getOverdueFollowUps } from '../services/crm-alerts';
 import { createAttachment, saveUploadedFile } from '../services/attachments';
 import { generateSystemId, validateManualUniqueId, validateTID, generatePrefixedId } from '../services/id-generation-service';
+import { applyListFilters } from '../utils/filter-helper';
+import { applyListFilters as applyGlobalListFilters } from '../utils/global-filter-helper';
+import { MODULE_CONFIGS } from '../services/unified-export-service';
+import { calculatePagination } from '../utils/pagination';
+import { ModuleFilterConfig } from '../services/global-filter-engine';
 import multer from 'multer';
+import logger from '../utils/logger';
 
 const router = (express as any).Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -135,28 +141,55 @@ router.get('/debug/auth', requireAuth, requirePermission('crm.clients.create'), 
 
 // ==================== LEADS ====================
 
-// Get all leads with filters
+// Get all leads with filters (supports unified filter engine)
 router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { status, priority, assignedTo, followUpDate, search } = req.query;
-    const where: any = { isDeleted: false };
+    const config = MODULE_CONFIGS.leads;
+    if (!config?.filterConfig) {
+      // Fallback to legacy filtering if filterConfig not available
+      const { status, priority, assignedTo, followUpDate, search } = req.query;
+      const where: any = { isDeleted: false };
 
-    if (status) where.status = status;
-    if (priority) where.priority = priority;
-    if (assignedTo) where.assignedToUserId = assignedTo;
-    if (followUpDate) {
-      where.followUpDate = { lte: new Date(followUpDate as string) };
-    }
-    if (search) {
-      where.OR = [
-        { name: { contains: search as string, mode: 'insensitive' } },
-        { email: { contains: search as string, mode: 'insensitive' } },
-        { phone: { contains: search as string, mode: 'insensitive' } },
-        { leadCode: { contains: search as string, mode: 'insensitive' } },
-        { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
-      ];
+      if (status) where.status = status;
+      if (priority) where.priority = priority;
+      if (assignedTo) where.assignedToUserId = assignedTo;
+      if (followUpDate) {
+        where.followUpDate = { lte: new Date(followUpDate as string) };
+      }
+      if (search) {
+        where.OR = [
+          { name: { contains: search as string, mode: 'insensitive' } },
+          { email: { contains: search as string, mode: 'insensitive' } },
+          { phone: { contains: search as string, mode: 'insensitive' } },
+          { leadCode: { contains: search as string, mode: 'insensitive' } },
+          { manualUniqueId: { contains: search as string, mode: 'insensitive' } },
+        ];
+      }
+
+      const leads = await prisma.lead.findMany({
+        where,
+        include: {
+          assignedAgent: {
+            select: { id: true, username: true, email: true },
+          },
+          communications: {
+            orderBy: { activityDate: 'desc' },
+            take: 5,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      return res.json(leads);
     }
 
+    // Use unified filter engine
+    const { where, orderBy, pagination } = await applyListFilters(req, config.filterConfig);
+
+    // Get total count
+    const total = await prisma.lead.count({ where });
+
+    // Get paginated data
     const leads = await prisma.lead.findMany({
       where,
       include: {
@@ -168,17 +201,118 @@ router.get('/leads', requireAuth, requirePermission('crm.leads.view'), async (re
           take: 5,
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy,
+      skip: pagination.skip,
+      take: pagination.limit,
     });
 
-    res.json(leads);
+    const paginationResult = calculatePagination(pagination.page, pagination.limit, total);
+
+    res.json({
+      data: leads,
+      pagination: paginationResult,
+    });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
 
+// POST endpoint for global filter engine (list with filters)
+router.post('/leads', requireAuth, requirePermission('crm.leads.view'), async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Global filter configuration for leads
+    const filterConfig: ModuleFilterConfig = {
+      model: 'Lead',
+      identityFields: ['leadCode', 'name', 'email', 'phone', 'tid', 'manualUniqueId'],
+      statusField: 'status',
+      priorityField: 'priority',
+      dateFields: [
+        { global: 'created_at', prisma: 'createdAt' },
+        { global: 'updated_at', prisma: 'updatedAt' },
+        { global: 'follow_up_date', prisma: 'followUpDate' },
+        { global: 'expected_close_date', prisma: 'expectedCloseDate' },
+      ],
+      numericFields: [],
+      relationalFields: {
+        assignedTo: 'assignedToUserId',
+        dealer: 'assignedDealerId',
+      },
+    };
+
+    // Apply global filters
+    const { where, orderBy, pagination } = await applyGlobalListFilters(req, filterConfig);
+
+    // Ensure where clause is properly formatted (remove any undefined/null values)
+    const cleanWhere = JSON.parse(JSON.stringify(where || {}));
+
+    // Get total count
+    const total = await prisma.lead.count({ where: cleanWhere });
+
+    // Get paginated data
+    const leads = await prisma.lead.findMany({
+      where: cleanWhere,
+      include: {
+        assignedAgent: {
+          select: { id: true, username: true, email: true },
+        },
+        communications: {
+          orderBy: { activityDate: 'desc' },
+          take: 5,
+        },
+      },
+      orderBy,
+      skip: pagination.skip,
+      take: pagination.limit,
+    });
+
+    const paginationResult = calculatePagination(pagination.page, pagination.limit, total);
+
+    res.json({
+      success: true,
+      data: leads,
+      pagination: paginationResult,
+    });
+  } catch (error: any) {
+    console.error('Error fetching leads:', error);
+    logger.error('Error fetching leads:', {
+      message: error.message,
+      stack: error.stack,
+      name: error.name,
+      code: error.code,
+    });
+    // Handle Zod validation errors
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Validation error',
+        message: 'Invalid filter parameters',
+        details: error.errors 
+      });
+    }
+    // Handle Prisma errors
+    if (error.code && error.code.startsWith('P')) {
+      return res.status(400).json({ 
+        success: false,
+        error: 'Database error',
+        message: error.message,
+        code: error.code,
+      });
+    }
+    // Handle other errors
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Internal server error',
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      details: process.env.NODE_ENV === 'development' ? {
+        name: error.name,
+        code: error.code,
+      } : undefined,
+    });
+  }
+});
+
 // Create lead
-router.post('/leads', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res: Response) => {
+router.post('/leads/create', requireAuth, requirePermission('crm.leads.create'), async (req: AuthenticatedRequest, res: Response) => {
   try {
     const parsedData = createLeadSchema.parse(req.body);
     const { manualUniqueId, tid, ...data } = parsedData as any;

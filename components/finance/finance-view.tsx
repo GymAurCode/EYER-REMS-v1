@@ -16,7 +16,6 @@ import { AccountingView } from "./accounting-view"
 import { ChartOfAccountsView } from "./chart-of-accounts-view"
 import { AccountLedgerModule } from "./account-ledger-module"
 import { AddTransactionDialog } from "./add-transaction-dialog"
-import { ReportGenerator } from "@/components/shared/report-generator"
 import { cn } from "@/lib/utils"
 
 export function FinanceView() {
@@ -186,24 +185,6 @@ export function FinanceView() {
           <p className="text-sm sm:text-base text-muted-foreground mt-1">Track revenue, expenses, invoices, payments, and commissions</p>
         </div>
         <div className="flex flex-col sm:flex-row gap-2">
-          <ReportGenerator
-            moduleName="Finance"
-            availableFields={[
-              "Transaction ID",
-              "Date",
-              "Type",
-              "Category",
-              "Amount",
-              "Description",
-              "Status",
-              "Payment Method",
-            ]}
-            getData={async () => {
-              const response: any = await apiService.transactions.getAll()
-              const responseData = response?.data as any
-              return responseData?.data || responseData || []
-            }}
-          />
           <Button onClick={() => setShowAddDialog(true)} className="w-full sm:w-auto">
             <Plus className="h-4 w-4 mr-2" />
             <span className="hidden sm:inline">New Transaction</span>

@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Plus, DollarSign, Loader2 } from "lucide-react"
 import { AddPayrollDialog } from "./add-payroll-dialog"
 import { apiService } from "@/lib/api"
-import { ReportGenerator } from "@/components/shared/report-generator"
 
 export function PayrollView() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -92,25 +91,6 @@ export function PayrollView() {
           />
         </div>
         <div className="flex gap-2">
-          <ReportGenerator
-            moduleName="Payroll"
-            availableFields={[
-              "Employee",
-              "Employee ID",
-              "Department",
-              "Month",
-              "Base Salary",
-              "Bonus",
-              "Deductions",
-              "Net Pay",
-              "Status",
-            ]}
-            data={payroll}
-            getData={async () => {
-              const response: any = await apiService.payroll.getAll()
-              return response?.data?.data || response?.data || []
-            }}
-          />
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Process Payroll

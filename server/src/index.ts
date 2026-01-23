@@ -50,6 +50,8 @@ import filesRoutes from './routes/files';
 import constructionRoutes from './routes/construction';
 import aiIntelligenceRoutes from './routes/ai-intelligence';
 import aiChatRoutes from './routes/ai-chat';
+import exportRoutes from './routes/export';
+import exportJobRoutes from './routes/export-jobs';
 import { csrfProtection } from './middleware/csrf';
 import { apiLoggingMiddleware } from './middleware/api-logging';
 import path from 'path';
@@ -266,6 +268,8 @@ app.use('/api/construction', constructionRoutes);
 app.use('/api/ai-intelligence', aiIntelligenceRoutes);
 app.use('/api/ai-chat', aiChatRoutes);
 app.use('/api/permissions', permissionsRoutes);
+app.use('/api', exportRoutes);
+app.use('/api', exportJobRoutes);
 
 // Health check with DB connection test
 app.get('/api/health', async (req: Request, res: Response) => {

@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, DollarSign, Calendar, TrendingUp, Loader2, MoreVertical, Pencil, Trash } from "lucide-react"
+import { Search, Plus, DollarSign, Calendar, TrendingUp, Loader2, MoreVertical, Pencil, Trash, Download } from "lucide-react"
 
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { AddDealDialog } from "./add-deal-dialog"
@@ -46,6 +47,7 @@ export function DealsView() {
   const router = useRouter()
   const [editingDeal, setEditingDeal] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -161,10 +163,16 @@ export function DealsView() {
             className="pl-9"
           />
         </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Deal
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Report
+          </Button>
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Deal
+          </Button>
+        </div>
       </div>
 
       {/* Pipeline Summary */}
@@ -366,6 +374,13 @@ export function DealsView() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="deals"
+        moduleDisplayName="Deals"
+        search={searchQuery || undefined}
+      />
     </div>
   )
 }

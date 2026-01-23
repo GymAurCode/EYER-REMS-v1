@@ -22,7 +22,6 @@ const DealersView = lazy(() => import("./dealers-view").then(m => ({ default: m.
 const AddLeadDialog = lazy(() => import("./add-lead-dialog").then(m => ({ default: m.AddLeadDialog })))
 const AddDealerDialog = lazy(() => import("./add-dealer-dialog").then(m => ({ default: m.AddDealerDialog })))
 const AddClientDialog = lazy(() => import("./add-client-dialog").then(m => ({ default: m.AddClientDialog })))
-const ReportGenerator = lazy(() => import("@/components/shared/report-generator").then(m => ({ default: m.ReportGenerator })))
 
 export function CRMView() {
   const router = useRouter()
@@ -321,115 +320,6 @@ export function CRMView() {
     }
   }
 
-  const reportConfig = useMemo(() => {
-    switch (activeTab) {
-      case "clients":
-        return {
-          moduleName: "CRM - Clients",
-          fields: ["Client ID", "Name", "Email", "Phone", "Company", "Type", "Status", "Added On"],
-          getData: async () => {
-            const res = await apiService.clients.getAll()
-            return Array.isArray(res.data) ? res.data : []
-          },
-        }
-      case "deals":
-        return {
-          moduleName: "CRM - Deals",
-          fields: ["Deal ID", "Title", "Value", "Stage", "Client", "Dealer", "Created On", "Updated On"],
-          getData: async () => {
-            const res = await apiService.deals.getAll()
-            return Array.isArray(res.data) ? res.data : []
-          },
-        }
-      case "dealers":
-        return {
-          moduleName: "CRM - Dealers",
-          fields: [
-            "Dealer ID",
-            "Name",
-            "Email",
-            "Phone",
-            "Company",
-            "Commission Rate",
-            "Total Deals",
-            "Total Deal Value",
-            "Joined On",
-          ],
-          getData: async () => {
-            const [dealersRes, dealsRes] = await Promise.all([
-              apiService.dealers.getAll(),
-              apiService.deals.getAll().catch(() => ({ data: [] })),
-            ])
-            const dealerList: any[] = Array.isArray(dealersRes.data) ? dealersRes.data : []
-            const deals: any[] = Array.isArray(dealsRes.data) ? dealsRes.data : []
-
-            const dealsByDealer: Record<
-              string,
-              { count: number; totalValue: number }
-            > = {}
-            deals.forEach((deal: any) => {
-              const dealerId = deal.dealerId || deal.dealer?.id
-              if (!dealerId) return
-              const numericValue =
-                typeof deal.dealAmount === "number" ? deal.dealAmount : Number.parseFloat(deal.dealAmount ?? "0")
-              const safeValue = Number.isFinite(numericValue) ? numericValue : 0
-              if (!dealsByDealer[dealerId]) {
-                dealsByDealer[dealerId] = { count: 0, totalValue: 0 }
-              }
-              dealsByDealer[dealerId].count += 1
-              dealsByDealer[dealerId].totalValue += safeValue
-            })
-
-            return dealerList.map((dealer: any) => {
-              const stats = dealsByDealer[dealer.id] || { count: 0, totalValue: 0 }
-              return {
-                ...dealer,
-                totalDeals: stats.count,
-                totalDealValue: stats.totalValue,
-              }
-            })
-          },
-        }
-      case "communications":
-        return {
-          moduleName: "CRM - Communications",
-          fields: [
-            "Communication ID",
-            "Type",
-            "Contact",
-            "Client",
-            "Lead",
-            "Agent",
-            "Date",
-            "Notes",
-          ],
-          getData: async () => {
-            const res = await apiService.communications.getAll()
-            return Array.isArray(res.data) ? res.data : []
-          },
-        }
-      case "leads":
-      default:
-        return {
-          moduleName: "CRM - Leads",
-          fields: [
-            "Lead ID",
-            "Name",
-            "Email",
-            "Phone",
-            "Source",
-            "Status",
-            "Assigned To",
-            "Created Date",
-            "Last Contact",
-          ],
-          getData: async () => {
-            const res = await apiService.leads.getAll()
-            return Array.isArray(res.data) ? res.data : []
-          },
-        }
-    }
-  }, [activeTab])
 
   return (
     <div className="space-y-6">
@@ -440,13 +330,6 @@ export function CRMView() {
           <p className="text-muted-foreground mt-1">Manage leads, clients, deals, dealers, and communications</p>
         </div>
         <div className="flex gap-2">
-          <Suspense fallback={<Button disabled><Loader2 className="h-4 w-4 mr-2 animate-spin" />Loading...</Button>}>
-            <ReportGenerator
-              moduleName={reportConfig.moduleName}
-              availableFields={reportConfig.fields}
-              getData={reportConfig.getData}
-            />
-          </Suspense>
           {activeTab === "dealers" ? (
             <Button onClick={() => setShowAddDealerDialog(true)}>
               <Plus className="h-4 w-4 mr-2" />

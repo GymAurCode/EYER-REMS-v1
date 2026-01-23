@@ -34,6 +34,8 @@ model User {
   vouchersApproved       Voucher[]        @relation("VoucherApprovedBy")
   vouchersPrepared       Voucher[]        @relation("VoucherPreparedBy")
   tenantPaymentsCreated  TenantPayment[]  @relation("TenantPaymentCreatedBy")
+  exportJobs             ExportJob[]
+  filterPresets          FilterPreset[]
 
   @@index([email])
   @@index([roleId])
@@ -2790,4 +2792,51 @@ model ConstructionPostingRule {
 
   @@index([eventType])
   @@index([isActive])
+}
+
+// Export Job for async report generation
+model ExportJob {
+  id            String   @id @default(uuid())
+  module        String   // e.g., "leads", "vouchers", "properties"
+  tab           String?  // e.g., "bank-payment", "employees"
+  userId        String
+  status        String   @default("pending") // pending, running, completed, failed
+  format        String   // csv, xlsx, pdf, word
+  scope         String   // current_page, all_filtered, custom_limit
+  customLimit   Int?     // For custom_limit scope
+  filterJson    Json     // Global filter schema snapshot
+  columns       Json?    // Selected columns (if column selection enabled)
+  dataShape     String?  // raw, grouped, aggregated
+  rowCount      Int?
+  error          String?
+  fileUrl        String?
+  fileName       String?
+  createdAt      DateTime @default(now())
+  startedAt      DateTime?
+  completedAt    DateTime?
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([module])
+  @@index([status])
+  @@index([createdAt])
+  @@index([module, tab])
+}
+
+// Saved Filter Presets (user-specific)
+model FilterPreset {
+  id          String   @id @default(uuid())
+  userId      String
+  module      String
+  tab         String?
+  name        String
+  filterJson  Json     // Global filter schema
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, module, tab, name])
+  @@index([userId])
+  @@index([module, tab])
 }

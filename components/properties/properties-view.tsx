@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   KeyRound,
   Loader2,
+  Download,
 } from "lucide-react"
 import {
   Pagination,
@@ -48,7 +49,7 @@ import { LeasesView } from "./leases-view"
 import { SalesView } from "./sales-view"
 import { BuyersView } from "./buyers-view"
 import { SellersView } from "./sellers-view"
-import { ReportGenerator } from "@/components/shared/report-generator"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { apiService } from "@/lib/api"
 import { PropertyToasts, handleApiError } from "@/lib/toast-utils"
 import { formatCurrency } from "@/lib/utils"
@@ -77,6 +78,7 @@ export function PropertiesView() {
   const [structurePropertyId, setStructurePropertyId] = useState<string | null>(null)
   const [structurePropertyName, setStructurePropertyName] = useState<string>("")
   const [reportLoading, setReportLoading] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -509,16 +511,6 @@ export function PropertiesView() {
           <p className="text-muted-foreground mt-1">Manage all your properties, units, and tenants</p>
         </div>
         <div className="flex gap-2">
-          <ReportGenerator
-            moduleName="Properties"
-            availableFields={["Property Name", "Type", "Address", "Units", "Occupancy Rate", "Revenue", "Status"]}
-            data={properties}
-            getData={async () => {
-              const response: any = await apiService.properties.getAll()
-              const responseData = response.data as any
-              return Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
-            }}
-          />
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Property
@@ -679,6 +671,10 @@ export function PropertiesView() {
                 </div>
               </PopoverContent>
             </Popover>
+            <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Download Report
+            </Button>
           </div>
 
           {/* Properties Table */}
@@ -1068,6 +1064,22 @@ export function PropertiesView() {
         />
       )}
 
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="properties"
+        moduleDisplayName="Properties"
+        filters={{
+          ...(filterStatus !== "all" ? { status: filterStatus } : {}),
+          ...(filterType !== "all" ? { type: filterType } : {}),
+        }}
+        search={searchQuery || undefined}
+        pagination={
+          activeTab === "properties"
+            ? { page: currentPage, pageSize: itemsPerPage }
+            : undefined
+        }
+      />
     </div>
   )
 }

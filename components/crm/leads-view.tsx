@@ -20,9 +20,14 @@ import {
   UserPlus,
   UserCheck,
   UploadCloud,
+  Download,
+  Filter,
 } from "lucide-react"
 import { AddLeadDialog } from "./add-lead-dialog"
 import { LeadImportDialog } from "./lead-import-dialog"
+import { EnhancedReportDialog } from "@/components/ui/enhanced-report-dialog"
+import { GlobalFilterDialog, GlobalFilterPayload } from "@/components/ui/global-filter-dialog"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
 import { apiService } from "@/lib/api"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -54,27 +59,83 @@ export function LeadsView() {
   const [editingLead, setEditingLead] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [showFilterDialog, setShowFilterDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Partial<GlobalFilterPayload>>(loadFilters('leads', undefined) || {})
+  const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0 })
   const { toast } = useToast()
 
   useEffect(() => {
     fetchLeads()
-  }, [])
+  }, [activeFilters, statusFilter, searchQuery])
 
   const fetchLeads = async () => {
     try {
       setLoading(true)
       setError(null)
       console.log("Fetching leads...")
-      const response: any = await apiService.leads.getAll()
+      
+      // Build global filter payload
+      const globalFilter: GlobalFilterPayload = {
+        identity: { system_ids: [], reference_codes: [], tids: [] },
+        status: statusFilter !== "all" ? [statusFilter] : [],
+        lifecycle: [],
+        priority: [],
+        stage: [],
+        ownership: {
+          assigned_users: [],
+          teams: [],
+          departments: [],
+          dealers: [],
+          agents: [],
+          created_by: [],
+          approved_by: [],
+        },
+        relationships: { has_related: [], missing_related: [] },
+        pagination: { page: pagination.page, limit: pagination.limit },
+        sorting: { field: 'created_at', direction: 'desc' },
+        search: searchQuery || undefined,
+        ...activeFilters,
+      }
+      
+      // Merge status filter
+      if (statusFilter !== "all") {
+        globalFilter.status = [...(globalFilter.status || []), statusFilter]
+      }
+      
+      const response: any = await apiService.leads.getAll({
+        filter: globalFilter,
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
       const responseData = response?.data
       let data: any[] = []
-      if (responseData?.success && Array.isArray(responseData?.data)) {
-        data = responseData.data
-      } else if (Array.isArray(responseData?.data)) {
-        data = responseData.data
+      let paginationData: any = null
+      
+      if (responseData?.success) {
+        if (responseData?.data?.data) {
+          data = responseData.data.data
+          paginationData = responseData.data.pagination
+        } else if (Array.isArray(responseData?.data)) {
+          data = responseData.data
+        }
+      } else if (responseData?.data) {
+        data = Array.isArray(responseData.data) ? responseData.data : []
+        paginationData = responseData.pagination
       } else if (Array.isArray(responseData)) {
         data = responseData
       }
+      
+      if (paginationData) {
+        setPagination({
+          page: paginationData.page || 1,
+          limit: paginationData.limit || 25,
+          total: paginationData.total || data.length,
+        })
+      }
+      
       console.log(`Fetched ${data.length} leads`)
       setLeads(data)
     } catch (err: any) {
@@ -132,7 +193,7 @@ export function LeadsView() {
               className="pl-9"
             />
           </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {LEAD_FILTERS.map((filter) => (
             <Button
               key={filter.value}
@@ -142,6 +203,29 @@ export function LeadsView() {
               {filter.label}
             </Button>
           ))}
+          <Button variant="outline" onClick={() => setShowFilterDialog(true)}>
+            <Filter className="h-4 w-4 mr-2" />
+            Advanced Filters
+            {Object.keys(activeFilters).filter(k => {
+              const v = activeFilters[k as keyof Partial<GlobalFilterPayload>]
+              if (Array.isArray(v)) return v.length > 0
+              if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0
+              return v !== undefined && v !== null && v !== ''
+            }).length > 0 && (
+              <span className="ml-2 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
+                {Object.keys(activeFilters).filter(k => {
+                  const v = activeFilters[k as keyof Partial<GlobalFilterPayload>]
+                  if (Array.isArray(v)) return v.length > 0
+                  if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0
+                  return v !== undefined && v !== null && v !== ''
+                }).length}
+              </span>
+            )}
+          </Button>
+          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Report
+          </Button>
           <Button variant="outline" onClick={() => setShowImportDialog(true)}>
             <UploadCloud className="h-4 w-4 mr-2" />
             Import Leads
@@ -374,6 +458,69 @@ export function LeadsView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EnhancedReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="leads"
+        filter={{
+          identity: { system_ids: [], reference_codes: [], tids: [] },
+          status: statusFilter !== "all" ? [statusFilter] : [],
+          lifecycle: [],
+          priority: [],
+          stage: [],
+          ownership: {
+            assigned_users: [],
+            teams: [],
+            departments: [],
+            dealers: [],
+            agents: [],
+            created_by: [],
+            approved_by: [],
+          },
+          relationships: { has_related: [], missing_related: [] },
+          pagination: { page: pagination.page, limit: pagination.limit },
+          sorting: { field: 'created_at', direction: 'desc' },
+          search: searchQuery || undefined,
+          ...activeFilters,
+        }}
+        currentPage={pagination.page}
+        currentPageSize={pagination.limit}
+        totalRecords={pagination.total}
+        availableColumns={[
+          { key: 'leadCode', label: 'Lead Code' },
+          { key: 'name', label: 'Name' },
+          { key: 'email', label: 'Email' },
+          { key: 'phone', label: 'Phone' },
+          { key: 'status', label: 'Status' },
+          { key: 'priority', label: 'Priority' },
+          { key: 'source', label: 'Source' },
+          { key: 'createdAt', label: 'Created At' },
+        ]}
+      />
+
+      <GlobalFilterDialog
+        open={showFilterDialog}
+        onOpenChange={setShowFilterDialog}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters('leads', undefined, filters)
+          toast({
+            title: "Filters applied",
+            description: "Filters will be applied to exports and future list queries",
+          })
+        }}
+        module="leads"
+        availableStatuses={["new", "qualified", "negotiation", "won", "lost"]}
+        availablePriorities={["low", "medium", "high", "urgent"]}
+        availableDateFields={[
+          { value: 'created_at', label: 'Created Date' },
+          { value: 'updated_at', label: 'Updated Date' },
+          { value: 'follow_up_date', label: 'Follow-up Date' },
+          { value: 'expected_close_date', label: 'Expected Close Date' },
+        ]}
+        initialFilters={activeFilters}
+      />
     </div>
   )
 }

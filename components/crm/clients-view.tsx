@@ -7,10 +7,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye } from "lucide-react"
+import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye, Download } from "lucide-react"
 import { apiService } from "@/lib/api"
 
 import { AddClientDialog } from "./add-client-dialog"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -33,6 +34,7 @@ export function ClientsView() {
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [editingClient, setEditingClient] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -165,6 +167,10 @@ export function ClientsView() {
             onClick={() => setTypeFilter("corporate")}
           >
             Corporate
+          </Button>
+          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+            <Download className="mr-2 h-4 w-4" />
+            Download Report
           </Button>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
@@ -363,6 +369,15 @@ export function ClientsView() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="clients"
+        moduleDisplayName="Clients"
+        filters={typeFilter !== "all" ? { clientType: typeFilter } : {}}
+        search={searchQuery || undefined}
+      />
     </div>
   )
 }

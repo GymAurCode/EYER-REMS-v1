@@ -13,7 +13,6 @@ import { PayrollView } from "./payroll-view"
 import { LeaveView } from "./leave-view"
 import { AddEmployeeDialog } from "./add-employee-dialog"
 import { AttendancePortalView } from "./attendance-portal-view"
-import { ReportGenerator } from "@/components/shared/report-generator"
 
 export function HRView() {
   const router = useRouter()
@@ -178,24 +177,6 @@ export function HRView() {
           <p className="text-muted-foreground mt-1">Manage employees, attendance, payroll, and leave requests</p>
         </div>
         <div className="flex gap-2">
-          <ReportGenerator
-            moduleName="HR"
-            availableFields={[
-              "Employee ID",
-              "Name",
-              "Department",
-              "Position",
-              "Salary",
-              "Join Date",
-              "Status",
-              "Attendance",
-              "Leave Balance",
-            ]}
-            getData={async () => {
-              const response: any = await apiService.employees.getAll()
-              return response?.data?.data || response?.data || []
-            }}
-          />
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Employee

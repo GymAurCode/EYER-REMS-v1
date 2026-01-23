@@ -664,7 +664,21 @@ export const apiService = {
 
   // CRM - Leads
   leads: {
-    getAll: (config?: any) => api.get('/crm/leads', config),
+    getAll: (params?: { filter?: any; filters?: any; search?: string }, config?: any) => {
+      // Support both new global filter format (filter) and legacy (filters)
+      const filter = params?.filter || params?.filters
+      
+      if (filter) {
+        // POST with filter in body for complex filter objects
+        return api.post('/crm-enhanced/leads', { filter }, config)
+      } else {
+        // GET with simple query params for backward compatibility
+        const queryParams = new URLSearchParams()
+        if (params?.search) queryParams.append('search', params.search)
+        const queryString = queryParams.toString()
+        return api.get(`/crm/leads${queryString ? `?${queryString}` : ''}`, config)
+      }
+    },
     getById: (id: string | number) => api.get(`/crm/leads/${id}`),
     create: (data: any) => api.post('/crm/leads', data),
     update: (id: string | number, data: any) => api.put(`/crm/leads/${id}`, data),
@@ -1314,6 +1328,10 @@ export const apiService = {
       api.post('/ai-chat', { message, history }),
     getStatus: () => api.get('/ai-chat/status'),
   },
+
+  // Generic methods for unified exports
+  post: (url: string, data?: any, config?: any) => api.post(url, data, config),
+  get: (url: string, config?: any) => api.get(url, config),
 }
 
 export default api

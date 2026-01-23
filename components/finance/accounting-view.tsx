@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical, Send, CheckCircle, ArrowRight, RotateCcw } from "lucide-react"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
 import { AddVoucherDialog } from "./add-voucher-dialog"
@@ -41,6 +42,7 @@ export function AccountingView() {
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
   const [activeTab, setActiveTab] = useState("bank-payment")
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
 
   useEffect(() => {
     fetchData()
@@ -396,6 +398,12 @@ export function AccountingView() {
             <TabsTrigger value="journal" className="text-xs sm:text-sm whitespace-nowrap">Journal</TabsTrigger>
             <TabsTrigger value="ledgers" className="text-xs sm:text-sm whitespace-nowrap">Ledgers</TabsTrigger>
           </TabsList>
+        </div>
+        <div className="flex justify-end">
+          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Report
+          </Button>
         </div>
 
         {/* Bank Payment Vouchers */}
@@ -775,6 +783,24 @@ export function AccountingView() {
           }}
         />
       )}
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="vouchers"
+        moduleDisplayName="Vouchers"
+        filters={
+          activeTab !== "ledgers"
+            ? {
+                voucherType: activeTab === "bank-payment" ? "BPV" :
+                             activeTab === "bank-receipt" ? "BRV" :
+                             activeTab === "cash-payment" ? "CPV" :
+                             activeTab === "cash-receipt" ? "CRV" :
+                             activeTab === "journal" ? "JV" : undefined,
+              }
+            : {}
+        }
+      />
     </div>
   )
 }

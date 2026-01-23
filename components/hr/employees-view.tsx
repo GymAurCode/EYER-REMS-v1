@@ -7,8 +7,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Plus, Mail, Phone, Briefcase, Loader2, Users, ArrowUpDown, FileText } from "lucide-react"
+import { Search, Plus, Mail, Phone, Briefcase, Loader2, Users, ArrowUpDown, FileText, Download } from "lucide-react"
 import { AddEmployeeDialog } from "./add-employee-dialog"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { apiService } from "@/lib/api"
 import { cn } from "@/lib/utils"
 
@@ -23,6 +24,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const [employees, setEmployees] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -193,6 +195,10 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
               <SelectItem value="intern">Intern</SelectItem>
             </SelectContent>
           </Select>
+          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Download Report
+          </Button>
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
@@ -293,6 +299,20 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
           fetchEmployees()
           onEmployeeAdded?.()
         }} 
+      />
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="employees"
+        moduleDisplayName="Employees"
+        filters={{
+          ...(departmentFilter !== "all" ? { department: departmentFilter } : {}),
+          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
+          ...(typeFilter !== "all" ? { employeeType: typeFilter } : {}),
+        }}
+        search={searchQuery || undefined}
+        sort={sortField ? { field: sortField, direction: sortDirection } : undefined}
       />
     </div>
   )

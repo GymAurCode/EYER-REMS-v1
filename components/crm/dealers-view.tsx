@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { apiService } from "@/lib/api"
 import axios from "axios"
-import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye } from "lucide-react"
+import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye, Download } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +50,7 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
   const [editingDealer, setEditingDealer] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showDialog, setShowDialog] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -188,6 +190,10 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
             className="pl-10"
           />
         </div>
+        <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
+          <Download className="mr-2 h-4 w-4" />
+          Download Report
+        </Button>
       </div>
 
       {/* Dealers Table */}
@@ -391,6 +397,14 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        module="dealers"
+        moduleDisplayName="Dealers"
+        search={searchQuery || undefined}
+      />
     </div>
   )
 }
