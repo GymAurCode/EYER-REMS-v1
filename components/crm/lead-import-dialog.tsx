@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Info, UploadCloud } from "lucide-react"
+import { Download, Info, UploadCloud } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 
@@ -19,6 +19,7 @@ type LeadImportDialogProps = {
 export function LeadImportDialog({ open, onOpenChange, onImported }: LeadImportDialogProps) {
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [downloadingTemplate, setDownloadingTemplate] = useState(false)
   const [batchInfo, setBatchInfo] = useState<{ batchId: string; rowCount: number } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
@@ -85,7 +86,51 @@ export function LeadImportDialog({ open, onOpenChange, onImported }: LeadImportD
     setBatchInfo(null)
     setError(null)
     setUploading(false)
+    setDownloadingTemplate(false)
     onOpenChange(false)
+  }
+
+  const handleDownloadTemplate = async () => {
+    try {
+      setDownloadingTemplate(true)
+      setError(null)
+      const response = await apiService.leadImport.downloadTemplate()
+      const blob = response.data as Blob
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = "crm_lead_import_template.csv"
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      toast({
+        title: "Template downloaded",
+        description: "crm_lead_import_template.csv",
+      })
+    } catch (err: any) {
+      console.error("Lead import template download failed:", err)
+      if (err?.response?.status === 403) {
+        setError("You don't have permission to download the lead import template.")
+      } else if (err?.response?.data instanceof Blob) {
+        try {
+          const text = await (err.response.data as Blob).text()
+          const j = JSON.parse(text)
+          setError(j?.error || j?.message || "Failed to download template.")
+        } catch {
+          setError("Failed to download template.")
+        }
+      } else {
+        const message =
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to download template."
+        setError(message)
+      }
+    } finally {
+      setDownloadingTemplate(false)
+    }
   }
 
   return (
@@ -113,6 +158,17 @@ export function LeadImportDialog({ open, onOpenChange, onImported }: LeadImportD
                 <li>Either Dealer TID or Dealer Email may be provided per row, but not both.</li>
                 <li>Status, pipeline stage, property or deal fields are not allowed in the file.</li>
               </ul>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3"
+                onClick={handleDownloadTemplate}
+                disabled={downloadingTemplate}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {downloadingTemplate ? "Downloading..." : "Download Template"}
+              </Button>
             </AlertDescription>
           </Alert>
 

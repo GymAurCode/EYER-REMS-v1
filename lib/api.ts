@@ -695,7 +695,8 @@ export const apiService = {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
     },
-    // Placeholders for future steps once backend is implemented
+    downloadTemplate: () =>
+      api.get('/crm-enhanced/leads/import/template', { responseType: 'blob' }),
     validate: (batchId: string, body?: any) =>
       api.post(`/crm-enhanced/leads/import/${batchId}/validate`, body || {}),
     commit: (batchId: string) =>

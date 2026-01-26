@@ -5,7 +5,8 @@ import path from 'path';
 import fs from 'fs';
 import prisma from '../prisma/client';
 import { requireAuth, AuthenticatedRequest, requirePermission } from '../middleware/rbac';
-import { createLeadImportBatch, validateLeadImportBatch, commitLeadImportBatch } from '../services/lead-import-service';
+import { createLeadImportBatch, validateLeadImportBatch, commitLeadImportBatch, LEAD_IMPORT_REQUIRED_HEADERS } from '../services/lead-import-service';
+import logger from '../utils/logger';
 
 const router = (express as any).Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -19,6 +20,35 @@ function ensureUploadDir(): string {
   }
   return dir;
 }
+
+function buildLeadImportTemplateCsv(): string {
+  const header = [...LEAD_IMPORT_REQUIRED_HEADERS];
+  const row1 = header.join(',');
+  const row2 = ['Required', 'Required', 'Optional', 'Optional', 'Required', 'Optional', 'Provide one only', 'Provide one only', 'Optional'].join(',');
+  const row3 = ['Ali Khan', '+923001234567', 'ali@email.com', '35202-1234567-1', 'Facebook', 'Campaign A', 'DLR-001', '', 'Interested buyer'].join(',');
+  return [row1, row2, row3].join('\r\n');
+}
+
+// Download official Lead Import CSV template (no static file; dynamically generated)
+router.get(
+  '/leads/import/template',
+  requireAuth,
+  requirePermission('crm.leads.create'),
+  async (req: AuthenticatedRequest, res: Response) => {
+    try {
+      const userId = req.user!.id;
+      logger.info('Lead import template downloaded', { userId, timestamp: new Date().toISOString() });
+
+      const csv = buildLeadImportTemplateCsv();
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="crm_lead_import_template.csv"');
+      res.send(csv);
+    } catch (error: any) {
+      logger.error('Lead import template download error', { error: error.message, userId: req.user?.id });
+      return res.status(500).json({ error: error.message || 'Failed to download template' });
+    }
+  }
+);
 
 // Upload CSV/Excel and create staging batch
 router.post(
