@@ -3,7 +3,6 @@
  * Implements proper double-entry accounting with running balance calculation
  */
 
-import { PrismaClient } from '@prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
 import { DealerLedgerService } from './dealer-ledger-service';

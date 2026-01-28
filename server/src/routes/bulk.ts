@@ -1,5 +1,5 @@
 import express, { Response } from 'express';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, requireAdmin, AuthRequest } from '../middleware/auth';
 import { createAuditLog } from '../services/audit-log';

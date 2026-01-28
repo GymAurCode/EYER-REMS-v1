@@ -3,7 +3,7 @@
  * Implements atomic transactions, double-entry bookkeeping, and refunds
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { DealService } from './deal-service';
 import { PaymentPlanService } from './payment-plan-service';

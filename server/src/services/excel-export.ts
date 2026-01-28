@@ -1,5 +1,4 @@
 import ExcelJS from 'exceljs';
-import { PrismaClient } from '@prisma/client';
 import prisma from '../prisma/client';
 
 // Define sheet configurations

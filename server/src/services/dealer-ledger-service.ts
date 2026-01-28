@@ -3,7 +3,7 @@
  * Tracks dealer commissions, payments, and outstanding balances
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
 

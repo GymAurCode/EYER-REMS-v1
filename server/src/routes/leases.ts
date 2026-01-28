@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { authenticate, AuthRequest } from '../middleware/auth';
 import { createActivity } from '../utils/activity';

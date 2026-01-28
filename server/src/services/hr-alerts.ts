@@ -3,9 +3,7 @@
  * Handles alerts for pending leaves, attendance issues, and payroll reminders
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Get pending leave requests that need approval

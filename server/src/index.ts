@@ -1,8 +1,8 @@
+import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
 import cors, { CorsOptions } from 'cors';
 import cookieParser from 'cookie-parser';
-import dotenv from 'dotenv';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { validateEnv } from './utils/env-validation';
@@ -58,8 +58,6 @@ import path from 'path';
 import logger from './utils/logger';
 import { errorResponse } from './utils/error-handler';
 import prisma from './prisma/client';
-
-dotenv.config();
 
 // Validate environment variables at startup
 try {

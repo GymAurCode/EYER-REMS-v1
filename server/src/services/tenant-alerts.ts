@@ -3,9 +3,7 @@
  * Handles overdue rent alerts and lease expiry alerts for tenants
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Get overdue invoices for a tenant or all tenants

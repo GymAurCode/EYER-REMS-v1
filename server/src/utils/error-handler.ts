@@ -5,7 +5,7 @@
 
 import { Response } from 'express';
 import { ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import logger from './logger';
 
 export interface ApiError extends Error {

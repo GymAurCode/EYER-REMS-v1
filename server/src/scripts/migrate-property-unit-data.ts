@@ -8,9 +8,7 @@
  * - Unit: Extract unitType and utilities from description field to new columns
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 async function migratePropertyData() {
   console.log('🔄 Starting Property data migration...');

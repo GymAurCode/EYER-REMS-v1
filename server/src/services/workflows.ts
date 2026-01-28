@@ -3,9 +3,7 @@
  * Handles all automatic synchronization between modules
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Auto-generate monthly invoices for active tenancies

@@ -3,7 +3,7 @@
  * Handles commission calculation, profit computation, and ledger entry generation
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
 

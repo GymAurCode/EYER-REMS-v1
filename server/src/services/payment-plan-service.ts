@@ -3,7 +3,7 @@
  * Handles installment creation, AR ledger entries, and payment tracking
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
 import {

@@ -13,7 +13,7 @@
  * - Thread-safe using database transactions
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 
 // Helper function to check if a column exists in a table

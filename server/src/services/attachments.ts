@@ -3,14 +3,12 @@
  * Handles file uploads and attachments across all entities
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma/client';
 import { Request } from 'express';
 import path from 'path';
 import fs from 'fs/promises';
 import { getSecureUploadDir } from '../utils/file-security';
 import logger from '../utils/logger';
-
-const prisma = new PrismaClient();
 
 // Type definition for multer file
 interface MulterFile {

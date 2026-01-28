@@ -6,7 +6,7 @@
 
 import prisma from '../prisma/client';
 import { AccountValidationService } from './account-validation-service';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 
 export class AccountingSafetyService {
   /**

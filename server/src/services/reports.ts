@@ -3,9 +3,7 @@
  * Generates Income Statement, Cash Flow, Closing Balance reports
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Generate Income Statement

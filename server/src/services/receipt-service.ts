@@ -1,4 +1,4 @@
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { generateSystemId, validateManualUniqueId } from './id-generation-service';
 import { AccountValidationService } from './account-validation-service';

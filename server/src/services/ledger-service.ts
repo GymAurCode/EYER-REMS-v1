@@ -3,7 +3,7 @@
  * Handles double-entry bookkeeping and account lookups
  */
 
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 
 import { createAuditLog } from './audit-log';

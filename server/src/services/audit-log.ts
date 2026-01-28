@@ -3,10 +3,8 @@
  * Tracks all system changes for compliance and debugging
  */
 
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma/client';
 import { Request } from 'express';
-
-const prisma = new PrismaClient();
 
 export interface AuditLogData {
   entityType: string;

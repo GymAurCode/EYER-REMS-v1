@@ -7,7 +7,6 @@
 
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
-import { PrismaClient } from '@prisma/client';
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
 import { applyFilters, validateFilterPayload, ModuleFilterConfig, FilterPayload, PermissionContext, SystemConstraints } from './unified-filter-engine';

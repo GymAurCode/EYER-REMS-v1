@@ -1,6 +1,6 @@
 import express, { Response } from 'express';
 import { z, ZodError } from 'zod';
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import multer from 'multer';
 import path from 'path';
 import prisma from '../prisma/client';

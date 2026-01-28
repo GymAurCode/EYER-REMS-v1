@@ -3,9 +3,7 @@
  * Handles maintenance due alerts and lease expiry alerts
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Check for maintenance requests that are due

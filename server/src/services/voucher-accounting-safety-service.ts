@@ -11,8 +11,7 @@
  * - Support invoice allocation for BRV
  */
 
-import prisma from '../prisma/client';
-import { Prisma } from '@prisma/client';
+import prisma, { Prisma } from '../prisma/client';
 
 export type VoucherType = 'BPV' | 'BRV' | 'CPV' | 'CRV' | 'JV';
 

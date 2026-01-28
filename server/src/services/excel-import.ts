@@ -1,5 +1,5 @@
 import ExcelJS from 'exceljs';
-import { PrismaClient, Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 
 export interface ImportResult {

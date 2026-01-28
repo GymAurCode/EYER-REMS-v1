@@ -3,8 +3,7 @@
  * Implements deal lifecycle, stage transitions, and status computation
  */
 
-import prisma from '../prisma/client';
-import { Prisma } from '@prisma/client';
+import prisma, { Prisma } from '../prisma/client';
 import { DealFinanceService, CommissionType, CommissionConfig } from './deal-finance-service';
 import { generateSystemId, validateTID } from './id-generation-service';
 

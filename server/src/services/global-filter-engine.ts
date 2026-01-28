@@ -4,7 +4,7 @@
  * Applies filters in order: Permissions → System Constraints → User Filters → Search
  */
 
-import { Prisma } from '@prisma/client';
+import { Prisma } from '../prisma/client';
 import { z } from 'zod';
 import prisma from '../prisma/client';
 import logger from '../utils/logger';
@@ -425,7 +425,7 @@ export async function applyGlobalFilters(
   }
   
   // Build orderBy - map global field names to Prisma field names
-  const sortField = filters.sorting.field;
+  const sortField = (filters.sorting?.field || 'created_at').trim();
   let prismaSortField = sortField;
   
   // Map common global field names (snake_case) to Prisma field names (camelCase)
@@ -446,18 +446,19 @@ export async function applyGlobalFilters(
     if (dateFieldMapping) {
       prismaSortField = dateFieldMapping.prisma;
     } else if (fieldMapping[sortField]) {
-      // Fallback to common mapping
       prismaSortField = fieldMapping[sortField];
+    } else {
+      // Unknown field: fall back to createdAt to avoid Prisma "Unknown argument" 500
+      prismaSortField = (config.dateFields.find(df => df.global === 'created_at')?.prisma) || 'createdAt';
     }
-    // If no mapping found and field is already camelCase, use as-is
   } else if (fieldMapping[sortField]) {
-    // Use common mapping
     prismaSortField = fieldMapping[sortField];
+  } else {
+    prismaSortField = 'createdAt';
   }
-  // If field is already in camelCase (doesn't contain underscore), use as-is
   
   const orderBy: Prisma.JsonObject = {
-    [prismaSortField]: filters.sorting.direction,
+    [prismaSortField]: (filters.sorting?.direction || 'desc') as 'asc' | 'desc',
   };
   
   // Track applied filters for audit

@@ -3,9 +3,7 @@
  * Handles follow-up reminders and alerts for leads, clients, and deals
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma/client';
 
 /**
  * Get follow-up reminders that are due
