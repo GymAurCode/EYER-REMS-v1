@@ -72,202 +72,9 @@ export class VoucherService {
   }
 
   /**
-   * Validate voucher type-specific rules
-   * CRITICAL: This validates USER-SUBMITTED lines only. System-generated lines are added separately.
+   * Voucher-type rules are enforced by VoucherValidationEngine (voucher-validation-engine.ts).
+   * Do not add voucher-type validation here; use the engine.
    */
-  private static async validateVoucherTypeRules(
-    type: VoucherType,
-    accountId: string,
-    userLines: VoucherLineInput[], // Only user-submitted lines (excluding system lines)
-    tx: Prisma.TransactionClient
-  ): Promise<void> {
-    const account = await tx.account.findUnique({
-      where: { id: accountId },
-      include: { parent: true },
-    });
-
-    if (!account) {
-      throw new Error(`Account not found: ${accountId}`);
-    }
-
-    // Validate account is postable
-    await AccountValidationService.validateAccountPostable(accountId);
-
-    // CRITICAL: Reject any manual bank/cash account lines
-    for (const line of userLines) {
-      const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-      if (!lineAccount) {
-        throw new Error(`Line account not found: ${line.accountId}`);
-      }
-
-      // Block manual bank/cash entries for BPV/BRV/CPV/CRV
-      if (['BPV', 'BRV', 'CPV', 'CRV'].includes(type)) {
-        const isBank = this.isBankAccount(lineAccount.code);
-        const isCash = this.isCashAccount(lineAccount.code);
-        
-        if (isBank || isCash) {
-          throw new Error(
-            `System account lines cannot be submitted from UI. ${type} automatically generates the ${isBank ? 'bank' : 'cash'} account line.`
-          );
-        }
-      }
-    }
-
-    switch (type) {
-      case 'BPV': // Bank Payment Voucher
-        // BPV: User enters DEBIT only, system auto-generates CREDIT to bank
-        if (!this.isBankAccount(account.code)) {
-          throw new Error(`BPV requires a bank account. Account ${account.code} (${account.name}) is not a bank account.`);
-        }
-        
-        // Validate all user lines are DEBIT only (no credit allowed)
-        for (const line of userLines) {
-          const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-          if (!lineAccount) {
-            throw new Error(`Line account not found: ${line.accountId}`);
-          }
-          
-          // Reject credit entries
-          if (line.credit > 0) {
-            throw new Error('Manual credit entries are not allowed in Bank Payment Voucher. Credit will be auto-posted to Bank.');
-          }
-          
-          // Require debit entries
-          if (line.debit <= 0) {
-            throw new Error(`BPV line items must have debit amounts (expense/payable accounts)`);
-          }
-          
-          // Validate account type is expense or liability
-          if (lineAccount.type !== 'Expense' && lineAccount.type !== 'Liability') {
-            throw new Error(
-              `BPV line account must be Expense or Liability. ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
-            );
-          }
-        }
-        break;
-
-      case 'BRV': // Bank Receipt Voucher
-        // BRV: User enters CREDIT only, system auto-generates DEBIT to bank
-        if (!this.isBankAccount(account.code)) {
-          throw new Error(`BRV requires a bank account. Account ${account.code} (${account.name}) is not a bank account.`);
-        }
-        
-        // Validate all user lines are CREDIT only (no debit allowed)
-        for (const line of userLines) {
-          const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-          if (!lineAccount) {
-            throw new Error(`Line account not found: ${line.accountId}`);
-          }
-          
-          // Reject debit entries
-          if (line.debit > 0) {
-            throw new Error('Manual debit entries are not allowed in Bank Receipt Voucher. Debit will be auto-posted to Bank.');
-          }
-          
-          // Require credit entries
-          if (line.credit <= 0) {
-            throw new Error(`BRV line items must have credit amounts (income/receivable accounts)`);
-          }
-          
-          // Validate account type is revenue, asset (receivable), or liability (advance)
-          if (!['Revenue', 'Asset', 'Liability'].includes(lineAccount.type)) {
-            throw new Error(
-              `BRV line account must be Revenue, Asset (Receivable), or Liability (Advance). ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
-            );
-          }
-        }
-        break;
-
-      case 'CPV': // Cash Payment Voucher
-        // CPV: User enters DEBIT only, system auto-generates CREDIT to cash
-        if (!this.isCashAccount(account.code)) {
-          throw new Error(`CPV requires a cash account. Account ${account.code} (${account.name}) is not a cash account.`);
-        }
-        
-        // Validate all user lines are DEBIT only (no credit allowed)
-        for (const line of userLines) {
-          const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-          if (!lineAccount) {
-            throw new Error(`Line account not found: ${line.accountId}`);
-          }
-          
-          // Reject credit entries
-          if (line.credit > 0) {
-            throw new Error('Manual credit entries are not allowed in Cash Payment Voucher. Credit will be auto-posted to Cash.');
-          }
-          
-          // Require debit entries
-          if (line.debit <= 0) {
-            throw new Error(`CPV line items must have debit amounts (expense accounts)`);
-          }
-          
-          if (lineAccount.type !== 'Expense' && lineAccount.type !== 'Liability') {
-            throw new Error(
-              `CPV line account must be Expense or Liability. ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
-            );
-          }
-        }
-        break;
-
-      case 'CRV': // Cash Receipt Voucher
-        // CRV: User enters CREDIT only, system auto-generates DEBIT to cash
-        if (!this.isCashAccount(account.code)) {
-          throw new Error(`CRV requires a cash account. Account ${account.code} (${account.name}) is not a cash account.`);
-        }
-        
-        // Validate all user lines are CREDIT only (no debit allowed)
-        for (const line of userLines) {
-          const lineAccount = await tx.account.findUnique({ where: { id: line.accountId } });
-          if (!lineAccount) {
-            throw new Error(`Line account not found: ${line.accountId}`);
-          }
-          
-          // Reject debit entries
-          if (line.debit > 0) {
-            throw new Error('Manual debit entries are not allowed in Cash Receipt Voucher. Debit will be auto-posted to Cash.');
-          }
-          
-          // Require credit entries
-          if (line.credit <= 0) {
-            throw new Error(`CRV line items must have credit amounts (income/receivable/advance accounts)`);
-          }
-          
-          if (!['Revenue', 'Asset', 'Liability'].includes(lineAccount.type)) {
-            throw new Error(
-              `CRV line account must be Revenue, Asset (Receivable), or Liability (Advance). ${lineAccount.code} (${lineAccount.name}) is ${lineAccount.type}`
-            );
-          }
-        }
-        break;
-
-      case 'JV': // Journal Voucher
-        // JV: User enters both debit and credit, no system lines
-        const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
-        const jvCheck = await VoucherAccountingSafetyService.validateJournalVoucherCashBank(
-          userLines.map(l => ({ accountId: l.accountId })),
-          false, // hasElevatedApproval - would need to be passed from API
-          tx
-        );
-        if (!jvCheck.valid) {
-          throw new Error(jvCheck.error);
-        }
-        
-        // Validate multi-line entries
-        if (userLines.length < 2) {
-          throw new Error(`Journal Voucher must have at least 2 line items (minimum double-entry)`);
-        }
-        
-        // Validate balance for JV
-        const totalDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0);
-        const totalCredit = userLines.reduce((sum, line) => sum + (line.credit || 0), 0);
-        if (Math.abs(totalDebit - totalCredit) > 0.01) {
-          throw new Error(
-            `Journal Voucher must balance: total debit (${totalDebit.toFixed(2)}) ≠ total credit (${totalCredit.toFixed(2)})`
-          );
-        }
-        break;
-    }
-  }
 
   /**
    * Validate reference number uniqueness for cheque/transfer payments
@@ -466,8 +273,8 @@ export class VoucherService {
   static async createVoucher(payload: CreateVoucherPayload): Promise<any> {
     return await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       const { VoucherAccountingSafetyService } = await import('./voucher-accounting-safety-service');
+      const { VoucherValidationEngine } = await import('./voucher-validation-engine');
 
-      // TASK 1: Validate mandatory header fields
       if (!payload.type) {
         throw new Error('Voucher type is required');
       }
@@ -477,30 +284,48 @@ export class VoucherService {
       if (!payload.paymentMethod) {
         throw new Error('Payment method is required');
       }
-      if (!payload.accountId) {
-        throw new Error('Bank/Cash account is required');
-      }
       if (!payload.lines || !Array.isArray(payload.lines) || payload.lines.length === 0) {
         throw new Error('Voucher must have at least one line item');
       }
 
-      // Validate reference number for cheque/transfer payments
+      const isJV = payload.type === 'JV';
+      if (!isJV && !payload.accountId) {
+        throw new Error('Bank/Cash account is required for BPV, BRV, CPV, CRV.');
+      }
+      if (isJV && !payload.accountId && payload.lines[0]?.accountId) {
+        (payload as CreateVoucherPayload).accountId = payload.lines[0].accountId;
+      }
+      if (isJV && !payload.accountId) {
+        throw new Error('Journal Voucher requires at least one line with an account. Use first line account as primary for storage.');
+      }
+
       if (['BPV', 'BRV'].includes(payload.type) && ['Cheque', 'Transfer'].includes(payload.paymentMethod)) {
         if (!payload.referenceNumber || payload.referenceNumber.trim() === '') {
           throw new Error('Reference number is required for Cheque/Transfer payments');
         }
       }
 
-      // CRITICAL: Filter out any system lines that might have been submitted
-      // System lines are identified by accountId matching the primary account
-      const userLines = payload.lines.filter((line) => line.accountId !== payload.accountId);
+      await VoucherValidationEngine.validate(
+        {
+          type: payload.type as 'BPV' | 'BRV' | 'CPV' | 'CRV' | 'JV',
+          date: payload.date,
+          paymentMethod: payload.paymentMethod,
+          accountId: payload.accountId,
+          description: payload.description,
+          referenceNumber: payload.referenceNumber,
+          lines: payload.lines,
+        },
+        tx
+      );
 
-      // Validate user lines exist
-      if (!userLines || userLines.length === 0) {
+      const userLines = isJV
+        ? [...payload.lines]
+        : payload.lines.filter((line) => line.accountId !== payload.accountId);
+
+      if (!userLines.length) {
         throw new Error('Voucher must have at least one user-entered line item');
       }
 
-      // Get primary account details
       const primaryAccount = await tx.account.findUnique({
         where: { id: payload.accountId },
       });
@@ -509,11 +334,9 @@ export class VoucherService {
         throw new Error(`Primary account not found: ${payload.accountId}`);
       }
 
-      // CRITICAL: Validate primary account is postable before proceeding
-      await AccountValidationService.validateAccountPostable(payload.accountId);
-
-      // Validate voucher type rules (user lines only)
-      await this.validateVoucherTypeRules(payload.type, payload.accountId, userLines, tx);
+      if (!isJV) {
+        await AccountValidationService.validateAccountPostable(payload.accountId);
+      }
 
       // Calculate totals from user lines
       const userTotalDebit = userLines.reduce((sum, line) => sum + (line.debit || 0), 0);
@@ -631,7 +454,7 @@ export class VoucherService {
           // Check if account is bank/cash (shouldn't be in JV)
           return false; // JV validation already handled above
         }).length;
-        // JV should have zero system lines (already validated in validateVoucherTypeRules)
+        // JV has zero system lines (validated in VoucherValidationEngine)
       }
 
       // Generate voucher number: TYPE-YYYYMMDD-XXX
@@ -742,24 +565,32 @@ export class VoucherService {
       let calculatedAmount = existing.amount;
 
       if (payload.lines) {
-        // CRITICAL: Filter out system lines (identified by accountId match or [SYSTEM] prefix)
-        const userLines = payload.lines.filter((line) => {
-          // Filter out system lines
-          if (line.accountId === accountId) {
-            return false; // System line
-          }
-          if (line.description?.includes('[SYSTEM]')) {
-            return false; // System line by description
-          }
-          return true;
-        });
+        const { VoucherValidationEngine } = await import('./voucher-validation-engine');
+        const isJV = voucherType === 'JV';
+        const userLines = isJV
+          ? payload.lines.filter((line) => !line.description?.includes('[SYSTEM]'))
+          : payload.lines.filter((line) => {
+              if (line.accountId === accountId) return false;
+              if (line.description?.includes('[SYSTEM]')) return false;
+              return true;
+            });
 
         if (userLines.length === 0) {
           throw new Error('Voucher must have at least one user-entered line item');
         }
 
-        // Validate voucher type rules (user lines only)
-        await this.validateVoucherTypeRules(voucherType, accountId, userLines, tx);
+        await VoucherValidationEngine.validate(
+          {
+            type: voucherType,
+            date: (payload.date as Date) || existing.date,
+            paymentMethod: payload.paymentMethod || existing.paymentMethod,
+            accountId,
+            description: payload.description,
+            referenceNumber: payload.referenceNumber,
+            lines: payload.lines,
+          },
+          tx
+        );
 
         // Get primary account details
         const primaryAccount = await tx.account.findUnique({

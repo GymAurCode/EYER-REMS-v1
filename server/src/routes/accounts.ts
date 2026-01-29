@@ -53,7 +53,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
     if (type) where.type = type;
     if (level) where.level = parseInt(level as string);
     if (accountType) where.accountType = accountType;
-    if (postable === 'true') where.isPostable = true;
+    if (postable === 'true') {
+      where.isPostable = true;
+      where.accountType = 'Posting';
+      where.level = 5;
+    }
     if (trustOnly === 'true') where.trustFlag = true;
 
     if (search) {

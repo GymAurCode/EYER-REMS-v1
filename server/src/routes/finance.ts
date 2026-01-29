@@ -1339,10 +1339,22 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
       preparedByUserId,
     } = req.body;
 
-    if (!type || !paymentMethod || !accountId || !date || !lines || !Array.isArray(lines) || lines.length === 0) {
+    if (!type || !paymentMethod || !date || !lines || !Array.isArray(lines) || lines.length === 0) {
       return res.status(400).json({ 
-        error: 'type, paymentMethod, accountId, date, and lines (array with at least one item) are required' 
+        error: 'type, paymentMethod, date, and lines (array with at least one item) are required' 
       });
+    }
+
+    const isJV = (type as string).toUpperCase() === 'JV';
+    let effectiveAccountId = accountId;
+    if (isJV && !effectiveAccountId && lines[0]?.accountId) {
+      effectiveAccountId = lines[0].accountId;
+    }
+    if (!isJV && !effectiveAccountId) {
+      return res.status(400).json({ error: 'accountId (bank/cash account) is required for BPV, BRV, CPV, CRV.' });
+    }
+    if (isJV && !effectiveAccountId) {
+      return res.status(400).json({ error: 'JV requires at least one line with accountId. Use first line account as primary for storage.' });
     }
 
     const normalizedAttachments = normalizeAttachments(attachments);
@@ -1362,7 +1374,7 @@ router.post('/vouchers', authenticate, async (req: AuthRequest, res: Response) =
       type: type.toUpperCase() as any,
       date: voucherDate,
       paymentMethod: paymentMethod as any,
-      accountId,
+      accountId: effectiveAccountId,
       description,
       referenceNumber,
       propertyId,

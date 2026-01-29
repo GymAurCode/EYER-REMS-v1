@@ -128,8 +128,8 @@ const DATA_SOURCE_FETCHERS: Record<
     const data = (response.data as any)?.data || response.data || []
     return Array.isArray(data) ? data : []
   },
-  accounts: async ({ search, limit }) => {
-    const response = await apiService.accounts.getAll({ search, limit })
+  accounts: async ({ search, limit, filters }) => {
+    const response = await apiService.accounts.getAll({ search, limit, ...filters })
     const data = (response.data as any)?.data || response.data || []
     return Array.isArray(data) ? data : []
   },
