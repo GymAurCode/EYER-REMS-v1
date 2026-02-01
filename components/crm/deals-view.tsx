@@ -2,15 +2,18 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Search, Plus, DollarSign, Calendar, TrendingUp, Loader2, MoreVertical, Pencil, Trash, Download } from "lucide-react"
-
+import { Plus, DollarSign, Calendar, TrendingUp, Loader2, MoreVertical, Pencil, Trash } from "lucide-react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { AddDealDialog } from "./add-deal-dialog"
 import { apiService } from "@/lib/api"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -23,13 +26,6 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
-
-const PIPELINE_BUCKETS = [
-  { key: "qualified", label: "Qualified" },
-  { key: "proposal", label: "Proposal" },
-  { key: "negotiation", label: "Negotiation" },
-  { key: "closing", label: "Closing" },
-]
 
 const formatCurrency = (value: number) => {
   if (!value || Number.isNaN(value)) return "Rs 0"
@@ -48,17 +44,24 @@ export function DealsView() {
   const [editingDeal, setEditingDeal] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("deals", undefined) || {})
   const { toast } = useToast()
 
   useEffect(() => {
     fetchDeals()
-  }, [])
+  }, [searchQuery, activeFilters])
 
   const fetchDeals = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await apiService.deals.getAll() as any
+      const filters = toSimpleFilters(activeFilters)
+      const params: Record<string, unknown> = { search: searchQuery || undefined }
+      if (filters.stage) params.stage = filters.stage
+      if (filters.status) params.status = filters.status
+      if (filters.dealType) params.dealType = filters.dealType
+      const response = await apiService.deals.getAll(params) as any
       // API returns { success: true, data: [...] }
       const rawData = response.data?.data || response.data || []
       const data: any[] = Array.isArray(rawData) ? rawData : []
@@ -89,25 +92,6 @@ export function DealsView() {
       (deal.client?.name || "").toLowerCase().includes(query),
     )
   }, [deals, searchQuery])
-
-  const pipelineCounts = useMemo(() => {
-    const counts: Record<string, number> = {
-      qualified: 0,
-      proposal: 0,
-      negotiation: 0,
-      closing: 0,
-    }
-
-    deals.forEach((deal) => {
-      const stage = normalizeStage(deal.stage)
-      if (stage === "qualified") counts.qualified += 1
-      else if (stage === "proposal") counts.proposal += 1
-      else if (stage === "negotiation") counts.negotiation += 1
-      else if (stage === "closing" || stage === "closed-won" || stage === "closed") counts.closing += 1
-    })
-
-    return counts
-  }, [deals])
 
   const formatDealValue = (value: unknown) => {
     const numericValue =
@@ -152,49 +136,20 @@ export function DealsView() {
 
   return (
     <div className="space-y-4">
-      {/* Search and Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search deals..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Download Report
-          </Button>
+      <ListToolbar
+        searchPlaceholder="Search deals…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Deal
           </Button>
-        </div>
-      </div>
-
-      {/* Pipeline Summary */}
-      <div className="grid gap-4 md:grid-cols-4">
-        {PIPELINE_BUCKETS.map((bucket) => (
-          <Card
-            key={bucket.key}
-            className="p-4 cursor-pointer hover:shadow-lg transition-all hover:scale-[1.02]"
-            onClick={() => router.push(`/details/deals?stage=${bucket.key}`)}
-          >
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                <TrendingUp className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">{bucket.label}</p>
-                <p className="text-xl font-bold text-foreground">{pipelineCounts[bucket.key] ?? 0}</p>
-              </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+        }
+      />
 
       {/* Deals List */}
       {loading ? (
@@ -377,9 +332,23 @@ export function DealsView() {
       <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="deal"
         module="deals"
-        moduleDisplayName="Deals"
+        entityDisplayName="Deals"
+        filters={toExportFilters(activeFilters, "deals")}
         search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="deals"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("deals", undefined, filters)
+          toast({ title: "Filters applied" })
+        }}
       />
     </div>
   )

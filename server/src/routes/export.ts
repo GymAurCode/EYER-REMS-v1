@@ -13,11 +13,25 @@ import logger from '../utils/logger';
 
 const router = (express as any).Router();
 
-// Export request schema
+// Map entity name to module name (backward compatibility)
+const ENTITY_TO_MODULE: Record<string, string> = {
+  lead: 'leads',
+  client: 'clients',
+  dealer: 'dealers',
+  deal: 'deals',
+  employee: 'employees',
+  voucher: 'vouchers',
+  property: 'properties',
+};
+
+// Export request schema (supports both entity and module for backward compatibility)
 const exportRequestSchema = z.object({
-  module: z.string().min(1),
+  entity: z.string().optional(), // New: entity name from registry
+  module: z.string().optional(), // Legacy: module name
   format: z.enum(['pdf', 'excel', 'csv', 'word']),
   scope: z.enum(['VIEW', 'FILTERED', 'ALL']),
+  dataShape: z.enum(['raw', 'structured']).optional(), // New: data shape
+  columns: z.array(z.string()).optional(), // New: selected column keys
   filters: z.record(z.any()).optional(),
   search: z.string().optional(),
   sort: z.object({
@@ -28,6 +42,8 @@ const exportRequestSchema = z.object({
     page: z.number().int().positive(),
     pageSize: z.number().int().positive(),
   }).optional(),
+}).refine((data) => data.entity || data.module, {
+  message: "Either 'entity' or 'module' must be provided",
 });
 
 // Map module to required permission
@@ -56,7 +72,23 @@ async function hasAdminPermission(req: AuthenticatedRequest): Promise<boolean> {
 router.post('/export', requireAuth, async (req: AuthenticatedRequest, res: Response) => {
   try {
     const parsed = exportRequestSchema.parse(req.body);
-    const request: ExportRequest = parsed;
+    
+    // Resolve module name (entity → module mapping for backward compatibility)
+    const moduleName = parsed.entity
+      ? (ENTITY_TO_MODULE[parsed.entity] || parsed.entity)
+      : (parsed.module || '');
+    
+    if (!moduleName) {
+      return res.status(400).json({ error: 'Module or entity name required' });
+    }
+
+    // Build request with resolved module
+    const request: ExportRequest = {
+      ...parsed,
+      module: moduleName,
+      columns: parsed.columns, // Pass selected columns
+      dataShape: parsed.dataShape || 'raw',
+    };
 
     // Validate module exists
     const config = MODULE_CONFIGS[request.module];
@@ -117,6 +149,8 @@ router.post('/export', requireAuth, async (req: AuthenticatedRequest, res: Respo
       metadata: {
         format: request.format,
         scope: request.scope,
+        columns: request.columns,
+        columnCount: request.columns?.length || config.columns.length,
         filters: request.filters,
         search: request.search,
         recordCount: count,
@@ -164,7 +198,14 @@ router.get('/export/:module/count', requireAuth, async (req: AuthenticatedReques
       search: search as string | undefined,
     };
 
-    const count = await getExportCount(config, request);
+    const permissionContext: PermissionContext = {
+      userId: req.user?.id || 'unknown',
+      roleId: req.user?.roleId || '',
+      roleName: req.user?.role?.name,
+      permissions: req.user?.role?.permissions || [],
+    };
+
+    const count = await getExportCount(config, request, permissionContext);
 
     return res.json({ count });
   } catch (error: any) {

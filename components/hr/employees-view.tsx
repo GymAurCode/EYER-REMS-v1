@@ -6,21 +6,26 @@ import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Plus, Mail, Phone, Briefcase, Loader2, Users, ArrowUpDown, FileText, Download } from "lucide-react"
 import { AddEmployeeDialog } from "./add-employee-dialog"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { apiService } from "@/lib/api"
+import { useToast } from "@/hooks/use-toast"
 import { cn } from "@/lib/utils"
 
 type SortField = "name" | "department" | "position" | "joinDate" | "status"
 type SortDirection = "asc" | "desc"
 
 export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => void }) {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
-  const [departmentFilter, setDepartmentFilter] = useState<string>("all")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
-  const [typeFilter, setTypeFilter] = useState<string>("all")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("employees", undefined) || {})
   const [sortField, setSortField] = useState<SortField>("name")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -32,13 +37,18 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
 
   useEffect(() => {
     fetchEmployees()
-  }, [])
+  }, [searchQuery, activeFilters])
 
   const fetchEmployees = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response = await apiService.employees.getAll()
+      const filters = toSimpleFilters(activeFilters)
+      const params: Record<string, string | undefined> = {}
+      if (searchQuery) params.search = searchQuery
+      if (filters.department) params.department = filters.department as string
+      if (filters.status) params.status = Array.isArray(filters.status) ? (filters.status[0] as string) : (filters.status as string)
+      const response = await apiService.employees.getAll(params)
       
       // Backend returns { success: true, data: [...] }
       // Axios unwraps it, so response.data = { success: true, data: [...] }
@@ -58,41 +68,15 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
     }
   }
 
-  // Get unique departments for filter
-  const departments = useMemo(() => {
-    if (!Array.isArray(employees)) return []
-    const deptSet = new Set<string>()
-    employees.forEach((emp) => {
-      if (emp.department) deptSet.add(emp.department)
-    })
-    return Array.from(deptSet).sort()
-  }, [employees])
-
-  // Filtered and sorted employees
+  // Filtered and sorted employees (server does search, department, status; client filters employeeType)
   const filteredAndSortedEmployees = useMemo(() => {
     if (!Array.isArray(employees)) return []
+    const typeFilter = activeFilters.employeeType
+    const typeVal = Array.isArray(typeFilter) ? typeFilter : typeFilter ? [typeFilter] : []
     
     let filtered = employees.filter((employee) => {
-      // Search filter
-      const matchesSearch = 
-        (employee?.tid || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee?.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee?.position?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee?.employeeId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        employee?.phone?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        false
-      
-      // Department filter
-      const matchesDepartment = departmentFilter === "all" || employee?.department === departmentFilter
-      
-      // Status filter
-      const matchesStatus = statusFilter === "all" || employee?.status === statusFilter
-      
-      // Type filter
-      const matchesType = typeFilter === "all" || employee?.employeeType === typeFilter
-      
-      return matchesSearch && matchesDepartment && matchesStatus && matchesType
+      const matchesType = !typeVal.length || typeVal.includes(employee?.employeeType)
+      return matchesType
     })
     
     // Sorting
@@ -133,7 +117,7 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
     })
     
     return filtered
-  }, [employees, searchQuery, departmentFilter, statusFilter, typeFilter, sortField, sortDirection])
+  }, [employees, activeFilters.employeeType, sortField, sortDirection])
   
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -146,65 +130,20 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
 
   return (
     <div className="space-y-4">
-      {/* Search and Filters */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by TID, name, position..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <div className="flex gap-2">
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Department" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Departments</SelectItem>
-              {departments.map((dept) => (
-                <SelectItem key={dept} value={dept}>
-                  {dept}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="on-leave">On Leave</SelectItem>
-              <SelectItem value="terminated">Terminated</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="full-time">Full-time</SelectItem>
-              <SelectItem value="part-time">Part-time</SelectItem>
-              <SelectItem value="contract">Contract</SelectItem>
-              <SelectItem value="intern">Intern</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Download Report
-          </Button>
+      <ListToolbar
+        searchPlaceholder="Search by TID, name, position…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Employee
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Employees Grid */}
       {loading ? (
@@ -304,15 +243,24 @@ export function EmployeesView({ onEmployeeAdded }: { onEmployeeAdded?: () => voi
       <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="employee"
         module="employees"
-        moduleDisplayName="Employees"
-        filters={{
-          ...(departmentFilter !== "all" ? { department: departmentFilter } : {}),
-          ...(statusFilter !== "all" ? { status: statusFilter } : {}),
-          ...(typeFilter !== "all" ? { employeeType: typeFilter } : {}),
-        }}
+        entityDisplayName="Employees"
+        filters={toExportFilters(activeFilters, "employees")}
         search={searchQuery || undefined}
         sort={sortField ? { field: sortField, direction: sortDirection } : undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="employees"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("employees", undefined, filters)
+          toast({ title: "Filters applied" })
+        }}
       />
     </div>
   )

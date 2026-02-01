@@ -451,8 +451,12 @@ function applyUserFilters(
           'assignedAgentId', 'department', 'approvedBy', 'amount', 'balance', 'tax', 'debit', 'credit',
           'propertyId', 'unitId', 'tenantId', 'dealId', 'clientId', 'employeeId', 'accountId', 'voucherId',
           'search'].includes(key)) {
-      // Module-specific filter - apply directly
-      where[key] = filters[key];
+      // Voucher model: frontend sends voucherType, Prisma field is type
+      if (config.model === 'Voucher' && key === 'voucherType') {
+        where.type = filters[key];
+      } else {
+        where[key] = filters[key];
+      }
     }
   });
   

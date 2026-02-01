@@ -10,9 +10,14 @@ import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { apiService } from "@/lib/api"
 import axios from "axios"
-import { DollarSign, Loader2, Mail, Phone, Search, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye, Download } from "lucide-react"
+import { DollarSign, Loader2, Mail, Phone, Plus, TrendingUp, MoreVertical, Pencil, Trash, Briefcase, FileText, Eye, Download } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -51,11 +56,13 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showDialog, setShowDialog] = useState(false)
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("dealers", undefined) || {})
   const { toast } = useToast()
 
   useEffect(() => {
     fetchDealers()
-  }, [refreshKey])
+  }, [refreshKey, searchQuery, activeFilters])
 
   const fetchDealers = async () => {
     try {
@@ -64,9 +71,13 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       console.log("Fetching dealers...")
 
       // Fetch dealers
+      const filters = toSimpleFilters(activeFilters)
+      const params: Record<string, unknown> = {}
+      if (searchQuery) params.search = searchQuery
+      if (filters.isActive !== undefined) params.isActive = filters.isActive
       let dealersResp: any
       try {
-        dealersResp = await apiService.dealers.getAll()
+        dealersResp = await apiService.dealers.getAll(params)
       } catch (err: any) {
         if (axios.isCancel(err) || err.code === 'ERR_CANCELED' || err.name === 'CanceledError' || err.name === 'AbortError') return
         console.error("Failed to fetch dealers API:", err)
@@ -179,22 +190,20 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
 
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
-      <div className="flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by TID, name, email, company..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10"
-          />
-        </div>
-        <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-          <Download className="mr-2 h-4 w-4" />
-          Download Report
-        </Button>
-      </div>
+      <ListToolbar
+        searchPlaceholder="Search by TID, name, email, company…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
+          <Button onClick={() => setShowDialog(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Dealer
+          </Button>
+        }
+      />
 
       {/* Dealers Table */}
       <Card>
@@ -401,9 +410,23 @@ export function DealersView({ refreshKey = 0 }: DealersViewProps) {
       <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="dealer"
         module="dealers"
-        moduleDisplayName="Dealers"
+        entityDisplayName="Dealers"
+        filters={toExportFilters(activeFilters, "dealers")}
         search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="dealers"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("dealers", undefined, filters)
+          toast({ title: "Filters applied" })
+        }}
       />
     </div>
   )

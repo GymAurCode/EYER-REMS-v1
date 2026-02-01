@@ -3,11 +3,9 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
-  Search,
   Plus,
   Mail,
   Phone,
@@ -20,14 +18,15 @@ import {
   UserPlus,
   UserCheck,
   UploadCloud,
-  Download,
-  Filter,
 } from "lucide-react"
 import { AddLeadDialog } from "./add-lead-dialog"
 import { LeadImportDialog } from "./lead-import-dialog"
-import { EnhancedReportDialog } from "@/components/ui/enhanced-report-dialog"
-import { GlobalFilterDialog, GlobalFilterPayload } from "@/components/ui/global-filter-dialog"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toLeadsFilterPayload, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { apiService } from "@/lib/api"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
@@ -42,74 +41,38 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
 
-const LEAD_FILTERS = [
-  { value: "all", label: "All" },
-  { value: "new", label: "New" },
-  { value: "qualified", label: "Qualified" },
-  { value: "negotiation", label: "Negotiation" },
-]
-
 export function LeadsView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [leads, setLeads] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [statusFilter, setStatusFilter] = useState<string>("all")
   const [editingLead, setEditingLead] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showImportDialog, setShowImportDialog] = useState(false)
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
-  const [showFilterDialog, setShowFilterDialog] = useState(false)
-  const [activeFilters, setActiveFilters] = useState<Partial<GlobalFilterPayload>>(loadFilters('leads', undefined) || {})
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("leads", undefined) || {})
   const [pagination, setPagination] = useState({ page: 1, limit: 25, total: 0 })
   const { toast } = useToast()
 
   useEffect(() => {
     fetchLeads()
-  }, [activeFilters, statusFilter, searchQuery])
+  }, [activeFilters, searchQuery])
 
   const fetchLeads = async () => {
     try {
       setLoading(true)
       setError(null)
-      console.log("Fetching leads...")
-      
-      // Build global filter payload
-      const globalFilter: GlobalFilterPayload = {
-        identity: { system_ids: [], reference_codes: [], tids: [] },
-        status: statusFilter !== "all" ? [statusFilter] : [],
-        lifecycle: [],
-        priority: [],
-        stage: [],
-        ownership: {
-          assigned_users: [],
-          teams: [],
-          departments: [],
-          dealers: [],
-          agents: [],
-          created_by: [],
-          approved_by: [],
-        },
-        relationships: { has_related: [], missing_related: [] },
-        pagination: { page: pagination.page, limit: pagination.limit },
-        sorting: { field: 'created_at', direction: 'desc' },
+      const globalFilter = toLeadsFilterPayload(activeFilters, {
         search: searchQuery || undefined,
-        ...activeFilters,
-      }
-      
-      // Merge status filter
-      if (statusFilter !== "all") {
-        globalFilter.status = [...(globalFilter.status || []), statusFilter]
-      }
-      
-      const response: any = await apiService.leads.getAll({
-        filter: globalFilter,
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        pagination: { page: pagination.page, limit: pagination.limit },
+        sorting: { field: "created_at", direction: "desc" },
       })
+      const response: any = await apiService.leads.getAll(
+        { filter: globalFilter },
+        { headers: { "Content-Type": "application/json" } }
+      )
       const responseData = response?.data
       let data: any[] = []
       let paginationData: any = null
@@ -168,74 +131,32 @@ export function LeadsView() {
     }
   }
 
-  const filteredLeads = leads.filter((lead) => {
-    const searchLower = searchQuery.toLowerCase()
-    const matchesSearch =
-      (lead.tid || "").toLowerCase().includes(searchLower) ||
-      (lead.name || "").toLowerCase().includes(searchLower) ||
-      (lead.email || "").toLowerCase().includes(searchLower) ||
-      (lead.phone || "").includes(searchQuery) ||
-      (lead.company || "").toLowerCase().includes(searchLower)
-    const matchesStatus = statusFilter === "all" || lead.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filteredLeads = leads
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by TID, name, email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-        <div className="flex gap-2 flex-wrap">
-          {LEAD_FILTERS.map((filter) => (
-            <Button
-              key={filter.value}
-              variant={statusFilter === filter.value ? "default" : "outline"}
-              onClick={() => setStatusFilter(filter.value)}
-            >
-              {filter.label}
+      <ListToolbar
+        searchPlaceholder="Search by TID, name, email…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        extraActions={
+          <>
+            <Button variant="outline" onClick={() => setShowImportDialog(true)}>
+              <UploadCloud className="h-4 w-4 mr-2" />
+              Import Leads
             </Button>
-          ))}
-          <Button variant="outline" onClick={() => setShowFilterDialog(true)}>
-            <Filter className="h-4 w-4 mr-2" />
-            Advanced Filters
-            {Object.keys(activeFilters).filter(k => {
-              const v = activeFilters[k as keyof Partial<GlobalFilterPayload>]
-              if (Array.isArray(v)) return v.length > 0
-              if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0
-              return v !== undefined && v !== null && v !== ''
-            }).length > 0 && (
-              <span className="ml-2 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                {Object.keys(activeFilters).filter(k => {
-                  const v = activeFilters[k as keyof Partial<GlobalFilterPayload>]
-                  if (Array.isArray(v)) return v.length > 0
-                  if (typeof v === 'object' && v !== null) return Object.keys(v).length > 0
-                  return v !== undefined && v !== null && v !== ''
-                }).length}
-              </span>
-            )}
-          </Button>
-          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Download Report
-          </Button>
-          <Button variant="outline" onClick={() => setShowImportDialog(true)}>
-            <UploadCloud className="h-4 w-4 mr-2" />
-            Import Leads
-          </Button>
+          </>
+        }
+        primaryAction={
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Lead
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Leads Table */}
       {loading ? (
@@ -459,67 +380,27 @@ export function LeadsView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <EnhancedReportDialog
+      <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="lead"
         module="leads"
-        filter={{
-          identity: { system_ids: [], reference_codes: [], tids: [] },
-          status: statusFilter !== "all" ? [statusFilter] : [],
-          lifecycle: [],
-          priority: [],
-          stage: [],
-          ownership: {
-            assigned_users: [],
-            teams: [],
-            departments: [],
-            dealers: [],
-            agents: [],
-            created_by: [],
-            approved_by: [],
-          },
-          relationships: { has_related: [], missing_related: [] },
-          pagination: { page: pagination.page, limit: pagination.limit },
-          sorting: { field: 'created_at', direction: 'desc' },
-          search: searchQuery || undefined,
-          ...activeFilters,
-        }}
-        currentPage={pagination.page}
-        currentPageSize={pagination.limit}
-        totalRecords={pagination.total}
-        availableColumns={[
-          { key: 'leadCode', label: 'Lead Code' },
-          { key: 'name', label: 'Name' },
-          { key: 'email', label: 'Email' },
-          { key: 'phone', label: 'Phone' },
-          { key: 'status', label: 'Status' },
-          { key: 'priority', label: 'Priority' },
-          { key: 'source', label: 'Source' },
-          { key: 'createdAt', label: 'Created At' },
-        ]}
+        entityDisplayName="Leads"
+        filters={toExportFilters(activeFilters, "leads")}
+        search={searchQuery || undefined}
+        pagination={{ page: pagination.page, pageSize: pagination.limit }}
       />
 
-      <GlobalFilterDialog
-        open={showFilterDialog}
-        onOpenChange={setShowFilterDialog}
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="leads"
+        initialFilters={activeFilters}
         onApply={(filters) => {
           setActiveFilters(filters)
-          saveFilters('leads', undefined, filters)
-          toast({
-            title: "Filters applied",
-            description: "Filters will be applied to exports and future list queries",
-          })
+          saveFilters("leads", undefined, filters)
+          toast({ title: "Filters applied" })
         }}
-        module="leads"
-        availableStatuses={["new", "qualified", "negotiation", "won", "lost"]}
-        availablePriorities={["low", "medium", "high", "urgent"]}
-        availableDateFields={[
-          { value: 'created_at', label: 'Created Date' },
-          { value: 'updated_at', label: 'Updated Date' },
-          { value: 'follow_up_date', label: 'Follow-up Date' },
-          { value: 'expected_close_date', label: 'Expected Close Date' },
-        ]}
-        initialFilters={activeFilters}
       />
     </div>
   )

@@ -23,6 +23,8 @@ export interface ExportRequest {
   module: string;
   format: ExportFormat;
   scope: ExportScope;
+  columns?: string[]; // Selected column keys (if provided, filter config.columns)
+  dataShape?: 'raw' | 'structured'; // Data shape for export
   filters?: ExportFilters;
   search?: string;
   sort?: {
@@ -305,17 +307,17 @@ export const MODULE_CONFIGS: Record<string, ModuleExportConfig> = {
     model: 'Voucher',
     columns: [
       { key: 'voucherNumber', header: 'Voucher #', width: 20 },
-      { key: 'voucherType', header: 'Type', width: 15 },
+      { key: 'type', header: 'Type', width: 15 },
       { key: 'date', header: 'Date', width: 20, type: 'date' },
       { key: 'status', header: 'Status', width: 15 },
-      { key: 'totalAmount', header: 'Amount', width: 18, type: 'number' },
+      { key: 'amount', header: 'Amount', width: 18, type: 'number' },
       { key: 'description', header: 'Description', width: 40 },
       { key: 'createdAt', header: 'Created At', width: 20, type: 'date' },
     ],
     buildWhereClause: (filters, search) => {
       const where: any = {};
       if (filters?.status) where.status = filters.status;
-      if (filters?.voucherType) where.voucherType = filters.voucherType;
+      if (filters?.voucherType) where.type = filters.voucherType;
       if (filters?.dateFrom || filters?.dateTo) {
         where.date = {};
         if (filters.dateFrom) where.date.gte = new Date(filters.dateFrom);
@@ -693,6 +695,45 @@ export async function exportData(
 
   logger.info(`Export data fetched: ${data.length} records`);
 
+  // Filter columns if specific columns requested
+  let columnsToExport = config.columns;
+  if (request.columns && request.columns.length > 0) {
+    const selectedKeys = new Set(request.columns);
+    const validKeys = new Set(config.columns.map((col) => col.key));
+    const invalidKeys = request.columns.filter((key) => !validKeys.has(key));
+    
+    if (invalidKeys.length > 0) {
+      logger.warn(`Invalid column keys requested: ${invalidKeys.join(', ')}`);
+      // Filter out invalid keys
+      const validSelectedKeys = request.columns.filter((key) => validKeys.has(key));
+      if (validSelectedKeys.length === 0) {
+        throw new Error(`No valid columns selected. Invalid keys: ${invalidKeys.join(', ')}`);
+      }
+      columnsToExport = config.columns.filter((col) => validSelectedKeys.includes(col.key));
+    } else {
+      columnsToExport = config.columns.filter((col) => selectedKeys.has(col.key));
+    }
+    
+    // Validate column permissions if permission context provided
+    if (permissionContext && permissionContext.permissions) {
+      const userRoles = permissionContext.roleName ? [permissionContext.roleName.toLowerCase()] : [];
+      const userPermissions = permissionContext.permissions || [];
+      const isAdmin = userPermissions.includes('admin.*') || userPermissions.includes('*') || userRoles.includes('admin');
+      
+      columnsToExport = columnsToExport.filter((col) => {
+        // If column has role restrictions, check user roles
+        // Note: Backend MODULE_CONFIGS doesn't have role info yet - this is a placeholder
+        // In production, you'd load column definitions from registry and check roles
+        return true; // For now, allow all columns (frontend already filtered by role)
+      });
+    }
+    
+    if (columnsToExport.length === 0) {
+      throw new Error('No valid columns selected for export');
+    }
+    logger.info(`Filtered to ${columnsToExport.length} columns from ${config.columns.length} available`);
+  }
+
   // Generate export based on format
   let buffer: Buffer;
   let mimeType: string;
@@ -701,22 +742,22 @@ export async function exportData(
 
   switch (request.format) {
     case 'excel':
-      buffer = await generateExcel(data, config.columns, config.module);
+      buffer = await generateExcel(data, columnsToExport, config.module);
       mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       filename = `${config.module}-${timestamp}.xlsx`;
       break;
     case 'csv':
-      buffer = generateCSV(data, config.columns);
+      buffer = generateCSV(data, columnsToExport);
       mimeType = 'text/csv; charset=utf-8';
       filename = `${config.module}-${timestamp}.csv`;
       break;
     case 'pdf':
-      buffer = await generatePDF(data, config.columns, config.module);
+      buffer = await generatePDF(data, columnsToExport, config.module);
       mimeType = 'application/pdf';
       filename = `${config.module}-${timestamp}.pdf`;
       break;
     case 'word':
-      buffer = await generateWord(data, config.columns, config.module);
+      buffer = await generateWord(data, columnsToExport, config.module);
       mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
       filename = `${config.module}-${timestamp}.xlsx`; // Excel format as Word-compatible
       break;

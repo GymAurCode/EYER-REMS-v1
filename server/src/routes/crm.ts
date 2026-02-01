@@ -382,12 +382,21 @@ router.delete('/leads/:id', authenticate, async (req: AuthRequest, res: Response
 // Clients
 router.get('/clients', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { search } = req.query;
+    const { search, status, clientType } = req.query;
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
     // Filter out soft-deleted records
     const where: any = { isDeleted: false };
+
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
+    if (clientType) {
+      const types = Array.isArray(clientType) ? clientType : [clientType];
+      where.clientType = types.length === 1 ? types[0] : { in: types };
+    }
 
     if (search) {
       where.OR = [
@@ -621,13 +630,16 @@ router.delete('/clients/:id', authenticate, async (req: AuthRequest, res: Respon
 // Dealers
 router.get('/dealers', authenticate, async (req: AuthRequest, res: Response) => {
   try {
-    const { search } = req.query;
+    const { search, isActive } = req.query;
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
 
-    // Filter out soft-deleted records
-    // Note: Removed userId filter as it does not exist on Dealer model and causes 400 error
     const where: any = { isDeleted: false };
+
+    if (isActive !== undefined && isActive !== '') {
+      const val = Array.isArray(isActive) ? isActive[0] : isActive;
+      where.isActive = String(val).toLowerCase() === 'true';
+    }
 
     if (search) {
       where.OR = [
@@ -817,10 +829,23 @@ router.get('/deals', authenticate, async (req: AuthRequest, res: Response) => {
   try {
     const { page, limit } = parsePaginationQuery(req.query);
     const skip = (page - 1) * limit;
-    const { includeDeleted, search } = req.query;
+    const { includeDeleted, search, stage, status, dealType } = req.query;
 
     // Show all deals by default, filter deleted only if explicitly requested
     const where: any = includeDeleted === 'true' ? {} : { isDeleted: false };
+
+    if (stage) {
+      const stages = Array.isArray(stage) ? stage : [stage];
+      where.stage = stages.length === 1 ? stages[0] : { in: stages };
+    }
+    if (status) {
+      const statuses = Array.isArray(status) ? status : [status];
+      where.status = statuses.length === 1 ? statuses[0] : { in: statuses };
+    }
+    if (dealType) {
+      const types = Array.isArray(dealType) ? dealType : [dealType];
+      where.dealType = types.length === 1 ? types[0] : { in: types };
+    }
 
     // Add search filter if provided
     if (search && typeof search === 'string' && search.trim()) {

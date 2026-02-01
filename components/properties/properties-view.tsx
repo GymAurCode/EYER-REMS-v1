@@ -49,7 +49,12 @@ import { LeasesView } from "./leases-view"
 import { SalesView } from "./sales-view"
 import { BuyersView } from "./buyers-view"
 import { SellersView } from "./sellers-view"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { apiService } from "@/lib/api"
 import { PropertyToasts, handleApiError } from "@/lib/toast-utils"
 import { formatCurrency } from "@/lib/utils"
@@ -60,8 +65,8 @@ export function PropertiesView() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const [searchQuery, setSearchQuery] = useState("")
-  const [filterStatus, setFilterStatus] = useState<string>("all")
-  const [filterType, setFilterType] = useState<string>("all")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", undefined) || {})
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [editingPropertyId, setEditingPropertyId] = useState<number | string | null>(null)
   const [editingStatusProperty, setEditingStatusProperty] = useState<any | null>(null)
@@ -164,12 +169,15 @@ export function PropertiesView() {
       setLoading(true)
       setError(null)
 
+      const filters = toSimpleFilters(activeFilters)
+      const statusVal = filters.status
+      const typeVal = filters.type
       const response = await apiService.properties.getAll({
         page: currentPage,
         limit: itemsPerPage,
         search: searchQuery,
-        status: filterStatus !== "all" ? filterStatus : undefined,
-        type: filterType !== "all" ? filterType : undefined,
+        status: statusVal ? (Array.isArray(statusVal) ? (statusVal[0] as string) : (statusVal as string)) : undefined,
+        type: typeVal ? (Array.isArray(typeVal) ? (typeVal[0] as string) : (typeVal as string)) : undefined,
       })
 
       const responseData = response.data
@@ -191,7 +199,7 @@ export function PropertiesView() {
     } finally {
       setLoading(false)
     }
-  }, [currentPage, itemsPerPage, searchQuery, filterStatus, filterType])
+  }, [currentPage, itemsPerPage, searchQuery, activeFilters])
 
   const fetchStats = async () => {
     try {
@@ -597,85 +605,14 @@ export function PropertiesView() {
 
         {/* Properties Tab */}
         <TabsContent value="properties" className="space-y-4">
-          {/* Search and Filter */}
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              placeholder="Search by TID, title, location..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9"
-            />
-          </div>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline">
-                  <Filter className="h-4 w-4 mr-2" />
-                  Filter
-                  {(filterStatus !== "all" || filterType !== "all") && (
-                    <span className="ml-2 h-5 w-5 rounded-full bg-primary text-primary-foreground text-xs flex items-center justify-center">
-                      {(filterStatus !== "all" ? 1 : 0) + (filterType !== "all" ? 1 : 0)}
-                    </span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-80">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label>Status</Label>
-                    <Select value={filterStatus} onValueChange={setFilterStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Statuses" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Statuses</SelectItem>
-                        <SelectItem value="Active">Active</SelectItem>
-                        <SelectItem value="Maintenance">Maintenance</SelectItem>
-                        <SelectItem value="Vacant">Vacant</SelectItem>
-                        <SelectItem value="For Sale">For Sale</SelectItem>
-                        <SelectItem value="For Rent">For Rent</SelectItem>
-                        <SelectItem value="Sold">Sold</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Type</Label>
-                    <Select value={filterType} onValueChange={setFilterType}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="All Types" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Types</SelectItem>
-                        <SelectItem value="apartment">Apartment</SelectItem>
-                        <SelectItem value="house">House</SelectItem>
-                        <SelectItem value="commercial">Commercial</SelectItem>
-                        <SelectItem value="plot">Plot</SelectItem>
-                        <SelectItem value="villa">Villa</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => {
-                        setFilterStatus("all")
-                        setFilterType("all")
-                      }}
-                    >
-                      Clear Filters
-                    </Button>
-                  </div>
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-              <Download className="h-4 w-4 mr-2" />
-              Download Report
-            </Button>
-          </div>
+          <ListToolbar
+            searchPlaceholder="Search by TID, title, location…"
+            searchValue={searchQuery}
+            onSearchChange={setSearchQuery}
+            onFilterClick={() => setShowFilterDrawer(true)}
+            activeFilterCount={countActiveFilters(activeFilters)}
+            onDownloadClick={() => setShowDownloadDialog(true)}
+          />
 
           {/* Properties Table */}
           {loading ? (
@@ -691,18 +628,7 @@ export function PropertiesView() {
             <Card className="p-0">
               <div className="p-4 border-b">
                 <p className="text-sm text-muted-foreground">
-                  Showing <span className="font-semibold text-foreground">
-                    {properties.filter((property) => {
-                      const matchesSearch =
-                        property.tid?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
-                      const matchesStatus = filterStatus === "all" || property.status === filterStatus
-                      const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
-                      return matchesSearch && matchesStatus && matchesType
-                    }).length}
-                  </span> of <span className="font-semibold text-foreground">{properties.length}</span> properties
+                  Showing <span className="font-semibold text-foreground">{properties.length}</span> of <span className="font-semibold text-foreground">{totalItems}</span> properties
                 </p>
               </div>
               <Table>
@@ -722,25 +648,7 @@ export function PropertiesView() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {properties
-                    .filter((property) => {
-                      // Search filter
-                      const matchesSearch =
-                        (property.tid || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.address?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.location?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                        property.propertyCode?.toLowerCase().includes(searchQuery.toLowerCase())
-
-                      // Status filter
-                      const matchesStatus = filterStatus === "all" || property.status === filterStatus
-
-                      // Type filter
-                      const matchesType = filterType === "all" || property.type?.toLowerCase() === filterType.toLowerCase()
-
-                      return matchesSearch && matchesStatus && matchesType
-                    })
-                    .map((property) => {
+                  {properties.map((property) => {
                       const totalUnits = property.units || property._count?.units || 0
                       const occupiedUnits = property.occupied || 0
                       const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0
@@ -1067,12 +975,10 @@ export function PropertiesView() {
       <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="property"
         module="properties"
-        moduleDisplayName="Properties"
-        filters={{
-          ...(filterStatus !== "all" ? { status: filterStatus } : {}),
-          ...(filterType !== "all" ? { type: filterType } : {}),
-        }}
+        entityDisplayName="Properties"
+        filters={toExportFilters(activeFilters, "properties")}
         search={searchQuery || undefined}
         pagination={
           activeTab === "properties"
@@ -1080,6 +986,19 @@ export function PropertiesView() {
             : undefined
         }
       />
+
+      {activeTab === "properties" && (
+        <UnifiedFilterDrawer
+          open={showFilterDrawer}
+          onOpenChange={setShowFilterDrawer}
+          entity="properties"
+          initialFilters={activeFilters}
+          onApply={(filters) => {
+            setActiveFilters(filters)
+            saveFilters("properties", undefined, filters)
+          }}
+        />
+      )}
     </div>
   )
 }

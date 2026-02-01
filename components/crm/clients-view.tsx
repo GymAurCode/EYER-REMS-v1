@@ -4,14 +4,17 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye, Download } from "lucide-react"
+import { Mail, Phone, Building2, Loader2, Plus, MoreVertical, Pencil, Trash, Users, FileText, Eye } from "lucide-react"
 import { apiService } from "@/lib/api"
-
 import { AddClientDialog } from "./add-client-dialog"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters, toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
@@ -24,6 +27,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/hooks/use-toast"
+
 export function ClientsView() {
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddDialog, setShowAddDialog] = useState(false)
@@ -31,21 +35,28 @@ export function ClientsView() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
-  const [typeFilter, setTypeFilter] = useState<string>("all")
   const [editingClient, setEditingClient] = useState<any | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("clients", undefined) || {})
   const { toast } = useToast()
 
   useEffect(() => {
     fetchClients()
-  }, [])
+  }, [searchQuery, activeFilters])
 
   const fetchClients = async () => {
     try {
       setLoading(true)
       setError(null)
-      const response: any = await apiService.clients.getAll()
+      const filters = toSimpleFilters(activeFilters)
+      const params: { search?: string; status?: string | string[]; clientType?: string | string[] } = {
+        search: searchQuery || undefined,
+      }
+      if (filters.status) params.status = filters.status as string | string[]
+      if (filters.clientType) params.clientType = filters.clientType as string | string[]
+      const response: any = await apiService.clients.getAll(params)
       const responseData = response.data as any
 
       // Handle different response formats
@@ -96,19 +107,7 @@ export function ClientsView() {
     }
   }
 
-  const filteredClients = clients.filter((client) => {
-    const searchLower = searchQuery.toLowerCase()
-    const matchesSearch =
-      client.tid?.toLowerCase().includes(searchLower) ||
-      client.name?.toLowerCase().includes(searchLower) ||
-      client.email?.toLowerCase().includes(searchLower) ||
-      client.phone?.includes(searchQuery) ||
-      client.company?.toLowerCase().includes(searchLower)
-
-    const matchesType = typeFilter === "all" || client.type?.toLowerCase() === typeFilter
-
-    return matchesSearch && matchesType
-  })
+  const filteredClients = clients
 
   const openClientDetails = (id: string) => {
     router.push(`/details/clients/${id}`)
@@ -138,46 +137,20 @@ export function ClientsView() {
 
   return (
     <div className="space-y-4">
-      {/* Search and Filter */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-                placeholder="Search by TID, name, email..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-8"
-              />
-        </div>
-        <div className="flex gap-2">
-          <Button
-            variant={typeFilter === "all" ? "default" : "outline"}
-            onClick={() => setTypeFilter("all")}
-          >
-            All
-          </Button>
-          <Button
-            variant={typeFilter === "individual" ? "default" : "outline"}
-            onClick={() => setTypeFilter("individual")}
-          >
-            Individual
-          </Button>
-          <Button
-            variant={typeFilter === "corporate" ? "default" : "outline"}
-            onClick={() => setTypeFilter("corporate")}
-          >
-            Corporate
-          </Button>
-          <Button variant="outline" onClick={() => setShowDownloadDialog(true)}>
-            <Download className="mr-2 h-4 w-4" />
-            Download Report
-          </Button>
+      <ListToolbar
+        searchPlaceholder="Search by TID, name, email…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
           <Button onClick={() => setShowAddDialog(true)}>
             <Plus className="mr-2 h-4 w-4" />
             Add Client
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Clients Table */}
       {loading ? (
@@ -373,10 +346,23 @@ export function ClientsView() {
       <DownloadReportDialog
         open={showDownloadDialog}
         onOpenChange={setShowDownloadDialog}
+        entity="client"
         module="clients"
-        moduleDisplayName="Clients"
-        filters={typeFilter !== "all" ? { clientType: typeFilter } : {}}
+        entityDisplayName="Clients"
+        filters={toExportFilters(activeFilters, "clients")}
         search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="clients"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("clients", undefined, filters)
+          toast({ title: "Filters applied" })
+        }}
       />
     </div>
   )

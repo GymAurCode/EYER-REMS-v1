@@ -705,11 +705,19 @@ export const apiService = {
 
   // CRM - Clients
   clients: {
-    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+    getAll: (params?: { search?: string; page?: number; limit?: number; status?: string | string[]; clientType?: string | string[] }, config?: any) => {
       const queryParams = new URLSearchParams()
       if (params?.search) queryParams.append('search', params.search)
       if (params?.page) queryParams.append('page', params.page.toString())
       if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.status) {
+        const s = Array.isArray(params.status) ? params.status : [params.status]
+        s.forEach((v) => queryParams.append('status', v))
+      }
+      if (params?.clientType) {
+        const t = Array.isArray(params.clientType) ? params.clientType : [params.clientType]
+        t.forEach((v) => queryParams.append('clientType', v))
+      }
       const queryString = queryParams.toString()
       return api.get(`/crm/clients${queryString ? `?${queryString}` : ''}`, config)
     },
@@ -722,11 +730,23 @@ export const apiService = {
   // CRM - Deals
   deals: {
     getLedger: (dealId: string) => api.get(`/crm/deals/${dealId}/ledger`),
-    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+    getAll: (params?: { search?: string; page?: number; limit?: number; stage?: string | string[]; status?: string | string[]; dealType?: string | string[] }, config?: any) => {
       const queryParams = new URLSearchParams()
       if (params?.search) queryParams.append('search', params.search)
       if (params?.page) queryParams.append('page', params.page.toString())
       if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.stage) {
+        const s = Array.isArray(params.stage) ? params.stage : [params.stage]
+        s.forEach((v) => queryParams.append('stage', v))
+      }
+      if (params?.status) {
+        const s = Array.isArray(params.status) ? params.status : [params.status]
+        s.forEach((v) => queryParams.append('status', v))
+      }
+      if (params?.dealType) {
+        const t = Array.isArray(params.dealType) ? params.dealType : [params.dealType]
+        t.forEach((v) => queryParams.append('dealType', v))
+      }
       const queryString = queryParams.toString()
       return api.get(`/crm/deals${queryString ? `?${queryString}` : ''}`, config)
     },
@@ -747,11 +767,12 @@ export const apiService = {
 
   // CRM - Dealers
   dealers: {
-    getAll: (params?: { search?: string; page?: number; limit?: number }, config?: any) => {
+    getAll: (params?: { search?: string; page?: number; limit?: number; isActive?: boolean }, config?: any) => {
       const queryParams = new URLSearchParams()
       if (params?.search) queryParams.append('search', params.search)
       if (params?.page) queryParams.append('page', params.page.toString())
       if (params?.limit) queryParams.append('limit', params.limit.toString())
+      if (params?.isActive !== undefined) queryParams.append('isActive', String(params.isActive))
       const queryString = queryParams.toString()
       return api.get(`/crm/dealers${queryString ? `?${queryString}` : ''}`, config)
     },
@@ -972,10 +993,16 @@ export const apiService = {
   },
 
   vouchers: {
-    getAll: (filters?: { type?: string; status?: string; propertyId?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }) => {
+    getAll: (filters?: { type?: string | string[]; status?: string | string[]; propertyId?: string; dateFrom?: string; dateTo?: string; limit?: number; offset?: number }) => {
       const params = new URLSearchParams()
-      if (filters?.type) params.append('type', filters.type)
-      if (filters?.status) params.append('status', filters.status)
+      if (filters?.type) {
+        const t = Array.isArray(filters.type) ? filters.type : [filters.type]
+        t.forEach((v) => params.append('type', v))
+      }
+      if (filters?.status) {
+        const s = Array.isArray(filters.status) ? filters.status : [filters.status]
+        s.forEach((v) => params.append('status', v))
+      }
       if (filters?.propertyId) params.append('propertyId', filters.propertyId)
       if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom)
       if (filters?.dateTo) params.append('dateTo', filters.dateTo)

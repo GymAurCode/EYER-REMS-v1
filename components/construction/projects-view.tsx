@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import {
   Building2,
-  Search,
+  Plus,
   Edit,
   Eye,
   Trash2,
@@ -23,9 +23,13 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { apiService } from "@/lib/api"
 import { formatCurrency } from "@/lib/utils"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toSimpleFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
 import { AddProjectDialog } from "./add-project-dialog"
 import { EditProjectDialog } from "./edit-project-dialog"
 import { ProjectDetailDialog } from "./project-detail-dialog"
@@ -54,7 +58,8 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState("")
-  const [statusFilter, setStatusFilter] = useState<string>("all")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("projects", undefined) || {})
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
@@ -65,11 +70,13 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
   const fetchProjects = useCallback(async () => {
     try {
       setLoading(true)
+      const filters = toSimpleFilters(activeFilters)
+      const statusVal = filters.status
       const response = await apiService.construction.projects.getAll({
         page,
         limit: 10,
         search: searchTerm || undefined,
-        status: statusFilter !== "all" ? statusFilter : undefined,
+        status: statusVal ? (Array.isArray(statusVal) ? (statusVal[0] as string) : (statusVal as string)) : undefined,
       })
       const responseData = response.data as any
       if (responseData?.success || responseData?.data) {
@@ -91,7 +98,7 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
     } finally {
       setLoading(false)
     }
-  }, [page, searchTerm, statusFilter])
+  }, [page, searchTerm, activeFilters])
 
   useEffect(() => {
     fetchProjects()
@@ -131,33 +138,19 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search projects..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Status</SelectItem>
-              <SelectItem value="planning">Planning</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="on-hold">On Hold</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </Card>
+      <ListToolbar
+        searchPlaceholder="Search projects…"
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        primaryAction={
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Project
+          </Button>
+        }
+      />
 
       {/* Table */}
       <Card>
@@ -304,6 +297,17 @@ export function ProjectsView({ onRefresh }: { onRefresh?: () => void }) {
           />
         </>
       )}
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="projects"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("projects", undefined, filters)
+        }}
+      />
     </div>
   )
 }
