@@ -13,6 +13,8 @@ export interface ListToolbarProps {
   onFilterClick: () => void
   activeFilterCount?: number
   onDownloadClick?: () => void
+  /** When true, Download Report button is hidden (e.g. entity has no exportable columns) */
+  showDownload?: boolean
   primaryAction?: ReactNode
   extraActions?: ReactNode
   className?: string
@@ -29,6 +31,7 @@ export function ListToolbar({
   onFilterClick,
   activeFilterCount = 0,
   onDownloadClick,
+  showDownload = true,
   primaryAction,
   extraActions,
   className,
@@ -54,7 +57,7 @@ export function ListToolbar({
             </span>
           )}
         </Button>
-        {onDownloadClick && (
+        {showDownload && onDownloadClick && (
           <Button variant="outline" onClick={onDownloadClick}>
             <Download className="h-4 w-4 mr-2" />
             Download Report

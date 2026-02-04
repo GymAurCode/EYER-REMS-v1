@@ -407,6 +407,7 @@ export type VoucherWhereInput = {
   reversedVoucher?: Prisma.XOR<Prisma.VoucherNullableScalarRelationFilter, Prisma.VoucherWhereInput> | null
   reversalVouchers?: Prisma.VoucherListRelationFilter
   lines?: Prisma.VoucherLineListRelationFilter
+  financialOperations?: Prisma.FinancialOperationListRelationFilter
 }
 
 export type VoucherOrderByWithRelationInput = {
@@ -449,6 +450,7 @@ export type VoucherOrderByWithRelationInput = {
   reversedVoucher?: Prisma.VoucherOrderByWithRelationInput
   reversalVouchers?: Prisma.VoucherOrderByRelationAggregateInput
   lines?: Prisma.VoucherLineOrderByRelationAggregateInput
+  financialOperations?: Prisma.FinancialOperationOrderByRelationAggregateInput
 }
 
 export type VoucherWhereUniqueInput = Prisma.AtLeast<{
@@ -494,6 +496,7 @@ export type VoucherWhereUniqueInput = Prisma.AtLeast<{
   reversedVoucher?: Prisma.XOR<Prisma.VoucherNullableScalarRelationFilter, Prisma.VoucherWhereInput> | null
   reversalVouchers?: Prisma.VoucherListRelationFilter
   lines?: Prisma.VoucherLineListRelationFilter
+  financialOperations?: Prisma.FinancialOperationListRelationFilter
 }, "id" | "voucherNumber">
 
 export type VoucherOrderByWithAggregationInput = {
@@ -597,6 +600,7 @@ export type VoucherCreateInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateInput = {
@@ -630,6 +634,7 @@ export type VoucherUncheckedCreateInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUpdateInput = {
@@ -663,6 +668,7 @@ export type VoucherUpdateInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateInput = {
@@ -696,6 +702,7 @@ export type VoucherUncheckedUpdateInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherCreateManyInput = {
@@ -1309,6 +1316,22 @@ export type VoucherUncheckedUpdateManyWithoutJournalEntryNestedInput = {
   deleteMany?: Prisma.VoucherScalarWhereInput | Prisma.VoucherScalarWhereInput[]
 }
 
+export type VoucherCreateNestedOneWithoutFinancialOperationsInput = {
+  create?: Prisma.XOR<Prisma.VoucherCreateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedCreateWithoutFinancialOperationsInput>
+  connectOrCreate?: Prisma.VoucherCreateOrConnectWithoutFinancialOperationsInput
+  connect?: Prisma.VoucherWhereUniqueInput
+}
+
+export type VoucherUpdateOneWithoutFinancialOperationsNestedInput = {
+  create?: Prisma.XOR<Prisma.VoucherCreateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedCreateWithoutFinancialOperationsInput>
+  connectOrCreate?: Prisma.VoucherCreateOrConnectWithoutFinancialOperationsInput
+  upsert?: Prisma.VoucherUpsertWithoutFinancialOperationsInput
+  disconnect?: Prisma.VoucherWhereInput | boolean
+  delete?: Prisma.VoucherWhereInput | boolean
+  connect?: Prisma.VoucherWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.VoucherUpdateToOneWithWhereWithoutFinancialOperationsInput, Prisma.VoucherUpdateWithoutFinancialOperationsInput>, Prisma.VoucherUncheckedUpdateWithoutFinancialOperationsInput>
+}
+
 export type VoucherCreateWithoutApprovedByInput = {
   id?: string
   voucherNumber: string
@@ -1339,6 +1362,7 @@ export type VoucherCreateWithoutApprovedByInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutApprovedByInput = {
@@ -1371,6 +1395,7 @@ export type VoucherUncheckedCreateWithoutApprovedByInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutApprovedByInput = {
@@ -1413,6 +1438,7 @@ export type VoucherCreateWithoutPreparedByInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutPreparedByInput = {
@@ -1445,6 +1471,7 @@ export type VoucherUncheckedCreateWithoutPreparedByInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutPreparedByInput = {
@@ -1553,6 +1580,7 @@ export type VoucherCreateWithoutPropertyInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutPropertyInput = {
@@ -1585,6 +1613,7 @@ export type VoucherUncheckedCreateWithoutPropertyInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutPropertyInput = {
@@ -1643,6 +1672,7 @@ export type VoucherCreateWithoutUnitInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutUnitInput = {
@@ -1675,6 +1705,7 @@ export type VoucherUncheckedCreateWithoutUnitInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutUnitInput = {
@@ -1733,6 +1764,7 @@ export type VoucherCreateWithoutDealInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutDealInput = {
@@ -1765,6 +1797,7 @@ export type VoucherUncheckedCreateWithoutDealInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutDealInput = {
@@ -1823,6 +1856,7 @@ export type VoucherCreateWithoutExpenseCategoryInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutExpenseCategoryInput = {
@@ -1855,6 +1889,7 @@ export type VoucherUncheckedCreateWithoutExpenseCategoryInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutExpenseCategoryInput = {
@@ -1913,6 +1948,7 @@ export type VoucherCreateWithoutReversalVouchersInput = {
   unit?: Prisma.UnitCreateNestedOneWithoutVouchersInput
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutReversalVouchersInput = {
@@ -1945,6 +1981,7 @@ export type VoucherUncheckedCreateWithoutReversalVouchersInput = {
   reversedByUserId?: string | null
   reversedAt?: Date | string | null
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutReversalVouchersInput = {
@@ -1982,6 +2019,7 @@ export type VoucherCreateWithoutReversedVoucherInput = {
   unit?: Prisma.UnitCreateNestedOneWithoutVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutReversedVoucherInput = {
@@ -2014,6 +2052,7 @@ export type VoucherUncheckedCreateWithoutReversedVoucherInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutReversedVoucherInput = {
@@ -2067,6 +2106,7 @@ export type VoucherUpdateWithoutReversalVouchersInput = {
   unit?: Prisma.UnitUpdateOneWithoutVouchersNestedInput
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutReversalVouchersInput = {
@@ -2099,6 +2139,7 @@ export type VoucherUncheckedUpdateWithoutReversalVouchersInput = {
   reversedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUpsertWithWhereUniqueWithoutReversedVoucherInput = {
@@ -2147,6 +2188,7 @@ export type VoucherCreateWithoutLinesInput = {
   unit?: Prisma.UnitCreateNestedOneWithoutVouchersInput
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutLinesInput = {
@@ -2179,6 +2221,7 @@ export type VoucherUncheckedCreateWithoutLinesInput = {
   reversedByUserId?: string | null
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutLinesInput = {
@@ -2227,6 +2270,7 @@ export type VoucherUpdateWithoutLinesInput = {
   unit?: Prisma.UnitUpdateOneWithoutVouchersNestedInput
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutLinesInput = {
@@ -2259,6 +2303,7 @@ export type VoucherUncheckedUpdateWithoutLinesInput = {
   reversedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherCreateWithoutAccountInput = {
@@ -2291,6 +2336,7 @@ export type VoucherCreateWithoutAccountInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutAccountInput = {
@@ -2323,6 +2369,7 @@ export type VoucherUncheckedCreateWithoutAccountInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutAccountInput = {
@@ -2381,6 +2428,7 @@ export type VoucherCreateWithoutJournalEntryInput = {
   reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
   reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherUncheckedCreateWithoutJournalEntryInput = {
@@ -2413,6 +2461,7 @@ export type VoucherUncheckedCreateWithoutJournalEntryInput = {
   reversedAt?: Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
   lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutVoucherInput
 }
 
 export type VoucherCreateOrConnectWithoutJournalEntryInput = {
@@ -2439,6 +2488,154 @@ export type VoucherUpdateWithWhereUniqueWithoutJournalEntryInput = {
 export type VoucherUpdateManyWithWhereWithoutJournalEntryInput = {
   where: Prisma.VoucherScalarWhereInput
   data: Prisma.XOR<Prisma.VoucherUpdateManyMutationInput, Prisma.VoucherUncheckedUpdateManyWithoutJournalEntryInput>
+}
+
+export type VoucherCreateWithoutFinancialOperationsInput = {
+  id?: string
+  voucherNumber: string
+  type: string
+  date: Date | string
+  postingDate?: Date | string | null
+  paymentMethod: string
+  description?: string | null
+  referenceNumber?: string | null
+  amount: number
+  status?: string
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postedByUserId?: string | null
+  postedAt?: Date | string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  payeeType?: string | null
+  payeeId?: string | null
+  reversedByUserId?: string | null
+  reversedAt?: Date | string | null
+  account: Prisma.AccountCreateNestedOneWithoutVouchersInput
+  approvedBy?: Prisma.UserCreateNestedOneWithoutVouchersApprovedInput
+  deal?: Prisma.DealCreateNestedOneWithoutVouchersInput
+  expenseCategory?: Prisma.TransactionCategoryCreateNestedOneWithoutVouchersInput
+  journalEntry?: Prisma.JournalEntryCreateNestedOneWithoutVouchersInput
+  preparedBy?: Prisma.UserCreateNestedOneWithoutVouchersPreparedInput
+  property?: Prisma.PropertyCreateNestedOneWithoutVouchersInput
+  unit?: Prisma.UnitCreateNestedOneWithoutVouchersInput
+  reversedVoucher?: Prisma.VoucherCreateNestedOneWithoutReversalVouchersInput
+  reversalVouchers?: Prisma.VoucherCreateNestedManyWithoutReversedVoucherInput
+  lines?: Prisma.VoucherLineCreateNestedManyWithoutVoucherInput
+}
+
+export type VoucherUncheckedCreateWithoutFinancialOperationsInput = {
+  id?: string
+  voucherNumber: string
+  type: string
+  date: Date | string
+  postingDate?: Date | string | null
+  paymentMethod: string
+  accountId: string
+  expenseCategoryId?: string | null
+  description?: string | null
+  referenceNumber?: string | null
+  amount: number
+  status?: string
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preparedByUserId?: string | null
+  approvedByUserId?: string | null
+  postedByUserId?: string | null
+  postedAt?: Date | string | null
+  journalEntryId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  dealId?: string | null
+  propertyId?: string | null
+  unitId?: string | null
+  payeeType?: string | null
+  payeeId?: string | null
+  reversedVoucherId?: string | null
+  reversedByUserId?: string | null
+  reversedAt?: Date | string | null
+  reversalVouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutReversedVoucherInput
+  lines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutVoucherInput
+}
+
+export type VoucherCreateOrConnectWithoutFinancialOperationsInput = {
+  where: Prisma.VoucherWhereUniqueInput
+  create: Prisma.XOR<Prisma.VoucherCreateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedCreateWithoutFinancialOperationsInput>
+}
+
+export type VoucherUpsertWithoutFinancialOperationsInput = {
+  update: Prisma.XOR<Prisma.VoucherUpdateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedUpdateWithoutFinancialOperationsInput>
+  create: Prisma.XOR<Prisma.VoucherCreateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedCreateWithoutFinancialOperationsInput>
+  where?: Prisma.VoucherWhereInput
+}
+
+export type VoucherUpdateToOneWithWhereWithoutFinancialOperationsInput = {
+  where?: Prisma.VoucherWhereInput
+  data: Prisma.XOR<Prisma.VoucherUpdateWithoutFinancialOperationsInput, Prisma.VoucherUncheckedUpdateWithoutFinancialOperationsInput>
+}
+
+export type VoucherUpdateWithoutFinancialOperationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  voucherNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  postingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paymentMethod?: Prisma.StringFieldUpdateOperationsInput | string
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  postedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  postedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  payeeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payeeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reversedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  account?: Prisma.AccountUpdateOneRequiredWithoutVouchersNestedInput
+  approvedBy?: Prisma.UserUpdateOneWithoutVouchersApprovedNestedInput
+  deal?: Prisma.DealUpdateOneWithoutVouchersNestedInput
+  expenseCategory?: Prisma.TransactionCategoryUpdateOneWithoutVouchersNestedInput
+  journalEntry?: Prisma.JournalEntryUpdateOneWithoutVouchersNestedInput
+  preparedBy?: Prisma.UserUpdateOneWithoutVouchersPreparedNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutVouchersNestedInput
+  unit?: Prisma.UnitUpdateOneWithoutVouchersNestedInput
+  reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
+  reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
+  lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+}
+
+export type VoucherUncheckedUpdateWithoutFinancialOperationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  voucherNumber?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  postingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  paymentMethod?: Prisma.StringFieldUpdateOperationsInput | string
+  accountId?: Prisma.StringFieldUpdateOperationsInput | string
+  expenseCategoryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  preparedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  approvedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  postedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  postedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  journalEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  unitId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payeeType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  payeeId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reversedVoucherId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reversedByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
+  lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherCreateManyApprovedByInput = {
@@ -2531,6 +2728,7 @@ export type VoucherUpdateWithoutApprovedByInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutApprovedByInput = {
@@ -2563,6 +2761,7 @@ export type VoucherUncheckedUpdateWithoutApprovedByInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutApprovedByInput = {
@@ -2625,6 +2824,7 @@ export type VoucherUpdateWithoutPreparedByInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutPreparedByInput = {
@@ -2657,6 +2857,7 @@ export type VoucherUncheckedUpdateWithoutPreparedByInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutPreparedByInput = {
@@ -2749,6 +2950,7 @@ export type VoucherUpdateWithoutPropertyInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutPropertyInput = {
@@ -2781,6 +2983,7 @@ export type VoucherUncheckedUpdateWithoutPropertyInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutPropertyInput = {
@@ -2873,6 +3076,7 @@ export type VoucherUpdateWithoutUnitInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutUnitInput = {
@@ -2905,6 +3109,7 @@ export type VoucherUncheckedUpdateWithoutUnitInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutUnitInput = {
@@ -2997,6 +3202,7 @@ export type VoucherUpdateWithoutDealInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutDealInput = {
@@ -3029,6 +3235,7 @@ export type VoucherUncheckedUpdateWithoutDealInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutDealInput = {
@@ -3121,6 +3328,7 @@ export type VoucherUpdateWithoutExpenseCategoryInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutExpenseCategoryInput = {
@@ -3153,6 +3361,7 @@ export type VoucherUncheckedUpdateWithoutExpenseCategoryInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutExpenseCategoryInput = {
@@ -3245,6 +3454,7 @@ export type VoucherUpdateWithoutReversedVoucherInput = {
   unit?: Prisma.UnitUpdateOneWithoutVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutReversedVoucherInput = {
@@ -3277,6 +3487,7 @@ export type VoucherUncheckedUpdateWithoutReversedVoucherInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutReversedVoucherInput = {
@@ -3369,6 +3580,7 @@ export type VoucherUpdateWithoutAccountInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutAccountInput = {
@@ -3401,6 +3613,7 @@ export type VoucherUncheckedUpdateWithoutAccountInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutAccountInput = {
@@ -3493,6 +3706,7 @@ export type VoucherUpdateWithoutJournalEntryInput = {
   reversedVoucher?: Prisma.VoucherUpdateOneWithoutReversalVouchersNestedInput
   reversalVouchers?: Prisma.VoucherUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateWithoutJournalEntryInput = {
@@ -3525,6 +3739,7 @@ export type VoucherUncheckedUpdateWithoutJournalEntryInput = {
   reversedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   reversalVouchers?: Prisma.VoucherUncheckedUpdateManyWithoutReversedVoucherNestedInput
   lines?: Prisma.VoucherLineUncheckedUpdateManyWithoutVoucherNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutVoucherNestedInput
 }
 
 export type VoucherUncheckedUpdateManyWithoutJournalEntryInput = {
@@ -3565,11 +3780,13 @@ export type VoucherUncheckedUpdateManyWithoutJournalEntryInput = {
 export type VoucherCountOutputType = {
   reversalVouchers: number
   lines: number
+  financialOperations: number
 }
 
 export type VoucherCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   reversalVouchers?: boolean | VoucherCountOutputTypeCountReversalVouchersArgs
   lines?: boolean | VoucherCountOutputTypeCountLinesArgs
+  financialOperations?: boolean | VoucherCountOutputTypeCountFinancialOperationsArgs
 }
 
 /**
@@ -3594,6 +3811,13 @@ export type VoucherCountOutputTypeCountReversalVouchersArgs<ExtArgs extends runt
  */
 export type VoucherCountOutputTypeCountLinesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.VoucherLineWhereInput
+}
+
+/**
+ * VoucherCountOutputType without action
+ */
+export type VoucherCountOutputTypeCountFinancialOperationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FinancialOperationWhereInput
 }
 
 
@@ -3637,6 +3861,7 @@ export type VoucherSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   reversedVoucher?: boolean | Prisma.Voucher$reversedVoucherArgs<ExtArgs>
   reversalVouchers?: boolean | Prisma.Voucher$reversalVouchersArgs<ExtArgs>
   lines?: boolean | Prisma.Voucher$linesArgs<ExtArgs>
+  financialOperations?: boolean | Prisma.Voucher$financialOperationsArgs<ExtArgs>
   _count?: boolean | Prisma.VoucherCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["voucher"]>
 
@@ -3764,6 +3989,7 @@ export type VoucherInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs
   reversedVoucher?: boolean | Prisma.Voucher$reversedVoucherArgs<ExtArgs>
   reversalVouchers?: boolean | Prisma.Voucher$reversalVouchersArgs<ExtArgs>
   lines?: boolean | Prisma.Voucher$linesArgs<ExtArgs>
+  financialOperations?: boolean | Prisma.Voucher$financialOperationsArgs<ExtArgs>
   _count?: boolean | Prisma.VoucherCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type VoucherIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3803,6 +4029,7 @@ export type $VoucherPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     reversedVoucher: Prisma.$VoucherPayload<ExtArgs> | null
     reversalVouchers: Prisma.$VoucherPayload<ExtArgs>[]
     lines: Prisma.$VoucherLinePayload<ExtArgs>[]
+    financialOperations: Prisma.$FinancialOperationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -4238,6 +4465,7 @@ export interface Prisma__VoucherClient<T, Null = never, ExtArgs extends runtime.
   reversedVoucher<T extends Prisma.Voucher$reversedVoucherArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Voucher$reversedVoucherArgs<ExtArgs>>): Prisma.Prisma__VoucherClient<runtime.Types.Result.GetResult<Prisma.$VoucherPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   reversalVouchers<T extends Prisma.Voucher$reversalVouchersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Voucher$reversalVouchersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VoucherPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   lines<T extends Prisma.Voucher$linesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Voucher$linesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VoucherLinePayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  financialOperations<T extends Prisma.Voucher$financialOperationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Voucher$financialOperationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FinancialOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -4888,6 +5116,30 @@ export type Voucher$linesArgs<ExtArgs extends runtime.Types.Extensions.InternalA
   take?: number
   skip?: number
   distinct?: Prisma.VoucherLineScalarFieldEnum | Prisma.VoucherLineScalarFieldEnum[]
+}
+
+/**
+ * Voucher.financialOperations
+ */
+export type Voucher$financialOperationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FinancialOperation
+   */
+  select?: Prisma.FinancialOperationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FinancialOperation
+   */
+  omit?: Prisma.FinancialOperationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FinancialOperationInclude<ExtArgs> | null
+  where?: Prisma.FinancialOperationWhereInput
+  orderBy?: Prisma.FinancialOperationOrderByWithRelationInput | Prisma.FinancialOperationOrderByWithRelationInput[]
+  cursor?: Prisma.FinancialOperationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FinancialOperationScalarFieldEnum | Prisma.FinancialOperationScalarFieldEnum[]
 }
 
 /**

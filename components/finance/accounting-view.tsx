@@ -1,12 +1,11 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical, Send, CheckCircle, ArrowRight, RotateCcw } from "lucide-react"
+import { Plus, FileText, Trash2, Loader2, Eye, Pencil, Download, MoreVertical, Send, CheckCircle, ArrowRight, RotateCcw, CreditCard, Landmark, Wallet, Receipt, BookOpen } from "lucide-react"
 import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { EnhancedLedgers } from "./enhanced-ledgers"
@@ -28,40 +27,63 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { cn } from "@/lib/utils"
 
 type VoucherStatus = "draft" | "submitted" | "approved" | "posted" | "reversed"
-type VoucherType = "BPV" | "BRV" | "CPV" | "CRV" | "JV"
+type VoucherTypeCode = "BPV" | "BRV" | "CPV" | "CRV" | "JV"
+type VoucherTab = "bpv" | "brv" | "cpv" | "crv" | "jv" | "ledgers"
+
+const VOUCHER_TABS: { value: VoucherTab; label: string; code: VoucherTypeCode; icon: React.ElementType }[] = [
+  { value: "bpv", label: "Bank Payment", code: "BPV", icon: Landmark },
+  { value: "brv", label: "Bank Receipt", code: "BRV", icon: CreditCard },
+  { value: "cpv", label: "Cash Payment", code: "CPV", icon: Wallet },
+  { value: "crv", label: "Cash Receipt", code: "CRV", icon: Receipt },
+  { value: "jv", label: "Journal", code: "JV", icon: BookOpen },
+]
+
+function isVoucherTab(tab: string): tab is Exclude<VoucherTab, "ledgers"> {
+  return ["bpv", "brv", "cpv", "crv", "jv"].includes(tab)
+}
 
 export function AccountingView() {
   const { toast } = useToast()
   const [showAddVoucherDialog, setShowAddVoucherDialog] = useState(false)
   const [showAddGeneralVoucherDialog, setShowAddGeneralVoucherDialog] = useState(false)
-  const [voucherType, setVoucherType] = useState<"bank-payment" | "bank-receipt" | "cash-payment" | "cash-receipt">(
-    "bank-payment",
-  )
+  const [addDialogVoucherType, setAddDialogVoucherType] = useState<"bank-payment" | "bank-receipt" | "cash-payment" | "cash-receipt">("bank-payment")
   const [loading, setLoading] = useState(true)
   const [vouchers, setVouchers] = useState<any[]>([])
   const [viewingVoucherId, setViewingVoucherId] = useState<string | null>(null)
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null)
   const [showViewDialog, setShowViewDialog] = useState(false)
   const [showEditDialog, setShowEditDialog] = useState(false)
-  const [activeTab, setActiveTab] = useState("vouchers")
+  const [activeTab, setActiveTab] = useState<VoucherTab>("bpv")
   const [showDownloadDialog, setShowDownloadDialog] = useState(false)
   const [showFilterDrawer, setShowFilterDrawer] = useState(false)
-  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("vouchers", undefined) || {})
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(() => loadFilters("vouchers", "bpv") || {})
 
-  const fetchData = async () => {
+  useEffect(() => {
+    if (isVoucherTab(activeTab)) {
+      const saved = loadFilters("vouchers", activeTab)
+      setActiveFilters(saved || {})
+    }
+  }, [activeTab])
+
+  const currentVoucherCode = useMemo(() => {
+    const t = VOUCHER_TABS.find((x) => x.value === activeTab)
+    return t?.code ?? "BPV"
+  }, [activeTab])
+
+  const fetchData = useCallback(async () => {
+    if (!isVoucherTab(activeTab)) return
     try {
       setLoading(true)
       const filters = toSimpleFilters(activeFilters)
-      const typeVal = filters.voucherType
       const statusVal = filters.status
-      const typeParam = typeVal ? (Array.isArray(typeVal) ? typeVal[0] : typeVal) as string : undefined
       const statusParam = statusVal ? (Array.isArray(statusVal) ? statusVal[0] : statusVal) as string : undefined
       const response = await apiService.vouchers.getAll({
-        type: typeParam,
+        type: currentVoucherCode,
         status: statusParam,
+        dateFrom: (activeFilters.dateFrom as string) || undefined,
+        dateTo: (activeFilters.dateTo as string) || undefined,
       })
       const responseData = response.data as any
       const vouchersData = Array.isArray(responseData?.data) ? responseData.data : Array.isArray(responseData) ? responseData : []
@@ -77,17 +99,14 @@ export function AccountingView() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [activeTab, currentVoucherCode, activeFilters, toast])
 
   useEffect(() => {
     fetchData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeFilters])
+  }, [fetchData])
 
   const getStatusBadge = (status: VoucherStatus | string | undefined) => {
-    if (!status) {
-      return <Badge variant="outline">Unknown</Badge>
-    }
+    if (!status) return <Badge variant="outline">Unknown</Badge>
     const variants: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
       draft: "outline",
       submitted: "secondary",
@@ -109,7 +128,6 @@ export function AccountingView() {
     )
   }
 
-  // Helper to format date
   const formatVoucherDate = (date: string | Date | undefined, fallback?: Date) => {
     if (!date && !fallback) return "N/A"
     try {
@@ -120,10 +138,8 @@ export function AccountingView() {
     }
   }
 
-  // Helper to get payee name
   const getPayeeName = (voucher: any) => {
     if (voucher.payeeType && voucher.payeeId) {
-      // Try to get actual payee name from related entity
       if (voucher.payeeType === "Tenant" && voucher.payee?.name) return voucher.payee.name
       if (voucher.payeeType === "Client" && voucher.payee?.name) return voucher.payee.name
       if (voucher.payeeType === "Employee" && voucher.payee?.name) return voucher.payee.name
@@ -168,9 +184,7 @@ export function AccountingView() {
           toast({ title: "Success", description: "Voucher posted successfully" })
           break
         case "reverse":
-          if (!window.confirm("Are you sure you want to reverse this voucher? A reversal voucher will be created.")) {
-            return
-          }
+          if (!window.confirm("Are you sure you want to reverse this voucher? A reversal voucher will be created.")) return
           const reversalDate = prompt("Enter reversal date (YYYY-MM-DD):", new Date().toISOString().split("T")[0])
           if (!reversalDate) return
           await apiService.vouchers.reverse(voucherId, { reversalDate })
@@ -190,9 +204,9 @@ export function AccountingView() {
   const handleDownloadPDF = async (voucherId: string) => {
     try {
       const response = await apiService.vouchers.getPDF(voucherId)
-      const blob = new Blob([response.data as BlobPart], { type: 'application/pdf' })
+      const blob = new Blob([response.data as BlobPart], { type: "application/pdf" })
       const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
+      const link = document.createElement("a")
       link.href = url
       link.download = `voucher-${voucherId}.pdf`
       document.body.appendChild(link)
@@ -219,15 +233,10 @@ export function AccountingView() {
       })
       return
     }
-    
     if (!window.confirm("Are you sure you want to delete this voucher?")) return
-    
     try {
       await apiService.vouchers.delete(voucherId)
-      toast({
-        title: "Success",
-        description: "Voucher deleted successfully",
-      })
+      toast({ title: "Success", description: "Voucher deleted successfully" })
       await fetchData()
     } catch (error: any) {
       toast({
@@ -240,18 +249,10 @@ export function AccountingView() {
 
   const getWorkflowActions = (status: VoucherStatus) => {
     const actions = []
-    if (status === "draft") {
-      actions.push({ label: "Submit", action: "submit", icon: Send })
-    }
-    if (status === "submitted") {
-      actions.push({ label: "Approve", action: "approve", icon: CheckCircle })
-    }
-    if (status === "approved") {
-      actions.push({ label: "Post", action: "post", icon: ArrowRight })
-    }
-    if (status === "posted") {
-      actions.push({ label: "Reverse", action: "reverse", icon: RotateCcw })
-    }
+    if (status === "draft") actions.push({ label: "Submit", action: "submit", icon: Send })
+    if (status === "submitted") actions.push({ label: "Approve", action: "approve", icon: CheckCircle })
+    if (status === "approved") actions.push({ label: "Post", action: "post", icon: ArrowRight })
+    if (status === "posted") actions.push({ label: "Reverse", action: "reverse", icon: RotateCcw })
     return actions
   }
 
@@ -291,10 +292,7 @@ export function AccountingView() {
           {voucher.status !== "posted" && voucher.status !== "reversed" && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => handleDeleteVoucher(voucher.id)}
-                className="text-destructive"
-              >
+              <DropdownMenuItem onClick={() => handleDeleteVoucher(voucher.id)} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </DropdownMenuItem>
@@ -305,12 +303,11 @@ export function AccountingView() {
     )
   }
 
-  // Unified voucher list for display (all types in one table)
   const unifiedVouchers = useMemo(() => {
     if (!Array.isArray(vouchers)) return []
+    const type = currentVoucherCode
+    const isJournal = type === "JV"
     return vouchers.map((v) => {
-      const type = v?.type || "JV"
-      const isJournal = type === "JV"
       const party = isJournal ? "—" : (getPayeeName(v) || v.description || "—")
       const amount = isJournal
         ? `Rs ${(Array.isArray(v.lines) ? v.lines.reduce((s: number, l: any) => s + (l?.debit || 0) + (l?.credit || 0), 0) / 2 : 0).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`
@@ -323,24 +320,62 @@ export function AccountingView() {
         type,
         party,
         amount,
-        description: v.description || (type === "BPV" ? "Bank payment" : type === "BRV" ? "Bank receipt" : type === "CPV" ? "Cash payment" : type === "CRV" ? "Cash receipt" : "Journal entry"),
+        description: v.description || "—",
         status: (v.status || "draft") as VoucherStatus,
         linesCount: v.lines?.length || 0,
       }
     })
-  }, [vouchers])
+  }, [vouchers, currentVoucherCode])
+
+  const handleOpenAddVoucher = () => {
+    if (activeTab === "jv") {
+      setShowAddGeneralVoucherDialog(true)
+    } else {
+      const map: Record<Exclude<VoucherTab, "ledgers" | "jv">, "bank-payment" | "bank-receipt" | "cash-payment" | "cash-receipt"> = {
+        bpv: "bank-payment",
+        brv: "bank-receipt",
+        cpv: "cash-payment",
+        crv: "cash-receipt",
+      }
+      setAddDialogVoucherType(map[activeTab as Exclude<VoucherTab, "ledgers" | "jv">] ?? "bank-payment")
+      setShowAddVoucherDialog(true)
+    }
+  }
+
+  const exportFilters = useMemo(() => {
+    const base = toExportFilters(activeFilters, "vouchers")
+    if (isVoucherTab(activeTab)) {
+      return { ...base, voucherType: currentVoucherCode }
+    }
+    return base
+  }, [activeFilters, activeTab, currentVoucherCode])
 
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as VoucherTab)} className="space-y-4">
         <div className="overflow-x-auto">
-          <TabsList className="inline-flex min-w-full sm:min-w-0 grid-cols-2 w-full sm:w-auto">
-            <TabsTrigger value="vouchers" className="text-xs sm:text-sm whitespace-nowrap">Vouchers</TabsTrigger>
-            <TabsTrigger value="ledgers" className="text-xs sm:text-sm whitespace-nowrap">Ledgers</TabsTrigger>
+          <TabsList className="inline-flex min-w-full sm:min-w-0 w-full sm:w-auto flex-wrap h-auto gap-1 p-1">
+            {VOUCHER_TABS.map((tab) => {
+              const Icon = tab.icon
+              return (
+                <TabsTrigger
+                  key={tab.value}
+                  value={tab.value}
+                  className="text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5"
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                  {tab.label}
+                </TabsTrigger>
+              )
+            })}
+            <TabsTrigger value="ledgers" className="text-xs sm:text-sm whitespace-nowrap flex items-center gap-1.5">
+              <FileText className="h-3.5 w-3.5" />
+              Ledgers
+            </TabsTrigger>
           </TabsList>
         </div>
 
-        {activeTab === "vouchers" && (
+        {isVoucherTab(activeTab) && (
           <>
             <ListToolbar
               searchPlaceholder=""
@@ -350,80 +385,76 @@ export function AccountingView() {
               activeFilterCount={countActiveFilters(activeFilters)}
               onDownloadClick={() => setShowDownloadDialog(true)}
               primaryAction={
-                <Button onClick={() => { setVoucherType("bank-payment"); setShowAddVoucherDialog(true) }}>
+                <Button onClick={handleOpenAddVoucher}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Add Voucher
+                  Add {VOUCHER_TABS.find((t) => t.value === activeTab)?.label ?? "Voucher"}
                 </Button>
               }
             />
 
-          <Card>
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Voucher No.</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Party / From</TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                    <TableHead>Lines</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {loading ? (
+            <Card>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={9} className="px-6 py-12 text-center">
-                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                      </TableCell>
+                      <TableHead>Voucher No.</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Party / From</TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
+                      <TableHead>Lines</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
                     </TableRow>
-                  ) : unifiedVouchers.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={9} className="px-6 py-12 text-center text-muted-foreground">
-                        No vouchers found. Use the Filter to narrow results.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    unifiedVouchers.map((voucher) => (
-                      <TableRow key={voucher.id}>
-                        <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
-                        <TableCell>{voucher.date}</TableCell>
-                        <TableCell><Badge variant="outline">{voucher.type}</Badge></TableCell>
-                        <TableCell>{voucher.party}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
-                        <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                  </TableHeader>
+                  <TableBody>
+                    {loading ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="px-6 py-12 text-center">
+                          <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
                         </TableCell>
-                        <TableCell>{getStatusBadge(voucher.status)}</TableCell>
-                        <TableCell>{renderVoucherActions(voucher)}</TableCell>
                       </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+                    ) : unifiedVouchers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={8} className="px-6 py-12 text-center text-muted-foreground">
+                          No {VOUCHER_TABS.find((t) => t.value === activeTab)?.label ?? ""} vouchers found. Use Filter to narrow results or Add to create one.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      unifiedVouchers.map((voucher) => (
+                        <TableRow key={voucher.id}>
+                          <TableCell className="font-medium">{voucher.voucherNumber}</TableCell>
+                          <TableCell>{voucher.date}</TableCell>
+                          <TableCell>{voucher.party}</TableCell>
+                          <TableCell className="max-w-[200px] truncate">{voucher.description}</TableCell>
+                          <TableCell className="text-right font-semibold">{voucher.amount}</TableCell>
+                          <TableCell>
+                            <Badge variant="outline">{voucher.linesCount} lines</Badge>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(voucher.status)}</TableCell>
+                          <TableCell>{renderVoucherActions(voucher)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+            </Card>
           </>
         )}
 
-        {/* Ledgers */}
         <TabsContent value="ledgers" className="space-y-4">
           <EnhancedLedgers />
         </TabsContent>
       </Tabs>
 
-      {/* Add dialogs for accounting operations */}
       <AddVoucherDialog
         open={showAddVoucherDialog}
         onOpenChange={(open) => {
           setShowAddVoucherDialog(open)
           if (!open) fetchData()
         }}
-        voucherType={voucherType}
+        voucherType={addDialogVoucherType}
         onSuccess={fetchData}
       />
       <AddGeneralVoucherDialog
@@ -434,7 +465,7 @@ export function AccountingView() {
         }}
         onSuccess={fetchData}
       />
-      
+
       {viewingVoucherId && (
         <ViewVoucherDialog
           open={showViewDialog}
@@ -450,15 +481,13 @@ export function AccountingView() {
           }}
         />
       )}
-      
+
       {editingVoucherId && (
         <EditVoucherDialog
           open={showEditDialog}
           onOpenChange={(open) => {
             setShowEditDialog(open)
-            if (!open) {
-              setEditingVoucherId(null)
-            }
+            if (!open) setEditingVoucherId(null)
           }}
           voucherId={editingVoucherId}
           onSuccess={() => {
@@ -474,19 +503,20 @@ export function AccountingView() {
         onOpenChange={setShowDownloadDialog}
         entity="voucher"
         module="vouchers"
-        entityDisplayName="Vouchers"
-        filters={activeTab === "vouchers" ? toExportFilters(activeFilters, "vouchers") : {}}
+        entityDisplayName={`${VOUCHER_TABS.find((t) => t.value === activeTab)?.label ?? "Vouchers"} Report`}
+        filters={isVoucherTab(activeTab) ? exportFilters : {}}
       />
 
-      {activeTab === "vouchers" && (
+      {isVoucherTab(activeTab) && (
         <UnifiedFilterDrawer
           open={showFilterDrawer}
           onOpenChange={setShowFilterDrawer}
           entity="vouchers"
+          tab={activeTab}
           initialFilters={activeFilters}
           onApply={(filters) => {
             setActiveFilters(filters)
-            saveFilters("vouchers", undefined, filters)
+            saveFilters("vouchers", activeTab, filters)
             toast({ title: "Filters applied" })
           }}
         />

@@ -3,17 +3,27 @@
 import { useState, useEffect, useCallback } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Mail, Phone, MapPin, ArrowLeft, Loader2, Users } from "lucide-react"
+import { Plus, Mail, Phone, MapPin, ArrowLeft, Loader2, Users } from "lucide-react"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { AddTenantDialog } from "./add-tenant-dialog"
 import { BlocksView } from "./blocks-view"
 import { useRouter } from "next/navigation"
 import { apiService } from "@/lib/api"
 import { cn } from "@/lib/utils"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
+import { useToast } from "@/hooks/use-toast"
 
 export function TenantsView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", "tenants") || {})
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [selectedBlock, setSelectedBlock] = useState<string | null>(null)
   const [tenants, setTenants] = useState<any[]>([])
@@ -90,12 +100,27 @@ export function TenantsView() {
     const unitName =
       typeof tenant.unit === "string" ? tenant.unit : tenant.unit?.unitName || tenant.unit?.unitNumber || ""
     const searchLower = searchQuery.toLowerCase()
-    return (
+    const matchesSearch =
       tid.toLowerCase().includes(searchLower) ||
       name.toLowerCase().includes(searchLower) ||
       email.toLowerCase().includes(searchLower) ||
       unitName.toLowerCase().includes(searchLower)
-    )
+
+    const active = activeFilters.active
+    const matchesActive = active == null || (String(active) === "true" && (tenant.status || "").toLowerCase() === "active") || (String(active) === "false" && (tenant.status || "").toLowerCase() !== "active")
+
+    const leaseStatus = activeFilters.leaseStatus
+    const lsVal = Array.isArray(leaseStatus) ? leaseStatus : leaseStatus ? [String(leaseStatus)] : []
+    const tenantLeaseStatus = tenant.leases?.[0]?.status || tenant.leaseStatus || ""
+    const matchesLeaseStatus = !lsVal.length || lsVal.some((s: string) => tenantLeaseStatus.toLowerCase() === s.toLowerCase())
+
+    const propId = activeFilters.propertyId
+    const matchesProperty = !propId || (tenant.unit?.propertyId || tenant.unit?.property?.id) === propId
+
+    const unitId = activeFilters.unitId
+    const matchesUnit = !unitId || (tenant.unitId || tenant.unit?.id) === unitId
+
+    return matchesSearch && matchesActive && matchesLeaseStatus && matchesProperty && matchesUnit
   })
 
   if (selectedBlock === null) {
@@ -134,35 +159,35 @@ export function TenantsView() {
 
   return (
     <div className="space-y-4">
-      <Button
-        variant="outline"
-        onClick={() => {
-          setSelectedBlock(null)
-          setSelectedTenantId(null)
-          setSelectedTenantDetails(null)
-          setHighlightedTenantId(null)
-        }}
-      >
-        <ArrowLeft className="h-4 w-4 mr-2" />
-        Back to Blocks
-      </Button>
-
-      {/* Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search by TID, name, email, unit..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Tenant
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          onClick={() => {
+            setSelectedBlock(null)
+            setSelectedTenantId(null)
+            setSelectedTenantDetails(null)
+            setHighlightedTenantId(null)
+          }}
+        >
+          <ArrowLeft className="h-4 w-4 mr-2" />
+          Back to Blocks
         </Button>
       </div>
+
+      <ListToolbar
+        searchPlaceholder="Search by TID, name, email, unit…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Tenant
+          </Button>
+        }
+      />
 
       {/* Tenants & Details */}
       {loading ? (
@@ -392,6 +417,29 @@ export function TenantsView() {
             }
           }
           setSearchQuery("")
+        }}
+      />
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        entity="tenant"
+        module="tenants"
+        entityDisplayName="Tenants"
+        filters={toExportFilters(activeFilters, "properties")}
+        search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="properties"
+        tab="tenants"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("properties", "tenants", filters)
+          toast({ title: "Filters applied" })
         }}
       />
     </div>

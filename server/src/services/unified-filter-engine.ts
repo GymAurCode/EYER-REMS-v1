@@ -14,49 +14,43 @@ import prisma from '../prisma/client';
 import logger from '../utils/logger';
 
 // Whitelist of models that have isArchived field (for fallback)
-const MODELS_WITH_ARCHIVED = new Set<string>([
-  // Add model names here if they have isArchived field
-  // Example: 'Voucher', 'Journal', etc.
+const MODELS_WITH_ARCHIVED = new Set<string>([]);
+
+// Models that do NOT have isDeleted (Voucher, Transaction, Invoice, etc.)
+const MODELS_WITHOUT_IS_DELETED = new Set<string>([
+  'voucher', 'transaction', 'invoice', 'commission', 'transactioncategory',
+  'account', 'journalentry', 'journalline', 'voucherline', 'ledgerentry',
 ]);
 
 function modelHasField(modelName: string, fieldName: string): boolean {
-  // Special case for isArchived - use whitelist
   if (fieldName === 'isArchived') {
     return MODELS_WITH_ARCHIVED.has(modelName);
   }
-  
+  if (fieldName === 'isDeleted') {
+    const key = String(modelName).toLowerCase();
+    if (MODELS_WITHOUT_IS_DELETED.has(key)) return false;
+  }
+
   try {
-    // Access Prisma DMMF (Data Model Meta Format)
     const dmmf = (prisma as any)?._dmmf;
     if (!dmmf) {
-      // Fallback: assume common fields exist for common models
-      if (fieldName === 'isDeleted') {
-        // Most models have isDeleted
-        return true;
-      }
+      if (fieldName === 'isDeleted') return !MODELS_WITHOUT_IS_DELETED.has(String(modelName).toLowerCase());
       return false;
     }
-    
     const models = dmmf.datamodel?.models;
     if (!models || !Array.isArray(models)) {
-      // Fallback for isDeleted
-      if (fieldName === 'isDeleted') return true;
+      if (fieldName === 'isDeleted') return !MODELS_WITHOUT_IS_DELETED.has(String(modelName).toLowerCase());
       return false;
     }
-    
     const model = models.find((m: any) => String(m.name).toLowerCase() === String(modelName).toLowerCase());
     if (!model || !model.fields || !Array.isArray(model.fields)) {
-      // Fallback for isDeleted
-      if (fieldName === 'isDeleted') return true;
+      if (fieldName === 'isDeleted') return !MODELS_WITHOUT_IS_DELETED.has(String(modelName).toLowerCase());
       return false;
     }
-    
     return model.fields.some((f: any) => f.name === fieldName);
   } catch (error) {
-    // If we can't check, use safe defaults
     logger.warn(`Could not check if model ${modelName} has field ${fieldName}:`, error);
-    // Fallback: assume isDeleted exists (most models have it)
-    if (fieldName === 'isDeleted') return true;
+    if (fieldName === 'isDeleted') return !MODELS_WITHOUT_IS_DELETED.has(String(modelName).toLowerCase());
     return false;
   }
 }

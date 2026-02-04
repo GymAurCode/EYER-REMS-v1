@@ -21,6 +21,7 @@ import {
   type EntityColumnDefinition,
   getExportableColumns,
   getColumnsByGroup,
+  hasExportableColumns,
   type ColumnGroup,
 } from "@/lib/entity-column-registry"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -57,6 +58,16 @@ const MODULE_TO_ENTITY: Record<string, string> = {
   employees: "employee",
   vouchers: "voucher",
   properties: "property",
+  units: "unit",
+  tenants: "tenant",
+  leases: "lease",
+  sales: "sale",
+  buyers: "buyer",
+  sellers: "seller",
+  transactions: "transaction",
+  invoices: "invoice",
+  payments: "payment",
+  commissions: "commission",
 };
 
 export interface DownloadReportDialogProps {
@@ -233,7 +244,7 @@ export function DownloadReportDialog({
     setSelectedColumns(new Set())
   }
 
-  const canDownload = selectedColumns.size > 0 && !downloading
+  const canDownload = availableColumns.length > 0 && selectedColumns.size > 0 && !downloading
 
   const handleDownload = async () => {
     if (!canDownload) return
@@ -407,7 +418,7 @@ export function DownloadReportDialog({
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
-                  No columns available for {format.toUpperCase()} export. Try a different format.
+                  No exportable columns configured for this module. Try a different format or contact support.
                 </AlertDescription>
               </Alert>
             ) : (

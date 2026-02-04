@@ -3,17 +3,28 @@
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Home, DollarSign, Loader2, MoreVertical, Pencil, Trash2, Building2 } from "lucide-react"
+import { Plus, Home, DollarSign, Loader2, MoreVertical, Pencil, Trash2, Building2 } from "lucide-react"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { DataTableFromRegistry } from "@/components/shared/data-table-from-registry"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { AddUnitDialog } from "./add-unit-dialog"
 import { EditStatusDialog } from "./edit-status-dialog"
 import { apiService } from "@/lib/api"
 import { UnitToasts, handleApiError } from "@/lib/toast-utils"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
+import { useToast } from "@/hooks/use-toast"
 
 export function UnitsView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", "units") || {})
   const [showUnitDialog, setShowUnitDialog] = useState(false)
   const [units, setUnits] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -68,216 +79,80 @@ export function UnitsView() {
     const propertyName = unit.property?.name || unit.property || ""
     const floorName = unit.floor?.name || ""
     const searchLower = searchQuery.toLowerCase()
-    return (
+    const matchesSearch =
       unitName.toLowerCase().includes(searchLower) ||
       propertyName.toLowerCase().includes(searchLower) ||
       floorName.toLowerCase().includes(searchLower)
-    )
+
+    const unitStatus = activeFilters.unitStatus
+    const statusVal = Array.isArray(unitStatus) ? unitStatus : unitStatus ? [String(unitStatus)] : []
+    const matchesStatus = !statusVal.length || statusVal.some((s: string) => (unit.status || "").toLowerCase() === s.toLowerCase())
+
+    const propId = activeFilters.propertyId
+    const matchesProperty = !propId || (unit.propertyId || unit.property?.id) === propId
+
+    const unitType = activeFilters.unitType
+    const typeVal = Array.isArray(unitType) ? unitType : unitType ? [String(unitType)] : []
+    const matchesType = !typeVal.length || typeVal.some((t: string) => (unit.unitType || unit.type || "").toLowerCase() === t.toLowerCase())
+
+    const rentMin = activeFilters.rent_min as number | undefined
+    const rentMax = activeFilters.rent_max as number | undefined
+    const rent = unit.monthlyRent ?? unit.rent ?? 0
+    const matchesRent = (rentMin == null || rent >= rentMin) && (rentMax == null || rent <= rentMax)
+
+    const areaMin = activeFilters.area_min as number | undefined
+    const areaMax = activeFilters.area_max as number | undefined
+    const area = unit.area ?? unit.sqft ?? 0
+    const matchesArea = (areaMin == null || area >= areaMin) && (areaMax == null || area <= areaMax)
+
+    return matchesSearch && matchesStatus && matchesProperty && matchesType && matchesRent && matchesArea
   })
-
-  // Group units by property and floor
-  const groupedUnits = filteredUnits.reduce((acc: any, unit: any) => {
-    const propertyId = unit.propertyId || unit.property?.id || "no-property"
-    const propertyName = unit.property?.name || "Unknown Property"
-    const floorId = unit.floorId || unit.floor?.id || "no-floor"
-    const floorName = unit.floor?.name || "No Floor"
-    
-    if (!acc[propertyId]) {
-      acc[propertyId] = {
-        propertyName,
-        floors: {} as any,
-        unitsWithoutFloor: [] as any[],
-      }
-    }
-    
-    if (floorId === "no-floor") {
-      acc[propertyId].unitsWithoutFloor.push(unit)
-    } else {
-      if (!acc[propertyId].floors[floorId]) {
-        acc[propertyId].floors[floorId] = {
-          floorName,
-          floorNumber: unit.floor?.floorNumber ?? 999,
-          units: [] as any[],
-        }
-      }
-      acc[propertyId].floors[floorId].units.push(unit)
-    }
-    
-    return acc
-  }, {} as any)
-
-  // Check if any property has floors
-  const hasFloors = Object.values(groupedUnits).some((group: any) => 
-    Object.keys(group.floors).length > 0
-  )
 
   return (
     <div className="space-y-4">
-      {/* Search Bar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search units..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button
-          onClick={() => {
-            setEditingUnit(null)
-            setShowUnitDialog(true)
-          }}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Unit
-        </Button>
-      </div>
+      <ListToolbar
+        searchPlaceholder="Search units…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
+          <Button onClick={() => { setEditingUnit(null); setShowUnitDialog(true) }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Unit
+          </Button>
+        }
+      />
 
-      {/* Units Table */}
       <Card>
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="border-b border-border bg-muted/50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Unit
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Property
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Floor
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Block
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Rent
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Tenant
-                </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto text-muted-foreground" />
-                  </td>
-                </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-destructive">{error}</td>
-                </tr>
-              ) : filteredUnits.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-muted-foreground">No units found</td>
-                </tr>
-              ) : (
-                filteredUnits.map((unit) => (
-                <tr key={unit.id} className="hover:bg-muted/50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10">
-                        <Home className="h-4 w-4 text-primary" />
-                      </div>
-                      <span className="font-medium text-foreground">{unit.unitName || unit.unitNumber || "N/A"}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-foreground">
-                    {unit.property?.name || unit.property || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {unit.floor ? (
-                      <div className="flex items-center gap-1">
-                        <Building2 className="h-3 w-3" />
-                        <span>
-                          {unit.floor.name}
-                          {unit.floor.floorNumber !== null && unit.floor.floorNumber !== undefined && (
-                            <span className="text-xs text-muted-foreground ml-1">
-                              (#{unit.floor.floorNumber})
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {unit.block?.name || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center gap-1 text-sm font-medium text-foreground">
-                      <DollarSign className="h-3 w-3" />
-                      {unit.monthlyRent ? `Rs ${unit.monthlyRent.toLocaleString()}` : unit.rent || "-"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <Badge
-                      variant={
-                        unit.status === "Occupied" || unit.status === "occupied" ? "default" : 
-                        unit.status === "Vacant" || unit.status === "vacant" ? "secondary" : 
-                        "outline"
-                      }
-                      className="cursor-pointer hover:opacity-80 transition-opacity"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setEditingStatusUnit({ 
-                          id: unit.id, 
-                          status: unit.status || "Vacant", 
-                          name: unit.unitName || unit.unitNumber || "Unit" 
-                        })
-                      }}
-                    >
-                      {unit.status || "N/A"}
-                    </Badge>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
-                    {unit.tenantName || unit.tenant?.name || unit.tenant || "-"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setEditingUnit(unit)
-                            setShowUnitDialog(true)
-                          }}
-                        >
-                          <Pencil className="mr-2 h-4 w-4" />
-                          Edit
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
-                          onClick={() => handleDeleteUnit(unit)}
-                          disabled={deletingUnitId === unit.id}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {deletingUnitId === unit.id ? "Deleting..." : "Delete"}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </td>
-                </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <DataTableFromRegistry
+            entity="unit"
+            data={filteredUnits}
+            loading={loading}
+            error={error}
+            emptyMessage="No units found"
+            renderCell={(col, _value, row) => {
+              if (col.key === "unitName") return <div className="flex items-center gap-2"><div className="flex h-8 w-8 items-center justify-center rounded bg-primary/10"><Home className="h-4 w-4 text-primary" /></div><span className="font-medium">{row.unitName || row.unitNumber || "N/A"}</span></div>
+              if (col.key === "status") return <Badge variant={row.status === "Occupied" || row.status === "occupied" ? "default" : row.status === "Vacant" || row.status === "vacant" ? "secondary" : "outline"} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditingStatusUnit({ id: row.id, status: row.status || "Vacant", name: row.unitName || row.unitNumber || "Unit" }) }}>{row.status || "N/A"}</Badge>
+              if (col.key === "floor") return row.floor ? <div className="flex items-center gap-1"><Building2 className="h-3 w-3" /><span>{row.floor.name}{row.floor.floorNumber != null ? ` (#${row.floor.floorNumber})` : ""}</span></div> : "—"
+              return undefined
+            }}
+            renderActions={(unit) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => { setEditingUnit(unit); setShowUnitDialog(true) }}><Pencil className="mr-2 h-4 w-4" />Edit</DropdownMenuItem>
+                  <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUnit(unit)} disabled={deletingUnitId === unit.id}><Trash2 className="mr-2 h-4 w-4" />{deletingUnitId === unit.id ? "Deleting..." : "Delete"}</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          />
         </div>
       </Card>
 
@@ -306,6 +181,29 @@ export function UnitsView() {
           entityName={editingStatusUnit.name}
         />
       )}
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        entity="unit"
+        module="units"
+        entityDisplayName="Units"
+        filters={toExportFilters(activeFilters, "properties")}
+        search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="properties"
+        tab="units"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("properties", "units", filters)
+          toast({ title: "Filters applied" })
+        }}
+      />
     </div>
   )
 }

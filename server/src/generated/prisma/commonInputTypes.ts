@@ -358,6 +358,40 @@ export type FloatWithAggregatesFilter<$PrismaModel = never> = {
   _max?: Prisma.NestedFloatFilter<$PrismaModel>
 }
 
+export type EnumFinancialOperationTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationType | Prisma.EnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel> | $Enums.FinancialOperationType
+}
+
+export type EnumFinancialOperationStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationStatus | Prisma.EnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel> | $Enums.FinancialOperationStatus
+}
+
+export type EnumFinancialOperationTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationType | Prisma.EnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationTypeWithAggregatesFilter<$PrismaModel> | $Enums.FinancialOperationType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel>
+}
+
+export type EnumFinancialOperationStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationStatus | Prisma.EnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationStatusWithAggregatesFilter<$PrismaModel> | $Enums.FinancialOperationStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel>
+}
+
 export type NestedStringFilter<$PrismaModel = never> = {
   equals?: string | Prisma.StringFieldRefInput<$PrismaModel>
   in?: string[] | Prisma.ListStringFieldRefInput<$PrismaModel>
@@ -637,6 +671,40 @@ export type NestedFloatWithAggregatesFilter<$PrismaModel = never> = {
   _sum?: Prisma.NestedFloatFilter<$PrismaModel>
   _min?: Prisma.NestedFloatFilter<$PrismaModel>
   _max?: Prisma.NestedFloatFilter<$PrismaModel>
+}
+
+export type NestedEnumFinancialOperationTypeFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationType | Prisma.EnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel> | $Enums.FinancialOperationType
+}
+
+export type NestedEnumFinancialOperationStatusFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationStatus | Prisma.EnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel> | $Enums.FinancialOperationStatus
+}
+
+export type NestedEnumFinancialOperationTypeWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationType | Prisma.EnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationType[] | Prisma.ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationTypeWithAggregatesFilter<$PrismaModel> | $Enums.FinancialOperationType
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFinancialOperationTypeFilter<$PrismaModel>
+}
+
+export type NestedEnumFinancialOperationStatusWithAggregatesFilter<$PrismaModel = never> = {
+  equals?: $Enums.FinancialOperationStatus | Prisma.EnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  in?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  notIn?: $Enums.FinancialOperationStatus[] | Prisma.ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel>
+  not?: Prisma.NestedEnumFinancialOperationStatusWithAggregatesFilter<$PrismaModel> | $Enums.FinancialOperationStatus
+  _count?: Prisma.NestedIntFilter<$PrismaModel>
+  _min?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel>
+  _max?: Prisma.NestedEnumFinancialOperationStatusFilter<$PrismaModel>
 }
 
 

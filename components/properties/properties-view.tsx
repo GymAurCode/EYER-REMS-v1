@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { DataTableFromRegistry } from "@/components/shared/data-table-from-registry"
 import {
   Building2,
   Plus,
@@ -631,194 +631,61 @@ export function PropertiesView() {
                   Showing <span className="font-semibold text-foreground">{properties.length}</span> of <span className="font-semibold text-foreground">{totalItems}</span> properties
                 </p>
               </div>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Property</TableHead>
-                    <TableHead>TID</TableHead>
-                    <TableHead>Location</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Address</TableHead>
-                    <TableHead>Units</TableHead>
-                    <TableHead>Occupied</TableHead>
-                    <TableHead>Sale Price</TableHead>
-                    <TableHead>Revenue</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {properties.map((property) => {
-                      const totalUnits = property.units || property._count?.units || 0
-                      const occupiedUnits = property.occupied || 0
-                      const occupancyRate = totalUnits > 0 ? Math.round((occupiedUnits / totalUnits) * 100) : 0
-                      
-                      return (
-                        <TableRow
-                          key={property.id}
-                          className="cursor-pointer hover:bg-muted/50"
-                          onClick={() => router.push(`/property/${property.id}`)}
-                        >
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-3">
-                              {property.imageUrl ? (
-                                <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
-                                  <img
-                                    src={getPropertyImageSrc(property.id, property.imageUrl)}
-                                    alt={property.tid || "Property"}
-                                    className="h-full w-full object-cover"
-                                    onError={(e) => {
-                                      const imgElement = e.target as HTMLImageElement;
-                                      imgElement.style.display = 'none';
-                                      const parent = imgElement.parentElement;
-                                      if (parent && !parent.querySelector('.error-placeholder')) {
-                                        const placeholder = document.createElement('div');
-                                        placeholder.className = 'h-full w-full flex items-center justify-center bg-muted error-placeholder';
-                                        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                                        svg.setAttribute('class', 'h-6 w-6 text-muted-foreground');
-                                        svg.setAttribute('fill', 'none');
-                                        svg.setAttribute('viewBox', '0 0 24 24');
-                                        svg.setAttribute('stroke', 'currentColor');
-                                        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                                        path.setAttribute('stroke-linecap', 'round');
-                                        path.setAttribute('stroke-linejoin', 'round');
-                                        path.setAttribute('stroke-width', '2');
-                                        path.setAttribute('d', 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z');
-                                        svg.appendChild(path);
-                                        placeholder.appendChild(svg);
-                                        parent.appendChild(placeholder);
-                                      }
-                                    }}
-                                  />
-                                </div>
-                              ) : (
-                                <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                  <Building2 className="h-5 w-5 text-primary" />
-                                </div>
-                              )}
-                              <div>
-                                <div className="font-semibold">{property.name || "N/A"}</div>
-                                <div className="text-xs text-muted-foreground">{property.propertyCode || "No Code"}</div>
-                              </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <span className="font-mono text-xs">{property.tid || "—"}</span>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <MapPin className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-sm">{property.location || "—"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge
-                              variant={
-                                property.status === "Active" ? "default" :
-                                  property.status === "Maintenance" ? "destructive" :
-                                    property.status === "For Sale" ? "secondary" :
-                                      "outline"
-                              }
-                              className="cursor-pointer hover:opacity-80 transition-opacity"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                setEditingStatusProperty({ id: property.id, status: property.status || "Active", name: property.tid })
-                              }}
-                            >
-                              {property.status || "—"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1 text-sm text-muted-foreground max-w-[200px]">
-                              <MapPin className="h-3 w-3 flex-shrink-0" />
-                              <span className="truncate">{property.address || property.location || "—"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Home className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">{occupiedUnits}/{totalUnits}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <Users className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">{occupancyRate}%</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {property.salePrice !== undefined && property.salePrice !== null ? (
-                              <span className="font-semibold">
-                                Rs {Number(property.salePrice).toLocaleString("en-IN")}
-                              </span>
-                            ) : (
-                              <span className="text-muted-foreground">—</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-1">
-                              <DollarSign className="h-4 w-4 text-muted-foreground" />
-                              <span className="font-semibold">{property.revenue || "Rs 0"}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon">
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}>
-                                  <Eye className="h-4 w-4 mr-2" />
-                                  View
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => router.push(`/ledger/property/${property.id}`)}>
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  Open Ledger
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => handleGeneratePropertyReport(property)}
-                                >
-                                  <FileText className="h-4 w-4 mr-2" />
-                                  Generate Report
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                  setEditingPropertyId(property.id)
-                                  setShowAddDialog(true)
-                                }}>
-                                  <Edit className="h-4 w-4 mr-2" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => {
-                                  setStructurePropertyId(String(property.id))
-                                  setStructurePropertyName(property.tid || "")
-                                  setShowStructureDialog(true)
-                                }}>
-                                  <Building2 className="h-4 w-4 mr-2" />
-                                  Create Structure
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => {
-                                    setDeletingProperty({
-                                      id: property.id,
-                                      name: property.tid,
-                                      propertyCode: property.propertyCode,
-                                    })
-                                  }}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-2" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      )
-                    })}
-                </TableBody>
-              </Table>
+              <DataTableFromRegistry
+                entity="property"
+                data={properties}
+                loading={loading}
+                error={error}
+                emptyMessage="No properties found"
+                onRowClick={(p) => router.push(`/property/${p.id}`)}
+                renderCell={(col, value, row) => {
+                  if (col.key === "name") {
+                    return (
+                      <div className="flex items-center gap-3">
+                        {row.imageUrl ? (
+                          <div className="h-10 w-10 rounded overflow-hidden flex-shrink-0">
+                            <img src={getPropertyImageSrc(row.id, row.imageUrl)} alt={row.tid || "Property"} className="h-full w-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="h-10 w-10 rounded bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <Building2 className="h-5 w-5 text-primary" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="font-semibold">{row.name || "N/A"}</div>
+                          <div className="text-xs text-muted-foreground">{row.propertyCode || "No Code"}</div>
+                        </div>
+                      </div>
+                    )
+                  }
+                  if (col.key === "status") return <Badge variant={row.status === "Active" ? "default" : row.status === "Maintenance" ? "destructive" : row.status === "For Sale" ? "secondary" : "outline"} className="cursor-pointer" onClick={(e) => { e.stopPropagation(); setEditingStatusProperty({ id: row.id, status: row.status || "Active", name: row.tid }) }}>{row.status || "—"}</Badge>
+                  if (col.key === "address") return <div className="flex items-center gap-1 text-sm text-muted-foreground max-w-[200px]"><MapPin className="h-3 w-3 flex-shrink-0" /><span className="truncate">{row.address || row.location || "—"}</span></div>
+                  if (col.key === "unitsDisplay") return <div className="flex items-center gap-1"><Home className="h-4 w-4 text-muted-foreground" /><span className="font-semibold">{row.occupied ?? 0}/{row.units ?? row._count?.units ?? 0}</span></div>
+                  if (col.key === "occupiedDisplay") { const u = row.units ?? row._count?.units ?? 0; const o = row.occupied ?? 0; return <div className="flex items-center gap-1"><Users className="h-4 w-4 text-muted-foreground" /><span className="font-semibold">{u > 0 ? `${Math.round((o / u) * 100)}%` : "—"}</span></div> }
+                  if (col.key === "salePrice") return row.salePrice != null ? <span className="font-semibold">Rs {Number(row.salePrice).toLocaleString("en-IN")}</span> : "—"
+                  if (col.key === "revenue") return <div className="flex items-center gap-1"><DollarSign className="h-4 w-4 text-muted-foreground" /><span className="font-semibold">{row.revenue || "Rs 0"}</span></div>
+                  if (col.key === "tid") return <span className="font-mono text-xs">{row.tid || "—"}</span>
+                  if (col.key === "type") return row.type || "—"
+                  return undefined
+                }}
+                renderActions={(property) => (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/property/${property.id}`)}><Eye className="h-4 w-4 mr-2" />View</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => router.push(`/ledger/property/${property.id}`)}><FileText className="h-4 w-4 mr-2" />Open Ledger</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleGeneratePropertyReport(property)}><FileText className="h-4 w-4 mr-2" />Generate Report</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setEditingPropertyId(property.id); setShowAddDialog(true) }}><Edit className="h-4 w-4 mr-2" />Edit</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setStructurePropertyId(String(property.id)); setStructurePropertyName(property.tid || ""); setShowStructureDialog(true) }}><Building2 className="h-4 w-4 mr-2" />Create Structure</DropdownMenuItem>
+                      <DropdownMenuItem className="text-destructive" onClick={() => setDeletingProperty({ id: property.id, name: property.tid, propertyCode: property.propertyCode })}><Trash2 className="h-4 w-4 mr-2" />Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              />
             </Card>
             {totalPages > 1 && (
                 <div className="mt-4 flex flex-col items-center gap-2">

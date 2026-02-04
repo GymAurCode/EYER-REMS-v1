@@ -226,6 +226,9 @@ export type UserWhereInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentListRelationFilter
   exportJobs?: Prisma.ExportJobListRelationFilter
   filterPresets?: Prisma.FilterPresetListRelationFilter
+  financialOperationsRequested?: Prisma.FinancialOperationListRelationFilter
+  financialOperationsApproved?: Prisma.FinancialOperationListRelationFilter
+  financialOperationsPosted?: Prisma.FinancialOperationListRelationFilter
 }
 
 export type UserOrderByWithRelationInput = {
@@ -257,6 +260,9 @@ export type UserOrderByWithRelationInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentOrderByRelationAggregateInput
   exportJobs?: Prisma.ExportJobOrderByRelationAggregateInput
   filterPresets?: Prisma.FilterPresetOrderByRelationAggregateInput
+  financialOperationsRequested?: Prisma.FinancialOperationOrderByRelationAggregateInput
+  financialOperationsApproved?: Prisma.FinancialOperationOrderByRelationAggregateInput
+  financialOperationsPosted?: Prisma.FinancialOperationOrderByRelationAggregateInput
 }
 
 export type UserWhereUniqueInput = Prisma.AtLeast<{
@@ -291,6 +297,9 @@ export type UserWhereUniqueInput = Prisma.AtLeast<{
   tenantPaymentsCreated?: Prisma.TenantPaymentListRelationFilter
   exportJobs?: Prisma.ExportJobListRelationFilter
   filterPresets?: Prisma.FilterPresetListRelationFilter
+  financialOperationsRequested?: Prisma.FinancialOperationListRelationFilter
+  financialOperationsApproved?: Prisma.FinancialOperationListRelationFilter
+  financialOperationsPosted?: Prisma.FinancialOperationListRelationFilter
 }, "id" | "username" | "email">
 
 export type UserOrderByWithAggregationInput = {
@@ -349,6 +358,9 @@ export type UserCreateInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateInput = {
@@ -379,6 +391,9 @@ export type UserUncheckedCreateInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUpdateInput = {
@@ -409,6 +424,9 @@ export type UserUpdateInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateInput = {
@@ -439,6 +457,9 @@ export type UserUncheckedUpdateInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateManyInput = {
@@ -870,6 +891,54 @@ export type UserUpdateOneRequiredWithoutFilterPresetsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFilterPresetsInput, Prisma.UserUpdateWithoutFilterPresetsInput>, Prisma.UserUncheckedUpdateWithoutFilterPresetsInput>
 }
 
+export type UserCreateNestedOneWithoutFinancialOperationsRequestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsRequestedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsRequestedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutFinancialOperationsApprovedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsApprovedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsApprovedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserCreateNestedOneWithoutFinancialOperationsPostedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsPostedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsPostedInput
+  connect?: Prisma.UserWhereUniqueInput
+}
+
+export type UserUpdateOneWithoutFinancialOperationsRequestedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsRequestedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsRequestedInput
+  upsert?: Prisma.UserUpsertWithoutFinancialOperationsRequestedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFinancialOperationsRequestedInput, Prisma.UserUpdateWithoutFinancialOperationsRequestedInput>, Prisma.UserUncheckedUpdateWithoutFinancialOperationsRequestedInput>
+}
+
+export type UserUpdateOneWithoutFinancialOperationsApprovedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsApprovedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsApprovedInput
+  upsert?: Prisma.UserUpsertWithoutFinancialOperationsApprovedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFinancialOperationsApprovedInput, Prisma.UserUpdateWithoutFinancialOperationsApprovedInput>, Prisma.UserUncheckedUpdateWithoutFinancialOperationsApprovedInput>
+}
+
+export type UserUpdateOneWithoutFinancialOperationsPostedNestedInput = {
+  create?: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsPostedInput>
+  connectOrCreate?: Prisma.UserCreateOrConnectWithoutFinancialOperationsPostedInput
+  upsert?: Prisma.UserUpsertWithoutFinancialOperationsPostedInput
+  disconnect?: Prisma.UserWhereInput | boolean
+  delete?: Prisma.UserWhereInput | boolean
+  connect?: Prisma.UserWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.UserUpdateToOneWithWhereWithoutFinancialOperationsPostedInput, Prisma.UserUpdateWithoutFinancialOperationsPostedInput>, Prisma.UserUncheckedUpdateWithoutFinancialOperationsPostedInput>
+}
+
 export type UserCreateWithoutRoleInput = {
   id?: string
   username: string
@@ -897,6 +966,9 @@ export type UserCreateWithoutRoleInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutRoleInput = {
@@ -926,6 +998,9 @@ export type UserUncheckedCreateWithoutRoleInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutRoleInput = {
@@ -995,6 +1070,9 @@ export type UserCreateWithoutDeviceApprovalsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutDeviceApprovalsInput = {
@@ -1024,6 +1102,9 @@ export type UserUncheckedCreateWithoutDeviceApprovalsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutDeviceApprovalsInput = {
@@ -1069,6 +1150,9 @@ export type UserUpdateWithoutDeviceApprovalsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDeviceApprovalsInput = {
@@ -1098,6 +1182,9 @@ export type UserUncheckedUpdateWithoutDeviceApprovalsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutNotificationsInput = {
@@ -1127,6 +1214,9 @@ export type UserCreateWithoutNotificationsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutNotificationsInput = {
@@ -1156,6 +1246,9 @@ export type UserUncheckedCreateWithoutNotificationsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutNotificationsInput = {
@@ -1201,6 +1294,9 @@ export type UserUpdateWithoutNotificationsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutNotificationsInput = {
@@ -1230,6 +1326,9 @@ export type UserUncheckedUpdateWithoutNotificationsInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutPayrollPaymentsCreatedInput = {
@@ -1259,6 +1358,9 @@ export type UserCreateWithoutPayrollPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutPayrollPaymentsCreatedInput = {
@@ -1288,6 +1390,9 @@ export type UserUncheckedCreateWithoutPayrollPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutPayrollPaymentsCreatedInput = {
@@ -1333,6 +1438,9 @@ export type UserUpdateWithoutPayrollPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPayrollPaymentsCreatedInput = {
@@ -1362,6 +1470,9 @@ export type UserUncheckedUpdateWithoutPayrollPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutLeadsAssignedInput = {
@@ -1391,6 +1502,9 @@ export type UserCreateWithoutLeadsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutLeadsAssignedInput = {
@@ -1420,6 +1534,9 @@ export type UserUncheckedCreateWithoutLeadsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutLeadsAssignedInput = {
@@ -1465,6 +1582,9 @@ export type UserUpdateWithoutLeadsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutLeadsAssignedInput = {
@@ -1494,6 +1614,9 @@ export type UserUncheckedUpdateWithoutLeadsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutClientsAssignedInput = {
@@ -1523,6 +1646,9 @@ export type UserCreateWithoutClientsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutClientsAssignedInput = {
@@ -1552,6 +1678,9 @@ export type UserUncheckedCreateWithoutClientsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutClientsAssignedInput = {
@@ -1597,6 +1726,9 @@ export type UserUpdateWithoutClientsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutClientsAssignedInput = {
@@ -1626,6 +1758,9 @@ export type UserUncheckedUpdateWithoutClientsAssignedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutCommunicationsLoggedInput = {
@@ -1655,6 +1790,9 @@ export type UserCreateWithoutCommunicationsLoggedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutCommunicationsLoggedInput = {
@@ -1684,6 +1822,9 @@ export type UserUncheckedCreateWithoutCommunicationsLoggedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutCommunicationsLoggedInput = {
@@ -1729,6 +1870,9 @@ export type UserUpdateWithoutCommunicationsLoggedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutCommunicationsLoggedInput = {
@@ -1758,6 +1902,9 @@ export type UserUncheckedUpdateWithoutCommunicationsLoggedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutTransactionsCreatedInput = {
@@ -1787,6 +1934,9 @@ export type UserCreateWithoutTransactionsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutTransactionsCreatedInput = {
@@ -1816,6 +1966,9 @@ export type UserUncheckedCreateWithoutTransactionsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutTransactionsCreatedInput = {
@@ -1861,6 +2014,9 @@ export type UserUpdateWithoutTransactionsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTransactionsCreatedInput = {
@@ -1890,6 +2046,9 @@ export type UserUncheckedUpdateWithoutTransactionsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutInvoicesCreatedInput = {
@@ -1919,6 +2078,9 @@ export type UserCreateWithoutInvoicesCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutInvoicesCreatedInput = {
@@ -1948,6 +2110,9 @@ export type UserUncheckedCreateWithoutInvoicesCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutInvoicesCreatedInput = {
@@ -1993,6 +2158,9 @@ export type UserUpdateWithoutInvoicesCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutInvoicesCreatedInput = {
@@ -2022,6 +2190,9 @@ export type UserUncheckedUpdateWithoutInvoicesCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutPaymentsCreatedInput = {
@@ -2051,6 +2222,9 @@ export type UserCreateWithoutPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutPaymentsCreatedInput = {
@@ -2080,6 +2254,9 @@ export type UserUncheckedCreateWithoutPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutPaymentsCreatedInput = {
@@ -2125,6 +2302,9 @@ export type UserUpdateWithoutPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutPaymentsCreatedInput = {
@@ -2154,6 +2334,9 @@ export type UserUncheckedUpdateWithoutPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutTenantPaymentsCreatedInput = {
@@ -2183,6 +2366,9 @@ export type UserCreateWithoutTenantPaymentsCreatedInput = {
   vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutTenantPaymentsCreatedInput = {
@@ -2212,6 +2398,9 @@ export type UserUncheckedCreateWithoutTenantPaymentsCreatedInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutTenantPaymentsCreatedInput = {
@@ -2257,6 +2446,9 @@ export type UserUpdateWithoutTenantPaymentsCreatedInput = {
   vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutTenantPaymentsCreatedInput = {
@@ -2286,6 +2478,9 @@ export type UserUncheckedUpdateWithoutTenantPaymentsCreatedInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutVouchersApprovedInput = {
@@ -2315,6 +2510,9 @@ export type UserCreateWithoutVouchersApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutVouchersApprovedInput = {
@@ -2344,6 +2542,9 @@ export type UserUncheckedCreateWithoutVouchersApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutVouchersApprovedInput = {
@@ -2378,6 +2579,9 @@ export type UserCreateWithoutVouchersPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutVouchersPreparedInput = {
@@ -2407,6 +2611,9 @@ export type UserUncheckedCreateWithoutVouchersPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutVouchersPreparedInput = {
@@ -2452,6 +2659,9 @@ export type UserUpdateWithoutVouchersApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutVouchersApprovedInput = {
@@ -2481,6 +2691,9 @@ export type UserUncheckedUpdateWithoutVouchersApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUpsertWithoutVouchersPreparedInput = {
@@ -2521,6 +2734,9 @@ export type UserUpdateWithoutVouchersPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutVouchersPreparedInput = {
@@ -2550,6 +2766,9 @@ export type UserUncheckedUpdateWithoutVouchersPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutJournalEntriesApprovedInput = {
@@ -2579,6 +2798,9 @@ export type UserCreateWithoutJournalEntriesApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutJournalEntriesApprovedInput = {
@@ -2608,6 +2830,9 @@ export type UserUncheckedCreateWithoutJournalEntriesApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutJournalEntriesApprovedInput = {
@@ -2642,6 +2867,9 @@ export type UserCreateWithoutJournalEntriesPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutJournalEntriesPreparedInput = {
@@ -2671,6 +2899,9 @@ export type UserUncheckedCreateWithoutJournalEntriesPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutJournalEntriesPreparedInput = {
@@ -2716,6 +2947,9 @@ export type UserUpdateWithoutJournalEntriesApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutJournalEntriesApprovedInput = {
@@ -2745,6 +2979,9 @@ export type UserUncheckedUpdateWithoutJournalEntriesApprovedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUpsertWithoutJournalEntriesPreparedInput = {
@@ -2785,6 +3022,9 @@ export type UserUpdateWithoutJournalEntriesPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutJournalEntriesPreparedInput = {
@@ -2814,6 +3054,9 @@ export type UserUncheckedUpdateWithoutJournalEntriesPreparedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutDealerPaymentsCreatedInput = {
@@ -2843,6 +3086,9 @@ export type UserCreateWithoutDealerPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutDealerPaymentsCreatedInput = {
@@ -2872,6 +3118,9 @@ export type UserUncheckedCreateWithoutDealerPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutDealerPaymentsCreatedInput = {
@@ -2917,6 +3166,9 @@ export type UserUpdateWithoutDealerPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDealerPaymentsCreatedInput = {
@@ -2946,6 +3198,9 @@ export type UserUncheckedUpdateWithoutDealerPaymentsCreatedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutDealReceiptsReceivedInput = {
@@ -2975,6 +3230,9 @@ export type UserCreateWithoutDealReceiptsReceivedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutDealReceiptsReceivedInput = {
@@ -3004,6 +3262,9 @@ export type UserUncheckedCreateWithoutDealReceiptsReceivedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutDealReceiptsReceivedInput = {
@@ -3049,6 +3310,9 @@ export type UserUpdateWithoutDealReceiptsReceivedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutDealReceiptsReceivedInput = {
@@ -3078,6 +3342,9 @@ export type UserUncheckedUpdateWithoutDealReceiptsReceivedInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutRefreshTokensInput = {
@@ -3107,6 +3374,9 @@ export type UserCreateWithoutRefreshTokensInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutRefreshTokensInput = {
@@ -3136,6 +3406,9 @@ export type UserUncheckedCreateWithoutRefreshTokensInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutRefreshTokensInput = {
@@ -3181,6 +3454,9 @@ export type UserUpdateWithoutRefreshTokensInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRefreshTokensInput = {
@@ -3210,6 +3486,9 @@ export type UserUncheckedUpdateWithoutRefreshTokensInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutExportJobsInput = {
@@ -3239,6 +3518,9 @@ export type UserCreateWithoutExportJobsInput = {
   vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutExportJobsInput = {
@@ -3268,6 +3550,9 @@ export type UserUncheckedCreateWithoutExportJobsInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutExportJobsInput = {
@@ -3313,6 +3598,9 @@ export type UserUpdateWithoutExportJobsInput = {
   vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutExportJobsInput = {
@@ -3342,6 +3630,9 @@ export type UserUncheckedUpdateWithoutExportJobsInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserCreateWithoutFilterPresetsInput = {
@@ -3371,6 +3662,9 @@ export type UserCreateWithoutFilterPresetsInput = {
   vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
   tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
 }
 
 export type UserUncheckedCreateWithoutFilterPresetsInput = {
@@ -3400,6 +3694,9 @@ export type UserUncheckedCreateWithoutFilterPresetsInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
   exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
 }
 
 export type UserCreateOrConnectWithoutFilterPresetsInput = {
@@ -3445,6 +3742,9 @@ export type UserUpdateWithoutFilterPresetsInput = {
   vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutFilterPresetsInput = {
@@ -3474,6 +3774,441 @@ export type UserUncheckedUpdateWithoutFilterPresetsInput = {
   vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
+}
+
+export type UserCreateWithoutFinancialOperationsRequestedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionCreateNestedManyWithoutCreatedByInput
+  role: Prisma.RoleCreateNestedOneWithoutUsersInput
+  vouchersApproved?: Prisma.VoucherCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
+}
+
+export type UserUncheckedCreateWithoutFinancialOperationsRequestedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  roleId: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationUncheckedCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceUncheckedCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadUncheckedCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionUncheckedCreateNestedManyWithoutCreatedByInput
+  vouchersApproved?: Prisma.VoucherUncheckedCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
+}
+
+export type UserCreateOrConnectWithoutFinancialOperationsRequestedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsRequestedInput>
+}
+
+export type UserCreateWithoutFinancialOperationsApprovedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionCreateNestedManyWithoutCreatedByInput
+  role: Prisma.RoleCreateNestedOneWithoutUsersInput
+  vouchersApproved?: Prisma.VoucherCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationCreateNestedManyWithoutPostedByInput
+}
+
+export type UserUncheckedCreateWithoutFinancialOperationsApprovedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  roleId: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationUncheckedCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceUncheckedCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadUncheckedCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionUncheckedCreateNestedManyWithoutCreatedByInput
+  vouchersApproved?: Prisma.VoucherUncheckedCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutPostedByInput
+}
+
+export type UserCreateOrConnectWithoutFinancialOperationsApprovedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsApprovedInput>
+}
+
+export type UserCreateWithoutFinancialOperationsPostedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionCreateNestedManyWithoutCreatedByInput
+  role: Prisma.RoleCreateNestedOneWithoutUsersInput
+  vouchersApproved?: Prisma.VoucherCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationCreateNestedManyWithoutApprovedByInput
+}
+
+export type UserUncheckedCreateWithoutFinancialOperationsPostedInput = {
+  id?: string
+  username: string
+  email: string
+  password: string
+  roleId: string
+  deviceApprovalStatus?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  clientsAssigned?: Prisma.ClientUncheckedCreateNestedManyWithoutAssignedAgentInput
+  communicationsLogged?: Prisma.CommunicationUncheckedCreateNestedManyWithoutAssignedAgentInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedCreateNestedManyWithoutReceivedByUserInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedCreateNestedManyWithoutCreatedByUserInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedCreateNestedManyWithoutUserInput
+  invoicesCreated?: Prisma.InvoiceUncheckedCreateNestedManyWithoutCreatedByInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutApprovedByInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedCreateNestedManyWithoutPreparedByInput
+  leadsAssigned?: Prisma.LeadUncheckedCreateNestedManyWithoutAssignedAgentInput
+  notifications?: Prisma.NotificationUncheckedCreateNestedManyWithoutUserInput
+  paymentsCreated?: Prisma.PaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedCreateNestedManyWithoutUserInput
+  transactionsCreated?: Prisma.TransactionUncheckedCreateNestedManyWithoutCreatedByInput
+  vouchersApproved?: Prisma.VoucherUncheckedCreateNestedManyWithoutApprovedByInput
+  vouchersPrepared?: Prisma.VoucherUncheckedCreateNestedManyWithoutPreparedByInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedCreateNestedManyWithoutCreatedByInput
+  exportJobs?: Prisma.ExportJobUncheckedCreateNestedManyWithoutUserInput
+  filterPresets?: Prisma.FilterPresetUncheckedCreateNestedManyWithoutUserInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutRequestedByInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutApprovedByInput
+}
+
+export type UserCreateOrConnectWithoutFinancialOperationsPostedInput = {
+  where: Prisma.UserWhereUniqueInput
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsPostedInput>
+}
+
+export type UserUpsertWithoutFinancialOperationsRequestedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsRequestedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsRequestedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFinancialOperationsRequestedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsRequestedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsRequestedInput>
+}
+
+export type UserUpdateWithoutFinancialOperationsRequestedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUpdateManyWithoutCreatedByNestedInput
+  role?: Prisma.RoleUpdateOneRequiredWithoutUsersNestedInput
+  vouchersApproved?: Prisma.VoucherUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFinancialOperationsRequestedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  roleId?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUncheckedUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUncheckedUpdateManyWithoutCreatedByNestedInput
+  vouchersApproved?: Prisma.VoucherUncheckedUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
+}
+
+export type UserUpsertWithoutFinancialOperationsApprovedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsApprovedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsApprovedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFinancialOperationsApprovedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsApprovedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsApprovedInput>
+}
+
+export type UserUpdateWithoutFinancialOperationsApprovedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUpdateManyWithoutCreatedByNestedInput
+  role?: Prisma.RoleUpdateOneRequiredWithoutUsersNestedInput
+  vouchersApproved?: Prisma.VoucherUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFinancialOperationsApprovedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  roleId?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUncheckedUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUncheckedUpdateManyWithoutCreatedByNestedInput
+  vouchersApproved?: Prisma.VoucherUncheckedUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
+}
+
+export type UserUpsertWithoutFinancialOperationsPostedInput = {
+  update: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsPostedInput>
+  create: Prisma.XOR<Prisma.UserCreateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedCreateWithoutFinancialOperationsPostedInput>
+  where?: Prisma.UserWhereInput
+}
+
+export type UserUpdateToOneWithWhereWithoutFinancialOperationsPostedInput = {
+  where?: Prisma.UserWhereInput
+  data: Prisma.XOR<Prisma.UserUpdateWithoutFinancialOperationsPostedInput, Prisma.UserUncheckedUpdateWithoutFinancialOperationsPostedInput>
+}
+
+export type UserUpdateWithoutFinancialOperationsPostedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUpdateManyWithoutCreatedByNestedInput
+  role?: Prisma.RoleUpdateOneRequiredWithoutUsersNestedInput
+  vouchersApproved?: Prisma.VoucherUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+}
+
+export type UserUncheckedUpdateWithoutFinancialOperationsPostedInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  username?: Prisma.StringFieldUpdateOperationsInput | string
+  email?: Prisma.StringFieldUpdateOperationsInput | string
+  password?: Prisma.StringFieldUpdateOperationsInput | string
+  roleId?: Prisma.StringFieldUpdateOperationsInput | string
+  deviceApprovalStatus?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  clientsAssigned?: Prisma.ClientUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  communicationsLogged?: Prisma.CommunicationUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  dealReceiptsReceived?: Prisma.DealReceiptUncheckedUpdateManyWithoutReceivedByUserNestedInput
+  dealerPaymentsCreated?: Prisma.DealerPaymentUncheckedUpdateManyWithoutCreatedByUserNestedInput
+  deviceApprovals?: Prisma.DeviceApprovalUncheckedUpdateManyWithoutUserNestedInput
+  invoicesCreated?: Prisma.InvoiceUncheckedUpdateManyWithoutCreatedByNestedInput
+  journalEntriesApproved?: Prisma.JournalEntryUncheckedUpdateManyWithoutApprovedByNestedInput
+  journalEntriesPrepared?: Prisma.JournalEntryUncheckedUpdateManyWithoutPreparedByNestedInput
+  leadsAssigned?: Prisma.LeadUncheckedUpdateManyWithoutAssignedAgentNestedInput
+  notifications?: Prisma.NotificationUncheckedUpdateManyWithoutUserNestedInput
+  paymentsCreated?: Prisma.PaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  payrollPaymentsCreated?: Prisma.PayrollPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  refreshTokens?: Prisma.RefreshTokenUncheckedUpdateManyWithoutUserNestedInput
+  transactionsCreated?: Prisma.TransactionUncheckedUpdateManyWithoutCreatedByNestedInput
+  vouchersApproved?: Prisma.VoucherUncheckedUpdateManyWithoutApprovedByNestedInput
+  vouchersPrepared?: Prisma.VoucherUncheckedUpdateManyWithoutPreparedByNestedInput
+  tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
+  exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
+  filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
 }
 
 export type UserCreateManyRoleInput = {
@@ -3513,6 +4248,9 @@ export type UserUpdateWithoutRoleInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateWithoutRoleInput = {
@@ -3542,6 +4280,9 @@ export type UserUncheckedUpdateWithoutRoleInput = {
   tenantPaymentsCreated?: Prisma.TenantPaymentUncheckedUpdateManyWithoutCreatedByNestedInput
   exportJobs?: Prisma.ExportJobUncheckedUpdateManyWithoutUserNestedInput
   filterPresets?: Prisma.FilterPresetUncheckedUpdateManyWithoutUserNestedInput
+  financialOperationsRequested?: Prisma.FinancialOperationUncheckedUpdateManyWithoutRequestedByNestedInput
+  financialOperationsApproved?: Prisma.FinancialOperationUncheckedUpdateManyWithoutApprovedByNestedInput
+  financialOperationsPosted?: Prisma.FinancialOperationUncheckedUpdateManyWithoutPostedByNestedInput
 }
 
 export type UserUncheckedUpdateManyWithoutRoleInput = {
@@ -3579,6 +4320,9 @@ export type UserCountOutputType = {
   tenantPaymentsCreated: number
   exportJobs: number
   filterPresets: number
+  financialOperationsRequested: number
+  financialOperationsApproved: number
+  financialOperationsPosted: number
 }
 
 export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3601,6 +4345,9 @@ export type UserCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   tenantPaymentsCreated?: boolean | UserCountOutputTypeCountTenantPaymentsCreatedArgs
   exportJobs?: boolean | UserCountOutputTypeCountExportJobsArgs
   filterPresets?: boolean | UserCountOutputTypeCountFilterPresetsArgs
+  financialOperationsRequested?: boolean | UserCountOutputTypeCountFinancialOperationsRequestedArgs
+  financialOperationsApproved?: boolean | UserCountOutputTypeCountFinancialOperationsApprovedArgs
+  financialOperationsPosted?: boolean | UserCountOutputTypeCountFinancialOperationsPostedArgs
 }
 
 /**
@@ -3746,6 +4493,27 @@ export type UserCountOutputTypeCountFilterPresetsArgs<ExtArgs extends runtime.Ty
   where?: Prisma.FilterPresetWhereInput
 }
 
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFinancialOperationsRequestedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FinancialOperationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFinancialOperationsApprovedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FinancialOperationWhereInput
+}
+
+/**
+ * UserCountOutputType without action
+ */
+export type UserCountOutputTypeCountFinancialOperationsPostedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.FinancialOperationWhereInput
+}
+
 
 export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -3776,6 +4544,9 @@ export type UserSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   tenantPaymentsCreated?: boolean | Prisma.User$tenantPaymentsCreatedArgs<ExtArgs>
   exportJobs?: boolean | Prisma.User$exportJobsArgs<ExtArgs>
   filterPresets?: boolean | Prisma.User$filterPresetsArgs<ExtArgs>
+  financialOperationsRequested?: boolean | Prisma.User$financialOperationsRequestedArgs<ExtArgs>
+  financialOperationsApproved?: boolean | Prisma.User$financialOperationsApprovedArgs<ExtArgs>
+  financialOperationsPosted?: boolean | Prisma.User$financialOperationsPostedArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["user"]>
 
@@ -3836,6 +4607,9 @@ export type UserInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   tenantPaymentsCreated?: boolean | Prisma.User$tenantPaymentsCreatedArgs<ExtArgs>
   exportJobs?: boolean | Prisma.User$exportJobsArgs<ExtArgs>
   filterPresets?: boolean | Prisma.User$filterPresetsArgs<ExtArgs>
+  financialOperationsRequested?: boolean | Prisma.User$financialOperationsRequestedArgs<ExtArgs>
+  financialOperationsApproved?: boolean | Prisma.User$financialOperationsApprovedArgs<ExtArgs>
+  financialOperationsPosted?: boolean | Prisma.User$financialOperationsPostedArgs<ExtArgs>
   _count?: boolean | Prisma.UserCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type UserIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -3868,6 +4642,9 @@ export type $UserPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     tenantPaymentsCreated: Prisma.$TenantPaymentPayload<ExtArgs>[]
     exportJobs: Prisma.$ExportJobPayload<ExtArgs>[]
     filterPresets: Prisma.$FilterPresetPayload<ExtArgs>[]
+    financialOperationsRequested: Prisma.$FinancialOperationPayload<ExtArgs>[]
+    financialOperationsApproved: Prisma.$FinancialOperationPayload<ExtArgs>[]
+    financialOperationsPosted: Prisma.$FinancialOperationPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -4292,6 +5069,9 @@ export interface Prisma__UserClient<T, Null = never, ExtArgs extends runtime.Typ
   tenantPaymentsCreated<T extends Prisma.User$tenantPaymentsCreatedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$tenantPaymentsCreatedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TenantPaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   exportJobs<T extends Prisma.User$exportJobsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$exportJobsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ExportJobPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   filterPresets<T extends Prisma.User$filterPresetsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$filterPresetsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FilterPresetPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  financialOperationsRequested<T extends Prisma.User$financialOperationsRequestedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$financialOperationsRequestedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FinancialOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  financialOperationsApproved<T extends Prisma.User$financialOperationsApprovedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$financialOperationsApprovedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FinancialOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  financialOperationsPosted<T extends Prisma.User$financialOperationsPostedArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.User$financialOperationsPostedArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FinancialOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -5178,6 +5958,78 @@ export type User$filterPresetsArgs<ExtArgs extends runtime.Types.Extensions.Inte
   take?: number
   skip?: number
   distinct?: Prisma.FilterPresetScalarFieldEnum | Prisma.FilterPresetScalarFieldEnum[]
+}
+
+/**
+ * User.financialOperationsRequested
+ */
+export type User$financialOperationsRequestedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FinancialOperation
+   */
+  select?: Prisma.FinancialOperationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FinancialOperation
+   */
+  omit?: Prisma.FinancialOperationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FinancialOperationInclude<ExtArgs> | null
+  where?: Prisma.FinancialOperationWhereInput
+  orderBy?: Prisma.FinancialOperationOrderByWithRelationInput | Prisma.FinancialOperationOrderByWithRelationInput[]
+  cursor?: Prisma.FinancialOperationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FinancialOperationScalarFieldEnum | Prisma.FinancialOperationScalarFieldEnum[]
+}
+
+/**
+ * User.financialOperationsApproved
+ */
+export type User$financialOperationsApprovedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FinancialOperation
+   */
+  select?: Prisma.FinancialOperationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FinancialOperation
+   */
+  omit?: Prisma.FinancialOperationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FinancialOperationInclude<ExtArgs> | null
+  where?: Prisma.FinancialOperationWhereInput
+  orderBy?: Prisma.FinancialOperationOrderByWithRelationInput | Prisma.FinancialOperationOrderByWithRelationInput[]
+  cursor?: Prisma.FinancialOperationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FinancialOperationScalarFieldEnum | Prisma.FinancialOperationScalarFieldEnum[]
+}
+
+/**
+ * User.financialOperationsPosted
+ */
+export type User$financialOperationsPostedArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the FinancialOperation
+   */
+  select?: Prisma.FinancialOperationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the FinancialOperation
+   */
+  omit?: Prisma.FinancialOperationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.FinancialOperationInclude<ExtArgs> | null
+  where?: Prisma.FinancialOperationWhereInput
+  orderBy?: Prisma.FinancialOperationOrderByWithRelationInput | Prisma.FinancialOperationOrderByWithRelationInput[]
+  cursor?: Prisma.FinancialOperationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.FinancialOperationScalarFieldEnum | Prisma.FinancialOperationScalarFieldEnum[]
 }
 
 /**

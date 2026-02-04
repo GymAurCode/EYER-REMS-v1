@@ -44,13 +44,15 @@ export interface UnifiedFilterDrawerProps {
   onApply: (filters: FilterState) => void
 }
 
-function entitySelectSource(optionsSource: string): "dealers" | "properties" | "clients" | "employees" {
-  const map: Record<string, "dealers" | "properties" | "clients" | "employees"> = {
+function entitySelectSource(optionsSource: string): "dealers" | "properties" | "clients" | "employees" | "units" | "tenants" {
+  const map: Record<string, "dealers" | "properties" | "clients" | "employees" | "units" | "tenants"> = {
     dealers: "dealers",
     properties: "properties",
     clients: "clients",
     employees: "employees",
     employee_departments: "employees",
+    units: "units",
+    tenants: "tenants",
   }
   return map[optionsSource] ?? "clients"
 }
@@ -325,11 +327,13 @@ export function UnifiedFilterDrawer({
   if (!config) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="w-full sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Filters</SheetTitle>
-          </SheetHeader>
-          <p className="text-sm text-muted-foreground p-4">No filter config for {entity}.</p>
+        <SheetContent side="right" className="w-[420px] max-w-[95vw] p-0 flex flex-col">
+          <div className="flex flex-col flex-1 min-h-0 px-6 pt-6">
+            <SheetHeader className="px-0">
+              <SheetTitle>Filters</SheetTitle>
+            </SheetHeader>
+            <p className="text-sm text-muted-foreground mt-4">No filter config for {entity}.</p>
+          </div>
         </SheetContent>
       </Sheet>
     )
@@ -340,58 +344,73 @@ export function UnifiedFilterDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
-            <Filter className="h-5 w-5" />
-            Filters
-            {activeCount > 0 && (
-              <span className="text-sm font-normal text-muted-foreground">
-                ({activeCount} active)
-              </span>
-            )}
-          </SheetTitle>
-        </SheetHeader>
-
-        <div className="flex-1 overflow-y-auto py-4 space-y-4">
-          {groupOrder.map((groupName) => {
-            const fields = grouped[groupName]
-            if (!fields?.length) return null
-            return (
-            <Collapsible key={groupName} defaultOpen>
-              <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-sm font-semibold hover:underline">
-                {groupName}
-                <ChevronDown className="h-4 w-4" />
-              </CollapsibleTrigger>
-              <CollapsibleContent className="space-y-3 pt-2 pl-2">
-                {fields.map((f) => (
-                  <div key={f.key} className="space-y-1.5">
-                    <Label className="text-xs">{f.label}</Label>
-                    <FilterField
-                      config={f}
-                      value={filters[f.key]}
-                      onChange={(v) => updateFilter(f.key, v)}
-                      departments={f.options_source === "employee_departments" ? departments : undefined}
-                    />
-                  </div>
-                ))}
-              </CollapsibleContent>
-            </Collapsible>
-          )
-          })}
+      <SheetContent
+        side="right"
+        className="w-[420px] max-w-[95vw] p-0 flex flex-col gap-0"
+      >
+        {/* Header — Clear All right-aligned, Close via Sheet (pr-12 for close icon) */}
+        <div className="shrink-0 px-6 pt-6 pb-4 pr-12 border-b">
+          <div className="flex items-center justify-between gap-4">
+            <SheetTitle className="flex items-center gap-2 text-lg font-semibold">
+              <Filter className="h-5 w-5 text-muted-foreground" />
+              Filters
+              {activeCount > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({activeCount} active)
+                </span>
+              )}
+            </SheetTitle>
+            <Button variant="ghost" size="sm" onClick={handleClear} className="text-muted-foreground hover:text-foreground">
+              Clear All
+            </Button>
+          </div>
         </div>
 
-        <SheetFooter className="flex-row gap-2 border-t pt-4">
-          <Button variant="outline" onClick={handleClear} className="flex-1">
-            Clear All
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={handleApply}>
-            Apply Filters
-          </Button>
-        </SheetFooter>
+        {/* Body — inner content container, 24px padding, max-width centered */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="max-w-[360px] mx-auto px-6 py-6 space-y-6">
+            {groupOrder.map((groupName, idx) => {
+              const fields = grouped[groupName]
+              if (!fields?.length) return null
+              const isPrimary = idx === 0 && groupName === "Status"
+              return (
+                <div key={groupName} className={idx > 0 ? "pt-4 border-t" : ""}>
+                  <Collapsible defaultOpen>
+                    <CollapsibleTrigger className="flex w-full items-center justify-between py-2 text-sm font-semibold hover:underline text-left">
+                      <span className={isPrimary ? "text-foreground" : "text-muted-foreground"}>{groupName}</span>
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="space-y-4 pt-3">
+                      {fields.map((f) => (
+                        <div key={f.key} className="space-y-2">
+                          <Label className="text-xs font-medium text-muted-foreground">{f.label}</Label>
+                          <FilterField
+                            config={f}
+                            value={filters[f.key]}
+                            onChange={(v) => updateFilter(f.key, v)}
+                            departments={f.options_source === "employee_departments" ? departments : undefined}
+                          />
+                        </div>
+                      ))}
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Sticky Footer — aligned with content, no edge touching */}
+        <div className="shrink-0 border-t bg-background px-6 py-4">
+          <div className="max-w-[360px] mx-auto flex flex-row gap-2 justify-end">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleApply}>
+              Apply Filters
+            </Button>
+          </div>
+        </div>
       </SheetContent>
     </Sheet>
   )

@@ -647,7 +647,6 @@ export function generatePropertyReportPDF(data: PropertyReportData, res: Respons
   doc.text(`Type: ${data.property.type || 'N/A'}`);
   doc.text(`Status: ${data.property.status || 'N/A'}`);
   doc.text(`Address: ${data.property.address || 'N/A'}`);
-  if (data.property.location) doc.text(`Location: ${data.property.location}`);
   if (data.property.yearBuilt) doc.text(`Year Built: ${data.property.yearBuilt}`);
   if (data.property.totalArea) doc.text(`Total Area: ${data.property.totalArea.toLocaleString()} sq ft`);
   doc.moveDown(0.6);
@@ -833,143 +832,43 @@ export interface PropertiesReportData {
 }
 
 /**
- * Generate Properties PDF Report with Subsidiary Logo Watermarks
- * Each property's subsidiary logo is added as a watermark (opacity 0.05-0.1, center)
+ * Generate Properties PDF Report - audit-grade grid list
  */
-export function generatePropertiesReportPDF(data: PropertiesReportData, res: Response): void {
-  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+export async function generatePropertiesReportPDF(data: PropertiesReportData, res: Response): Promise<void> {
+  const { generateListReportPDF } = await import('./audit-grade-pdf-report');
 
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader(
-    'Content-Disposition',
-    `attachment; filename="properties-report-${new Date().toISOString().split('T')[0]}.pdf"`
-  );
+  const flatProps = data.properties.map((p) => ({
+    propertyCode: p.propertyCode ?? '—',
+    name: p.name ?? '—',
+    type: p.type ?? '—',
+    address: p.address ?? '—',
+    salePrice: p.salePrice,
+    subsidiary: p.subsidiaryOption?.name ?? p.subsidiaryOption?.propertySubsidiary?.name ?? '—',
+  }));
 
-  doc.pipe(res);
+  const columns = [
+    { key: 'propertyCode', header: 'Property Code', width: 120, type: 'string' as const },
+    { key: 'name', header: 'Name', width: 180, type: 'string' as const },
+    { key: 'type', header: 'Type', width: 100, type: 'string' as const },
+    { key: 'address', header: 'Address', width: 220, type: 'string' as const },
+    {
+      key: 'salePrice',
+      header: 'Sale Price',
+      width: 110,
+      type: 'currency' as const,
+      format: (v: any) =>
+        v != null && !isNaN(Number(v))
+          ? `Rs ${Number(v).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          : '—',
+    },
+    { key: 'subsidiary', header: 'Subsidiary', width: 120, type: 'string' as const },
+  ];
 
-  const formatCurrency = (amount?: number | null): string => {
-    if (amount === undefined || amount === null || Number.isNaN(amount)) return 'Rs 0';
-    return `Rs ${Number(amount).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-  };
-
-  // Helper function to add watermark logo (synchronous)
-  const addWatermarkLogo = (logoPath: string | null | undefined, pageWidth: number, pageHeight: number) => {
-    if (!logoPath) return;
-
-    try {
-      // Resolve logo file path
-      let fullPath: string;
-      if (logoPath.startsWith('/') || logoPath.startsWith('\\')) {
-        // Absolute path
-        fullPath = logoPath;
-      } else if (logoPath.startsWith('uploads/') || logoPath.startsWith('public/')) {
-        // Relative to project root
-        fullPath = path.join(process.cwd(), logoPath);
-      } else {
-        // Try common upload locations
-        fullPath = path.join(process.cwd(), 'public', 'uploads', 'logos', logoPath);
-        // Also try without logos subdirectory
-        if (!fs.existsSync(fullPath)) {
-          fullPath = path.join(process.cwd(), 'public', 'uploads', logoPath);
-        }
-      }
-
-      // Check if file exists
-      if (!fs.existsSync(fullPath)) {
-        logger.warn(`Logo file not found: ${fullPath}`);
-        return;
-      }
-
-      // Read image file
-      const imageBuffer = fs.readFileSync(fullPath);
-      
-      // Calculate center position
-      const logoWidth = 200;
-      const logoHeight = 200;
-      const centerX = (pageWidth - logoWidth) / 2;
-      const centerY = (pageHeight - logoHeight) / 2;
-
-      // Save graphics state
-      doc.save();
-
-      // Set opacity (0.05 to 0.1 for watermark effect)
-      doc.opacity(0.08);
-
-      // Draw logo at center
-      doc.image(imageBuffer, centerX, centerY, { 
-        fit: [logoWidth, logoHeight]
-      });
-
-      // Restore graphics state
-      doc.restore();
-    } catch (error: any) {
-      logger.warn(`Failed to add watermark logo: ${error.message}`);
-      // Continue without watermark if logo fails to load
-    }
-  };
-
-  // Header
-  doc.fontSize(20).font('Helvetica-Bold').text('Properties Report', { align: 'center' });
-  doc.moveDown(0.3);
-  doc.fontSize(10).font('Helvetica').text(`Generated on ${new Date().toLocaleString('en-IN')}`, { align: 'center' });
-  doc.moveDown(1);
-
-  // Process each property
-  for (let i = 0; i < data.properties.length; i++) {
-    const property = data.properties[i];
-    
-    // Add new page for each property (except first)
-    if (i > 0) {
-      doc.addPage();
-    }
-
-    const pageWidth = doc.page.width;
-    const pageHeight = doc.page.height;
-
-    // Add watermark logo if available
-    const logoPath = property.subsidiaryOption?.propertySubsidiary?.logoPath;
-    if (logoPath) {
-      addWatermarkLogo(logoPath, pageWidth, pageHeight);
-    }
-
-    // Property Information
-    doc.fontSize(14).font('Helvetica-Bold').text('Property Information', { underline: true });
-    doc.moveDown(0.4);
-    doc.fontSize(10).font('Helvetica');
-    doc.text(`Name: ${property.name || 'N/A'}`);
-    doc.text(`Property Code: ${property.propertyCode || 'N/A'}`);
-    doc.text(`Type: ${property.type || 'N/A'}`);
-    doc.text(`Address: ${property.address || 'N/A'}`);
-    
-    if (property.salePrice) {
-      doc.text(`Sale Price: ${formatCurrency(property.salePrice)}`);
-    }
-
-    if (property.subsidiaryOption) {
-      doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica-Bold').text('Subsidiary Information:');
-      doc.fontSize(10).font('Helvetica');
-      doc.text(`Subsidiary: ${property.subsidiaryOption.name}`);
-      if (property.subsidiaryOption.propertySubsidiary) {
-        doc.text(`Location: ${property.subsidiaryOption.propertySubsidiary.name}`);
-      }
-    }
-
-    doc.moveDown(0.6);
-  }
-
-  // Footer
-  const pageHeight = doc.page.height;
-  const pageWidth = doc.page.width;
-  doc.fontSize(8).font('Helvetica');
-  doc.text(
-    `Generated by REMS - Properties Report | Total Properties: ${data.properties.length}`,
-    pageWidth / 2,
-    pageHeight - 40,
-    { align: 'center' }
-  );
-
-  doc.end();
+  generateListReportPDF(flatProps, columns, {
+    companyName: 'Real Estate Management System',
+    reportTitle: 'Properties Report',
+    generatedAt: data.generatedAt ?? new Date(),
+  }, res);
 }
 
 export interface VoucherPDFData {

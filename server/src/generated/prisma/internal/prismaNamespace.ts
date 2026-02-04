@@ -494,7 +494,10 @@ export const ModelName = {
   ConstructionMilestone: 'ConstructionMilestone',
   ConstructionPostingRule: 'ConstructionPostingRule',
   ExportJob: 'ExportJob',
-  FilterPreset: 'FilterPreset'
+  FilterPreset: 'FilterPreset',
+  FinancialOperation: 'FinancialOperation',
+  FinancialOperationLine: 'FinancialOperationLine',
+  FinancialOperationReference: 'FinancialOperationReference'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -510,7 +513,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset"
+    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset" | "financialOperation" | "financialOperationLine" | "financialOperationReference"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -8728,6 +8731,228 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    FinancialOperation: {
+      payload: Prisma.$FinancialOperationPayload<ExtArgs>
+      fields: Prisma.FinancialOperationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FinancialOperationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FinancialOperationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        findFirst: {
+          args: Prisma.FinancialOperationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FinancialOperationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        findMany: {
+          args: Prisma.FinancialOperationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>[]
+        }
+        create: {
+          args: Prisma.FinancialOperationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        createMany: {
+          args: Prisma.FinancialOperationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FinancialOperationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>[]
+        }
+        delete: {
+          args: Prisma.FinancialOperationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        update: {
+          args: Prisma.FinancialOperationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        deleteMany: {
+          args: Prisma.FinancialOperationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FinancialOperationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FinancialOperationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>[]
+        }
+        upsert: {
+          args: Prisma.FinancialOperationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationPayload>
+        }
+        aggregate: {
+          args: Prisma.FinancialOperationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFinancialOperation>
+        }
+        groupBy: {
+          args: Prisma.FinancialOperationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FinancialOperationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationCountAggregateOutputType> | number
+        }
+      }
+    }
+    FinancialOperationLine: {
+      payload: Prisma.$FinancialOperationLinePayload<ExtArgs>
+      fields: Prisma.FinancialOperationLineFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FinancialOperationLineFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FinancialOperationLineFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        findFirst: {
+          args: Prisma.FinancialOperationLineFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FinancialOperationLineFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        findMany: {
+          args: Prisma.FinancialOperationLineFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>[]
+        }
+        create: {
+          args: Prisma.FinancialOperationLineCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        createMany: {
+          args: Prisma.FinancialOperationLineCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FinancialOperationLineCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>[]
+        }
+        delete: {
+          args: Prisma.FinancialOperationLineDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        update: {
+          args: Prisma.FinancialOperationLineUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        deleteMany: {
+          args: Prisma.FinancialOperationLineDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FinancialOperationLineUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FinancialOperationLineUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>[]
+        }
+        upsert: {
+          args: Prisma.FinancialOperationLineUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationLinePayload>
+        }
+        aggregate: {
+          args: Prisma.FinancialOperationLineAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFinancialOperationLine>
+        }
+        groupBy: {
+          args: Prisma.FinancialOperationLineGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationLineGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FinancialOperationLineCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationLineCountAggregateOutputType> | number
+        }
+      }
+    }
+    FinancialOperationReference: {
+      payload: Prisma.$FinancialOperationReferencePayload<ExtArgs>
+      fields: Prisma.FinancialOperationReferenceFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FinancialOperationReferenceFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FinancialOperationReferenceFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        findFirst: {
+          args: Prisma.FinancialOperationReferenceFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FinancialOperationReferenceFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        findMany: {
+          args: Prisma.FinancialOperationReferenceFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>[]
+        }
+        create: {
+          args: Prisma.FinancialOperationReferenceCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        createMany: {
+          args: Prisma.FinancialOperationReferenceCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FinancialOperationReferenceCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>[]
+        }
+        delete: {
+          args: Prisma.FinancialOperationReferenceDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        update: {
+          args: Prisma.FinancialOperationReferenceUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        deleteMany: {
+          args: Prisma.FinancialOperationReferenceDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FinancialOperationReferenceUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FinancialOperationReferenceUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>[]
+        }
+        upsert: {
+          args: Prisma.FinancialOperationReferenceUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinancialOperationReferencePayload>
+        }
+        aggregate: {
+          args: Prisma.FinancialOperationReferenceAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFinancialOperationReference>
+        }
+        groupBy: {
+          args: Prisma.FinancialOperationReferenceGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationReferenceGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FinancialOperationReferenceCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinancialOperationReferenceCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -10952,6 +11177,53 @@ export const FilterPresetScalarFieldEnum = {
 export type FilterPresetScalarFieldEnum = (typeof FilterPresetScalarFieldEnum)[keyof typeof FilterPresetScalarFieldEnum]
 
 
+export const FinancialOperationScalarFieldEnum = {
+  id: 'id',
+  operationType: 'operationType',
+  status: 'status',
+  reason: 'reason',
+  amount: 'amount',
+  partialAmount: 'partialAmount',
+  requestedByUserId: 'requestedByUserId',
+  approvedByUserId: 'approvedByUserId',
+  approvedAt: 'approvedAt',
+  postedByUserId: 'postedByUserId',
+  postedAt: 'postedAt',
+  voucherId: 'voucherId',
+  dealId: 'dealId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FinancialOperationScalarFieldEnum = (typeof FinancialOperationScalarFieldEnum)[keyof typeof FinancialOperationScalarFieldEnum]
+
+
+export const FinancialOperationLineScalarFieldEnum = {
+  id: 'id',
+  operationId: 'operationId',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  role: 'role',
+  amount: 'amount',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type FinancialOperationLineScalarFieldEnum = (typeof FinancialOperationLineScalarFieldEnum)[keyof typeof FinancialOperationLineScalarFieldEnum]
+
+
+export const FinancialOperationReferenceScalarFieldEnum = {
+  id: 'id',
+  operationId: 'operationId',
+  refType: 'refType',
+  refId: 'refId',
+  role: 'role',
+  createdAt: 'createdAt'
+} as const
+
+export type FinancialOperationReferenceScalarFieldEnum = (typeof FinancialOperationReferenceScalarFieldEnum)[keyof typeof FinancialOperationReferenceScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -11080,6 +11352,34 @@ export type FloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, '
  * Reference to a field of type 'Float[]'
  */
 export type ListFloatFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'Float[]'>
+    
+
+
+/**
+ * Reference to a field of type 'FinancialOperationType'
+ */
+export type EnumFinancialOperationTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FinancialOperationType'>
+    
+
+
+/**
+ * Reference to a field of type 'FinancialOperationType[]'
+ */
+export type ListEnumFinancialOperationTypeFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FinancialOperationType[]'>
+    
+
+
+/**
+ * Reference to a field of type 'FinancialOperationStatus'
+ */
+export type EnumFinancialOperationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FinancialOperationStatus'>
+    
+
+
+/**
+ * Reference to a field of type 'FinancialOperationStatus[]'
+ */
+export type ListEnumFinancialOperationStatusFieldRefInput<$PrismaModel> = FieldRefInputType<$PrismaModel, 'FinancialOperationStatus[]'>
     
 
 /**
@@ -11288,6 +11588,9 @@ export type GlobalOmitConfig = {
   constructionPostingRule?: Prisma.ConstructionPostingRuleOmit
   exportJob?: Prisma.ExportJobOmit
   filterPreset?: Prisma.FilterPresetOmit
+  financialOperation?: Prisma.FinancialOperationOmit
+  financialOperationLine?: Prisma.FinancialOperationLineOmit
+  financialOperationReference?: Prisma.FinancialOperationReferenceOmit
 }
 
 /* Types for Logging */

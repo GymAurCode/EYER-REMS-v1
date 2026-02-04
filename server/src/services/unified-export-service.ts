@@ -602,63 +602,27 @@ function generateCSV(data: any[], columns: ColumnDefinition[]): Buffer {
 }
 
 /**
- * Generate PDF export
+ * Generate PDF export - audit-grade grid layout with repeating headers
  */
-function generatePDF(data: any[], columns: ColumnDefinition[], moduleName: string): Promise<Buffer> {
-  return new Promise((resolve, reject) => {
-    try {
-      const doc = new PDFDocument({ margin: 50, size: 'A4', layout: 'landscape' });
-      const buffers: Buffer[] = [];
-
-      doc.on('data', buffers.push.bind(buffers));
-      doc.on('end', () => {
-        resolve(Buffer.concat(buffers));
-      });
-      doc.on('error', reject);
-
-      // Title
-      doc.fontSize(18).text(`${moduleName} Report`, { align: 'center' });
-      doc.moveDown();
-      doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
-      doc.moveDown(2);
-
-      // Table
-      const tableTop = doc.y;
-      const rowHeight = 20;
-      const colWidths = columns.map(col => (col.width || 15) * 3); // Convert to points
-      const totalWidth = colWidths.reduce((a, b) => a + b, 0);
-      const startX = (doc.page.width - totalWidth) / 2;
-
-      // Header row
-      doc.fontSize(10).font('Helvetica-Bold');
-      let x = startX;
-      columns.forEach((col, i) => {
-        doc.text(col.header, x, tableTop, { width: colWidths[i], align: 'left' });
-        x += colWidths[i];
-      });
-
-      // Data rows
-      doc.font('Helvetica');
-      let y = tableTop + rowHeight;
-      data.forEach((row, rowIndex) => {
-        if (y > doc.page.height - 50) {
-          doc.addPage();
-          y = 50;
+async function generatePDF(data: any[], columns: ColumnDefinition[], moduleName: string): Promise<Buffer> {
+  const { generateListReportPDFBuffer } = await import('../utils/audit-grade-pdf-report');
+  const reportCols = columns.map((c) => ({
+    key: c.key,
+    header: c.header,
+    width: (c.width || 15) * 6,
+    type: c.type,
+    format: c.format
+      ? (v: any) => {
+          const out = c.format!(v);
+          return out === null || out === undefined || out === '' ? '—' : String(out);
         }
-        x = startX;
-        columns.forEach((col, colIndex) => {
-          const value = row[col.key];
-          const formatted = formatValue(value, col);
-          doc.text(String(formatted).substring(0, 30), x, y, { width: colWidths[colIndex], align: 'left' });
-          x += colWidths[colIndex];
-        });
-        y += rowHeight;
-      });
+      : undefined,
+  }));
 
-      doc.end();
-    } catch (error) {
-      reject(error);
-    }
+  return generateListReportPDFBuffer(data, reportCols, {
+    companyName: 'Real Estate Management System',
+    reportTitle: `${moduleName.charAt(0).toUpperCase() + moduleName.slice(1)} Report`,
+    generatedAt: new Date(),
   });
 }
 
@@ -799,14 +763,18 @@ export async function getExportCount(
     where = config.buildWhereClause(request.filters, request.search);
   }
 
+  const model = (prisma as any)[config.model.toLowerCase()];
   if (request.scope === 'ALL') {
-    // Count all records (ignoring filters)
     const baseWhere = where.isDeleted === false ? { isDeleted: false } : {};
-    const model = (prisma as any)[config.model.toLowerCase()];
     return await model.count({ where: baseWhere });
   }
 
-  // Count filtered records
-  const model = (prisma as any)[config.model.toLowerCase()];
-  return await model.count({ where });
+  // Strip isDeleted from where if model doesn't support it (Voucher, Transaction, etc.)
+  const modelsWithoutIsDeleted = new Set(['voucher', 'transaction', 'invoice', 'commission']);
+  const modelKey = config.model.toLowerCase();
+  const safeWhere = modelsWithoutIsDeleted.has(modelKey) && where.isDeleted === false
+    ? (() => { const { isDeleted, ...rest } = where; return rest; })()
+    : where;
+
+  return await model.count({ where: safeWhere });
 }

@@ -4,11 +4,17 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, Mail, Phone, MapPin, DollarSign, ShoppingCart, Loader2 } from "lucide-react"
+import { Plus, Mail, Phone, MapPin, DollarSign, ShoppingCart, Loader2 } from "lucide-react"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { AddBuyerDialog } from "./add-buyer-dialog"
 import { apiService } from "@/lib/api"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
+import { useToast } from "@/hooks/use-toast"
 
 const buyerStats = [
   {
@@ -32,7 +38,11 @@ const buyerStats = [
 ]
 
 export function BuyersView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", "buyers") || {})
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [buyers, setBuyers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -93,10 +103,24 @@ export function BuyersView() {
     const name = buyer.name || ""
     const email = buyer.email || ""
     const searchLower = searchQuery.toLowerCase()
-    return (
+    const matchesSearch =
       name.toLowerCase().includes(searchLower) ||
       email.toLowerCase().includes(searchLower)
-    )
+
+    const typeFilter = activeFilters.type
+    const typeVal = Array.isArray(typeFilter) ? typeFilter : typeFilter ? [String(typeFilter)] : []
+    const matchesType = !typeVal.length || typeVal.some((t: string) => (buyer.type || "").toLowerCase() === t.toLowerCase())
+
+    const active = activeFilters.active
+    const matchesActive = active == null || (String(active) === "true" && (buyer.status || "").toLowerCase() === "active") || (String(active) === "false" && (buyer.status || "").toLowerCase() !== "active")
+
+    const agentId = activeFilters.assignedAgentId
+    const matchesAgent = !agentId || (buyer.assignedAgentId || buyer.agentId || buyer.assignedAgent?.id) === agentId
+
+    const cityFilter = activeFilters.city as string | undefined
+    const matchesCity = !cityFilter || (buyer.city || buyer.address || "").toLowerCase().includes(cityFilter.toLowerCase())
+
+    return matchesSearch && matchesType && matchesActive && matchesAgent && matchesCity
   })
 
   return (
@@ -121,21 +145,20 @@ export function BuyersView() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search buyers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Buyer
-        </Button>
-      </div>
+      <ListToolbar
+        searchPlaceholder="Search buyers…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Buyer
+          </Button>
+        }
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -218,6 +241,29 @@ export function BuyersView() {
       )}
 
       <AddBuyerDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={fetchBuyers} />
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        entity="buyer"
+        module="buyers"
+        entityDisplayName="Buyers"
+        filters={toExportFilters(activeFilters, "properties")}
+        search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="properties"
+        tab="buyers"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("properties", "buyers", filters)
+          toast({ title: "Filters applied" })
+        }}
+      />
     </div>
   )
 }

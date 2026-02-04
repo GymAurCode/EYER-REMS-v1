@@ -14,6 +14,7 @@ import { FinancialReportsView } from "./financial-reports-view"
 import { CommissionsView } from "./commissions-view"
 import { AccountingView } from "./accounting-view"
 import { ChartOfAccountsView } from "./chart-of-accounts-view"
+import { OperationsView } from "./operations-view"
 import { AccountLedgerModule } from "./account-ledger-module"
 import { AddTransactionDialog } from "./add-transaction-dialog"
 import { cn } from "@/lib/utils"
@@ -257,6 +258,7 @@ export function FinanceView() {
             <TabsTrigger value="commissions" className="text-xs sm:text-sm">Commissions</TabsTrigger>
             <TabsTrigger value="chart-of-accounts" className="text-xs sm:text-sm">Chart of Accounts</TabsTrigger>
             <TabsTrigger value="accounting" className="text-xs sm:text-sm">Accounting</TabsTrigger>
+            <TabsTrigger value="operations" className="text-xs sm:text-sm">Operations</TabsTrigger>
             <TabsTrigger value="account-ledger" className="text-xs sm:text-sm">Account Ledger</TabsTrigger>
             <TabsTrigger value="reports" className="text-xs sm:text-sm">Reports</TabsTrigger>
           </TabsList>
@@ -284,6 +286,10 @@ export function FinanceView() {
 
         <TabsContent value="accounting">
           <AccountingView />
+        </TabsContent>
+
+        <TabsContent value="operations">
+          <OperationsView />
         </TabsContent>
 
         <TabsContent value="account-ledger">

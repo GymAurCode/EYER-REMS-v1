@@ -36,6 +36,9 @@ model User {
   tenantPaymentsCreated  TenantPayment[]  @relation("TenantPaymentCreatedBy")
   exportJobs             ExportJob[]
   filterPresets          FilterPreset[]
+  financialOperationsRequested FinancialOperation[] @relation("FinancialOperationRequestedBy")
+  financialOperationsApproved  FinancialOperation[] @relation("FinancialOperationApprovedBy")
+  financialOperationsPosted   FinancialOperation[] @relation("FinancialOperationPostedBy")
 
   @@index([email])
   @@index([roleId])
@@ -1196,6 +1199,7 @@ model Deal {
   paymentPlan          PaymentPlan?
   stageHistory         StageHistory[]
   vouchers             Voucher[]         @relation("VoucherDeal")
+  financialOperations  FinancialOperation[] @relation("FinancialOperationDeal")
 
   @@index([dealCode])
   @@index([clientId])
@@ -1736,6 +1740,7 @@ model Voucher {
   reversedVoucher   Voucher?             @relation("VoucherReversal", fields: [reversedVoucherId], references: [id])
   reversalVouchers  Voucher[]            @relation("VoucherReversal")
   lines             VoucherLine[]
+  financialOperations FinancialOperation[] @relation("FinancialOperationVoucher")
 
   @@index([dealId])
   @@index([propertyId])
@@ -2839,4 +2844,82 @@ model FilterPreset {
   @@unique([userId, module, tab, name])
   @@index([userId])
   @@index([module, tab])
+}
+
+// ============================================
+// FINANCE OPERATIONS EXTENSION (ADDITIVE ONLY)
+// Refund, Transfer, Merge - no changes to existing tables
+// ============================================
+
+enum FinancialOperationType {
+  REFUND
+  TRANSFER
+  MERGE
+}
+
+enum FinancialOperationStatus {
+  REQUESTED
+  APPROVED
+  POSTED
+  REJECTED
+}
+
+model FinancialOperation {
+  id                String                   @id @default(uuid())
+  operationType     FinancialOperationType
+  status            FinancialOperationStatus @default(REQUESTED)
+  reason            String                   // Mandatory reason
+  amount            Float?
+  partialAmount     Float?                   // For partial refunds
+  requestedByUserId String?
+  approvedByUserId  String?
+  approvedAt        DateTime?
+  postedByUserId    String?
+  postedAt          DateTime?
+  voucherId         String?                  // New voucher created on execution
+  dealId            String?                  // Source deal (for context)
+  createdAt         DateTime                 @default(now())
+  updatedAt         DateTime                 @updatedAt
+  requestedBy       User?                    @relation("FinancialOperationRequestedBy", fields: [requestedByUserId], references: [id])
+  approvedBy        User?                    @relation("FinancialOperationApprovedBy", fields: [approvedByUserId], references: [id])
+  postedBy          User?                    @relation("FinancialOperationPostedBy", fields: [postedByUserId], references: [id])
+  voucher           Voucher?                 @relation("FinancialOperationVoucher", fields: [voucherId], references: [id])
+  deal              Deal?                    @relation("FinancialOperationDeal", fields: [dealId], references: [id])
+  lines             FinancialOperationLine[]
+  references        FinancialOperationReference[]
+
+  @@index([operationType])
+  @@index([status])
+  @@index([dealId])
+  @@index([createdAt])
+  @@index([requestedByUserId])
+}
+
+model FinancialOperationLine {
+  id           String             @id @default(uuid())
+  operationId  String
+  entityType   String             // Payment, Deal, Property, Client
+  entityId     String
+  role         String             // SOURCE | TARGET
+  amount       Float?
+  metadata     Json?
+  createdAt    DateTime           @default(now())
+  operation    FinancialOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@index([operationId])
+  @@index([entityType, entityId])
+}
+
+model FinancialOperationReference {
+  id           String             @id @default(uuid())
+  operationId  String
+  refType      String             // payment, deal, property, client, voucher
+  refId        String
+  role         String             // SOURCE | TARGET
+  createdAt    DateTime           @default(now())
+  operation    FinancialOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  @@unique([operationId, refType, refId, role])
+  @@index([operationId])
+  @@index([refType, refId])
 }

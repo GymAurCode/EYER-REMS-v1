@@ -164,6 +164,23 @@ export function toExportFilters(state: FilterState, entity: string): Record<stri
     out.type = t.length === 1 ? t[0] : t
   }
   if (state.city != null) out.city = state.city
+  if (state.unitStatus != null) out.unitStatus = Array.isArray(state.unitStatus) ? state.unitStatus : [state.unitStatus]
+  if (state.propertyId != null) out.propertyId = state.propertyId
+  if (state.unitId != null) out.unitId = state.unitId
+  if (state.unitType != null) out.unitType = Array.isArray(state.unitType) ? state.unitType : [state.unitType]
+  if (state.leaseStatus != null) out.leaseStatus = Array.isArray(state.leaseStatus) ? state.leaseStatus : [state.leaseStatus]
+  if (state.tenantId != null) out.tenantId = state.tenantId
+  if (state.saleStatus != null) out.saleStatus = Array.isArray(state.saleStatus) ? state.saleStatus : [state.saleStatus]
+  if (state.agentId != null) out.agentId = state.agentId
+  if (state.assignedAgentId != null) out.assignedAgentId = state.assignedAgentId
+  if (state.rent_min != null) out.rent_min = state.rent_min
+  if (state.rent_max != null) out.rent_max = state.rent_max
+  if (state.area_min != null) out.area_min = state.area_min
+  if (state.area_max != null) out.area_max = state.area_max
+  if (state.saleValue_min != null) out.saleValue_min = state.saleValue_min
+  if (state.saleValue_max != null) out.saleValue_max = state.saleValue_max
+  if (state.transactionType != null && state.transactionType !== "all") out.transactionType = state.transactionType
+  if (state.dealerId != null) out.dealerId = state.dealerId
 
   if (state.dateField != null) out.dateField = state.dateField
   if (state.dateFrom != null) out.dateFrom = state.dateFrom

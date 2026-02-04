@@ -572,3 +572,18 @@ export type ExportJob = Prisma.ExportJobModel
  * 
  */
 export type FilterPreset = Prisma.FilterPresetModel
+/**
+ * Model FinancialOperation
+ * 
+ */
+export type FinancialOperation = Prisma.FinancialOperationModel
+/**
+ * Model FinancialOperationLine
+ * 
+ */
+export type FinancialOperationLine = Prisma.FinancialOperationLineModel
+/**
+ * Model FinancialOperationReference
+ * 
+ */
+export type FinancialOperationReference = Prisma.FinancialOperationReferenceModel

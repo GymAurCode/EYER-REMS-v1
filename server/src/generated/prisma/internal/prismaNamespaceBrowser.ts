@@ -161,7 +161,10 @@ export const ModelName = {
   ConstructionMilestone: 'ConstructionMilestone',
   ConstructionPostingRule: 'ConstructionPostingRule',
   ExportJob: 'ExportJob',
-  FilterPreset: 'FilterPreset'
+  FilterPreset: 'FilterPreset',
+  FinancialOperation: 'FinancialOperation',
+  FinancialOperationLine: 'FinancialOperationLine',
+  FinancialOperationReference: 'FinancialOperationReference'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -2363,6 +2366,53 @@ export const FilterPresetScalarFieldEnum = {
 } as const
 
 export type FilterPresetScalarFieldEnum = (typeof FilterPresetScalarFieldEnum)[keyof typeof FilterPresetScalarFieldEnum]
+
+
+export const FinancialOperationScalarFieldEnum = {
+  id: 'id',
+  operationType: 'operationType',
+  status: 'status',
+  reason: 'reason',
+  amount: 'amount',
+  partialAmount: 'partialAmount',
+  requestedByUserId: 'requestedByUserId',
+  approvedByUserId: 'approvedByUserId',
+  approvedAt: 'approvedAt',
+  postedByUserId: 'postedByUserId',
+  postedAt: 'postedAt',
+  voucherId: 'voucherId',
+  dealId: 'dealId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type FinancialOperationScalarFieldEnum = (typeof FinancialOperationScalarFieldEnum)[keyof typeof FinancialOperationScalarFieldEnum]
+
+
+export const FinancialOperationLineScalarFieldEnum = {
+  id: 'id',
+  operationId: 'operationId',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  role: 'role',
+  amount: 'amount',
+  metadata: 'metadata',
+  createdAt: 'createdAt'
+} as const
+
+export type FinancialOperationLineScalarFieldEnum = (typeof FinancialOperationLineScalarFieldEnum)[keyof typeof FinancialOperationLineScalarFieldEnum]
+
+
+export const FinancialOperationReferenceScalarFieldEnum = {
+  id: 'id',
+  operationId: 'operationId',
+  refType: 'refType',
+  refId: 'refId',
+  role: 'role',
+  createdAt: 'createdAt'
+} as const
+
+export type FinancialOperationReferenceScalarFieldEnum = (typeof FinancialOperationReferenceScalarFieldEnum)[keyof typeof FinancialOperationReferenceScalarFieldEnum]
 
 
 export const SortOrder = {

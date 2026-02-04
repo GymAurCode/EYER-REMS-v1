@@ -2370,7 +2370,7 @@ router.get('/report/pdf', authenticate, async (req: AuthRequest, res: Response) 
     }
 
     // Generate PDF report
-    generatePropertiesReportPDF(
+    await generatePropertiesReportPDF(
       {
         properties: properties.map(p => ({
           id: p.id,

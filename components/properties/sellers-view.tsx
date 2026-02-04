@@ -2,13 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { Card } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Mail, Phone, MapPin, DollarSign, Loader2, User } from "lucide-react"
+import { Mail, Phone, MapPin, Loader2, User } from "lucide-react"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { apiService } from "@/lib/api"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
+import { useToast } from "@/hooks/use-toast"
 
 export function SellersView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", "sellers") || {})
   const [sellers, setSellers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -98,17 +108,14 @@ export function SellersView() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search sellers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-      </div>
+      <ListToolbar
+        searchPlaceholder="Search sellers…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+      />
 
       {loading ? (
         <div className="flex items-center justify-center py-12">
@@ -181,6 +188,29 @@ export function SellersView() {
           ))}
         </div>
       )}
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        entity="seller"
+        module="sellers"
+        entityDisplayName="Sellers"
+        filters={toExportFilters(activeFilters, "properties")}
+        search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="properties"
+        tab="sellers"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("properties", "sellers", filters)
+          toast({ title: "Filters applied" })
+        }}
+      />
     </div>
   )
 }

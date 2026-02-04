@@ -1630,10 +1630,8 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
       return res.status(404).json({ error: 'Voucher not found' });
     }
 
-    // Generate PDF using the new professional voucher PDF generator
-    const { generateVoucherPDF } = await import('../utils/pdf-generator');
+    const { generateVoucherReportPDF } = await import('../utils/audit-grade-pdf-report');
 
-    // Transform voucher data to PDF format - include all voucher details
     const pdfData = {
       voucher: {
         voucherNumber: voucher.voucherNumber || '',
@@ -1642,7 +1640,6 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
         paymentMethod: voucher.paymentMethod || null,
         referenceNumber: voucher.referenceNumber || null,
         amount: voucher.amount || 0,
-        description: voucher.description || null,
         status: voucher.status || 'draft',
         account: voucher.account ? {
           code: voucher.account.code || null,
@@ -1656,21 +1653,13 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
           unitName: voucher.unit.unitName || voucher.unit.name || null,
           unitNumber: voucher.unit.unitNumber || null,
         } : null,
-        payeeType: voucher.payeeType || null,
-        payeeId: voucher.payeeId || null,
-        deal: voucher.deal ? {
-          dealCode: voucher.deal.dealCode || null,
-          title: voucher.deal.title || null,
-          dealAmount: voucher.deal.dealAmount || null,
-          client: voucher.deal.client ? {
-            name: voucher.deal.client.name || null,
-            email: voucher.deal.client.email || null,
-            phone: voucher.deal.client.phone || null,
-          } : null,
-        } : null,
         preparedBy: voucher.preparedBy ? {
           username: voucher.preparedBy.username || null,
           email: voucher.preparedBy.email || null,
+        } : null,
+        checkedBy: (voucher as any).checkedBy ? {
+          username: (voucher as any).checkedBy.username || null,
+          email: (voucher as any).checkedBy.email || null,
         } : null,
         approvedBy: voucher.approvedBy ? {
           username: voucher.approvedBy.username || null,
@@ -1680,26 +1669,19 @@ router.get('/vouchers/:id/pdf', authenticate, async (req: AuthRequest, res: Resp
         createdAt: voucher.createdAt || null,
       },
       lines: (voucher.lines || []).map((line: any) => ({
-        id: line.id || '',
-        accountId: line.accountId || '',
         account: line.account ? {
           code: line.account.code || null,
           name: line.account.name || null,
         } : null,
+        accountId: line.accountId || '',
         debit: line.debit || 0,
         credit: line.credit || 0,
         description: line.description || null,
-        property: line.property ? {
-          name: line.property.name || null,
-        } : null,
-        unit: line.unit ? {
-          unitName: line.unit.unitName || line.unit.name || null,
-        } : null,
       })),
       companyName: 'Real Estate Management System',
     };
 
-    const pdfBuffer = await generateVoucherPDF(pdfData);
+    const pdfBuffer = await generateVoucherReportPDF(pdfData);
 
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="voucher-${voucher.voucherNumber}.pdf"`);

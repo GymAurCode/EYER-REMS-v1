@@ -16,6 +16,7 @@ import { format } from "date-fns"
 import { DealTimeline } from "./deal-timeline"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { DocumentViewer } from "@/components/shared/document-viewer"
+import { DealFinancialHistoryPanel } from "./deal-financial-history-panel"
 import {
   Table,
   TableBody,
@@ -349,6 +350,7 @@ export function DealDetailRefactored({ dealId }: DealDetailRefactoredProps) {
           <Tabs defaultValue="timeline">
             <TabsList>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="financial">Financial History</TabsTrigger>
               <TabsTrigger value="attachments">Attachments</TabsTrigger>
             </TabsList>
             <TabsContent value="timeline" className="mt-4">
@@ -360,6 +362,13 @@ export function DealDetailRefactored({ dealId }: DealDetailRefactoredProps) {
                          <DealTimeline deal={deal} onRefresh={loadDeal} />
                     </CardContent>
                 </Card>
+            </TabsContent>
+            <TabsContent value="financial" className="mt-4">
+                <DealFinancialHistoryPanel
+                  dealId={deal.id}
+                  payments={deal.payments}
+                  clientId={deal.clientId ?? undefined}
+                />
             </TabsContent>
              <TabsContent value="attachments" className="mt-4">
                 <Card>

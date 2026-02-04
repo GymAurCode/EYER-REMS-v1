@@ -76,6 +76,11 @@ const VOUCHER_STATUSES = ["draft", "submitted", "approved", "posted", "reversed"
 const PROJECT_STATUSES = ["planning", "active", "on-hold", "completed", "closed"];
 const EMPLOYEE_STATUSES = ["active", "inactive", "on_leave"];
 const EMPLOYEE_TYPES = ["full_time", "part_time", "contract"];
+const UNIT_STATUSES = ["Vacant", "Occupied"];
+const UNIT_TYPES = ["apartment", "studio", "villa", "commercial", "shop", "office"];
+const LEASE_STATUSES = ["active", "expired", "pending", "terminated"];
+const TENANT_STATUSES = ["active", "inactive"];
+const SALE_STATUSES = ["pending", "completed", "cancelled"];
 
 const DATE_FIELDS_LEAD: Array<{ value: string; label: string }> = [
   { value: "created_at", label: "Created Date" },
@@ -191,6 +196,12 @@ export const FILTER_CONFIG_REGISTRY: Record<string, EntityFilterConfig> = {
       { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" },
     ],
   },
+  // Voucher type-specific tabs: no type filter (type is fixed per tab)
+  "vouchers:bpv": { entity: "vouchers", tab: "bpv", filters: [{ key: "status", label: "Status", type: "multi-select", group: "Status", options: VOUCHER_STATUSES.map((v) => ({ value: v, label: v })) }, { key: "dateField", label: "Date Field", type: "select", group: "Date", options: DATE_FIELDS_VOUCHER }, { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "amount_min", label: "Min Amount", type: "numeric-range", group: "Financial" }, { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" }] },
+  "vouchers:brv": { entity: "vouchers", tab: "brv", filters: [{ key: "status", label: "Status", type: "multi-select", group: "Status", options: VOUCHER_STATUSES.map((v) => ({ value: v, label: v })) }, { key: "dateField", label: "Date Field", type: "select", group: "Date", options: DATE_FIELDS_VOUCHER }, { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "amount_min", label: "Min Amount", type: "numeric-range", group: "Financial" }, { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" }] },
+  "vouchers:cpv": { entity: "vouchers", tab: "cpv", filters: [{ key: "status", label: "Status", type: "multi-select", group: "Status", options: VOUCHER_STATUSES.map((v) => ({ value: v, label: v })) }, { key: "dateField", label: "Date Field", type: "select", group: "Date", options: DATE_FIELDS_VOUCHER }, { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "amount_min", label: "Min Amount", type: "numeric-range", group: "Financial" }, { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" }] },
+  "vouchers:crv": { entity: "vouchers", tab: "crv", filters: [{ key: "status", label: "Status", type: "multi-select", group: "Status", options: VOUCHER_STATUSES.map((v) => ({ value: v, label: v })) }, { key: "dateField", label: "Date Field", type: "select", group: "Date", options: DATE_FIELDS_VOUCHER }, { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "amount_min", label: "Min Amount", type: "numeric-range", group: "Financial" }, { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" }] },
+  "vouchers:jv": { entity: "vouchers", tab: "jv", filters: [{ key: "status", label: "Status", type: "multi-select", group: "Status", options: VOUCHER_STATUSES.map((v) => ({ value: v, label: v })) }, { key: "dateField", label: "Date Field", type: "select", group: "Date", options: DATE_FIELDS_VOUCHER }, { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" }, { key: "amount_min", label: "Min Amount", type: "numeric-range", group: "Financial" }, { key: "amount_max", label: "Max Amount", type: "numeric-range", group: "Financial" }] },
   properties: {
     entity: "properties",
     filters: [
@@ -220,6 +231,125 @@ export const FILTER_CONFIG_REGISTRY: Record<string, EntityFilterConfig> = {
       { key: "status", label: "Status", type: "multi-checkbox", group: "Status", options: PROJECT_STATUSES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1).replace(/-/g, " ") })) },
     ],
   },
+  // Properties sub-tabs
+  "properties:units": {
+    entity: "properties",
+    tab: "units",
+    filters: [
+      { key: "unitStatus", label: "Unit Status", type: "multi-select", group: "Status", options: UNIT_STATUSES.map((v) => ({ value: v, label: v })) },
+      { key: "propertyId", label: "Property", type: "entity-select", group: "Unit", options_source: "properties" },
+      { key: "floorId", label: "Floor", type: "text", group: "Unit", placeholder: "Floor name or ID" },
+      { key: "unitType", label: "Unit Type", type: "multi-select", group: "Unit", options: UNIT_TYPES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })) },
+      { key: "rent_min", label: "Min Rent", type: "numeric-range", group: "Rent", placeholder: "Min" },
+      { key: "rent_max", label: "Max Rent", type: "numeric-range", group: "Rent", placeholder: "Max" },
+      { key: "area_min", label: "Min Area (sqft)", type: "numeric-range", group: "Rent", placeholder: "Min" },
+      { key: "area_max", label: "Max Area (sqft)", type: "numeric-range", group: "Rent", placeholder: "Max" },
+    ],
+  },
+  "properties:tenants": {
+    entity: "properties",
+    tab: "tenants",
+    filters: [
+      { key: "active", label: "Active / Inactive", type: "select", group: "Status", options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] },
+      { key: "leaseStatus", label: "Lease Status", type: "multi-select", group: "Lease", options: LEASE_STATUSES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })) },
+      { key: "propertyId", label: "Property", type: "entity-select", group: "Unit", options_source: "properties" },
+      { key: "unitId", label: "Unit", type: "entity-select", group: "Unit", options_source: "units" },
+      { key: "moveInFrom", label: "Move-in From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "moveInTo", label: "Move-in To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "moveOutFrom", label: "Move-out From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "moveOutTo", label: "Move-out To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  "properties:leases": {
+    entity: "properties",
+    tab: "leases",
+    filters: [
+      { key: "leaseStatus", label: "Lease Status", type: "multi-select", group: "Status", options: LEASE_STATUSES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })) },
+      { key: "startDateFrom", label: "Start Date From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "startDateTo", label: "Start Date To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "endDateFrom", label: "End Date From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "endDateTo", label: "End Date To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "propertyId", label: "Property", type: "entity-select", group: "Unit", options_source: "properties" },
+      { key: "tenantId", label: "Tenant", type: "entity-select", group: "Unit", options_source: "tenants" },
+      { key: "rent_min", label: "Min Rent", type: "numeric-range", group: "Rent", placeholder: "Min" },
+      { key: "rent_max", label: "Max Rent", type: "numeric-range", group: "Rent", placeholder: "Max" },
+    ],
+  },
+  "properties:sales": {
+    entity: "properties",
+    tab: "sales",
+    filters: [
+      { key: "saleStatus", label: "Sale Status", type: "multi-select", group: "Status", options: SALE_STATUSES.map((v) => ({ value: v, label: v.charAt(0).toUpperCase() + v.slice(1) })) },
+      { key: "propertyId", label: "Property", type: "entity-select", group: "Unit", options_source: "properties" },
+      { key: "agentId", label: "Agent", type: "entity-select", group: "Assignment", options_source: "employees" },
+      { key: "saleDateFrom", label: "Sale Date From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "saleDateTo", label: "Sale Date To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "saleValue_min", label: "Min Sale Value", type: "numeric-range", group: "Financial", placeholder: "Min" },
+      { key: "saleValue_max", label: "Max Sale Value", type: "numeric-range", group: "Financial", placeholder: "Max" },
+    ],
+  },
+  "properties:buyers": {
+    entity: "properties",
+    tab: "buyers",
+    filters: [
+      { key: "type", label: "Type", type: "multi-select", group: "Status", options: [{ value: "individual", label: "Individual" }, { value: "corporate", label: "Corporate" }] },
+      { key: "active", label: "Active / Inactive", type: "select", group: "Status", options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] },
+      { key: "assignedAgentId", label: "Assigned Agent", type: "entity-select", group: "Assignment", options_source: "employees" },
+      { key: "city", label: "City / Area", type: "text", group: "Location", placeholder: "City or area" },
+      { key: "createdFrom", label: "Created From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "createdTo", label: "Created To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  "properties:sellers": {
+    entity: "properties",
+    tab: "sellers",
+    filters: [
+      { key: "type", label: "Type", type: "multi-select", group: "Status", options: [{ value: "individual", label: "Individual" }, { value: "corporate", label: "Corporate" }] },
+      { key: "active", label: "Active / Inactive", type: "select", group: "Status", options: [{ value: "true", label: "Active" }, { value: "false", label: "Inactive" }] },
+      { key: "assignedAgentId", label: "Assigned Agent", type: "entity-select", group: "Assignment", options_source: "employees" },
+      { key: "city", label: "City / Area", type: "text", group: "Location", placeholder: "City or area" },
+      { key: "createdFrom", label: "Created From", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "createdTo", label: "Created To", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  // Finance tabs
+  "finance:transactions": {
+    entity: "finance",
+    tab: "transactions",
+    filters: [
+      { key: "transactionType", label: "Type", type: "select", group: "Status", options: [{ value: "all", label: "All" }, { value: "income", label: "Income" }, { value: "expense", label: "Expense" }] },
+      { key: "status", label: "Status", type: "multi-select", group: "Status", options: [{ value: "completed", label: "Completed" }, { value: "pending", label: "Pending" }, { value: "failed", label: "Failed" }] },
+      { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  "finance:invoices": {
+    entity: "finance",
+    tab: "invoices",
+    filters: [
+      { key: "status", label: "Status", type: "multi-select", group: "Status", options: [{ value: "paid", label: "Paid" }, { value: "overdue", label: "Overdue" }, { value: "pending", label: "Pending" }] },
+      { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  "finance:payments": {
+    entity: "finance",
+    tab: "payments",
+    filters: [
+      { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
+  "finance:commissions": {
+    entity: "finance",
+    tab: "commissions",
+    filters: [
+      { key: "status", label: "Status", type: "multi-select", group: "Status", options: [{ value: "paid", label: "Paid" }, { value: "pending", label: "Pending" }] },
+      { key: "dealerId", label: "Dealer", type: "entity-select", group: "Relationships", options_source: "dealers" },
+      { key: "dateFrom", label: "From Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+      { key: "dateTo", label: "To Date", type: "text", group: "Date", placeholder: "YYYY-MM-DD" },
+    ],
+  },
 };
 
 /** Get filter config for entity (and optionally tab) */
@@ -228,7 +358,7 @@ export function getFilterConfig(entity: string, tab?: string): EntityFilterConfi
   return FILTER_CONFIG_REGISTRY[key] ?? FILTER_CONFIG_REGISTRY[entity] ?? null;
 }
 
-const GROUP_ORDER = ["Status", "Priority", "Source", "Assignment", "Date", "Financial", "Location", "Relationships", "Attributes"];
+const GROUP_ORDER = ["Status", "Priority", "Source", "Assignment", "Date", "Financial", "Location", "Relationships", "Attributes", "Unit", "Lease", "Rent", "Sale"];
 
 /** Get filters grouped by group name, in hierarchy order */
 export function getFiltersByGroup(config: EntityFilterConfig): Record<string, FilterFieldConfig[]> {

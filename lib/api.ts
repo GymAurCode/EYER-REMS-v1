@@ -1023,6 +1023,18 @@ export const apiService = {
     export: (filters?: any) => api.get('/finance/vouchers/export', { params: filters, responseType: 'blob' }),
   },
 
+  // Finance Operations - Refund, Transfer, Merge (extension layer)
+  financeOperations: {
+    request: (data: any) => api.post('/finance-operations/request', data),
+    getAll: (params?: { status?: string; operationType?: string; dealId?: string; limit?: number; offset?: number }) =>
+      api.get('/finance-operations', { params }),
+    getById: (id: string) => api.get(`/finance-operations/${id}`),
+    getByDealId: (dealId: string) => api.get(`/finance-operations/deal/${dealId}`),
+    approve: (id: string) => api.put(`/finance-operations/${id}/approve`),
+    reject: (id: string) => api.put(`/finance-operations/${id}/reject`),
+    execute: (id: string) => api.put(`/finance-operations/${id}/execute`),
+  },
+
   // Finance - Payment Plans
   paymentPlans: {
     create: (data: any) => api.post('/finance/payment-plans/create', data),

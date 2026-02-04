@@ -4,14 +4,24 @@ import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { Search, Plus, TrendingUp, DollarSign, User, Building, Loader2 } from "lucide-react"
+import { Plus, TrendingUp, DollarSign, User, Building, Loader2 } from "lucide-react"
+import { ListToolbar } from "@/components/shared/list-toolbar"
+import { UnifiedFilterDrawer } from "@/components/shared/unified-filter-drawer"
+import { DownloadReportDialog } from "@/components/ui/download-report-dialog"
 import { AddSaleDialog } from "./add-sale-dialog"
 import { apiService } from "@/lib/api"
+import { saveFilters, loadFilters } from "@/lib/filter-store"
+import { toExportFilters } from "@/lib/filter-transform"
+import { countActiveFilters } from "@/lib/filter-config-registry"
+import { useToast } from "@/hooks/use-toast"
 
 export function SalesView() {
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
+  const [showFilterDrawer, setShowFilterDrawer] = useState(false)
+  const [showDownloadDialog, setShowDownloadDialog] = useState(false)
+  const [activeFilters, setActiveFilters] = useState<Record<string, unknown>>(loadFilters("properties", "sales") || {})
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [sales, setSales] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -43,10 +53,26 @@ export function SalesView() {
     const propertyName = sale.propertyName || sale.property?.name || ""
     const buyerName = sale.buyer || (sale.buyers && sale.buyers.length > 0 ? sale.buyers[0].name : "") || ""
     const searchLower = searchQuery.toLowerCase()
-    return (
+    const matchesSearch =
       propertyName.toLowerCase().includes(searchLower) ||
       buyerName.toLowerCase().includes(searchLower)
-    )
+
+    const saleStatus = activeFilters.saleStatus
+    const ssVal = Array.isArray(saleStatus) ? saleStatus : saleStatus ? [String(saleStatus)] : []
+    const matchesStatus = !ssVal.length || ssVal.some((s: string) => (sale.status || "").toLowerCase() === s.toLowerCase())
+
+    const propId = activeFilters.propertyId
+    const matchesProperty = !propId || (sale.propertyId || sale.property?.id) === propId
+
+    const agentId = activeFilters.agentId
+    const matchesAgent = !agentId || (sale.dealerId || sale.dealer?.id || sale.agentId || sale.agent?.id) === agentId
+
+    const valMin = activeFilters.saleValue_min as number | undefined
+    const valMax = activeFilters.saleValue_max as number | undefined
+    const val = sale.saleValue ?? sale.salePrice ?? 0
+    const matchesValue = (valMin == null || val >= valMin) && (valMax == null || val <= valMax)
+
+    return matchesSearch && matchesStatus && matchesProperty && matchesAgent && matchesValue
   })
 
   const totalSales = filteredSales.reduce((sum, sale) => sum + (sale.saleValue || sale.salePrice || 0), 0)
@@ -113,22 +139,20 @@ export function SalesView() {
         </Card>
       </div>
 
-      {/* Search and Actions */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Search sales..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Button onClick={() => setShowAddDialog(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Sale
-        </Button>
-      </div>
+      <ListToolbar
+        searchPlaceholder="Search sales…"
+        searchValue={searchQuery}
+        onSearchChange={setSearchQuery}
+        onFilterClick={() => setShowFilterDrawer(true)}
+        activeFilterCount={countActiveFilters(activeFilters)}
+        onDownloadClick={() => setShowDownloadDialog(true)}
+        primaryAction={
+          <Button onClick={() => setShowAddDialog(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Sale
+          </Button>
+        }
+      />
 
       {/* Sales Table */}
       <Card>
@@ -235,6 +259,29 @@ export function SalesView() {
       </Card>
 
       <AddSaleDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={fetchSales} />
+
+      <DownloadReportDialog
+        open={showDownloadDialog}
+        onOpenChange={setShowDownloadDialog}
+        entity="sale"
+        module="sales"
+        entityDisplayName="Sales"
+        filters={toExportFilters(activeFilters, "properties")}
+        search={searchQuery || undefined}
+      />
+
+      <UnifiedFilterDrawer
+        open={showFilterDrawer}
+        onOpenChange={setShowFilterDrawer}
+        entity="properties"
+        tab="sales"
+        initialFilters={activeFilters}
+        onApply={(filters) => {
+          setActiveFilters(filters)
+          saveFilters("properties", "sales", filters)
+          toast({ title: "Filters applied" })
+        }}
+      />
     </div>
   )
 }
