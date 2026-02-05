@@ -607,3 +607,13 @@ export type FinancialOperationLine = Prisma.FinancialOperationLineModel
  * 
  */
 export type FinancialOperationReference = Prisma.FinancialOperationReferenceModel
+/**
+ * Model FinanceOperationLedgerEntry
+ * 
+ */
+export type FinanceOperationLedgerEntry = Prisma.FinanceOperationLedgerEntryModel
+/**
+ * Model LedgerEngineEntry
+ * 
+ */
+export type LedgerEngineEntry = Prisma.LedgerEngineEntryModel

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter } from "next/navigation"
 import { Card } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { DollarSign, Calendar, Loader2, Plus, RefreshCw, Paperclip, Upload, File, Trash2, Download } from "lucide-react"
+import { Loader2, RefreshCw, Paperclip, Upload, File, Trash2, Download, FileText, Plus } from "lucide-react"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
@@ -19,18 +20,13 @@ interface DealerLedgerViewProps {
 }
 
 export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps) {
+  const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(true)
   const [ledger, setLedger] = useState<any>(null)
   const [dealer, setDealer] = useState<any>(null)
-  const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [filter, setFilter] = useState<'all' | 'thisMonth'>('all')
   const [uploading, setUploading] = useState(false)
-  const [paymentForm, setPaymentForm] = useState({
-    amount: "",
-    paymentMode: "bank",
-    description: "",
-  })
 
   const fetchDealer = useCallback(async () => {
     if (!dealerId) return
@@ -72,38 +68,12 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
     }
   }
 
-  const handlePaymentSubmit = async () => {
-    try {
-      if (!paymentForm.amount || parseFloat(paymentForm.amount) <= 0) {
-        toast({
-          title: "Validation Error",
-          description: "Please enter a valid payment amount",
-          variant: "destructive",
-        })
-        return
-      }
-
-      await apiService.dealerLedger.recordPayment(dealerId, {
-        amount: parseFloat(paymentForm.amount),
-        paymentMode: paymentForm.paymentMode,
-        description: paymentForm.description,
-      })
-
-      toast({
-        title: "Success",
-        description: "Payment recorded successfully",
-      })
-
-      setShowPaymentForm(false)
-      setPaymentForm({ amount: "", paymentMode: "bank", description: "" })
-      fetchLedger()
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to record payment",
-        variant: "destructive",
-      })
-    }
+  const goToCreateDealerPaymentVoucher = () => {
+    router.push("/finance?tab=accounting")
+    toast({
+      title: "Create Dealer Payment Voucher",
+      description: "Use Finance → Accounting to create a Bank Payment Voucher (BPV) for this dealer. Select payeeType=Dealer and payeeId.",
+    })
   }
 
   const formatFileSize = (bytes: number) => {
@@ -217,9 +187,9 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
               <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </Button>
-            <Button onClick={() => setShowPaymentForm(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Record Payment
+            <Button variant="outline" onClick={goToCreateDealerPaymentVoucher}>
+              <FileText className="mr-2 h-4 w-4" />
+              Create Dealer Payment Voucher
             </Button>
           </div>
         </div>
@@ -227,76 +197,31 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
         {ledger?.summary && (
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <p className="text-sm text-muted-foreground">Total Commission</p>
-              <p className="text-2xl font-bold">
-                Rs {ledger.summary.totalCommission.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              <p className="text-sm text-muted-foreground">Total Commission (SUM Credit)</p>
+              <p className="text-2xl font-bold tabular-nums text-foreground">
+                Rs {Number(ledger.summary.totalCommission || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Total Payments</p>
-              <p className="text-2xl font-bold">
-                Rs {ledger.summary.totalPayments.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              <p className="text-sm text-muted-foreground">Total Payments (SUM Debit)</p>
+              <p className="text-2xl font-bold tabular-nums text-foreground">
+                Rs {Number(ledger.summary.totalPayments || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground">Outstanding Balance</p>
-              <p className="text-2xl font-bold text-primary">
-                Rs {ledger.summary.outstandingBalance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+              <p className="text-sm text-muted-foreground">Outstanding Balance (Credit − Debit)</p>
+              <p className={`text-2xl font-bold tabular-nums ${(ledger.summary.outstandingBalance || 0) >= 0 ? "text-foreground" : "text-destructive"}`}>
+                Rs {Number(ledger.summary.outstandingBalance || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </p>
             </div>
           </div>
         )}
+        {ledger?.hasLegacyEntries && (
+          <p className="text-sm text-muted-foreground mt-3">
+            Showing legacy commission data. New operations will appear here going forward.
+          </p>
+        )}
       </Card>
-
-      {/* Payment Form */}
-      {showPaymentForm && (
-        <Card className="p-6">
-          <h4 className="font-semibold mb-4">Record Payment</h4>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="amount">Amount</Label>
-              <Input
-                id="amount"
-                type="number"
-                step="0.01"
-                value={paymentForm.amount}
-                onChange={(e) => setPaymentForm({ ...paymentForm, amount: e.target.value })}
-                placeholder="Enter payment amount"
-              />
-            </div>
-            <div>
-              <Label htmlFor="paymentMode">Payment Mode</Label>
-              <Select
-                value={paymentForm.paymentMode}
-                onValueChange={(value) => setPaymentForm({ ...paymentForm, paymentMode: value })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="bank">Bank Transfer</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="description">Description</Label>
-              <Input
-                id="description"
-                value={paymentForm.description}
-                onChange={(e) => setPaymentForm({ ...paymentForm, description: e.target.value })}
-                placeholder="Payment description (optional)"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button onClick={handlePaymentSubmit}>Record Payment</Button>
-              <Button variant="outline" onClick={() => setShowPaymentForm(false)}>
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {/* Attachments Section */}
       {dealer && (
@@ -400,33 +325,50 @@ export function DealerLedgerView({ dealerId, dealerName }: DealerLedgerViewProps
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Deal</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>Transaction No</TableHead>
+                <TableHead>Memo</TableHead>
+                <TableHead>Source</TableHead>
+                <TableHead className="text-right">Debit</TableHead>
+                <TableHead className="text-right">Credit</TableHead>
+                <TableHead className="text-right">Running Balance</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {ledger.entries.map((entry: any) => (
-                <TableRow key={entry.id}>
-                  <TableCell>{format(new Date(entry.date), "PPP")}</TableCell>
-                  <TableCell>{getEntryTypeBadge(entry.entryType)}</TableCell>
-                  <TableCell>{entry.description || "—"}</TableCell>
-                  <TableCell>{entry.deal?.title || entry.dealId || "—"}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {entry.entryType === "payment" ? "-" : "+"}Rs{" "}
-                    {entry.amount.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                <TableRow key={entry.id} className={entry.isLegacy ? "bg-muted/30" : ""}>
+                  <TableCell>{format(new Date(entry.date), "dd MMM yyyy")}</TableCell>
+                  <TableCell className="font-mono text-xs">{entry.referenceId || entry.referenceNo || "—"}</TableCell>
+                  <TableCell>
+                    {entry.description || "—"}
+                    {entry.isLegacy && <Badge variant="secondary" className="ml-2 text-xs">Legacy Entry</Badge>}
                   </TableCell>
-                  <TableCell className="text-right font-semibold">
-                    Rs {entry.balance.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                  <TableCell>{entry.isLegacy ? "LEGACY_COMMISSION" : getEntryTypeBadge(entry.entryType)}</TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums text-foreground">
+                    {((entry.entryType === "payment" && entry.amount > 0) || (entry.debit != null && entry.debit > 0))
+                      ? `Rs ${(entry.amount ?? entry.debit ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : "—"}
                   </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums text-foreground">
+                    {((entry.entryType === "commission" && entry.amount > 0) || (entry.credit != null && entry.credit > 0))
+                      ? `Rs ${(entry.amount ?? entry.credit ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : "—"}
+                  </TableCell>
+                  <TableCell className="text-right font-semibold tabular-nums">
+                    Rs {(entry.balance ?? entry.runningBalance ?? 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </TableCell>
+                  <TableCell>{(entry.balance ?? entry.runningBalance ?? 0) >= 0 ? "CR" : "DR"}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         ) : (
-          <p className="text-center text-muted-foreground py-8">No ledger entries found</p>
+          <div className="text-center py-12 text-muted-foreground space-y-2">
+            <p>No ledger entries found for this dealer.</p>
+            {ledger?.hasLegacyEntries === false && ledger?.hasLedgerEntries === false && (
+              <p className="text-sm">Dealer ledger is empty. Create commissions or voucher payments to see entries.</p>
+            )}
+          </div>
         )}
       </Card>
     </div>

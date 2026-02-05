@@ -14,13 +14,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Card, CardContent } from "@/components/ui/card"
 import { apiService } from "@/lib/api"
@@ -352,9 +345,14 @@ export function RequestOperationDialog({
       })
       onSuccess?.()
     } catch (err: any) {
+      const raw = err.response?.data?.error ?? err.message ?? ""
+      const friendly =
+        typeof raw === "string" && raw.length > 0
+          ? raw
+          : "Failed to create request. Please check your entries and try again."
       toast({
-        title: "Error",
-        description: err.response?.data?.error ?? err.message ?? "Failed to create request",
+        title: "Request failed",
+        description: friendly,
         variant: "destructive",
       })
     } finally {
@@ -369,19 +367,19 @@ export function RequestOperationDialog({
     }
   }
 
-  const goToOperations = () => {
+  const goToOperations = (requestId?: string) => {
     resetForm()
     onOpenChange(false)
-    router.push("/finance?tab=operations")
+    router.push(requestId ? `/finance?tab=operations&requestId=${requestId}` : "/finance?tab=operations")
   }
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-lg" aria-describedby="request-operation-desc">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto" aria-describedby="request-operation-desc">
         <DialogHeader>
           <DialogTitle>Request Finance Operation</DialogTitle>
           <DialogDescription id="request-operation-desc">
-            Create a request. Execution happens in Finance → Operations only.
+            Request-only form. Does not create vouchers or modify payments. Execution happens in Finance → Operations only.
           </DialogDescription>
         </DialogHeader>
 
@@ -402,7 +400,7 @@ export function RequestOperationDialog({
                   variant="outline"
                   size="sm"
                   className="mt-3"
-                  onClick={goToOperations}
+                  onClick={() => goToOperations(createdRequestId || undefined)}
                 >
                   <ExternalLink className="h-4 w-4 mr-2" />
                   View in Finance → Operations
@@ -415,19 +413,41 @@ export function RequestOperationDialog({
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Operation Type */}
+            {/* Operation Type - Radio buttons, changing type resets dependent fields */}
             <div>
               <Label>Operation Type</Label>
-              <Select value={operationType} onValueChange={(v) => setOperationType(v as OpType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="REFUND">Refund</SelectItem>
-                  <SelectItem value="TRANSFER">Transfer (Client → Client)</SelectItem>
-                  <SelectItem value="MERGE">Merge / Reallocation</SelectItem>
-                </SelectContent>
-              </Select>
+              <RadioGroup
+                value={operationType}
+                onValueChange={(v) => {
+                  setOperationType(v as OpType)
+                  setTargetClientId(null)
+                  setTargetDealId(null)
+                  setTargetPropertyId(null)
+                  setTargetDealClientId(null)
+                  setTargetDealStatus(null)
+                  setPartialAmount("")
+                }}
+                className="flex flex-col gap-3 mt-2"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="REFUND" id="op-refund" />
+                  <Label htmlFor="op-refund" className="font-normal cursor-pointer">
+                    Refund
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="TRANSFER" id="op-transfer" />
+                  <Label htmlFor="op-transfer" className="font-normal cursor-pointer">
+                    Transfer (Client → Client)
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="MERGE" id="op-merge" />
+                  <Label htmlFor="op-merge" className="font-normal cursor-pointer">
+                    Merge / Reallocation
+                  </Label>
+                </div>
+              </RadioGroup>
             </div>
 
             <div>
@@ -451,8 +471,9 @@ export function RequestOperationDialog({
                       variant="outline"
                       onClick={() => setPaymentSearchOpen(true)}
                       className={cn("flex-1 justify-start", paymentContextError && "border-destructive")}
+                      aria-label="Search and select payment"
                     >
-                      {selectedPaymentLabel || "Search payment..."}
+                      {selectedPaymentLabel || "Search and select payment..."}
                     </Button>
                     <Button
                       type="button"
@@ -484,49 +505,41 @@ export function RequestOperationDialog({
                 {paymentContext && !paymentContextLoading && (
                   <Card>
                     <CardContent className="pt-4">
-                      <p className="text-sm font-medium mb-2">Payment Context (read-only)</p>
-                      <dl className="grid grid-cols-1 gap-1.5 text-sm">
+                      <p className="text-sm font-semibold mb-3 text-foreground">Payment Summary (read-only)</p>
+                      <dl className="grid grid-cols-1 gap-2 text-sm">
                         <div>
                           <dt className="text-muted-foreground">Client</dt>
-                          <dd>{paymentContext.deal?.client?.name ?? "—"}</dd>
+                          <dd className="font-medium text-foreground">{paymentContext.deal?.client?.name ?? "—"}</dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">Deal</dt>
-                          <dd>
-                            {paymentContext.deal?.dealCode ?? paymentContext.deal?.id ?? "—"}
-                          </dd>
-                        </div>
-                        <div>
-                          <dt className="text-muted-foreground">Property / Unit</dt>
-                          <dd>
+                          <dt className="text-muted-foreground">Property / Deal</dt>
+                          <dd className="font-medium text-foreground">
                             {paymentContext.deal?.property?.name ?? "—"}
-                            {paymentContext.deal?.unit?.unitName
-                              ? ` / ${paymentContext.deal.unit.unitName}`
-                              : ""}
+                            {paymentContext.deal?.unit?.unitName ? ` / ${paymentContext.deal.unit.unitName}` : ""}
+                            {paymentContext.deal?.dealCode ? ` (${paymentContext.deal.dealCode})` : ""}
                           </dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">Original Payment Amount</dt>
-                          <dd className="font-medium">{formatRs(paymentContext.amount)}</dd>
+                          <dt className="text-muted-foreground">Original Amount</dt>
+                          <dd className="font-semibold text-foreground tabular-nums">{formatRs(paymentContext.amount)}</dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">
-                            {operationType === "REFUND" ? "Total Already Refunded" : "Total Already Applied"}
-                          </dt>
-                          <dd className="text-muted-foreground">
-                            {operationType === "REFUND" ? formatRs(totals.refunded) : formatRs(totals.refunded + totals.transferred + totals.merged)}
-                          </dd>
+                          <dt className="text-muted-foreground">Refunded</dt>
+                          <dd className="font-medium text-foreground tabular-nums">{formatRs(totals.refunded)}</dd>
                         </div>
                         <div>
-                          <dt className="text-muted-foreground">
-                            {operationType === "REFUND" ? "Refundable Balance" : "Transferable Balance"}
-                          </dt>
-                          <dd className="font-medium">
+                          <dt className="text-muted-foreground">Transferred</dt>
+                          <dd className="font-medium text-foreground tabular-nums">{formatRs(totals.transferred)}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-muted-foreground">Merged</dt>
+                          <dd className="font-medium text-foreground tabular-nums">{formatRs(totals.merged)}</dd>
+                        </div>
+                        <div className="pt-2 border-t">
+                          <dt className="text-muted-foreground">Available Balance</dt>
+                          <dd className={`font-bold tabular-nums ${isBalanceAvailable ? "text-foreground" : "text-destructive"}`}>
                             {formatRs(operationType === "REFUND" ? refundableBalance : transferableBalance)}
                           </dd>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            Verify no prior refunds in Finance → Operations
-                          </p>
                         </div>
                       </dl>
                     </CardContent>
@@ -562,6 +575,15 @@ export function RequestOperationDialog({
                 {operationType === "MERGE" && paymentContext && (
                   <Card>
                     <CardContent className="pt-4 space-y-3">
+                      <div>
+                        <Label>Source Deal (read-only)</Label>
+                        <Input
+                          value={paymentContext.deal?.dealCode
+                            ? `${paymentContext.deal.dealCode} — ${paymentContext.deal.title || ""}`.trim()
+                            : paymentContext.deal?.title ?? "—"}
+                          readOnly
+                        />
+                      </div>
                       <div>
                         <Label>Same Client (read-only)</Label>
                         <Input value={paymentContext.deal?.client?.name || ""} readOnly />
@@ -679,16 +701,16 @@ export function RequestOperationDialog({
                       )}
                     />
                     {partialAmount.trim() !== "" && !partialValid && (
-                      <p className="text-sm text-destructive mt-1">
-                        Amount must be &gt; 0 and ≤ {formatRs(operationType === "REFUND" ? refundableBalance : transferableBalance)}
+                      <p className="text-sm text-destructive mt-1" role="alert">
+                        Amount must be greater than 0 and cannot exceed available balance ({formatRs(operationType === "REFUND" ? refundableBalance : transferableBalance)}).
                       </p>
                     )}
                   </div>
                 )}
 
-                {!isBalanceAvailable && (
-                  <p className="text-sm text-destructive">
-                    No available balance for this operation.
+                {!isBalanceAvailable && paymentContext && (
+                  <p className="text-sm text-destructive font-medium">
+                    Available balance is zero. Submission blocked. Complete pending operations or select a different payment.
                   </p>
                 )}
               </>

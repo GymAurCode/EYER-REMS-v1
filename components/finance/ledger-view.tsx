@@ -1,18 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Loader2, ArrowLeft, Download, FileText, X, Eye } from "lucide-react"
+import { Loader2, ArrowLeft, Download, FileText } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { Input } from "@/components/ui/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { apiService } from "@/lib/api"
 import { useToast } from "@/hooks/use-toast"
 import { format } from "date-fns"
+import { cn } from "@/lib/utils"
+
+type SourceTypeFilter = "all" | "deal" | "payment" | "voucher" | "refund" | "transfer" | "merge" | "commission" | "expense" | "adjustment"
 
 interface LedgerEntry {
   id: string
@@ -22,10 +33,13 @@ interface LedgerEntry {
   debit: number
   credit: number
   runningBalance: number
-  // Additional fields for detail view
+  sourceType?: string
+  transactionUuid?: string
+  isLegacy?: boolean
+  status?: string
   accountHead?: string
   narration?: string
-  linkedEntityType?: string // deal, payment, expense, etc.
+  linkedEntityType?: string
   linkedEntityId?: string
   linkedEntityName?: string
   voucherNo?: string
@@ -40,6 +54,12 @@ interface LedgerData {
     totalDebit: number
     totalCredit: number
     closingBalance: number
+    openingBalance?: number
+    openingBalanceSource?: "Derived" | "Legacy"
+    hasLegacyEntries?: boolean
+    dealValue?: number
+    received?: number
+    outstanding?: number
   }
 }
 
@@ -58,10 +78,21 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
   const [error, setError] = useState<string | null>(null)
   const [selectedEntry, setSelectedEntry] = useState<LedgerEntry | null>(null)
   const [detailDialogOpen, setDetailDialogOpen] = useState(false)
+  const [filterStartDate, setFilterStartDate] = useState<string>("")
+  const [filterEndDate, setFilterEndDate] = useState<string>("")
+  const [filterSourceType, setFilterSourceType] = useState<SourceTypeFilter>("all")
+
+  const filters = useMemo(() => {
+    const f: { startDate?: string; endDate?: string; sourceType?: string } = {}
+    if (filterStartDate) f.startDate = filterStartDate
+    if (filterEndDate) f.endDate = filterEndDate
+    if (filterSourceType && filterSourceType !== "all") f.sourceType = filterSourceType
+    return f
+  }, [filterStartDate, filterEndDate, filterSourceType])
 
   useEffect(() => {
     fetchLedger()
-  }, [type, id])
+  }, [type, id, filterStartDate, filterEndDate, filterSourceType])
 
   const fetchLedger = async () => {
     try {
@@ -70,12 +101,12 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
       
       console.log(`Fetching ledger for ${type} with ID: ${id}`)
       
-      // Make API call - handle deal type separately
+      // Make API call - handle deal type separately (deal API does not support filters)
       let response: any
       if (type === 'deal') {
         response = await apiService.deals.getLedger(id)
       } else {
-        response = await apiService.ledgers.getLedger(type, id)
+        response = await apiService.ledgers.getLedger(type, id, filters)
       }
       
       console.log("Ledger API response:", response)
@@ -113,6 +144,9 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
           debit: entry.debitAccount ? entry.amount : 0,
           credit: entry.creditAccount ? entry.amount : 0,
           runningBalance: 0, // Will be calculated below
+          sourceType: 'payment' as const,
+          transactionUuid: entry.id,
+          isLegacy: false,
           accountHead: entry.debitAccount?.name || entry.creditAccount?.name || '',
           linkedEntityType: 'payment',
           linkedEntityId: entry.payment?.id,
@@ -344,10 +378,41 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
     )
   }
 
-  // Handle viewing entry details
+  // Entries (sourceType filter applied server-side when passed in filters)
+  const filteredEntries = useMemo(() => ledgerData.entries || [], [ledgerData.entries])
+
+  // Group entries by transactionUuid for visual nesting
+  const groupedRows = useMemo(() => {
+    const groups: { txId: string; entries: LedgerEntry[] }[] = []
+    const seen = new Set<string>()
+    for (const e of filteredEntries) {
+      const txId = e.transactionUuid || e.id
+      if (!seen.has(txId)) {
+        seen.add(txId)
+        groups.push({
+          txId,
+          entries: filteredEntries.filter((x) => (x.transactionUuid || x.id) === txId),
+        })
+      }
+    }
+    return groups
+  }, [filteredEntries])
+
   const handleViewEntry = (entry: LedgerEntry) => {
+    if (entry.id === "OPENING" || entry.isLegacy) return
     setSelectedEntry(entry)
     setDetailDialogOpen(true)
+  }
+
+  const formatSourceType = (s?: string) => (s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : "—")
+
+  const getStatusBadge = (entry: LedgerEntry) => {
+    if (entry.id === "OPENING") return <Badge variant="outline" className="text-xs">B/F</Badge>
+    const status = entry.status || (entry.isLegacy ? "Legacy" : undefined)
+    if (!status) return type === "dealer" ? (entry.runningBalance >= 0 ? "CR" : "DR") : "—"
+    if (type === "dealer") return entry.runningBalance >= 0 ? "CR" : "DR"
+    const variant = status === "Legacy" ? "secondary" : status === "Payment" ? "default" : "outline"
+    return <Badge variant={variant} className="text-xs">{status}</Badge>
   }
 
   return (
@@ -461,7 +526,7 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
         </DialogContent>
       </Dialog>
 
-      {/* Header */}
+      {/* Ledger Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           {showBackButton && (
@@ -471,7 +536,12 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
           )}
           <div>
             <h1 className="text-2xl font-bold">{getTypeLabel()}</h1>
-            <p className="text-sm text-muted-foreground">{ledgerData.entityName}</p>
+            <p className="text-sm text-muted-foreground">
+              {ledgerData.entityName}
+              {ledgerData.entityId && (
+                <span className="ml-2 font-mono text-xs">Ref: {ledgerData.entityId.slice(0, 8)}…</span>
+              )}
+            </p>
           </div>
         </div>
         <Button variant="outline" onClick={handleExport}>
@@ -480,42 +550,116 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
         </Button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      {/* Filters (read-only, do not alter calculations) */}
+      {type !== "deal" && (
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Debit</CardDescription>
+            <CardTitle className="text-sm">Filters</CardTitle>
+            <CardDescription>Display filters only. Do not affect balances or calculations.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(ledgerData.summary.totalDebit)}</div>
+            <div className="flex flex-wrap gap-4 items-end">
+              <div className="space-y-2">
+                <Label className="text-xs">Date range (from)</Label>
+                <Input
+                  type="date"
+                  value={filterStartDate}
+                  onChange={(e) => setFilterStartDate(e.target.value)}
+                  className="w-[140px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Date range (to)</Label>
+                <Input
+                  type="date"
+                  value={filterEndDate}
+                  onChange={(e) => setFilterEndDate(e.target.value)}
+                  className="w-[140px]"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-xs">Source type</Label>
+                <Select value={filterSourceType} onValueChange={(v) => setFilterSourceType(v as SourceTypeFilter)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All</SelectItem>
+                    {(type === "client" || type === "property") && <SelectItem value="deal">Deal</SelectItem>}
+                    <SelectItem value="payment">Payment</SelectItem>
+                    <SelectItem value="voucher">Voucher</SelectItem>
+                    <SelectItem value="refund">Refund</SelectItem>
+                    <SelectItem value="transfer">Transfer</SelectItem>
+                    <SelectItem value="merge">Merge</SelectItem>
+                    {type === "dealer" && <SelectItem value="commission">Commission</SelectItem>}
+                    <SelectItem value="expense">Expense</SelectItem>
+                    <SelectItem value="adjustment">Adjustment</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Summary Cards - accounting-correct, read-only */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>Opening Balance {ledgerData.summary.openingBalanceSource ? `(${ledgerData.summary.openingBalanceSource})` : ""}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-xl font-bold tabular-nums text-foreground">
+              {formatCurrency(ledgerData.summary.openingBalance ?? 0)}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Total Credit</CardDescription>
+            <CardDescription>
+              {(type === "client" || type === "property") ? "Deal Value" : type === "dealer" ? "Total Payments (SUM Debit)" : "Total Debit"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(ledgerData.summary.totalCredit)}</div>
+            <div className="text-xl font-bold tabular-nums text-foreground">
+              {formatCurrency((type === "client" || type === "property") && ledgerData.summary.dealValue !== undefined ? ledgerData.summary.dealValue : ledgerData.summary.totalDebit)}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Closing Balance</CardDescription>
+            <CardDescription>
+              {(type === "client" || type === "property") ? "Received" : type === "dealer" ? "Total Commission (SUM Credit)" : "Total Credit"}
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className={`text-2xl font-bold ${ledgerData.summary.closingBalance >= 0 ? "text-primary" : "text-destructive"}`}>
-              {formatCurrency(ledgerData.summary.closingBalance)}
+            <div className="text-xl font-bold tabular-nums text-foreground">
+              {formatCurrency((type === "client" || type === "property") && ledgerData.summary.received !== undefined ? ledgerData.summary.received : ledgerData.summary.totalCredit)}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardDescription>
+              {(type === "client" || type === "property") ? "Outstanding Balance" : type === "dealer" ? "Outstanding Balance (Credit − Debit)" : "Current Balance (read-only)"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className={`text-xl font-bold tabular-nums ${ledgerData.summary.closingBalance >= 0 ? "text-foreground" : "text-destructive"}`}>
+              {formatCurrency((type === "client" || type === "property") && ledgerData.summary.outstanding !== undefined ? ledgerData.summary.outstanding : ledgerData.summary.closingBalance)}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Ledger Table */}
+      {/* Ledger Table - Fixed columns, transaction grouping, legacy labeling */}
       <Card>
         <CardHeader>
           <CardTitle>Ledger Entries</CardTitle>
           <CardDescription>
-            {ledgerData.entries.length} {ledgerData.entries.length === 1 ? "entry" : "entries"} found
+            {filteredEntries.length} {filteredEntries.length === 1 ? "entry" : "entries"} shown
+            {ledgerData.summary.hasLegacyEntries && " (Legacy commission data)"}
+            {type === "dealer" && ledgerData.summary.hasLegacyEntries && " — New operations will appear here going forward."}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -524,58 +668,97 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-[100px]">Date</TableHead>
-                  <TableHead className="w-[120px]">Reference No</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right w-[120px]">Debit</TableHead>
-                  <TableHead className="text-right w-[120px]">Credit</TableHead>
+                  <TableHead className="w-[120px]">{type === "dealer" ? "Transaction No" : "Reference"}</TableHead>
+                  <TableHead>{type === "dealer" ? "Memo" : "Description"}</TableHead>
+                  <TableHead className="w-[100px]">Source</TableHead>
+                  <TableHead className="text-right w-[130px]">Debit</TableHead>
+                  <TableHead className="text-right w-[130px]">Credit</TableHead>
                   <TableHead className="text-right w-[140px]">Running Balance</TableHead>
-                  <TableHead className="text-right w-[60px]">View</TableHead>
+                  {(type === "dealer" || type === "client" || type === "property") && <TableHead className="w-[90px]">Status</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {ledgerData.entries.length === 0 ? (
+                {filteredEntries.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                      No ledger entries found
+                    <TableCell colSpan={(type === "dealer" || type === "client" || type === "property") ? 8 : 7} className="text-center py-12 text-muted-foreground space-y-2">
+                      {type === "dealer" ? (
+                        <>
+                          <p>No ledger entries found for this dealer.</p>
+                          {!ledgerData.summary.hasLegacyEntries && (
+                            <p className="text-sm">Create commissions or voucher payments to see entries.</p>
+                          )}
+                        </>
+                      ) : (type === "client" || type === "property") ? (
+                        <>
+                          <p>No ledger entries found.</p>
+                          <p className="text-sm">Create deals and record payments to see entries.</p>
+                        </>
+                      ) : (
+                        "No ledger entries found"
+                      )}
                     </TableCell>
                   </TableRow>
                 ) : (
-                  ledgerData.entries.map((entry) => (
-                    <TableRow 
-                      key={entry.id}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
-                      onClick={() => {
-                        setSelectedEntry(entry)
-                        setDetailDialogOpen(true)
-                      }}
-                    >
-                      <TableCell className="font-medium">{formatDate(entry.date)}</TableCell>
-                      <TableCell>
-                        {entry.referenceNo ? (
-                          <Badge variant="outline" className="font-mono text-xs">
-                            {entry.referenceNo}
-                          </Badge>
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </TableCell>
-                      <TableCell>{entry.description}</TableCell>
-                      <TableCell className="text-right font-medium">
-                        {entry.debit > 0 ? formatCurrency(entry.debit) : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        {entry.credit > 0 ? formatCurrency(entry.credit) : <span className="text-muted-foreground">—</span>}
-                      </TableCell>
-                      <TableCell className={`text-right font-semibold ${entry.runningBalance >= 0 ? "text-primary" : "text-destructive"}`}>
-                        {formatCurrency(entry.runningBalance)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm">
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  groupedRows.map(({ txId, entries: txEntries }) =>
+                    txEntries.map((entry, idx) => {
+                      const isOpening = entry.id === "OPENING"
+                      return (
+                        <TableRow
+                          key={entry.id}
+                          className={cn(
+                            isOpening && "bg-muted/40 font-medium border-y",
+                            !isOpening && !entry.isLegacy && "cursor-pointer hover:bg-muted/50 transition-colors",
+                            !isOpening && entry.isLegacy && "bg-muted/30"
+                          )}
+                          onClick={() => handleViewEntry(entry)}
+                        >
+                          <TableCell className={cn("font-medium align-top min-h-[44px]", idx > 0 && !isOpening && "pl-12")}>
+                            {idx === 0 || isOpening ? formatDate(entry.date) : ""}
+                          </TableCell>
+                          <TableCell className={cn("align-top min-h-[44px]", idx > 0 && !isOpening && "pl-12")}>
+                            {(idx === 0 || isOpening) && (
+                              <>
+                                {entry.referenceNo && entry.referenceNo !== "—" ? (
+                                  <Badge variant="outline" className="font-mono text-xs">
+                                    {entry.referenceNo}
+                                  </Badge>
+                                ) : (
+                                  "—"
+                                )}
+                              </>
+                            )}
+                          </TableCell>
+                          <TableCell className={cn("align-top min-h-[44px] break-words", idx > 0 && !isOpening && "pl-12")}>
+                            <span className={cn(idx > 0 && !isOpening && "pl-2 border-l-2 border-muted")}>
+                              {entry.description}
+                              {!isOpening && entry.isLegacy && (
+                                <Badge variant="secondary" className="ml-2 text-xs">
+                                  Legacy
+                                </Badge>
+                              )}
+                            </span>
+                          </TableCell>
+                          <TableCell className="align-top min-h-[44px]">
+                            {formatSourceType(entry.sourceType)}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums text-foreground align-top min-h-[44px] whitespace-nowrap">
+                            {entry.debit > 0 ? formatCurrency(entry.debit) : "—"}
+                          </TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums text-foreground align-top min-h-[44px] whitespace-nowrap">
+                            {entry.credit > 0 ? formatCurrency(entry.credit) : "—"}
+                          </TableCell>
+                          <TableCell className={`text-right font-semibold tabular-nums align-top min-h-[44px] whitespace-nowrap ${entry.runningBalance >= 0 ? "text-foreground" : "text-destructive"}`}>
+                            {formatCurrency(entry.runningBalance)}
+                          </TableCell>
+                          {(type === "dealer" || type === "client" || type === "property") && (
+                            <TableCell className="align-top min-h-[44px]">
+                              {getStatusBadge(entry)}
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })
+                  )
                 )}
               </TableBody>
             </Table>

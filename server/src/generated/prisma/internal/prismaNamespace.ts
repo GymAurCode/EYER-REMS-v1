@@ -497,7 +497,9 @@ export const ModelName = {
   FilterPreset: 'FilterPreset',
   FinancialOperation: 'FinancialOperation',
   FinancialOperationLine: 'FinancialOperationLine',
-  FinancialOperationReference: 'FinancialOperationReference'
+  FinancialOperationReference: 'FinancialOperationReference',
+  FinanceOperationLedgerEntry: 'FinanceOperationLedgerEntry',
+  LedgerEngineEntry: 'LedgerEngineEntry'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -513,7 +515,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset" | "financialOperation" | "financialOperationLine" | "financialOperationReference"
+    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset" | "financialOperation" | "financialOperationLine" | "financialOperationReference" | "financeOperationLedgerEntry" | "ledgerEngineEntry"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -8953,6 +8955,154 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    FinanceOperationLedgerEntry: {
+      payload: Prisma.$FinanceOperationLedgerEntryPayload<ExtArgs>
+      fields: Prisma.FinanceOperationLedgerEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.FinanceOperationLedgerEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.FinanceOperationLedgerEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.FinanceOperationLedgerEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.FinanceOperationLedgerEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        findMany: {
+          args: Prisma.FinanceOperationLedgerEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>[]
+        }
+        create: {
+          args: Prisma.FinanceOperationLedgerEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        createMany: {
+          args: Prisma.FinanceOperationLedgerEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.FinanceOperationLedgerEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.FinanceOperationLedgerEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        update: {
+          args: Prisma.FinanceOperationLedgerEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.FinanceOperationLedgerEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.FinanceOperationLedgerEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.FinanceOperationLedgerEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.FinanceOperationLedgerEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$FinanceOperationLedgerEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.FinanceOperationLedgerEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateFinanceOperationLedgerEntry>
+        }
+        groupBy: {
+          args: Prisma.FinanceOperationLedgerEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinanceOperationLedgerEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.FinanceOperationLedgerEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.FinanceOperationLedgerEntryCountAggregateOutputType> | number
+        }
+      }
+    }
+    LedgerEngineEntry: {
+      payload: Prisma.$LedgerEngineEntryPayload<ExtArgs>
+      fields: Prisma.LedgerEngineEntryFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.LedgerEngineEntryFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.LedgerEngineEntryFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        findFirst: {
+          args: Prisma.LedgerEngineEntryFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.LedgerEngineEntryFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        findMany: {
+          args: Prisma.LedgerEngineEntryFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>[]
+        }
+        create: {
+          args: Prisma.LedgerEngineEntryCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        createMany: {
+          args: Prisma.LedgerEngineEntryCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.LedgerEngineEntryCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>[]
+        }
+        delete: {
+          args: Prisma.LedgerEngineEntryDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        update: {
+          args: Prisma.LedgerEngineEntryUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        deleteMany: {
+          args: Prisma.LedgerEngineEntryDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.LedgerEngineEntryUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.LedgerEngineEntryUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>[]
+        }
+        upsert: {
+          args: Prisma.LedgerEngineEntryUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$LedgerEngineEntryPayload>
+        }
+        aggregate: {
+          args: Prisma.LedgerEngineEntryAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregateLedgerEngineEntry>
+        }
+        groupBy: {
+          args: Prisma.LedgerEngineEntryGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LedgerEngineEntryGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.LedgerEngineEntryCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.LedgerEngineEntryCountAggregateOutputType> | number
+        }
+      }
+    }
   }
 } & {
   other: {
@@ -11224,6 +11374,43 @@ export const FinancialOperationReferenceScalarFieldEnum = {
 export type FinancialOperationReferenceScalarFieldEnum = (typeof FinancialOperationReferenceScalarFieldEnum)[keyof typeof FinancialOperationReferenceScalarFieldEnum]
 
 
+export const FinanceOperationLedgerEntryScalarFieldEnum = {
+  id: 'id',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  accountId: 'accountId',
+  amount: 'amount',
+  side: 'side',
+  sourceType: 'sourceType',
+  operationId: 'operationId',
+  voucherId: 'voucherId',
+  paymentId: 'paymentId',
+  description: 'description',
+  date: 'date',
+  createdAt: 'createdAt'
+} as const
+
+export type FinanceOperationLedgerEntryScalarFieldEnum = (typeof FinanceOperationLedgerEntryScalarFieldEnum)[keyof typeof FinanceOperationLedgerEntryScalarFieldEnum]
+
+
+export const LedgerEngineEntryScalarFieldEnum = {
+  id: 'id',
+  transactionUuid: 'transactionUuid',
+  entryDate: 'entryDate',
+  accountId: 'accountId',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  debitAmount: 'debitAmount',
+  creditAmount: 'creditAmount',
+  narration: 'narration',
+  sourceType: 'sourceType',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type LedgerEngineEntryScalarFieldEnum = (typeof LedgerEngineEntryScalarFieldEnum)[keyof typeof LedgerEngineEntryScalarFieldEnum]
+
+
 export const SortOrder = {
   asc: 'asc',
   desc: 'desc'
@@ -11591,6 +11778,8 @@ export type GlobalOmitConfig = {
   financialOperation?: Prisma.FinancialOperationOmit
   financialOperationLine?: Prisma.FinancialOperationLineOmit
   financialOperationReference?: Prisma.FinancialOperationReferenceOmit
+  financeOperationLedgerEntry?: Prisma.FinanceOperationLedgerEntryOmit
+  ledgerEngineEntry?: Prisma.LedgerEngineEntryOmit
 }
 
 /* Types for Logging */

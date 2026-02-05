@@ -164,7 +164,9 @@ export const ModelName = {
   FilterPreset: 'FilterPreset',
   FinancialOperation: 'FinancialOperation',
   FinancialOperationLine: 'FinancialOperationLine',
-  FinancialOperationReference: 'FinancialOperationReference'
+  FinancialOperationReference: 'FinancialOperationReference',
+  FinanceOperationLedgerEntry: 'FinanceOperationLedgerEntry',
+  LedgerEngineEntry: 'LedgerEngineEntry'
 } as const
 
 export type ModelName = (typeof ModelName)[keyof typeof ModelName]
@@ -2413,6 +2415,43 @@ export const FinancialOperationReferenceScalarFieldEnum = {
 } as const
 
 export type FinancialOperationReferenceScalarFieldEnum = (typeof FinancialOperationReferenceScalarFieldEnum)[keyof typeof FinancialOperationReferenceScalarFieldEnum]
+
+
+export const FinanceOperationLedgerEntryScalarFieldEnum = {
+  id: 'id',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  accountId: 'accountId',
+  amount: 'amount',
+  side: 'side',
+  sourceType: 'sourceType',
+  operationId: 'operationId',
+  voucherId: 'voucherId',
+  paymentId: 'paymentId',
+  description: 'description',
+  date: 'date',
+  createdAt: 'createdAt'
+} as const
+
+export type FinanceOperationLedgerEntryScalarFieldEnum = (typeof FinanceOperationLedgerEntryScalarFieldEnum)[keyof typeof FinanceOperationLedgerEntryScalarFieldEnum]
+
+
+export const LedgerEngineEntryScalarFieldEnum = {
+  id: 'id',
+  transactionUuid: 'transactionUuid',
+  entryDate: 'entryDate',
+  accountId: 'accountId',
+  entityType: 'entityType',
+  entityId: 'entityId',
+  debitAmount: 'debitAmount',
+  creditAmount: 'creditAmount',
+  narration: 'narration',
+  sourceType: 'sourceType',
+  status: 'status',
+  createdAt: 'createdAt'
+} as const
+
+export type LedgerEngineEntryScalarFieldEnum = (typeof LedgerEngineEntryScalarFieldEnum)[keyof typeof LedgerEngineEntryScalarFieldEnum]
 
 
 export const SortOrder = {

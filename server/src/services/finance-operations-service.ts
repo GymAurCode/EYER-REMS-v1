@@ -7,6 +7,8 @@
 import prisma from '../prisma/client';
 import { FinancialOperationType, FinancialOperationStatus } from '../generated/prisma/client';
 import { VoucherService } from './voucher-service';
+import { writeFinanceOperationLedger } from './finance-operation-ledger-service';
+import { writeLedgerEntry } from './ledger-engine-service';
 import logger from '../utils/logger';
 
 export type OperationRequestPayload = {
@@ -135,6 +137,26 @@ export async function createOperationRequest(
       if (srcDealRecord && targetDeal.clientId && srcDealRecord.clientId !== targetDeal.clientId) {
         throw new Error('Target deal must belong to the same client as source');
       }
+    }
+  }
+
+  // Prevent duplicate pending requests for same payment
+  if (payload.sourcePaymentId) {
+    const pending = await prisma.financialOperation.findFirst({
+      where: {
+        status: { in: [FinancialOperationStatus.REQUESTED, FinancialOperationStatus.APPROVED] },
+        references: {
+          some: {
+            refType: 'payment',
+            refId: payload.sourcePaymentId,
+          },
+        },
+      },
+    });
+    if (pending) {
+      throw new Error(
+        `A pending ${pending.status} operation already exists for this payment. Complete or reject it before creating a new request.`
+      );
     }
   }
 
@@ -340,6 +362,39 @@ async function executeRefund(op: any, userId: string): Promise<string> {
   await VoucherService.approveVoucher(voucher.id, userId);
   await VoucherService.postVoucher(voucher.id, userId);
 
+  const clientId = payment.deal?.clientId;
+  if (clientId) {
+    await writeFinanceOperationLedger(
+      [
+        {
+          entityType: 'Client',
+          entityId: clientId,
+          accountId: advanceAccountId,
+          amount: refundAmount,
+          side: 'debit',
+          sourceType: 'refund',
+          operationId: op.id,
+          voucherId: voucher.id,
+          paymentId: payment.id,
+          description: desc,
+        },
+      ],
+      prisma
+    );
+    await writeLedgerEntry({
+      transactionUuid: op.id,
+      entryDate: new Date(),
+      accountId: advanceAccountId,
+      entityType: 'client',
+      entityId: clientId,
+      debitAmount: refundAmount,
+      creditAmount: 0,
+      narration: desc,
+      sourceType: 'refund',
+      status: 'posted',
+    });
+  }
+
   return voucher.id;
 }
 
@@ -405,6 +460,61 @@ async function executeTransfer(op: any, userId: string): Promise<string> {
   await VoucherService.submitVoucher(voucher.id, userId);
   await VoucherService.approveVoucher(voucher.id, userId);
   await VoucherService.postVoucher(voucher.id, userId);
+
+  await writeFinanceOperationLedger(
+    [
+      {
+        entityType: 'Client',
+        entityId: tgtClient.refId,
+        accountId: tgtAccountId,
+        amount,
+        side: 'debit',
+        sourceType: 'transfer',
+        operationId: op.id,
+        voucherId: voucher.id,
+        paymentId: paymentRef?.refId,
+        description: desc,
+      },
+      {
+        entityType: 'Client',
+        entityId: srcClient.refId,
+        accountId: srcAccountId,
+        amount,
+        side: 'credit',
+        sourceType: 'transfer',
+        operationId: op.id,
+        voucherId: voucher.id,
+        paymentId: paymentRef?.refId,
+        description: desc,
+      },
+    ],
+    prisma
+  );
+
+  await writeLedgerEntry({
+    transactionUuid: op.id,
+    entryDate: new Date(),
+    accountId: tgtAccountId,
+    entityType: 'client',
+    entityId: tgtClient.refId,
+    debitAmount: amount,
+    creditAmount: 0,
+    narration: desc,
+    sourceType: 'transfer',
+    status: 'posted',
+  });
+  await writeLedgerEntry({
+    transactionUuid: op.id,
+    entryDate: new Date(),
+    accountId: srcAccountId,
+    entityType: 'client',
+    entityId: srcClient.refId,
+    debitAmount: 0,
+    creditAmount: amount,
+    narration: desc,
+    sourceType: 'transfer',
+    status: 'posted',
+  });
 
   return voucher.id;
 }
@@ -508,6 +618,96 @@ async function executeMerge(op: any, userId: string): Promise<string> {
   await VoucherService.submitVoucher(voucher.id, userId);
   await VoucherService.approveVoucher(voucher.id, userId);
   await VoucherService.postVoucher(voucher.id, userId);
+
+  const foEntityType = toEntityType(srcRef.refType);
+  await writeFinanceOperationLedger(
+    [
+      {
+        entityType: foEntityType as 'Deal' | 'Property',
+        entityId: tgtRef.refId,
+        accountId: tgtAccountId,
+        amount,
+        side: 'debit',
+        sourceType: 'merge',
+        operationId: op.id,
+        voucherId: voucher.id,
+        paymentId: paymentRef?.refId,
+        description: desc,
+      },
+      {
+        entityType: foEntityType as 'Deal' | 'Property',
+        entityId: srcRef.refId,
+        accountId: srcAccountId,
+        amount,
+        side: 'credit',
+        sourceType: 'merge',
+        operationId: op.id,
+        voucherId: voucher.id,
+        paymentId: paymentRef?.refId,
+        description: desc,
+      },
+    ],
+    prisma
+  );
+
+  const srcDeal = srcRef.refType === 'deal' ? await prisma.deal.findUnique({ where: { id: srcRef.refId }, select: { clientId: true, propertyId: true } }) : null;
+  const tgtDeal = tgtRef.refType === 'deal' ? await prisma.deal.findUnique({ where: { id: tgtRef.refId }, select: { clientId: true, propertyId: true } }) : null;
+  const srcPropId = srcRef.refType === 'property' ? srcRef.refId : srcDeal?.propertyId;
+  const tgtPropId = tgtRef.refType === 'property' ? tgtRef.refId : tgtDeal?.propertyId;
+  const clientId = srcDeal?.clientId ?? tgtDeal?.clientId;
+
+  if (clientId) {
+    await writeLedgerEntry({
+      transactionUuid: op.id,
+      entryDate: new Date(),
+      accountId: srcAccountId,
+      entityType: 'client',
+      entityId: clientId,
+      debitAmount: 0,
+      creditAmount: amount,
+      narration: desc,
+      sourceType: 'merge',
+      status: 'posted',
+    });
+    await writeLedgerEntry({
+      transactionUuid: op.id,
+      entryDate: new Date(),
+      accountId: tgtAccountId,
+      entityType: 'client',
+      entityId: clientId,
+      debitAmount: amount,
+      creditAmount: 0,
+      narration: desc,
+      sourceType: 'merge',
+      status: 'posted',
+    });
+  }
+  if (srcPropId && tgtPropId) {
+    await writeLedgerEntry({
+      transactionUuid: op.id,
+      entryDate: new Date(),
+      accountId: srcAccountId,
+      entityType: 'property',
+      entityId: srcPropId,
+      debitAmount: 0,
+      creditAmount: amount,
+      narration: desc,
+      sourceType: 'merge',
+      status: 'posted',
+    });
+    await writeLedgerEntry({
+      transactionUuid: op.id,
+      entryDate: new Date(),
+      accountId: tgtAccountId,
+      entityType: 'property',
+      entityId: tgtPropId,
+      debitAmount: amount,
+      creditAmount: 0,
+      narration: desc,
+      sourceType: 'merge',
+      status: 'posted',
+    });
+  }
 
   return voucher.id;
 }

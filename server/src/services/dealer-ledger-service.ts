@@ -1,11 +1,13 @@
 /**
  * DealerLedgerService - Business logic for Dealer Ledger
  * Tracks dealer commissions, payments, and outstanding balances
+ * Uses Legacy Projection when DealerLedger is empty (read-only, additive)
  */
 
 import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
+import { getLegacyDealerLedgerProjection } from './legacy-dealer-ledger-projection-service';
 
 export interface CreateDealerLedgerEntryPayload {
   dealerId: string;
@@ -290,7 +292,8 @@ export class DealerLedgerService {
   }
 
   /**
-   * Get dealer ledger with summary
+   * Get dealer ledger with summary.
+   * Uses Legacy Projection (Commission, Sale, Voucher) when DealerLedger is empty.
    */
   static async getDealerLedger(
     dealerId: string,
@@ -306,6 +309,8 @@ export class DealerLedgerService {
       totalPayments: number;
       outstandingBalance: number;
     };
+    hasLedgerEntries?: boolean;
+    hasLegacyEntries?: boolean;
   }> {
     const where: any = { dealerId };
 
@@ -319,7 +324,7 @@ export class DealerLedgerService {
       where.dealId = filters.dealId;
     }
 
-    const entries = await prisma.dealerLedger.findMany({
+    const dealerLedgerEntries = await prisma.dealerLedger.findMany({
       where,
       include: {
         deal: {
@@ -332,23 +337,62 @@ export class DealerLedgerService {
       orderBy: { date: 'asc' },
     });
 
-    const totalCommission = entries
+    if (dealerLedgerEntries.length === 0) {
+      const projection = await getLegacyDealerLedgerProjection(dealerId, filters);
+      if (projection && projection.hasLegacyEntries && projection.rows.length > 0) {
+        const totalCredit = projection.rows.reduce((s, r) => s + r.creditAmount, 0);
+        const totalDebit = projection.rows.reduce((s, r) => s + r.debitAmount, 0);
+        const lastRow = projection.rows[projection.rows.length - 1];
+        const entries = projection.rows.map((r) => ({
+          id: r.id,
+          date: r.trandate,
+          entryType: r.creditAmount > 0 ? 'commission' : 'payment',
+          amount: r.creditAmount > 0 ? r.creditAmount : r.debitAmount,
+          balance: r.runningBalance,
+          description: r.memo,
+          referenceId: r.transactionNumber,
+          isLegacy: true,
+        }));
+        return {
+          entries,
+          summary: {
+            totalCommission: Number(totalCredit.toFixed(2)),
+            totalPayments: Number(totalDebit.toFixed(2)),
+            outstandingBalance: Number((lastRow?.runningBalance ?? projection.openingBalance).toFixed(2)),
+          },
+          hasLedgerEntries: false,
+          hasLegacyEntries: true,
+        };
+      }
+      return {
+        entries: [],
+        summary: { totalCommission: 0, totalPayments: 0, outstandingBalance: 0 },
+        hasLedgerEntries: false,
+        hasLegacyEntries: false,
+      };
+    }
+
+    const totalCommission = dealerLedgerEntries
       .filter((e) => e.entryType === 'commission')
       .reduce((sum, e) => sum + e.amount, 0);
 
-    const totalPayments = entries
+    const totalPayments = dealerLedgerEntries
       .filter((e) => e.entryType === 'payment')
       .reduce((sum, e) => sum + e.amount, 0);
 
-    const outstandingBalance = entries.length > 0 ? entries[entries.length - 1].balance : 0;
+    const outstandingBalance = dealerLedgerEntries.length > 0
+      ? dealerLedgerEntries[dealerLedgerEntries.length - 1].balance
+      : 0;
 
     return {
-      entries,
+      entries: dealerLedgerEntries,
       summary: {
         totalCommission: Math.round(totalCommission * 100) / 100,
         totalPayments: Math.round(totalPayments * 100) / 100,
         outstandingBalance: Math.round(outstandingBalance * 100) / 100,
       },
+      hasLedgerEntries: true,
+      hasLegacyEntries: false,
     };
   }
 }

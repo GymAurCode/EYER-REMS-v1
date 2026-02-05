@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -44,7 +44,11 @@ interface Operation {
   references?: { refType: string; refId: string; role: string }[]
 }
 
-export function OperationsView() {
+interface OperationsViewProps {
+  highlightedRequestId?: string
+}
+
+export function OperationsView({ highlightedRequestId }: OperationsViewProps) {
   const { toast } = useToast()
   const [operations, setOperations] = useState<Operation[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +56,12 @@ export function OperationsView() {
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [requestDialogOpen, setRequestDialogOpen] = useState(false)
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+
+  const displayedOperations = useMemo(() => {
+    if (!highlightedRequestId) return operations
+    const found = operations.find((op) => op.id === highlightedRequestId)
+    return found ? [found] : operations
+  }, [operations, highlightedRequestId])
 
   const fetchOps = async () => {
     try {
@@ -165,6 +175,13 @@ export function OperationsView() {
 
   return (
     <div className="space-y-4">
+      {highlightedRequestId && (
+        <Card className="border-primary/30 bg-primary/5">
+          <CardContent className="py-3 text-sm">
+            Showing your requested operation <span className="font-mono font-medium">{highlightedRequestId.slice(0, 8)}…</span>
+          </CardContent>
+        </Card>
+      )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold">Finance Operations</h2>
@@ -212,7 +229,7 @@ export function OperationsView() {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-          ) : operations.length === 0 ? (
+          ) : displayedOperations.length === 0 ? (
             <div className="py-12 text-center text-muted-foreground">
               No operations found. Request Refund, Transfer, or Merge from Deals or here.
             </div>
@@ -230,8 +247,11 @@ export function OperationsView() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {operations.map((op) => (
-                  <TableRow key={op.id}>
+                {displayedOperations.map((op) => (
+                  <TableRow
+                    key={op.id}
+                    className={highlightedRequestId && op.id === highlightedRequestId ? "bg-primary/5 ring-1 ring-primary/20" : ""}
+                  >
                     <TableCell>
                       <div className="flex items-center gap-2">
                         {getTypeIcon(op.operationType)}

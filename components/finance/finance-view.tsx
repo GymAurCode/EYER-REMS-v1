@@ -289,7 +289,7 @@ export function FinanceView() {
         </TabsContent>
 
         <TabsContent value="operations">
-          <OperationsView />
+          <OperationsView highlightedRequestId={searchParams.get("requestId") || undefined} />
         </TabsContent>
 
         <TabsContent value="account-ledger">

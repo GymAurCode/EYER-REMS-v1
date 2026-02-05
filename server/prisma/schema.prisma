@@ -2923,3 +2923,51 @@ model FinancialOperationReference {
   @@index([operationId])
   @@index([refType, refId])
 }
+
+// Additive: Single source of truth ledger for Refund/Transfer/Merge operations
+// One row = one side of double-entry. Balance = SUM(debit) - SUM(credit) per entity
+model FinanceOperationLedgerEntry {
+  id          String   @id @default(uuid())
+  entityType  String   // Client, Dealer, Property, Deal
+  entityId    String
+  accountId   String
+  amount      Float
+  side        String   // debit | credit
+  sourceType  String   // refund | transfer | merge
+  operationId String
+  voucherId   String?
+  paymentId   String?
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([operationId])
+  @@index([voucherId])
+  @@index([paymentId])
+  @@index([sourceType])
+  @@index([date])
+}
+
+// Ledger Engine: canonical source for Balance = SUM(debit_amount) - SUM(credit_amount)
+// New operations MUST write here. Old data NOT backfilled.
+model LedgerEngineEntry {
+  id              String   @id @default(uuid())
+  transactionUuid String
+  entryDate       DateTime
+  accountId       String
+  entityType      String   // client | dealer | property
+  entityId        String
+  debitAmount     Float    @default(0)
+  creditAmount    Float    @default(0)
+  narration       String?
+  sourceType      String   // payment | voucher | refund | transfer | merge
+  status          String   @default("posted") // posted | reversed
+  createdAt       DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([transactionUuid])
+  @@index([sourceType])
+  @@index([entryDate])
+  @@index([status])
+}

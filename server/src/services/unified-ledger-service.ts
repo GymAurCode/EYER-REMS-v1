@@ -6,6 +6,12 @@
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
 import { DealerLedgerService } from './dealer-ledger-service';
+import { getEntityLedgerEntries } from './finance-operation-ledger-service';
+import { getLedgerEntries as getLedgerEngineEntries } from './ledger-engine-service';
+import { getLegacyDealerLedgerProjection } from './legacy-dealer-ledger-projection-service';
+import { getClientLedger as getClientLedgerFromService, getPropertyLedger as getPropertyLedgerFromService } from './client-property-ledger-service';
+
+export type LedgerSourceType = 'deal' | 'payment' | 'voucher' | 'refund' | 'transfer' | 'merge' | 'commission' | 'expense' | 'adjustment';
 
 export interface LedgerEntry {
   id: string;
@@ -15,6 +21,10 @@ export interface LedgerEntry {
   debit: number;
   credit: number;
   runningBalance: number;
+  sourceType?: LedgerSourceType;
+  transactionUuid?: string;
+  isLegacy?: boolean;
+  status?: string;
 }
 
 export interface LedgerResponse {
@@ -25,6 +35,12 @@ export interface LedgerResponse {
     totalDebit: number;
     totalCredit: number;
     closingBalance: number;
+    openingBalance?: number;
+    openingBalanceSource?: 'Derived' | 'Legacy';
+    hasLegacyEntries?: boolean;
+    dealValue?: number;
+    received?: number;
+    outstanding?: number;
   };
 }
 
@@ -38,6 +54,7 @@ export class UnifiedLedgerService {
     filters?: {
       startDate?: Date;
       endDate?: Date;
+      sourceType?: string;
     }
   ): Promise<LedgerResponse> {
     switch (type) {
@@ -53,140 +70,50 @@ export class UnifiedLedgerService {
   }
 
   /**
-   * Get Client Ledger with proper double-entry format
-   * Rules:
-   * - Sale/Deal → Debit (amount owed)
-   * - Payment Received → Credit (payment reduces debt)
+   * Get Client Ledger - delegates to client-property-ledger-service (accounting-correct, read-only)
    */
   private static async getClientLedger(
     clientId: string,
-    filters?: { startDate?: Date; endDate?: Date }
+    filters?: { startDate?: Date; endDate?: Date; sourceType?: string }
   ): Promise<LedgerResponse> {
-    // Get client info
-    const client = await prisma.client.findUnique({
-      where: { id: clientId },
-      select: { id: true, name: true, clientCode: true },
-    });
-
-    if (!client) {
-      throw new Error('Client not found');
-    }
-
-    // Get all deals for this client
-    const deals = await prisma.deal.findMany({
-      where: {
-        clientId,
-        isDeleted: false,
-        deletedAt: null,
-        ...(filters?.startDate || filters?.endDate
-          ? {
-              OR: [
-                {
-                  dealDate: {
-                    ...(filters.startDate ? { gte: filters.startDate } : {}),
-                    ...(filters.endDate ? { lte: filters.endDate } : {}),
-                  },
-                },
-                {
-                  payments: {
-                    some: {
-                      date: {
-                        ...(filters.startDate ? { gte: filters.startDate } : {}),
-                        ...(filters.endDate ? { lte: filters.endDate } : {}),
-                      },
-                      deletedAt: null,
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        property: { select: { id: true, name: true, propertyCode: true } },
-        payments: {
-          where: {
-            deletedAt: null,
-            ...(filters?.startDate || filters?.endDate
-              ? {
-                  date: {
-                    ...(filters.startDate ? { gte: filters.startDate } : {}),
-                    ...(filters.endDate ? { lte: filters.endDate } : {}),
-                  },
-                }
-              : {}),
-          },
-          orderBy: { date: 'asc' },
-        },
-      },
-      orderBy: { dealDate: 'asc' },
-    });
-
-    const entries: LedgerEntry[] = [];
-    let runningBalance = 0;
-
-    // Process each deal
-    for (const deal of deals) {
-      const dealDate = deal.dealDate || deal.createdAt;
-      const dealAmount = deal.dealAmount || 0;
-
-      // Check if deal date is in range
-      const includeDeal =
-        (!filters?.startDate || dealDate >= filters.startDate) &&
-        (!filters?.endDate || dealDate <= filters.endDate);
-
-      if (includeDeal && dealAmount > 0) {
-        // Deal entry: Debit (amount owed)
-        runningBalance += dealAmount;
-        entries.push({
-          id: `DEAL-${deal.id}`,
-          date: dealDate,
-          referenceNo: deal.dealCode || deal.id,
-          description: `Sale: ${deal.title}${deal.property ? ` - ${deal.property.name}` : ''}`,
-          debit: Number(dealAmount.toFixed(2)),
-          credit: 0,
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      }
-
-      // Process payments
-      for (const payment of deal.payments) {
-        // Payment entry: Credit (reduces debt)
-        runningBalance -= payment.amount;
-        entries.push({
-          id: payment.id,
-          date: payment.date,
-          referenceNo: payment.paymentId || payment.id,
-          description: `Payment received${payment.remarks ? `: ${payment.remarks}` : ''} - ${payment.paymentMode || 'N/A'}`,
-          debit: 0,
-          credit: Number(payment.amount.toFixed(2)),
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      }
-    }
-
-    // Sort by date ascending
-    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Calculate totals
-    const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0);
-    const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0);
-    const closingBalance = runningBalance;
-
+    const res = await getClientLedgerFromService(clientId, filters);
+    const allEntries = res.openingBalanceRow
+      ? [{ ...res.openingBalanceRow, running_balance: 0 }, ...res.entries]
+      : res.entries;
+    const entries: LedgerEntry[] = allEntries.map((e) => ({
+      id: e.id,
+      date: new Date(e.date),
+      referenceNo: e.reference_id,
+      description: e.description,
+      debit: e.debit,
+      credit: e.credit,
+      runningBalance: e.running_balance,
+      sourceType: e.source_type.toLowerCase() as LedgerSourceType,
+      transactionUuid: e.reference_id,
+      isLegacy: e.status === 'Legacy',
+      status: e.status,
+    }));
     return {
-      entityName: client.name || client.clientCode || 'Unknown Client',
-      entityId: client.id,
+      entityName: res.entityName,
+      entityId: res.entityId,
       entries,
       summary: {
-        totalDebit: Number(totalDebit.toFixed(2)),
-        totalCredit: Number(totalCredit.toFixed(2)),
-        closingBalance: Number(closingBalance.toFixed(2)),
+        totalDebit: res.summary.dealValue,
+        totalCredit: res.summary.received,
+        closingBalance: res.summary.outstanding,
+        openingBalance: 0,
+        openingBalanceSource: 'Derived',
+        hasLegacyEntries: false,
+        dealValue: res.summary.dealValue,
+        received: res.summary.received,
+        outstanding: res.summary.outstanding,
       },
     };
   }
 
   /**
    * Get Dealer Ledger with proper double-entry format
+   * Priority: LedgerEngineEntry > DealerLedger > Legacy Projection (Commission/Sale/Voucher)
    * Rules:
    * - Commission → Credit (amount owed to dealer)
    * - Payment → Debit (payment reduces payable)
@@ -196,7 +123,6 @@ export class UnifiedLedgerService {
     dealerId: string,
     filters?: { startDate?: Date; endDate?: Date }
   ): Promise<LedgerResponse> {
-    // Get dealer info
     const dealer = await prisma.dealer.findUnique({
       where: { id: dealerId },
       select: { id: true, name: true },
@@ -206,7 +132,48 @@ export class UnifiedLedgerService {
       throw new Error('Dealer not found');
     }
 
-    // Get dealer ledger entries
+    // 1. Prefer Ledger Engine entries (new engine)
+    try {
+      const engineEntries = await getLedgerEngineEntries('dealer', dealerId, filters);
+      if (engineEntries.length > 0) {
+        const entries: LedgerEntry[] = [];
+        let runningBalance = 0;
+        for (const e of engineEntries) {
+          runningBalance += e.debitAmount - e.creditAmount;
+          entries.push({
+            id: e.id,
+            date: e.entryDate,
+            referenceNo: e.transactionUuid,
+            description: e.narration || `${e.sourceType} - ${e.transactionUuid.slice(0, 8)}`,
+            debit: e.debitAmount,
+            credit: e.creditAmount,
+            runningBalance: Number(runningBalance.toFixed(2)),
+            sourceType: e.sourceType as LedgerSourceType,
+            transactionUuid: e.transactionUuid,
+            isLegacy: false,
+          });
+        }
+        const totalDebit = entries.reduce((s, x) => s + x.debit, 0);
+        const totalCredit = entries.reduce((s, x) => s + x.credit, 0);
+        return {
+          entityName: dealer.name || 'Unknown Dealer',
+          entityId: dealer.id,
+          entries,
+          summary: {
+            totalDebit: Number(totalDebit.toFixed(2)),
+            totalCredit: Number(totalCredit.toFixed(2)),
+            closingBalance: Number(runningBalance.toFixed(2)),
+            openingBalance: 0,
+            openingBalanceSource: 'Derived',
+            hasLegacyEntries: false,
+          },
+        };
+      }
+    } catch {
+      // LedgerEngine table may not exist or error - fall through
+    }
+
+    // 2. Use DealerLedger if it has entries
     const where: any = { dealerId };
     if (filters?.startDate || filters?.endDate) {
       where.date = {};
@@ -228,6 +195,55 @@ export class UnifiedLedgerService {
       orderBy: { date: 'asc' },
     });
 
+    // 3. If DealerLedger is empty, use Legacy Projection (Commission, Sale, Voucher)
+    if (dealerLedgerEntries.length === 0) {
+      const projection = await getLegacyDealerLedgerProjection(dealerId, filters);
+      if (projection && projection.hasLegacyEntries && projection.rows.length > 0) {
+        const entries: LedgerEntry[] = projection.rows.map((r) => ({
+          id: r.id,
+          date: r.trandate,
+          referenceNo: r.transactionNumber,
+          description: r.memo,
+          debit: r.debitAmount,
+          credit: r.creditAmount,
+          runningBalance: r.runningBalance,
+          sourceType: 'commission' as LedgerSourceType,
+          transactionUuid: r.id,
+          isLegacy: true,
+        }));
+        const totalDebit = entries.reduce((s, e) => s + e.debit, 0);
+        const totalCredit = entries.reduce((s, e) => s + e.credit, 0);
+        const closingBalance = entries.length > 0 ? entries[entries.length - 1].runningBalance : projection.openingBalance;
+        return {
+          entityName: dealer.name || 'Unknown Dealer',
+          entityId: dealer.id,
+          entries,
+          summary: {
+            totalDebit: Number(totalDebit.toFixed(2)),
+            totalCredit: Number(totalCredit.toFixed(2)),
+            closingBalance: Number(closingBalance.toFixed(2)),
+            openingBalance: projection.openingBalance,
+            openingBalanceSource: 'Legacy',
+            hasLegacyEntries: true,
+          },
+        };
+      }
+      // No DealerLedger and no legacy data - return empty with no fake zeros
+      return {
+        entityName: dealer.name || 'Unknown Dealer',
+        entityId: dealer.id,
+        entries: [],
+        summary: {
+          totalDebit: 0,
+          totalCredit: 0,
+          closingBalance: 0,
+          openingBalance: 0,
+          openingBalanceSource: 'Derived',
+          hasLegacyEntries: false,
+        },
+      };
+    }
+
     const entries: LedgerEntry[] = [];
     let runningBalance = 0;
 
@@ -243,6 +259,9 @@ export class UnifiedLedgerService {
           debit: 0,
           credit: Number(entry.amount.toFixed(2)),
           runningBalance: Number(runningBalance.toFixed(2)),
+          sourceType: 'commission',
+          transactionUuid: entry.id,
+          isLegacy: false,
         });
       } else if (entry.entryType === 'payment') {
         // Payment: Debit (reduces payable)
@@ -255,6 +274,9 @@ export class UnifiedLedgerService {
           debit: Number(entry.amount.toFixed(2)),
           credit: 0,
           runningBalance: Number(runningBalance.toFixed(2)),
+          sourceType: 'payment',
+          transactionUuid: entry.id,
+          isLegacy: false,
         });
       } else if (entry.entryType === 'adjustment') {
         // Adjustment: Can be positive (credit) or negative (debit)
@@ -268,6 +290,9 @@ export class UnifiedLedgerService {
             debit: 0,
             credit: Number(entry.amount.toFixed(2)),
             runningBalance: Number(runningBalance.toFixed(2)),
+            sourceType: 'adjustment',
+            transactionUuid: entry.id,
+            isLegacy: false,
           });
         } else {
           runningBalance += entry.amount; // Already negative
@@ -279,6 +304,9 @@ export class UnifiedLedgerService {
             debit: Number(Math.abs(entry.amount).toFixed(2)),
             credit: 0,
             runningBalance: Number(runningBalance.toFixed(2)),
+            sourceType: 'adjustment',
+            transactionUuid: entry.id,
+            isLegacy: false,
           });
         }
       }
@@ -297,273 +325,51 @@ export class UnifiedLedgerService {
         totalDebit: Number(totalDebit.toFixed(2)),
         totalCredit: Number(totalCredit.toFixed(2)),
         closingBalance: Number(closingBalance.toFixed(2)),
+        openingBalance: 0,
+        openingBalanceSource: 'Derived',
+        hasLegacyEntries: false,
       },
     };
   }
 
   /**
-   * Get Property Ledger with proper double-entry format
-   * Includes:
-   * - Property sale entries (from deals)
-   * - Linked client payments
-   * - Dealer commission entries
-   * - Property expenses
-   * - Adjustments/refunds
-   * 
-   * Rules:
-   * - Sale → Debit (property sold, receivable increases)
-   * - Payment Received → Credit (payment received)
-   * - Expense → Credit (expense reduces property value)
-   * - Commission → Credit (commission expense)
+   * Get Property Ledger - delegates to client-property-ledger-service (accounting-correct, read-only)
    */
   private static async getPropertyLedger(
     propertyId: string,
-    filters?: { startDate?: Date; endDate?: Date }
+    filters?: { startDate?: Date; endDate?: Date; sourceType?: string }
   ): Promise<LedgerResponse> {
-    // Get property info
-    const property = await prisma.property.findFirst({
-      where: { id: propertyId, isDeleted: false },
-      select: { id: true, name: true, propertyCode: true },
-    });
-
-    if (!property) {
-      throw new Error('Property not found');
-    }
-
-    // Get all deals for this property
-    const deals = await prisma.deal.findMany({
-      where: {
-        propertyId,
-        isDeleted: false,
-        deletedAt: null,
-        ...(filters?.startDate || filters?.endDate
-          ? {
-              OR: [
-                {
-                  dealDate: {
-                    ...(filters.startDate ? { gte: filters.startDate } : {}),
-                    ...(filters.endDate ? { lte: filters.endDate } : {}),
-                  },
-                },
-                {
-                  payments: {
-                    some: {
-                      date: {
-                        ...(filters.startDate ? { gte: filters.startDate } : {}),
-                        ...(filters.endDate ? { lte: filters.endDate } : {}),
-                      },
-                      deletedAt: null,
-                    },
-                  },
-                },
-              ],
-            }
-          : {}),
-      },
-      include: {
-        client: { select: { id: true, name: true } },
-        payments: {
-          where: {
-            deletedAt: null,
-            ...(filters?.startDate || filters?.endDate
-              ? {
-                  date: {
-                    ...(filters.startDate ? { gte: filters.startDate } : {}),
-                    ...(filters.endDate ? { lte: filters.endDate } : {}),
-                  },
-                }
-              : {}),
-          },
-          orderBy: { date: 'asc' },
-        },
-      },
-      orderBy: { dealDate: 'asc' },
-    });
-
-    // Get property expenses
-    const propertyExpenses = await prisma.propertyExpense.findMany({
-      where: {
-        propertyId,
-        isDeleted: false,
-        ...(filters?.startDate || filters?.endDate
-          ? {
-              date: {
-                ...(filters.startDate ? { gte: filters.startDate } : {}),
-                ...(filters.endDate ? { lte: filters.endDate } : {}),
-              },
-            }
-          : {}),
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    // Get dealer commissions related to this property's deals
-    const dealIds = deals.map((d) => d.id);
-    const dealerCommissions = await prisma.dealerLedger.findMany({
-      where: {
-        dealId: { in: dealIds },
-        entryType: 'commission',
-        ...(filters?.startDate || filters?.endDate
-          ? {
-              date: {
-                ...(filters.startDate ? { gte: filters.startDate } : {}),
-                ...(filters.endDate ? { lte: filters.endDate } : {}),
-              },
-            }
-          : {}),
-      },
-      include: {
-        dealer: { select: { id: true, name: true } },
-        deal: { select: { id: true, title: true, dealCode: true } },
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    // Get deal IDs for this property
-    const propertyDealIds = deals.map((d) => d.id);
-
-    // Get finance ledger entries - query through Deal relationship
-    const financeEntries = await prisma.financeLedger.findMany({
-      where: {
-        dealId: { in: propertyDealIds },
-        isDeleted: false,
-        ...(filters?.startDate || filters?.endDate
-          ? {
-              date: {
-                ...(filters.startDate ? { gte: filters.startDate } : {}),
-                ...(filters.endDate ? { lte: filters.endDate } : {}),
-              },
-            }
-          : {}),
-      },
-      orderBy: { date: 'asc' },
-    });
-
-    const entries: LedgerEntry[] = [];
-    let runningBalance = 0;
-
-    // Process deals (sales)
-    for (const deal of deals) {
-      const dealDate = deal.dealDate || deal.createdAt;
-      const dealAmount = deal.dealAmount || 0;
-
-      const includeDeal =
-        !filters?.startDate || dealDate >= filters.startDate
-          ? !filters?.endDate || dealDate <= filters.endDate
-          : false;
-
-      if (includeDeal && dealAmount > 0) {
-        // Sale entry: Debit (property sold, receivable increases)
-        runningBalance += dealAmount;
-        entries.push({
-          id: `DEAL-${deal.id}`,
-          date: dealDate,
-          referenceNo: deal.dealCode || deal.id,
-          description: `Property Sale: ${deal.title}${deal.client ? ` - Client: ${deal.client.name}` : ''}`,
-          debit: Number(dealAmount.toFixed(2)),
-          credit: 0,
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      }
-
-      // Process payments
-      for (const payment of deal.payments) {
-        // Payment entry: Credit (payment received)
-        runningBalance -= payment.amount;
-        entries.push({
-          id: `PAYMENT-${payment.id}`,
-          date: payment.date,
-          referenceNo: payment.paymentId || payment.id,
-          description: `Payment received${payment.remarks ? `: ${payment.remarks}` : ''} - ${payment.paymentMode || 'N/A'}`,
-          debit: 0,
-          credit: Number(payment.amount.toFixed(2)),
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      }
-    }
-
-    // Process dealer commissions
-    for (const commission of dealerCommissions) {
-      // Commission entry: Credit (expense)
-      runningBalance -= commission.amount;
-      entries.push({
-        id: `COMMISSION-${commission.id}`,
-        date: commission.date,
-        referenceNo: commission.referenceId || commission.deal?.dealCode || commission.id,
-        description: `Dealer Commission${commission.dealer ? `: ${commission.dealer.name}` : ''}${commission.deal ? ` - ${commission.deal.title}` : ''}${commission.description ? ` - ${commission.description}` : ''}`,
-        debit: 0,
-        credit: Number(commission.amount.toFixed(2)),
-        runningBalance: Number(runningBalance.toFixed(2)),
-      });
-    }
-
-    // Process property expenses
-    for (const expense of propertyExpenses) {
-      // Expense entry: Credit (expense reduces property value)
-      runningBalance -= expense.amount;
-      entries.push({
-        id: `EXPENSE-${expense.id}`,
-        date: expense.date,
-        referenceNo: expense.id,
-        description: `Property Expense: ${expense.description || expense.category || 'N/A'}`,
-        debit: 0,
-        credit: Number(expense.amount.toFixed(2)),
-        runningBalance: Number(runningBalance.toFixed(2)),
-      });
-    }
-
-    // Process finance ledger entries
-    for (const financeEntry of financeEntries) {
-      if (financeEntry.category === 'debit') {
-        // Debit: Credit (expense reduces property value)
-        runningBalance -= financeEntry.amount;
-        entries.push({
-          id: `FINANCE-${financeEntry.id}`,
-          date: financeEntry.date,
-          referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.notes || 'N/A'}`,
-          debit: 0,
-          credit: Number(financeEntry.amount.toFixed(2)),
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      } else if (financeEntry.category === 'credit') {
-        // Credit: Debit (income increases property value)
-        runningBalance += financeEntry.amount;
-        entries.push({
-          id: `FINANCE-${financeEntry.id}`,
-          date: financeEntry.date,
-          referenceNo: financeEntry.referenceId || financeEntry.id,
-          description: `Finance Entry: ${financeEntry.description || financeEntry.notes || 'N/A'}`,
-          debit: Number(financeEntry.amount.toFixed(2)),
-          credit: 0,
-          runningBalance: Number(runningBalance.toFixed(2)),
-        });
-      }
-    }
-
-    // Sort by date ascending
-    entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    // Recalculate running balance after sorting
-    let recalculatedBalance = 0;
-    for (const entry of entries) {
-      recalculatedBalance += entry.debit - entry.credit;
-      entry.runningBalance = Number(recalculatedBalance.toFixed(2));
-    }
-
-    // Calculate totals
-    const totalDebit = entries.reduce((sum, e) => sum + e.debit, 0);
-    const totalCredit = entries.reduce((sum, e) => sum + e.credit, 0);
-    const closingBalance = recalculatedBalance;
-
+    const res = await getPropertyLedgerFromService(propertyId, filters);
+    const allEntries = res.openingBalanceRow
+      ? [{ ...res.openingBalanceRow, running_balance: 0 }, ...res.entries]
+      : res.entries;
+    const entries: LedgerEntry[] = allEntries.map((e) => ({
+      id: e.id,
+      date: new Date(e.date),
+      referenceNo: e.reference_id,
+      description: e.description,
+      debit: e.debit,
+      credit: e.credit,
+      runningBalance: e.running_balance,
+      sourceType: e.source_type.toLowerCase() as LedgerSourceType,
+      transactionUuid: e.reference_id,
+      isLegacy: e.status === 'Legacy',
+      status: e.status,
+    }));
     return {
-      entityName: property.name || property.propertyCode || 'Unknown Property',
-      entityId: property.id,
+      entityName: res.entityName,
+      entityId: res.entityId,
       entries,
       summary: {
-        totalDebit: Number(totalDebit.toFixed(2)),
-        totalCredit: Number(totalCredit.toFixed(2)),
-        closingBalance: Number(closingBalance.toFixed(2)),
+        totalDebit: res.summary.dealValue,
+        totalCredit: res.summary.received,
+        closingBalance: res.summary.outstanding,
+        openingBalance: 0,
+        openingBalanceSource: 'Derived',
+        hasLegacyEntries: false,
+        dealValue: res.summary.dealValue,
+        received: res.summary.received,
+        outstanding: res.summary.outstanding,
       },
     };
   }

@@ -2008,6 +2008,11 @@ router.get('/ledger/client/:clientId', authenticate, async (req: AuthRequest, re
       filters.endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     }
 
+    // Handle source type filter (read-only, does not modify balances)
+    if (req.query.sourceType && typeof req.query.sourceType === 'string') {
+      filters.sourceType = req.query.sourceType;
+    }
+
     const ledger = await UnifiedLedgerService.getLedger('client', clientId, filters);
     res.json({ success: true, data: ledger });
   } catch (error: any) {
@@ -3500,6 +3505,9 @@ router.get('/ledger/:type/:id', authenticate, async (req: AuthRequest, res: Resp
     }
     if (req.query.endDate) {
       filters.endDate = new Date(req.query.endDate as string);
+    }
+    if (req.query.sourceType && typeof req.query.sourceType === 'string') {
+      filters.sourceType = req.query.sourceType;
     }
 
     logger.info(`[Unified Ledger] Fetching ledger for ${type} with ID: ${id}`);
