@@ -33,20 +33,24 @@ const requestTransferSchema = z.object({
   operationType: z.literal('TRANSFER'),
   reason: z.string().min(1, 'Reason is required'),
   dealId: z.string().uuid().optional(),
+  sourcePaymentId: z.string().uuid(),
   sourceClientId: z.string().uuid(),
   targetClientId: z.string().uuid(),
-  amount: z.number().positive(),
+  amount: z.number().positive().optional(),
+  partialAmount: z.number().positive().optional(),
 });
 
 const requestMergeSchema = z.object({
   operationType: z.literal('MERGE'),
   reason: z.string().min(1, 'Reason is required'),
   dealId: z.string().uuid().optional(),
-  sourceDealId: z.string().uuid().optional(),
+  sourcePaymentId: z.string().uuid(),
+  sourceDealId: z.string().uuid(),
   targetDealId: z.string().uuid().optional(),
   sourcePropertyId: z.string().uuid().optional(),
   targetPropertyId: z.string().uuid().optional(),
-  amount: z.number().positive(),
+  amount: z.number().positive().optional(),
+  partialAmount: z.number().positive().optional(),
 });
 
 const requestSchema = z.discriminatedUnion('operationType', [
@@ -61,10 +65,19 @@ router.post('/request', requireAuth, requirePermission('finance.vouchers.view'),
     if (!parsed.success) {
       return res.status(400).json({ error: parsed.error.flatten().fieldErrors });
     }
-    const op = await createOperationRequest(
-      parsed.data as any,
-      req.user!.id
-    );
+    const data = parsed.data as any;
+    if (data.operationType === 'TRANSFER' && (data.amount ?? data.partialAmount ?? 0) <= 0) {
+      return res.status(400).json({ error: 'Amount or partialAmount must be positive' });
+    }
+    if (data.operationType === 'MERGE') {
+      if ((data.amount ?? data.partialAmount ?? 0) <= 0) {
+        return res.status(400).json({ error: 'Amount or partialAmount must be positive' });
+      }
+      if (!data.targetDealId && !data.targetPropertyId) {
+        return res.status(400).json({ error: 'Target deal or target property is required' });
+      }
+    }
+    const op = await createOperationRequest(data, req.user!.id);
     res.status(201).json({ success: true, data: op });
   } catch (err: any) {
     logger.error('Finance operation request error:', err);

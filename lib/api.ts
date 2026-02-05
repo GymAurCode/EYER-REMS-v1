@@ -884,7 +884,12 @@ export const apiService = {
 
   // Finance - Payments
   payments: {
-    getAll: () => api.get('/finance/payments'),
+    getAll: (params?: { page?: number; limit?: number }) => {
+      const q = new URLSearchParams();
+      if (params?.page) q.append('page', String(params.page));
+      if (params?.limit) q.append('limit', String(params.limit));
+      return api.get(`/finance/payments${q.toString() ? `?${q.toString()}` : ''}`);
+    },
     getById: (id: string | number) => api.get(`/finance/payments/${id}`),
     create: (data: any) => api.post('/finance/payments', data),
     update: (id: string | number, data: any) => api.put(`/finance/payments/${id}`, data),

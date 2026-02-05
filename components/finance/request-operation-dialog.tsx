@@ -41,7 +41,7 @@ interface PaymentContext {
     id: string
     dealCode?: string | null
     title?: string
-    client?: { name?: string | null; clientCode?: string | null } | null
+    client?: { id?: string; name?: string | null; clientCode?: string | null } | null
     property?: { name?: string | null; propertyCode?: string | null } | null
     unit?: { unitName?: string | null } | null
   } | null
@@ -98,8 +98,6 @@ export function RequestOperationDialog({
 
   const [createdRequestId, setCreatedRequestId] = useState<string | null>(null)
 
-  const sourceClientId = paymentContext?.deal?.client ? paymentContext.deal.client.clientCode || paymentContext.deal.client.name || null : null
-
   const totals = useMemo(() => {
     if (!paymentContext || operationHistory.length === 0) {
       return { refunded: 0, transferred: 0, merged: 0 }
@@ -118,11 +116,10 @@ export function RequestOperationDialog({
       const refs = Array.isArray(op.references) ? op.references : []
       const hasPaymentRef = refs.some((r: any) => r.refType === "payment" && r.refId === paymentRefId)
       const hasDealRef = dealIdRef && refs.some((r: any) => r.refType === "deal" && r.refId === dealIdRef && r.role === "SOURCE")
-      const hasClientRef = clientIdRef && refs.some((r: any) => r.refType === "client" && r.refId === clientIdRef && r.role === "SOURCE")
 
       if (op.operationType === "REFUND" && hasPaymentRef) refunded += opAmount
-      if (op.operationType === "TRANSFER" && (hasClientRef || hasDealRef)) transferred += opAmount
-      if (op.operationType === "MERGE" && hasDealRef) merged += opAmount
+      if (op.operationType === "TRANSFER" && hasPaymentRef) transferred += opAmount
+      if (op.operationType === "MERGE" && (hasPaymentRef || hasDealRef)) merged += opAmount
     }
     return { refunded, transferred, merged }
   }, [paymentContext, operationHistory])
@@ -337,6 +334,7 @@ export function RequestOperationDialog({
       }
 
       if (operationType === "MERGE") {
+        payload.sourcePaymentId = paymentId.trim()
         payload.sourceDealId = paymentContext?.deal?.id
         if (targetType === "deal") payload.targetDealId = targetDealId
         if (targetType === "property") payload.targetPropertyId = targetPropertyId

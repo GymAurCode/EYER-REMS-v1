@@ -24,6 +24,50 @@ export type OperationRequestPayload = {
   targetPropertyId?: string;
 };
 
+/**
+ * Compute transferable balance for a payment (amount not yet refunded/transferred/merged).
+ * Used for Transfer and Merge validation.
+ */
+export async function getTransferableBalance(paymentId: string): Promise<{
+  transferableBalance: number;
+  paymentAmount: number;
+}> {
+  const payment = await prisma.payment.findUnique({
+    where: { id: paymentId },
+    include: { deal: { select: { id: true, clientId: true } } },
+  });
+  if (!payment) throw new Error('Payment not found');
+  if (payment.deletedAt) throw new Error('Cannot operate on deleted payment');
+
+  const paymentAmount = Number(payment.amount);
+  const paymentRefId = payment.id;
+  const dealIdRef = payment.dealId;
+  const clientIdRef = payment.deal?.clientId;
+
+  const postedOps = await prisma.financialOperation.findMany({
+    where: { status: FinancialOperationStatus.POSTED },
+    include: { references: true },
+  });
+
+  let consumed = 0;
+  for (const op of postedOps) {
+    const opAmount = op.partialAmount ?? op.amount ?? 0;
+    const refs = op.references ?? [];
+    const hasPaymentRef = refs.some((r: any) => r.refType === 'payment' && r.refId === paymentRefId);
+    const hasDealRef =
+      dealIdRef && refs.some((r: any) => r.refType === 'deal' && r.refId === dealIdRef && r.role === 'SOURCE');
+    const hasClientRef =
+      clientIdRef && refs.some((r: any) => r.refType === 'client' && r.refId === clientIdRef && r.role === 'SOURCE');
+
+    if (op.operationType === 'REFUND' && hasPaymentRef) consumed += opAmount;
+    if (op.operationType === 'TRANSFER' && hasPaymentRef) consumed += opAmount;
+    if (op.operationType === 'MERGE' && (hasPaymentRef || hasDealRef)) consumed += opAmount;
+  }
+
+  const transferableBalance = Math.max(0, paymentAmount - consumed);
+  return { transferableBalance, paymentAmount };
+}
+
 export async function createOperationRequest(
   payload: OperationRequestPayload,
   requestedByUserId: string
@@ -31,6 +75,67 @@ export async function createOperationRequest(
   const { operationType, reason, dealId, amount, partialAmount } = payload;
   if (!reason || reason.trim().length === 0) {
     throw new Error('Reason is mandatory for all finance operations');
+  }
+
+  // --- Validation: Transfer ---
+  if (operationType === FinancialOperationType.TRANSFER) {
+    if (!payload.sourcePaymentId) throw new Error('Transfer requires source payment');
+    if (!payload.sourceClientId) throw new Error('Transfer requires source client');
+    if (!payload.targetClientId) throw new Error('Transfer requires target client');
+    if (payload.sourceClientId === payload.targetClientId) {
+      throw new Error('Target Client must be different from Source Client');
+    }
+    const amt = payload.amount ?? payload.partialAmount;
+    if (!amt || amt <= 0) throw new Error('Transfer amount must be positive');
+    const { transferableBalance } = await getTransferableBalance(payload.sourcePaymentId);
+    if (amt > transferableBalance) {
+      throw new Error(`Amount ${amt} exceeds transferable balance ${transferableBalance.toFixed(2)}`);
+    }
+  }
+
+  // --- Validation: Merge ---
+  if (operationType === FinancialOperationType.MERGE) {
+    const srcDeal = payload.sourceDealId;
+    const tgtDeal = payload.targetDealId;
+    const tgtProp = payload.targetPropertyId;
+    if (!srcDeal || (!tgtDeal && !tgtProp)) {
+      throw new Error('Merge requires source deal and target deal or property');
+    }
+    if (tgtDeal && srcDeal === tgtDeal) {
+      throw new Error('Source and target deals must be different');
+    }
+    const amt = payload.amount ?? payload.partialAmount;
+    if (!amt || amt <= 0) throw new Error('Merge amount must be positive');
+
+    // Transferable balance: prefer payment-based, else we'd need deal-level advance (for now use payment)
+    if (payload.sourcePaymentId) {
+      const { transferableBalance } = await getTransferableBalance(payload.sourcePaymentId);
+      if (amt > transferableBalance) {
+        throw new Error(`Amount ${amt} exceeds available balance ${transferableBalance.toFixed(2)}`);
+      }
+    }
+
+    // Target deal must be active
+    if (tgtDeal) {
+      const targetDeal = await prisma.deal.findUnique({
+        where: { id: tgtDeal },
+        select: { status: true, clientId: true },
+      });
+      if (!targetDeal) throw new Error('Target deal not found');
+      const inactive = ['closed', 'cancelled', 'lost', 'inactive', 'sold'].includes(
+        (targetDeal.status || '').toLowerCase()
+      );
+      if (inactive) throw new Error('Target deal is not active');
+
+      // Same client
+      const srcDealRecord = await prisma.deal.findUnique({
+        where: { id: srcDeal },
+        select: { clientId: true },
+      });
+      if (srcDealRecord && targetDeal.clientId && srcDealRecord.clientId !== targetDeal.clientId) {
+        throw new Error('Target deal must belong to the same client as source');
+      }
+    }
   }
 
   const refs: { refType: string; refId: string; role: string }[] = [];
@@ -239,6 +344,7 @@ async function executeRefund(op: any, userId: string): Promise<string> {
 }
 
 async function executeTransfer(op: any, userId: string): Promise<string> {
+  const paymentRef = op.references?.find((r: any) => r.refType === 'payment' && r.role === 'SOURCE');
   const srcClient = op.references?.find((r: any) => r.refType === 'client' && r.role === 'SOURCE');
   const tgtClient = op.references?.find((r: any) => r.refType === 'client' && r.role === 'TARGET');
   if (!srcClient || !tgtClient) {
@@ -247,6 +353,17 @@ async function executeTransfer(op: any, userId: string): Promise<string> {
 
   const amount = op.amount ?? op.partialAmount;
   if (!amount || amount <= 0) throw new Error('Transfer requires positive amount');
+
+  if (srcClient.refId === tgtClient.refId) {
+    throw new Error('Target Client must be different from Source Client');
+  }
+
+  if (paymentRef) {
+    const { transferableBalance } = await getTransferableBalance(paymentRef.refId);
+    if (amount > transferableBalance) {
+      throw new Error(`Amount ${amount} exceeds transferable balance ${transferableBalance.toFixed(2)}`);
+    }
+  }
 
   const srcBinding = await prisma.entityAccountBinding.findFirst({
     where: { entityType: 'Client', entityId: srcClient.refId },
@@ -266,7 +383,8 @@ async function executeTransfer(op: any, userId: string): Promise<string> {
     );
   }
 
-  const desc = `Transfer - ${op.reason} - Client to Client`;
+  const refNum = paymentRef ? `TRF-PMT-${paymentRef.refId.slice(0, 8)}` : `TRF-${op.id.slice(0, 8)}`;
+  const desc = `Transfer - ${op.reason} - Client to Client | Op ${op.id}`;
   const lines = [
     { accountId: tgtAccountId, debit: amount, credit: 0, description: desc },
     { accountId: srcAccountId, debit: 0, credit: amount, description: desc },
@@ -278,6 +396,8 @@ async function executeTransfer(op: any, userId: string): Promise<string> {
     paymentMethod: 'Transfer',
     accountId: srcAccountId,
     description: desc,
+    referenceNumber: refNum,
+    dealId: op.dealId ?? undefined,
     lines,
     preparedByUserId: userId,
   });
@@ -287,6 +407,10 @@ async function executeTransfer(op: any, userId: string): Promise<string> {
   await VoucherService.postVoucher(voucher.id, userId);
 
   return voucher.id;
+}
+
+function toEntityType(refType: string): string {
+  return refType === 'deal' ? 'Deal' : refType === 'property' ? 'Property' : refType;
 }
 
 async function executeMerge(op: any, userId: string): Promise<string> {
@@ -301,28 +425,69 @@ async function executeMerge(op: any, userId: string): Promise<string> {
     throw new Error('Merge operation requires source and target deal or property references');
   }
 
+  if (srcRef.refType === tgtRef.refType && srcRef.refId === tgtRef.refId) {
+    throw new Error('Source and target must be different');
+  }
+
   const amount = op.amount ?? op.partialAmount;
   if (!amount || amount <= 0) throw new Error('Merge requires positive amount');
 
-  const srcBinding = await prisma.entityAccountBinding.findFirst({
-    where: { entityType: srcRef.refType, entityId: srcRef.refId },
+  const paymentRef = op.references?.find((r: any) => r.refType === 'payment' && r.role === 'SOURCE');
+  if (paymentRef) {
+    const { transferableBalance } = await getTransferableBalance(paymentRef.refId);
+    if (amount > transferableBalance) {
+      throw new Error(`Amount ${amount} exceeds available balance ${transferableBalance.toFixed(2)}`);
+    }
+  }
+
+  if (tgtRef.refType === 'deal') {
+    const targetDeal = await prisma.deal.findUnique({
+      where: { id: tgtRef.refId },
+      select: { status: true, clientId: true },
+    });
+    if (!targetDeal) throw new Error('Target deal not found');
+    const inactive = ['closed', 'cancelled', 'lost', 'inactive', 'sold'].includes(
+      (targetDeal.status || '').toLowerCase()
+    );
+    if (inactive) throw new Error('Target deal is not active');
+  }
+
+  const srcEntityType = toEntityType(srcRef.refType);
+  const tgtEntityType = toEntityType(tgtRef.refType);
+
+  let srcBinding = await prisma.entityAccountBinding.findFirst({
+    where: { entityType: srcEntityType, entityId: srcRef.refId },
     include: { account: true },
   });
-  const tgtBinding = await prisma.entityAccountBinding.findFirst({
-    where: { entityType: tgtRef.refType, entityId: tgtRef.refId },
+  if (!srcBinding) {
+    srcBinding = await prisma.entityAccountBinding.findFirst({
+      where: { entityType: srcRef.refType, entityId: srcRef.refId },
+      include: { account: true },
+    });
+  }
+
+  let tgtBinding = await prisma.entityAccountBinding.findFirst({
+    where: { entityType: tgtEntityType, entityId: tgtRef.refId },
     include: { account: true },
   });
+  if (!tgtBinding) {
+    tgtBinding = await prisma.entityAccountBinding.findFirst({
+      where: { entityType: tgtRef.refType, entityId: tgtRef.refId },
+      include: { account: true },
+    });
+  }
 
   const srcAccountId = srcBinding?.accountId;
   const tgtAccountId = tgtBinding?.accountId;
 
   if (!srcAccountId || !tgtAccountId) {
     throw new Error(
-      'Source and target must have accounts bound. Use Finance → Entity Accounts to bind advance accounts.'
+      'Source and target must have advance accounts bound. Use Finance → Entity Accounts to bind advance accounts.'
     );
   }
 
-  const desc = `Merge/Reallocation - ${op.reason}`;
+  const refNum = `MRG-${op.id.slice(0, 8)}`;
+  const desc = `Merge/Reallocation - ${op.reason} | Op ${op.id}`;
   const lines = [
     { accountId: tgtAccountId, debit: amount, credit: 0, description: desc },
     { accountId: srcAccountId, debit: 0, credit: amount, description: desc },
@@ -334,6 +499,8 @@ async function executeMerge(op: any, userId: string): Promise<string> {
     paymentMethod: 'Transfer',
     accountId: srcAccountId,
     description: desc,
+    referenceNumber: refNum,
+    dealId: op.dealId ?? undefined,
     lines,
     preparedByUserId: userId,
   });
