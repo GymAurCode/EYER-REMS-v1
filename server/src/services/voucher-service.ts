@@ -909,11 +909,13 @@ export class VoucherService {
       }
       await AccountValidationService.validateAccountPostable(voucher.accountId);
 
-      // Validate journal entry
+      // Validate journal entry - include propertyId/unitId for revenue/expense validation
       const journalLines = voucher.lines.map((line: any) => ({
         accountId: line.accountId,
         debit: line.debit,
         credit: line.credit,
+        propertyId: line.propertyId ?? voucher.propertyId ?? undefined,
+        unitId: line.unitId ?? voucher.unitId ?? undefined,
       }));
 
       await AccountValidationService.validateJournalEntry(journalLines);

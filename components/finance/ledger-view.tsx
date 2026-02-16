@@ -90,6 +90,27 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
     return f
   }, [filterStartDate, filterEndDate, filterSourceType])
 
+  // Must run unconditionally (Rules of Hooks) - before any early returns
+  const filteredEntries = useMemo(
+    () => (ledgerData?.entries ?? []) as LedgerEntry[],
+    [ledgerData?.entries]
+  )
+  const groupedRows = useMemo(() => {
+    const groups: { txId: string; entries: LedgerEntry[] }[] = []
+    const seen = new Set<string>()
+    for (const e of filteredEntries) {
+      const txId = e.transactionUuid || e.id
+      if (!seen.has(txId)) {
+        seen.add(txId)
+        groups.push({
+          txId,
+          entries: filteredEntries.filter((x) => (x.transactionUuid || x.id) === txId),
+        })
+      }
+    }
+    return groups
+  }, [filteredEntries])
+
   useEffect(() => {
     fetchLedger()
   }, [type, id, filterStartDate, filterEndDate, filterSourceType])
@@ -377,26 +398,6 @@ export function LedgerView({ type, id, onClose, showBackButton = true }: LedgerV
       </Card>
     )
   }
-
-  // Entries (sourceType filter applied server-side when passed in filters)
-  const filteredEntries = useMemo(() => ledgerData.entries || [], [ledgerData.entries])
-
-  // Group entries by transactionUuid for visual nesting
-  const groupedRows = useMemo(() => {
-    const groups: { txId: string; entries: LedgerEntry[] }[] = []
-    const seen = new Set<string>()
-    for (const e of filteredEntries) {
-      const txId = e.transactionUuid || e.id
-      if (!seen.has(txId)) {
-        seen.add(txId)
-        groups.push({
-          txId,
-          entries: filteredEntries.filter((x) => (x.transactionUuid || x.id) === txId),
-        })
-      }
-    }
-    return groups
-  }, [filteredEntries])
 
   const handleViewEntry = (entry: LedgerEntry) => {
     if (entry.id === "OPENING" || entry.isLegacy) return

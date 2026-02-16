@@ -179,8 +179,8 @@ const authLimiter = rateLimit({
 app.use('/api/auth/', authLimiter);
 
 // Body parsing middleware
-app.use((express as any).json({ limit: '10mb' })); // Limit JSON payload size
-app.use((express as any).urlencoded({ extended: true, limit: '10mb' }));
+app.use((express as any).json({ limit: '50mb' })); // Limit JSON payload size (supports base64 images)
+app.use((express as any).urlencoded({ extended: true, limit: '50mb' }));
 
 // CSRF Protection for state-changing routes
 // Note: Applied before routes to protect state-changing requests

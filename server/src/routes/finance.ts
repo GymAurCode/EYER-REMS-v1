@@ -1573,12 +1573,11 @@ router.put('/vouchers/:id/post', authenticate, async (req: AuthRequest, res: Res
     );
     res.json({ success: true, data: voucher });
   } catch (error: any) {
-    logger.error('Post voucher error:', {
+    const errMsg = error?.message || 'Unknown error';
+    logger.error(`Post voucher error: ${errMsg}`, {
       voucherId: req.params.id,
       userId: req.user?.id,
-      error: error.message,
-      stack: error.stack,
-      code: error.code,
+      error: errMsg,
     });
     
     // Return more detailed error information
