@@ -1019,12 +1019,11 @@ export class VoucherService {
         },
       });
 
-      // Note: We create journal entries (which is the primary accounting record).
-      // LedgerEntry model requires a dealId, but vouchers may not have deals.
-      // JournalEntry and JournalLine provide complete double-entry accounting records,
-      // so separate LedgerEntry records are not necessary for vouchers.
-      // If LedgerEntry records are needed for reporting, they can be generated from
-      // JournalEntry records in a separate process that handles the dealId requirement.
+      // ARCHITECTURAL NOTE: JournalEntry and JournalLine are the General Ledger (source of truth).
+      // LedgerEntry model requires a dealId and is legacy (only for deal-based entries).
+      // Account Ledger report now reads from JournalLine, so vouchers automatically appear
+      // in the General Ledger without needing separate LedgerEntry records.
+      // This ensures all posted transactions (vouchers, receipts, invoices) are included.
 
       // Update voucher status
       const updated = await tx.voucher.update({

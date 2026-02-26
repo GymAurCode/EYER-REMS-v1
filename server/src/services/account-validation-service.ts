@@ -452,7 +452,7 @@ export class AccountValidationService {
           throw new Error(
             `Unit ID is required for ${account.name}. ` +
             `Account: ${account.code} - ${account.name}. ` +
-            `Unit ID is mandatory for Sale/Rent accuracy and inventory tracking.`
+            `Set Unit at voucher level or on the line. Unit is mandatory for Sale/Rent accuracy and inventory tracking.`
           );
         }
       }

@@ -1,6 +1,11 @@
 /**
  * LedgerService - Business logic for Ledger Entry management
- * Handles double-entry bookkeeping and account lookups
+ * Handles double-entry bookkeeping and account lookups.
+ *
+ * AUDIT: General Ledger source of truth = JournalLine (table JournalLine via entry.status='posted').
+ * - getCompanyLedger() reads from JournalEntry + JournalLine (posting date = JournalEntry.date).
+ * - calculateAccountBalances() derives balances from JournalLine + legacy LedgerEntry.
+ * - LedgerEntry is legacy (dealId required); vouchers do not create LedgerEntry rows.
  */
 
 import { Prisma } from '../prisma/client';
@@ -295,80 +300,139 @@ export class LedgerService {
 
   /**
    * Get company ledger (all ledger entries with account details)
+   * ARCHITECTURAL FIX: Reads from JournalLine (General Ledger) instead of LedgerEntry
+   * JournalLine is the source of truth for all posted transactions (vouchers, receipts, invoices, etc.)
+   * LedgerEntry is legacy and only contains deal-based entries
    */
   static async getCompanyLedger(filters?: {
     startDate?: Date;
     endDate?: Date;
     accountId?: string;
   }): Promise<{ entries: any[]; summary: any }> {
-    const where: any = {
-      deletedAt: null,
+    // Build JournalEntry filter (uses posting date)
+    const journalEntryWhere: any = {
+      status: 'posted', // Only posted entries
     };
 
     if (filters?.startDate || filters?.endDate) {
-      where.date = {};
-      if (filters.startDate) where.date.gte = filters.startDate;
-      if (filters.endDate) where.date.lte = filters.endDate;
+      journalEntryWhere.date = {};
+      if (filters.startDate) journalEntryWhere.date.gte = filters.startDate;
+      if (filters.endDate) journalEntryWhere.date.lte = filters.endDate;
     }
 
+    // Build JournalLine filter
+    const journalLineWhere: any = {};
     if (filters?.accountId) {
-      where.OR = [
-        { debitAccountId: filters.accountId },
-        { creditAccountId: filters.accountId },
-      ];
+      journalLineWhere.accountId = filters.accountId;
     }
 
-    const ledgerEntries = await prisma.ledgerEntry.findMany({
-      where,
+    // Fetch journal entries with lines
+    const journalEntries = await prisma.journalEntry.findMany({
+      where: journalEntryWhere,
       include: {
-        deal: {
+        lines: {
+          where: journalLineWhere,
           include: {
-            client: { select: { id: true, name: true } },
+            account: true,
+          },
+        },
+        vouchers: {
+          include: {
+            property: { select: { id: true, name: true } },
+            deal: {
+              include: {
+                client: { select: { id: true, name: true } },
+                property: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        dealReceipts: {
+          include: {
+            deal: {
+              include: {
+                client: { select: { id: true, name: true } },
+                property: { select: { id: true, name: true } },
+              },
+            },
+          },
+        },
+        invoices: {
+          include: {
+            tenant: { select: { id: true, name: true } },
             property: { select: { id: true, name: true } },
           },
         },
-        payment: {
-          select: {
-            paymentId: true,
-            paymentMode: true,
-            paymentType: true,
-          },
-        },
-        debitAccount: true,
-        creditAccount: true,
+        preparedBy: { select: { id: true, username: true, email: true } },
       },
       orderBy: { date: 'desc' },
-      take: 500, // Limit for performance
+      take: 1000, // Increased limit to capture more entries
     });
 
-    // Calculate summary balances
-    const summary = await this.calculateAccountBalances();
+    // Flatten journal lines into ledger entries format
+    const entries: any[] = [];
+    for (const entry of journalEntries) {
+      if (!entry.lines || entry.lines.length === 0) continue;
+      
+      for (const line of entry.lines) {
+        // Determine entity context (voucher, receipt, invoice, etc.)
+        const voucher = entry.vouchers?.[0];
+        const receipt = entry.dealReceipts;
+        const invoice = entry.invoices?.[0];
+
+        // Determine which account is debit/credit
+        const isDebit = line.debit > 0;
+        const counterpartLine = entry.lines.find(
+          (l: any) => l.id !== line.id && ((isDebit && l.credit > 0) || (!isDebit && l.debit > 0))
+        );
+
+        entries.push({
+          id: line.id,
+          date: entry.date, // Posting date
+          accountDebit: isDebit ? line.account.name : (counterpartLine?.account.name || ''),
+          accountCredit: !isDebit ? line.account.name : (counterpartLine?.account.name || ''),
+          debitAccountId: isDebit ? line.accountId : null,
+          creditAccountId: !isDebit ? line.accountId : null,
+          amount: isDebit ? line.debit : line.credit,
+          remarks: line.description || entry.description || entry.narration,
+          dealTitle: voucher?.deal?.title || receipt?.deal?.title || null,
+          clientName: voucher?.deal?.client?.name || receipt?.deal?.client?.name || null,
+          propertyName: voucher?.property?.name || voucher?.deal?.property?.name || receipt?.deal?.property?.name || invoice?.property?.name || null,
+          paymentId: receipt?.receiptNo || voucher?.voucherNumber || null,
+          paymentMode: voucher?.paymentMethod || null,
+          paymentType: voucher?.type || (receipt ? 'receipt' : null),
+          journalEntryId: entry.id,
+          journalEntryNumber: entry.entryNumber,
+          voucherNo: entry.voucherNo,
+        });
+      }
+    }
+
+    // Sort by date descending
+    entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    // Limit results for performance
+    const limitedEntries = entries.slice(0, 500);
+
+    // Calculate summary balances from JournalLine
+    const summary = await this.calculateAccountBalances(filters);
 
     return {
-      entries: ledgerEntries.map((entry) => ({
-        id: entry.id,
-        date: entry.date,
-        accountDebit: entry.debitAccount?.name || entry.accountDebit,
-        accountCredit: entry.creditAccount?.name || entry.accountCredit,
-        debitAccountId: entry.debitAccountId,
-        creditAccountId: entry.creditAccountId,
-        amount: entry.amount,
-        remarks: entry.remarks,
-        dealTitle: entry.deal?.title,
-        clientName: entry.deal?.client?.name,
-        propertyName: entry.deal?.property?.name,
-        paymentId: entry.payment?.paymentId,
-        paymentMode: entry.payment?.paymentMode,
-        paymentType: entry.payment?.paymentType,
-      })),
+      entries: limitedEntries,
       summary,
     };
   }
 
   /**
-   * Calculate account balances from ledger entries
+   * Calculate account balances from journal lines (General Ledger)
+   * ARCHITECTURAL FIX: Uses JournalLine as source of truth instead of LedgerEntry
+   * This ensures all posted transactions (vouchers, receipts, invoices) are included
    */
-  static async calculateAccountBalances(): Promise<any> {
+  static async calculateAccountBalances(filters?: {
+    startDate?: Date;
+    endDate?: Date;
+    accountId?: string;
+  }): Promise<any> {
     // Get all active accounts
     const accounts = await prisma.account.findMany({
       where: { isActive: true },
@@ -381,8 +445,54 @@ export class LedgerService {
       balances[account.id] = 0;
     });
 
-    // Calculate from ledger entries
-    const entries = await prisma.ledgerEntry.findMany({
+    // Build filter for journal entries (only posted, use posting date)
+    const journalEntryWhere: any = {
+      status: 'posted',
+    };
+
+    if (filters?.startDate || filters?.endDate) {
+      journalEntryWhere.date = {};
+      if (filters.startDate) journalEntryWhere.date.gte = filters.startDate;
+      if (filters.endDate) journalEntryWhere.date.lte = filters.endDate;
+    }
+
+    // Build filter for journal lines
+    const journalLineWhere: any = {};
+    if (filters?.accountId) {
+      journalLineWhere.accountId = filters.accountId;
+    }
+
+    // Calculate from journal lines (General Ledger)
+    const journalEntries = await prisma.journalEntry.findMany({
+      where: journalEntryWhere,
+      include: {
+        lines: {
+          where: journalLineWhere,
+          include: {
+            account: true,
+          },
+        },
+      },
+    });
+
+    // Calculate balances: Standard double-entry accounting
+    // Debit increases asset/expense balances, Credit decreases them
+    // Credit increases liability/equity/revenue balances, Debit decreases them
+    // Standard formula: Balance = SUM(Debits) - SUM(Credits)
+    // For liability/equity/revenue, interpret negative as positive (they have credit normal balance)
+    journalEntries.forEach((entry) => {
+      entry.lines.forEach((line) => {
+        const accountId = line.accountId;
+        if (!balances.hasOwnProperty(accountId)) {
+          balances[accountId] = 0;
+        }
+        // Standard: Debit adds, Credit subtracts
+        balances[accountId] = (balances[accountId] || 0) + line.debit - line.credit;
+      });
+    });
+
+    // Also include legacy LedgerEntry records for backward compatibility
+    const legacyEntries = await prisma.ledgerEntry.findMany({
       where: { deletedAt: null },
       include: {
         debitAccount: true,
@@ -390,7 +500,7 @@ export class LedgerService {
       },
     });
 
-    entries.forEach((entry) => {
+    legacyEntries.forEach((entry) => {
       if (entry.debitAccountId) {
         balances[entry.debitAccountId] = (balances[entry.debitAccountId] || 0) + entry.amount;
       }
@@ -399,11 +509,27 @@ export class LedgerService {
       }
     });
 
-    // Get summary accounts
-    const cashAccount = accounts.find((a) => a.code === '1000' || a.name.includes('Cash'));
-    const bankAccount = accounts.find((a) => a.code === '1010' || a.name.includes('Bank'));
-    const arAccount = accounts.find((a) => a.code === '1100' || a.name.includes('Accounts Receivable'));
-    const dealerPayable = accounts.find((a) => a.code === '2000' || a.name.includes('Dealer Payable'));
+    // Get summary accounts by code patterns
+    const cashAccount = accounts.find((a) => 
+      a.code?.startsWith('1111') || 
+      a.code?.startsWith('111101') || 
+      a.code?.startsWith('111102') ||
+      a.name?.toLowerCase().includes('cash')
+    );
+    const bankAccount = accounts.find((a) => 
+      a.code?.startsWith('1112') || 
+      a.code?.startsWith('111201') || 
+      a.code?.startsWith('111202') ||
+      a.name?.toLowerCase().includes('bank')
+    );
+    const arAccount = accounts.find((a) => 
+      a.code?.startsWith('113') ||
+      a.name?.toLowerCase().includes('receivable')
+    );
+    const dealerPayable = accounts.find((a) => 
+      a.code?.startsWith('211') ||
+      a.name?.toLowerCase().includes('dealer') && a.name?.toLowerCase().includes('payable')
+    );
 
     return {
       cashBalance: cashAccount ? (balances[cashAccount.id] || 0) : 0,

@@ -120,39 +120,52 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
       return successResponse(res, rootAccounts);
     }
 
-    // Calculate balances for each account
-    const accountsWithBalances = await Promise.all(
-      accounts.map(async (account) => {
-        const [debitTotal, creditTotal] = await Promise.all([
-          prisma.ledgerEntry.aggregate({
-            where: { debitAccountId: account.id, deletedAt: null },
-            _sum: { amount: true },
-          }),
-          prisma.ledgerEntry.aggregate({
-            where: { creditAccountId: account.id, deletedAt: null },
-            _sum: { amount: true },
-          }),
-        ]);
+    // PHASE 3 OPTION A: General Ledger = journal_lines. Compute totals from JournalLine (posted entries only).
+    const journalLines = await prisma.journalLine.findMany({
+      where: { entry: { status: 'posted' } },
+      select: { accountId: true, debit: true, credit: true },
+    });
+    const totalsByAccountId: Record<string, { debit: number; credit: number }> = {};
+    journalLines.forEach((line) => {
+      const id = line.accountId;
+      if (!totalsByAccountId[id]) totalsByAccountId[id] = { debit: 0, credit: 0 };
+      totalsByAccountId[id].debit += Number(line.debit);
+      totalsByAccountId[id].credit += Number(line.credit);
+    });
 
-        const debitSum = debitTotal._sum.amount || 0;
-        const creditSum = creditTotal._sum.amount || 0;
+    // Legacy LedgerEntry (deal-based) — add to totals for backward compatibility
+    const legacyEntries = await prisma.ledgerEntry.findMany({
+      where: { deletedAt: null },
+      select: { debitAccountId: true, creditAccountId: true, amount: true },
+    });
+    legacyEntries.forEach((e) => {
+      if (e.debitAccountId) {
+        if (!totalsByAccountId[e.debitAccountId]) totalsByAccountId[e.debitAccountId] = { debit: 0, credit: 0 };
+        totalsByAccountId[e.debitAccountId].debit += Number(e.amount);
+      }
+      if (e.creditAccountId) {
+        if (!totalsByAccountId[e.creditAccountId]) totalsByAccountId[e.creditAccountId] = { debit: 0, credit: 0 };
+        totalsByAccountId[e.creditAccountId].credit += Number(e.amount);
+      }
+    });
 
-        // Calculate balance based on normal balance
-        let balance = 0;
-        if (account.normalBalance === 'Debit') {
-          balance = debitSum - creditSum;
-        } else {
-          balance = creditSum - debitSum;
-        }
-
-        return {
-          ...account,
-          balance: Number(balance.toFixed(2)),
-          debitTotal: Number(debitSum.toFixed(2)),
-          creditTotal: Number(creditSum.toFixed(2)),
-        };
-      })
-    );
+    const accountsWithBalances = accounts.map((account) => {
+      const t = totalsByAccountId[account.id] || { debit: 0, credit: 0 };
+      const debitSum = t.debit;
+      const creditSum = t.credit;
+      let balance = 0;
+      if (account.normalBalance === 'Debit') {
+        balance = debitSum - creditSum;
+      } else {
+        balance = creditSum - debitSum;
+      }
+      return {
+        ...account,
+        balance: Number(balance.toFixed(2)),
+        debitTotal: Number(debitSum.toFixed(2)),
+        creditTotal: Number(creditSum.toFixed(2)),
+      };
+    });
 
     return successResponse(res, accountsWithBalances);
   } catch (error) {
@@ -188,20 +201,27 @@ router.get('/:id', authenticate, async (req: AuthRequest, res: Response) => {
       return errorResponse(res, 'Account not found', 404);
     }
 
-    // Calculate balance
-    const [debitTotal, creditTotal] = await Promise.all([
-      prisma.ledgerEntry.aggregate({
-        where: { debitAccountId: account.id, deletedAt: null },
-        _sum: { amount: true },
-      }),
-      prisma.ledgerEntry.aggregate({
-        where: { creditAccountId: account.id, deletedAt: null },
-        _sum: { amount: true },
-      }),
-    ]);
-
-    const debitSum = debitTotal._sum.amount || 0;
-    const creditSum = creditTotal._sum.amount || 0;
+    // PHASE 3 OPTION A: Balances from JournalLine (General Ledger)
+    const journalLinesForAccount = await prisma.journalLine.findMany({
+      where: { accountId: account.id, entry: { status: 'posted' } },
+      select: { debit: true, credit: true },
+    });
+    let debitSum = 0;
+    let creditSum = 0;
+    journalLinesForAccount.forEach((line) => {
+      debitSum += Number(line.debit);
+      creditSum += Number(line.credit);
+    });
+    const legacyDebit = await prisma.ledgerEntry.aggregate({
+      where: { debitAccountId: account.id, deletedAt: null },
+      _sum: { amount: true },
+    });
+    const legacyCredit = await prisma.ledgerEntry.aggregate({
+      where: { creditAccountId: account.id, deletedAt: null },
+      _sum: { amount: true },
+    });
+    debitSum += legacyDebit._sum.amount || 0;
+    creditSum += legacyCredit._sum.amount || 0;
 
     let balance = 0;
     if (account.normalBalance === 'Debit') {

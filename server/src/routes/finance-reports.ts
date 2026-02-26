@@ -173,7 +173,8 @@ router.get(
 
 /**
  * GET /ledger/account/:accountId
- * Get ledger entries for a specific account
+ * Get ledger entries for a specific account (General Ledger = journal_lines).
+ * Returns entries in shape expected by Account Ledger UI.
  */
 router.get(
   '/ledger/account/:accountId',
@@ -184,80 +185,89 @@ router.get(
       const { accountId } = req.params;
       const { startDate, endDate } = req.query;
 
-      const where: any = {
-        isDeleted: false,
-        OR: [
-          { debitAccountId: accountId },
-          { creditAccountId: accountId },
-        ],
+      const journalWhere: any = {
+        status: 'posted',
+        lines: { some: { accountId } },
       };
-
       if (startDate && endDate) {
-        where.date = {
+        journalWhere.date = {
           gte: new Date(startDate as string),
           lte: new Date(endDate as string),
         };
       }
 
-      // Get transactions
-      const transactions = await prisma.transaction.findMany({
-        where,
-        include: {
-          tenant: true,
-          property: true,
-          transactionCategory: true,
-        },
-        orderBy: { date: 'desc' },
-      });
-
-      // Get journal entries
       const journalEntries = await prisma.journalEntry.findMany({
-        where: {
-          lines: {
-            some: { accountId },
-          },
-          ...(startDate && endDate ? {
-            date: {
-              gte: new Date(startDate as string),
-              lte: new Date(endDate as string),
-            },
-          } : {}),
-        },
+        where: journalWhere,
         include: {
           lines: {
             where: { accountId },
+            include: { account: true },
+          },
+          vouchers: {
+            include: {
+              property: { select: { name: true } },
+              deal: {
+                include: {
+                  client: { select: { name: true } },
+                  property: { select: { name: true } },
+                },
+              },
+            },
+          },
+          dealReceipts: {
+            include: {
+              deal: {
+                include: {
+                  client: { select: { name: true } },
+                  property: { select: { name: true } },
+                },
+              },
+            },
           },
         },
         orderBy: { date: 'desc' },
       });
 
-      // Calculate account balance
+      const entries: any[] = [];
       let balance = 0;
-      transactions.forEach((txn) => {
-        if (txn.debitAccountId === accountId) {
-          balance += txn.totalAmount; // Debit increases asset/expense
-        }
-        if (txn.creditAccountId === accountId) {
-          balance -= txn.totalAmount; // Credit decreases asset/expense
-        }
-      });
 
-      journalEntries.forEach((entry) => {
-        entry.lines.forEach((line) => {
-          if (line.debit > 0) {
-            balance += line.debit;
+      for (const entry of journalEntries) {
+        for (const line of entry.lines) {
+          const isDebit = line.debit > 0;
+          const amount = isDebit ? line.debit : line.credit;
+          const voucher = entry.vouchers?.[0];
+          const receipt = entry.dealReceipts;
+
+          if (line.accountId === accountId) {
+            if (isDebit) balance += amount;
+            else balance -= amount;
           }
-          if (line.credit > 0) {
-            balance -= line.credit;
-          }
-        });
-      });
+
+          const counterpartLine = entry.lines.find(
+            (l: any) => l.id !== line.id && ((isDebit && l.credit > 0) || (!isDebit && l.debit > 0))
+          );
+
+          entries.push({
+            id: line.id,
+            date: entry.date,
+            accountDebit: isDebit ? line.account.name : (counterpartLine?.account?.name || ''),
+            accountCredit: !isDebit ? line.account.name : (counterpartLine?.account?.name || ''),
+            debitAccountId: isDebit ? line.accountId : null,
+            creditAccountId: !isDebit ? line.accountId : null,
+            amount,
+            remarks: line.description || entry.description || entry.narration,
+            dealTitle: voucher?.deal?.title || receipt?.deal?.title || null,
+            clientName: voucher?.deal?.client?.name || receipt?.deal?.client?.name || null,
+            propertyName: voucher?.property?.name || voucher?.deal?.property?.name || receipt?.deal?.property?.name || null,
+            paymentId: receipt?.receiptNo || voucher?.voucherNumber || null,
+          });
+        }
+      }
 
       res.json({
         accountId,
-        balance,
-        transactions,
-        journalEntries,
+        balance: Number(balance.toFixed(2)),
+        entries,
       });
     } catch (error: any) {
       res.status(500).json({ error: error.message });
