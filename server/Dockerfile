@@ -9,6 +9,9 @@ RUN npm install
 
 COPY . .
 
+# ⚠️ Set dummy DATABASE_URL just for build
+ENV DATABASE_URL="postgresql://dummy:dummy@localhost:5432/dummy"
+
 RUN npm run build
 
 EXPOSE 3000
