@@ -29,11 +29,19 @@ export type AggregateCommission = {
 export type CommissionAvgAggregateOutputType = {
   rate: number | null
   amount: number | null
+  commissionBase: number | null
+  grossCommission: number | null
+  taxDeduction: number | null
+  netCommission: number | null
 }
 
 export type CommissionSumAggregateOutputType = {
   rate: number | null
   amount: number | null
+  commissionBase: number | null
+  grossCommission: number | null
+  taxDeduction: number | null
+  netCommission: number | null
 }
 
 export type CommissionMinAggregateOutputType = {
@@ -45,6 +53,14 @@ export type CommissionMinAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   commissionType: string | null
+  dealId: string | null
+  propertyId: string | null
+  commissionBase: number | null
+  grossCommission: number | null
+  taxDeduction: number | null
+  netCommission: number | null
+  status: string | null
+  milestoneInstallmentId: string | null
 }
 
 export type CommissionMaxAggregateOutputType = {
@@ -56,6 +72,14 @@ export type CommissionMaxAggregateOutputType = {
   createdAt: Date | null
   updatedAt: Date | null
   commissionType: string | null
+  dealId: string | null
+  propertyId: string | null
+  commissionBase: number | null
+  grossCommission: number | null
+  taxDeduction: number | null
+  netCommission: number | null
+  status: string | null
+  milestoneInstallmentId: string | null
 }
 
 export type CommissionCountAggregateOutputType = {
@@ -67,6 +91,14 @@ export type CommissionCountAggregateOutputType = {
   createdAt: number
   updatedAt: number
   commissionType: number
+  dealId: number
+  propertyId: number
+  commissionBase: number
+  grossCommission: number
+  taxDeduction: number
+  netCommission: number
+  status: number
+  milestoneInstallmentId: number
   _all: number
 }
 
@@ -74,11 +106,19 @@ export type CommissionCountAggregateOutputType = {
 export type CommissionAvgAggregateInputType = {
   rate?: true
   amount?: true
+  commissionBase?: true
+  grossCommission?: true
+  taxDeduction?: true
+  netCommission?: true
 }
 
 export type CommissionSumAggregateInputType = {
   rate?: true
   amount?: true
+  commissionBase?: true
+  grossCommission?: true
+  taxDeduction?: true
+  netCommission?: true
 }
 
 export type CommissionMinAggregateInputType = {
@@ -90,6 +130,14 @@ export type CommissionMinAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   commissionType?: true
+  dealId?: true
+  propertyId?: true
+  commissionBase?: true
+  grossCommission?: true
+  taxDeduction?: true
+  netCommission?: true
+  status?: true
+  milestoneInstallmentId?: true
 }
 
 export type CommissionMaxAggregateInputType = {
@@ -101,6 +149,14 @@ export type CommissionMaxAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   commissionType?: true
+  dealId?: true
+  propertyId?: true
+  commissionBase?: true
+  grossCommission?: true
+  taxDeduction?: true
+  netCommission?: true
+  status?: true
+  milestoneInstallmentId?: true
 }
 
 export type CommissionCountAggregateInputType = {
@@ -112,6 +168,14 @@ export type CommissionCountAggregateInputType = {
   createdAt?: true
   updatedAt?: true
   commissionType?: true
+  dealId?: true
+  propertyId?: true
+  commissionBase?: true
+  grossCommission?: true
+  taxDeduction?: true
+  netCommission?: true
+  status?: true
+  milestoneInstallmentId?: true
   _all?: true
 }
 
@@ -210,6 +274,14 @@ export type CommissionGroupByOutputType = {
   createdAt: Date
   updatedAt: Date
   commissionType: string
+  dealId: string | null
+  propertyId: string | null
+  commissionBase: number | null
+  grossCommission: number | null
+  taxDeduction: number | null
+  netCommission: number | null
+  status: string | null
+  milestoneInstallmentId: string | null
   _count: CommissionCountAggregateOutputType | null
   _avg: CommissionAvgAggregateOutputType | null
   _sum: CommissionSumAggregateOutputType | null
@@ -244,8 +316,19 @@ export type CommissionWhereInput = {
   createdAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
   commissionType?: Prisma.StringFilter<"Commission"> | string
+  dealId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  propertyId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  commissionBase?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  grossCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  taxDeduction?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  netCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  status?: Prisma.StringNullableFilter<"Commission"> | string | null
+  milestoneInstallmentId?: Prisma.StringNullableFilter<"Commission"> | string | null
   dealer?: Prisma.XOR<Prisma.DealerNullableScalarRelationFilter, Prisma.DealerWhereInput> | null
   sale?: Prisma.XOR<Prisma.SaleNullableScalarRelationFilter, Prisma.SaleWhereInput> | null
+  deal?: Prisma.XOR<Prisma.DealNullableScalarRelationFilter, Prisma.DealWhereInput> | null
+  property?: Prisma.XOR<Prisma.PropertyNullableScalarRelationFilter, Prisma.PropertyWhereInput> | null
+  milestoneInstallment?: Prisma.XOR<Prisma.DealInstallmentNullableScalarRelationFilter, Prisma.DealInstallmentWhereInput> | null
 }
 
 export type CommissionOrderByWithRelationInput = {
@@ -257,8 +340,19 @@ export type CommissionOrderByWithRelationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   commissionType?: Prisma.SortOrder
+  dealId?: Prisma.SortOrderInput | Prisma.SortOrder
+  propertyId?: Prisma.SortOrderInput | Prisma.SortOrder
+  commissionBase?: Prisma.SortOrderInput | Prisma.SortOrder
+  grossCommission?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrderInput | Prisma.SortOrder
+  netCommission?: Prisma.SortOrderInput | Prisma.SortOrder
+  status?: Prisma.SortOrderInput | Prisma.SortOrder
+  milestoneInstallmentId?: Prisma.SortOrderInput | Prisma.SortOrder
   dealer?: Prisma.DealerOrderByWithRelationInput
   sale?: Prisma.SaleOrderByWithRelationInput
+  deal?: Prisma.DealOrderByWithRelationInput
+  property?: Prisma.PropertyOrderByWithRelationInput
+  milestoneInstallment?: Prisma.DealInstallmentOrderByWithRelationInput
 }
 
 export type CommissionWhereUniqueInput = Prisma.AtLeast<{
@@ -273,8 +367,19 @@ export type CommissionWhereUniqueInput = Prisma.AtLeast<{
   createdAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
   updatedAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
   commissionType?: Prisma.StringFilter<"Commission"> | string
+  dealId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  propertyId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  commissionBase?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  grossCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  taxDeduction?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  netCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  status?: Prisma.StringNullableFilter<"Commission"> | string | null
+  milestoneInstallmentId?: Prisma.StringNullableFilter<"Commission"> | string | null
   dealer?: Prisma.XOR<Prisma.DealerNullableScalarRelationFilter, Prisma.DealerWhereInput> | null
   sale?: Prisma.XOR<Prisma.SaleNullableScalarRelationFilter, Prisma.SaleWhereInput> | null
+  deal?: Prisma.XOR<Prisma.DealNullableScalarRelationFilter, Prisma.DealWhereInput> | null
+  property?: Prisma.XOR<Prisma.PropertyNullableScalarRelationFilter, Prisma.PropertyWhereInput> | null
+  milestoneInstallment?: Prisma.XOR<Prisma.DealInstallmentNullableScalarRelationFilter, Prisma.DealInstallmentWhereInput> | null
 }, "id">
 
 export type CommissionOrderByWithAggregationInput = {
@@ -286,6 +391,14 @@ export type CommissionOrderByWithAggregationInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   commissionType?: Prisma.SortOrder
+  dealId?: Prisma.SortOrderInput | Prisma.SortOrder
+  propertyId?: Prisma.SortOrderInput | Prisma.SortOrder
+  commissionBase?: Prisma.SortOrderInput | Prisma.SortOrder
+  grossCommission?: Prisma.SortOrderInput | Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrderInput | Prisma.SortOrder
+  netCommission?: Prisma.SortOrderInput | Prisma.SortOrder
+  status?: Prisma.SortOrderInput | Prisma.SortOrder
+  milestoneInstallmentId?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.CommissionCountOrderByAggregateInput
   _avg?: Prisma.CommissionAvgOrderByAggregateInput
   _max?: Prisma.CommissionMaxOrderByAggregateInput
@@ -305,6 +418,14 @@ export type CommissionScalarWhereWithAggregatesInput = {
   createdAt?: Prisma.DateTimeWithAggregatesFilter<"Commission"> | Date | string
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"Commission"> | Date | string
   commissionType?: Prisma.StringWithAggregatesFilter<"Commission"> | string
+  dealId?: Prisma.StringNullableWithAggregatesFilter<"Commission"> | string | null
+  propertyId?: Prisma.StringNullableWithAggregatesFilter<"Commission"> | string | null
+  commissionBase?: Prisma.FloatNullableWithAggregatesFilter<"Commission"> | number | null
+  grossCommission?: Prisma.FloatNullableWithAggregatesFilter<"Commission"> | number | null
+  taxDeduction?: Prisma.FloatNullableWithAggregatesFilter<"Commission"> | number | null
+  netCommission?: Prisma.FloatNullableWithAggregatesFilter<"Commission"> | number | null
+  status?: Prisma.StringNullableWithAggregatesFilter<"Commission"> | string | null
+  milestoneInstallmentId?: Prisma.StringNullableWithAggregatesFilter<"Commission"> | string | null
 }
 
 export type CommissionCreateInput = {
@@ -314,8 +435,16 @@ export type CommissionCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
   dealer?: Prisma.DealerCreateNestedOneWithoutCommissionsInput
   sale?: Prisma.SaleCreateNestedOneWithoutCommissionsInput
+  deal?: Prisma.DealCreateNestedOneWithoutCommissionsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutCommissionsInput
+  milestoneInstallment?: Prisma.DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput
 }
 
 export type CommissionUncheckedCreateInput = {
@@ -327,6 +456,14 @@ export type CommissionUncheckedCreateInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionUpdateInput = {
@@ -336,8 +473,16 @@ export type CommissionUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   dealer?: Prisma.DealerUpdateOneWithoutCommissionsNestedInput
   sale?: Prisma.SaleUpdateOneWithoutCommissionsNestedInput
+  deal?: Prisma.DealUpdateOneWithoutCommissionsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutCommissionsNestedInput
+  milestoneInstallment?: Prisma.DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput
 }
 
 export type CommissionUncheckedUpdateInput = {
@@ -349,6 +494,14 @@ export type CommissionUncheckedUpdateInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionCreateManyInput = {
@@ -360,6 +513,14 @@ export type CommissionCreateManyInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionUpdateManyMutationInput = {
@@ -369,6 +530,11 @@ export type CommissionUpdateManyMutationInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionUncheckedUpdateManyInput = {
@@ -380,6 +546,14 @@ export type CommissionUncheckedUpdateManyInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionListRelationFilter = {
@@ -401,11 +575,23 @@ export type CommissionCountOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   commissionType?: Prisma.SortOrder
+  dealId?: Prisma.SortOrder
+  propertyId?: Prisma.SortOrder
+  commissionBase?: Prisma.SortOrder
+  grossCommission?: Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrder
+  netCommission?: Prisma.SortOrder
+  status?: Prisma.SortOrder
+  milestoneInstallmentId?: Prisma.SortOrder
 }
 
 export type CommissionAvgOrderByAggregateInput = {
   rate?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  commissionBase?: Prisma.SortOrder
+  grossCommission?: Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrder
+  netCommission?: Prisma.SortOrder
 }
 
 export type CommissionMaxOrderByAggregateInput = {
@@ -417,6 +603,14 @@ export type CommissionMaxOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   commissionType?: Prisma.SortOrder
+  dealId?: Prisma.SortOrder
+  propertyId?: Prisma.SortOrder
+  commissionBase?: Prisma.SortOrder
+  grossCommission?: Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrder
+  netCommission?: Prisma.SortOrder
+  status?: Prisma.SortOrder
+  milestoneInstallmentId?: Prisma.SortOrder
 }
 
 export type CommissionMinOrderByAggregateInput = {
@@ -428,11 +622,65 @@ export type CommissionMinOrderByAggregateInput = {
   createdAt?: Prisma.SortOrder
   updatedAt?: Prisma.SortOrder
   commissionType?: Prisma.SortOrder
+  dealId?: Prisma.SortOrder
+  propertyId?: Prisma.SortOrder
+  commissionBase?: Prisma.SortOrder
+  grossCommission?: Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrder
+  netCommission?: Prisma.SortOrder
+  status?: Prisma.SortOrder
+  milestoneInstallmentId?: Prisma.SortOrder
 }
 
 export type CommissionSumOrderByAggregateInput = {
   rate?: Prisma.SortOrder
   amount?: Prisma.SortOrder
+  commissionBase?: Prisma.SortOrder
+  grossCommission?: Prisma.SortOrder
+  taxDeduction?: Prisma.SortOrder
+  netCommission?: Prisma.SortOrder
+}
+
+export type CommissionCreateNestedManyWithoutPropertyInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput> | Prisma.CommissionCreateWithoutPropertyInput[] | Prisma.CommissionUncheckedCreateWithoutPropertyInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutPropertyInput | Prisma.CommissionCreateOrConnectWithoutPropertyInput[]
+  createMany?: Prisma.CommissionCreateManyPropertyInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUncheckedCreateNestedManyWithoutPropertyInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput> | Prisma.CommissionCreateWithoutPropertyInput[] | Prisma.CommissionUncheckedCreateWithoutPropertyInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutPropertyInput | Prisma.CommissionCreateOrConnectWithoutPropertyInput[]
+  createMany?: Prisma.CommissionCreateManyPropertyInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUpdateManyWithoutPropertyNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput> | Prisma.CommissionCreateWithoutPropertyInput[] | Prisma.CommissionUncheckedCreateWithoutPropertyInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutPropertyInput | Prisma.CommissionCreateOrConnectWithoutPropertyInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutPropertyInput | Prisma.CommissionUpsertWithWhereUniqueWithoutPropertyInput[]
+  createMany?: Prisma.CommissionCreateManyPropertyInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutPropertyInput | Prisma.CommissionUpdateWithWhereUniqueWithoutPropertyInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutPropertyInput | Prisma.CommissionUpdateManyWithWhereWithoutPropertyInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+}
+
+export type CommissionUncheckedUpdateManyWithoutPropertyNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput> | Prisma.CommissionCreateWithoutPropertyInput[] | Prisma.CommissionUncheckedCreateWithoutPropertyInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutPropertyInput | Prisma.CommissionCreateOrConnectWithoutPropertyInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutPropertyInput | Prisma.CommissionUpsertWithWhereUniqueWithoutPropertyInput[]
+  createMany?: Prisma.CommissionCreateManyPropertyInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutPropertyInput | Prisma.CommissionUpdateWithWhereUniqueWithoutPropertyInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutPropertyInput | Prisma.CommissionUpdateManyWithWhereWithoutPropertyInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
 }
 
 export type CommissionCreateNestedManyWithoutSaleInput = {
@@ -519,6 +767,174 @@ export type CommissionUncheckedUpdateManyWithoutDealerNestedInput = {
   deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
 }
 
+export type CommissionCreateNestedManyWithoutDealInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput> | Prisma.CommissionCreateWithoutDealInput[] | Prisma.CommissionUncheckedCreateWithoutDealInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutDealInput | Prisma.CommissionCreateOrConnectWithoutDealInput[]
+  createMany?: Prisma.CommissionCreateManyDealInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUncheckedCreateNestedManyWithoutDealInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput> | Prisma.CommissionCreateWithoutDealInput[] | Prisma.CommissionUncheckedCreateWithoutDealInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutDealInput | Prisma.CommissionCreateOrConnectWithoutDealInput[]
+  createMany?: Prisma.CommissionCreateManyDealInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUpdateManyWithoutDealNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput> | Prisma.CommissionCreateWithoutDealInput[] | Prisma.CommissionUncheckedCreateWithoutDealInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutDealInput | Prisma.CommissionCreateOrConnectWithoutDealInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutDealInput | Prisma.CommissionUpsertWithWhereUniqueWithoutDealInput[]
+  createMany?: Prisma.CommissionCreateManyDealInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutDealInput | Prisma.CommissionUpdateWithWhereUniqueWithoutDealInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutDealInput | Prisma.CommissionUpdateManyWithWhereWithoutDealInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+}
+
+export type CommissionUncheckedUpdateManyWithoutDealNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput> | Prisma.CommissionCreateWithoutDealInput[] | Prisma.CommissionUncheckedCreateWithoutDealInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutDealInput | Prisma.CommissionCreateOrConnectWithoutDealInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutDealInput | Prisma.CommissionUpsertWithWhereUniqueWithoutDealInput[]
+  createMany?: Prisma.CommissionCreateManyDealInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutDealInput | Prisma.CommissionUpdateWithWhereUniqueWithoutDealInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutDealInput | Prisma.CommissionUpdateManyWithWhereWithoutDealInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+}
+
+export type CommissionCreateNestedManyWithoutMilestoneInstallmentInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput> | Prisma.CommissionCreateWithoutMilestoneInstallmentInput[] | Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput | Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput[]
+  createMany?: Prisma.CommissionCreateManyMilestoneInstallmentInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput> | Prisma.CommissionCreateWithoutMilestoneInstallmentInput[] | Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput | Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput[]
+  createMany?: Prisma.CommissionCreateManyMilestoneInstallmentInputEnvelope
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+}
+
+export type CommissionUpdateManyWithoutMilestoneInstallmentNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput> | Prisma.CommissionCreateWithoutMilestoneInstallmentInput[] | Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput | Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutMilestoneInstallmentInput | Prisma.CommissionUpsertWithWhereUniqueWithoutMilestoneInstallmentInput[]
+  createMany?: Prisma.CommissionCreateManyMilestoneInstallmentInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutMilestoneInstallmentInput | Prisma.CommissionUpdateWithWhereUniqueWithoutMilestoneInstallmentInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutMilestoneInstallmentInput | Prisma.CommissionUpdateManyWithWhereWithoutMilestoneInstallmentInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+}
+
+export type CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput = {
+  create?: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput> | Prisma.CommissionCreateWithoutMilestoneInstallmentInput[] | Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput[]
+  connectOrCreate?: Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput | Prisma.CommissionCreateOrConnectWithoutMilestoneInstallmentInput[]
+  upsert?: Prisma.CommissionUpsertWithWhereUniqueWithoutMilestoneInstallmentInput | Prisma.CommissionUpsertWithWhereUniqueWithoutMilestoneInstallmentInput[]
+  createMany?: Prisma.CommissionCreateManyMilestoneInstallmentInputEnvelope
+  set?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  disconnect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  delete?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  connect?: Prisma.CommissionWhereUniqueInput | Prisma.CommissionWhereUniqueInput[]
+  update?: Prisma.CommissionUpdateWithWhereUniqueWithoutMilestoneInstallmentInput | Prisma.CommissionUpdateWithWhereUniqueWithoutMilestoneInstallmentInput[]
+  updateMany?: Prisma.CommissionUpdateManyWithWhereWithoutMilestoneInstallmentInput | Prisma.CommissionUpdateManyWithWhereWithoutMilestoneInstallmentInput[]
+  deleteMany?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+}
+
+export type CommissionCreateWithoutPropertyInput = {
+  id?: string
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  dealer?: Prisma.DealerCreateNestedOneWithoutCommissionsInput
+  sale?: Prisma.SaleCreateNestedOneWithoutCommissionsInput
+  deal?: Prisma.DealCreateNestedOneWithoutCommissionsInput
+  milestoneInstallment?: Prisma.DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput
+}
+
+export type CommissionUncheckedCreateWithoutPropertyInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  dealId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
+}
+
+export type CommissionCreateOrConnectWithoutPropertyInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput>
+}
+
+export type CommissionCreateManyPropertyInputEnvelope = {
+  data: Prisma.CommissionCreateManyPropertyInput | Prisma.CommissionCreateManyPropertyInput[]
+  skipDuplicates?: boolean
+}
+
+export type CommissionUpsertWithWhereUniqueWithoutPropertyInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  update: Prisma.XOR<Prisma.CommissionUpdateWithoutPropertyInput, Prisma.CommissionUncheckedUpdateWithoutPropertyInput>
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutPropertyInput, Prisma.CommissionUncheckedCreateWithoutPropertyInput>
+}
+
+export type CommissionUpdateWithWhereUniqueWithoutPropertyInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  data: Prisma.XOR<Prisma.CommissionUpdateWithoutPropertyInput, Prisma.CommissionUncheckedUpdateWithoutPropertyInput>
+}
+
+export type CommissionUpdateManyWithWhereWithoutPropertyInput = {
+  where: Prisma.CommissionScalarWhereInput
+  data: Prisma.XOR<Prisma.CommissionUpdateManyMutationInput, Prisma.CommissionUncheckedUpdateManyWithoutPropertyInput>
+}
+
+export type CommissionScalarWhereInput = {
+  AND?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+  OR?: Prisma.CommissionScalarWhereInput[]
+  NOT?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
+  id?: Prisma.StringFilter<"Commission"> | string
+  dealerId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  saleId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  rate?: Prisma.FloatFilter<"Commission"> | number
+  amount?: Prisma.FloatFilter<"Commission"> | number
+  createdAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
+  updatedAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
+  commissionType?: Prisma.StringFilter<"Commission"> | string
+  dealId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  propertyId?: Prisma.StringNullableFilter<"Commission"> | string | null
+  commissionBase?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  grossCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  taxDeduction?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  netCommission?: Prisma.FloatNullableFilter<"Commission"> | number | null
+  status?: Prisma.StringNullableFilter<"Commission"> | string | null
+  milestoneInstallmentId?: Prisma.StringNullableFilter<"Commission"> | string | null
+}
+
 export type CommissionCreateWithoutSaleInput = {
   id?: string
   rate?: number
@@ -526,7 +942,15 @@ export type CommissionCreateWithoutSaleInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
   dealer?: Prisma.DealerCreateNestedOneWithoutCommissionsInput
+  deal?: Prisma.DealCreateNestedOneWithoutCommissionsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutCommissionsInput
+  milestoneInstallment?: Prisma.DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput
 }
 
 export type CommissionUncheckedCreateWithoutSaleInput = {
@@ -537,6 +961,14 @@ export type CommissionUncheckedCreateWithoutSaleInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionCreateOrConnectWithoutSaleInput = {
@@ -565,20 +997,6 @@ export type CommissionUpdateManyWithWhereWithoutSaleInput = {
   data: Prisma.XOR<Prisma.CommissionUpdateManyMutationInput, Prisma.CommissionUncheckedUpdateManyWithoutSaleInput>
 }
 
-export type CommissionScalarWhereInput = {
-  AND?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
-  OR?: Prisma.CommissionScalarWhereInput[]
-  NOT?: Prisma.CommissionScalarWhereInput | Prisma.CommissionScalarWhereInput[]
-  id?: Prisma.StringFilter<"Commission"> | string
-  dealerId?: Prisma.StringNullableFilter<"Commission"> | string | null
-  saleId?: Prisma.StringNullableFilter<"Commission"> | string | null
-  rate?: Prisma.FloatFilter<"Commission"> | number
-  amount?: Prisma.FloatFilter<"Commission"> | number
-  createdAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
-  updatedAt?: Prisma.DateTimeFilter<"Commission"> | Date | string
-  commissionType?: Prisma.StringFilter<"Commission"> | string
-}
-
 export type CommissionCreateWithoutDealerInput = {
   id?: string
   rate?: number
@@ -586,7 +1004,15 @@ export type CommissionCreateWithoutDealerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
   sale?: Prisma.SaleCreateNestedOneWithoutCommissionsInput
+  deal?: Prisma.DealCreateNestedOneWithoutCommissionsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutCommissionsInput
+  milestoneInstallment?: Prisma.DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput
 }
 
 export type CommissionUncheckedCreateWithoutDealerInput = {
@@ -597,6 +1023,14 @@ export type CommissionUncheckedCreateWithoutDealerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionCreateOrConnectWithoutDealerInput = {
@@ -625,6 +1059,202 @@ export type CommissionUpdateManyWithWhereWithoutDealerInput = {
   data: Prisma.XOR<Prisma.CommissionUpdateManyMutationInput, Prisma.CommissionUncheckedUpdateManyWithoutDealerInput>
 }
 
+export type CommissionCreateWithoutDealInput = {
+  id?: string
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  dealer?: Prisma.DealerCreateNestedOneWithoutCommissionsInput
+  sale?: Prisma.SaleCreateNestedOneWithoutCommissionsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutCommissionsInput
+  milestoneInstallment?: Prisma.DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput
+}
+
+export type CommissionUncheckedCreateWithoutDealInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
+}
+
+export type CommissionCreateOrConnectWithoutDealInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput>
+}
+
+export type CommissionCreateManyDealInputEnvelope = {
+  data: Prisma.CommissionCreateManyDealInput | Prisma.CommissionCreateManyDealInput[]
+  skipDuplicates?: boolean
+}
+
+export type CommissionUpsertWithWhereUniqueWithoutDealInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  update: Prisma.XOR<Prisma.CommissionUpdateWithoutDealInput, Prisma.CommissionUncheckedUpdateWithoutDealInput>
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutDealInput, Prisma.CommissionUncheckedCreateWithoutDealInput>
+}
+
+export type CommissionUpdateWithWhereUniqueWithoutDealInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  data: Prisma.XOR<Prisma.CommissionUpdateWithoutDealInput, Prisma.CommissionUncheckedUpdateWithoutDealInput>
+}
+
+export type CommissionUpdateManyWithWhereWithoutDealInput = {
+  where: Prisma.CommissionScalarWhereInput
+  data: Prisma.XOR<Prisma.CommissionUpdateManyMutationInput, Prisma.CommissionUncheckedUpdateManyWithoutDealInput>
+}
+
+export type CommissionCreateWithoutMilestoneInstallmentInput = {
+  id?: string
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  dealer?: Prisma.DealerCreateNestedOneWithoutCommissionsInput
+  sale?: Prisma.SaleCreateNestedOneWithoutCommissionsInput
+  deal?: Prisma.DealCreateNestedOneWithoutCommissionsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutCommissionsInput
+}
+
+export type CommissionUncheckedCreateWithoutMilestoneInstallmentInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+}
+
+export type CommissionCreateOrConnectWithoutMilestoneInstallmentInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput>
+}
+
+export type CommissionCreateManyMilestoneInstallmentInputEnvelope = {
+  data: Prisma.CommissionCreateManyMilestoneInstallmentInput | Prisma.CommissionCreateManyMilestoneInstallmentInput[]
+  skipDuplicates?: boolean
+}
+
+export type CommissionUpsertWithWhereUniqueWithoutMilestoneInstallmentInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  update: Prisma.XOR<Prisma.CommissionUpdateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedUpdateWithoutMilestoneInstallmentInput>
+  create: Prisma.XOR<Prisma.CommissionCreateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedCreateWithoutMilestoneInstallmentInput>
+}
+
+export type CommissionUpdateWithWhereUniqueWithoutMilestoneInstallmentInput = {
+  where: Prisma.CommissionWhereUniqueInput
+  data: Prisma.XOR<Prisma.CommissionUpdateWithoutMilestoneInstallmentInput, Prisma.CommissionUncheckedUpdateWithoutMilestoneInstallmentInput>
+}
+
+export type CommissionUpdateManyWithWhereWithoutMilestoneInstallmentInput = {
+  where: Prisma.CommissionScalarWhereInput
+  data: Prisma.XOR<Prisma.CommissionUpdateManyMutationInput, Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentInput>
+}
+
+export type CommissionCreateManyPropertyInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  dealId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
+}
+
+export type CommissionUpdateWithoutPropertyInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealer?: Prisma.DealerUpdateOneWithoutCommissionsNestedInput
+  sale?: Prisma.SaleUpdateOneWithoutCommissionsNestedInput
+  deal?: Prisma.DealUpdateOneWithoutCommissionsNestedInput
+  milestoneInstallment?: Prisma.DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput
+}
+
+export type CommissionUncheckedUpdateWithoutPropertyInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type CommissionUncheckedUpdateManyWithoutPropertyInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
 export type CommissionCreateManySaleInput = {
   id?: string
   dealerId?: string | null
@@ -633,6 +1263,14 @@ export type CommissionCreateManySaleInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionUpdateWithoutSaleInput = {
@@ -642,7 +1280,15 @@ export type CommissionUpdateWithoutSaleInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   dealer?: Prisma.DealerUpdateOneWithoutCommissionsNestedInput
+  deal?: Prisma.DealUpdateOneWithoutCommissionsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutCommissionsNestedInput
+  milestoneInstallment?: Prisma.DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput
 }
 
 export type CommissionUncheckedUpdateWithoutSaleInput = {
@@ -653,6 +1299,14 @@ export type CommissionUncheckedUpdateWithoutSaleInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionUncheckedUpdateManyWithoutSaleInput = {
@@ -663,6 +1317,14 @@ export type CommissionUncheckedUpdateManyWithoutSaleInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionCreateManyDealerInput = {
@@ -673,6 +1335,14 @@ export type CommissionCreateManyDealerInput = {
   createdAt?: Date | string
   updatedAt?: Date | string
   commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
 }
 
 export type CommissionUpdateWithoutDealerInput = {
@@ -682,7 +1352,15 @@ export type CommissionUpdateWithoutDealerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   sale?: Prisma.SaleUpdateOneWithoutCommissionsNestedInput
+  deal?: Prisma.DealUpdateOneWithoutCommissionsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutCommissionsNestedInput
+  milestoneInstallment?: Prisma.DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput
 }
 
 export type CommissionUncheckedUpdateWithoutDealerInput = {
@@ -693,6 +1371,14 @@ export type CommissionUncheckedUpdateWithoutDealerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type CommissionUncheckedUpdateManyWithoutDealerInput = {
@@ -703,6 +1389,158 @@ export type CommissionUncheckedUpdateManyWithoutDealerInput = {
   createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type CommissionCreateManyDealInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+  milestoneInstallmentId?: string | null
+}
+
+export type CommissionUpdateWithoutDealInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealer?: Prisma.DealerUpdateOneWithoutCommissionsNestedInput
+  sale?: Prisma.SaleUpdateOneWithoutCommissionsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutCommissionsNestedInput
+  milestoneInstallment?: Prisma.DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput
+}
+
+export type CommissionUncheckedUpdateWithoutDealInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type CommissionUncheckedUpdateManyWithoutDealInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  milestoneInstallmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type CommissionCreateManyMilestoneInstallmentInput = {
+  id?: string
+  dealerId?: string | null
+  saleId?: string | null
+  rate?: number
+  amount?: number
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  commissionType?: string
+  dealId?: string | null
+  propertyId?: string | null
+  commissionBase?: number | null
+  grossCommission?: number | null
+  taxDeduction?: number | null
+  netCommission?: number | null
+  status?: string | null
+}
+
+export type CommissionUpdateWithoutMilestoneInstallmentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealer?: Prisma.DealerUpdateOneWithoutCommissionsNestedInput
+  sale?: Prisma.SaleUpdateOneWithoutCommissionsNestedInput
+  deal?: Prisma.DealUpdateOneWithoutCommissionsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutCommissionsNestedInput
+}
+
+export type CommissionUncheckedUpdateWithoutMilestoneInstallmentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+}
+
+export type CommissionUncheckedUpdateManyWithoutMilestoneInstallmentInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  saleId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  rate?: Prisma.FloatFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  commissionType?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  commissionBase?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  grossCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  taxDeduction?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  netCommission?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  status?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -716,8 +1554,19 @@ export type CommissionSelect<ExtArgs extends runtime.Types.Extensions.InternalAr
   createdAt?: boolean
   updatedAt?: boolean
   commissionType?: boolean
+  dealId?: boolean
+  propertyId?: boolean
+  commissionBase?: boolean
+  grossCommission?: boolean
+  taxDeduction?: boolean
+  netCommission?: boolean
+  status?: boolean
+  milestoneInstallmentId?: boolean
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }, ExtArgs["result"]["commission"]>
 
 export type CommissionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -729,8 +1578,19 @@ export type CommissionSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Ex
   createdAt?: boolean
   updatedAt?: boolean
   commissionType?: boolean
+  dealId?: boolean
+  propertyId?: boolean
+  commissionBase?: boolean
+  grossCommission?: boolean
+  taxDeduction?: boolean
+  netCommission?: boolean
+  status?: boolean
+  milestoneInstallmentId?: boolean
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }, ExtArgs["result"]["commission"]>
 
 export type CommissionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
@@ -742,8 +1602,19 @@ export type CommissionSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Ex
   createdAt?: boolean
   updatedAt?: boolean
   commissionType?: boolean
+  dealId?: boolean
+  propertyId?: boolean
+  commissionBase?: boolean
+  grossCommission?: boolean
+  taxDeduction?: boolean
+  netCommission?: boolean
+  status?: boolean
+  milestoneInstallmentId?: boolean
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }, ExtArgs["result"]["commission"]>
 
 export type CommissionSelectScalar = {
@@ -755,20 +1626,37 @@ export type CommissionSelectScalar = {
   createdAt?: boolean
   updatedAt?: boolean
   commissionType?: boolean
+  dealId?: boolean
+  propertyId?: boolean
+  commissionBase?: boolean
+  grossCommission?: boolean
+  taxDeduction?: boolean
+  netCommission?: boolean
+  status?: boolean
+  milestoneInstallmentId?: boolean
 }
 
-export type CommissionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "dealerId" | "saleId" | "rate" | "amount" | "createdAt" | "updatedAt" | "commissionType", ExtArgs["result"]["commission"]>
+export type CommissionOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "dealerId" | "saleId" | "rate" | "amount" | "createdAt" | "updatedAt" | "commissionType" | "dealId" | "propertyId" | "commissionBase" | "grossCommission" | "taxDeduction" | "netCommission" | "status" | "milestoneInstallmentId", ExtArgs["result"]["commission"]>
 export type CommissionInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }
 export type CommissionIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }
 export type CommissionIncludeUpdateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   dealer?: boolean | Prisma.Commission$dealerArgs<ExtArgs>
   sale?: boolean | Prisma.Commission$saleArgs<ExtArgs>
+  deal?: boolean | Prisma.Commission$dealArgs<ExtArgs>
+  property?: boolean | Prisma.Commission$propertyArgs<ExtArgs>
+  milestoneInstallment?: boolean | Prisma.Commission$milestoneInstallmentArgs<ExtArgs>
 }
 
 export type $CommissionPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -776,6 +1664,9 @@ export type $CommissionPayload<ExtArgs extends runtime.Types.Extensions.Internal
   objects: {
     dealer: Prisma.$DealerPayload<ExtArgs> | null
     sale: Prisma.$SalePayload<ExtArgs> | null
+    deal: Prisma.$DealPayload<ExtArgs> | null
+    property: Prisma.$PropertyPayload<ExtArgs> | null
+    milestoneInstallment: Prisma.$DealInstallmentPayload<ExtArgs> | null
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -786,6 +1677,14 @@ export type $CommissionPayload<ExtArgs extends runtime.Types.Extensions.Internal
     createdAt: Date
     updatedAt: Date
     commissionType: string
+    dealId: string | null
+    propertyId: string | null
+    commissionBase: number | null
+    grossCommission: number | null
+    taxDeduction: number | null
+    netCommission: number | null
+    status: string | null
+    milestoneInstallmentId: string | null
   }, ExtArgs["result"]["commission"]>
   composites: {}
 }
@@ -1182,6 +2081,9 @@ export interface Prisma__CommissionClient<T, Null = never, ExtArgs extends runti
   readonly [Symbol.toStringTag]: "PrismaPromise"
   dealer<T extends Prisma.Commission$dealerArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Commission$dealerArgs<ExtArgs>>): Prisma.Prisma__DealerClient<runtime.Types.Result.GetResult<Prisma.$DealerPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   sale<T extends Prisma.Commission$saleArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Commission$saleArgs<ExtArgs>>): Prisma.Prisma__SaleClient<runtime.Types.Result.GetResult<Prisma.$SalePayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  deal<T extends Prisma.Commission$dealArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Commission$dealArgs<ExtArgs>>): Prisma.Prisma__DealClient<runtime.Types.Result.GetResult<Prisma.$DealPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  property<T extends Prisma.Commission$propertyArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Commission$propertyArgs<ExtArgs>>): Prisma.Prisma__PropertyClient<runtime.Types.Result.GetResult<Prisma.$PropertyPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
+  milestoneInstallment<T extends Prisma.Commission$milestoneInstallmentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Commission$milestoneInstallmentArgs<ExtArgs>>): Prisma.Prisma__DealInstallmentClient<runtime.Types.Result.GetResult<Prisma.$DealInstallmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -1219,6 +2121,14 @@ export interface CommissionFieldRefs {
   readonly createdAt: Prisma.FieldRef<"Commission", 'DateTime'>
   readonly updatedAt: Prisma.FieldRef<"Commission", 'DateTime'>
   readonly commissionType: Prisma.FieldRef<"Commission", 'String'>
+  readonly dealId: Prisma.FieldRef<"Commission", 'String'>
+  readonly propertyId: Prisma.FieldRef<"Commission", 'String'>
+  readonly commissionBase: Prisma.FieldRef<"Commission", 'Float'>
+  readonly grossCommission: Prisma.FieldRef<"Commission", 'Float'>
+  readonly taxDeduction: Prisma.FieldRef<"Commission", 'Float'>
+  readonly netCommission: Prisma.FieldRef<"Commission", 'Float'>
+  readonly status: Prisma.FieldRef<"Commission", 'String'>
+  readonly milestoneInstallmentId: Prisma.FieldRef<"Commission", 'String'>
 }
     
 
@@ -1650,6 +2560,63 @@ export type Commission$saleArgs<ExtArgs extends runtime.Types.Extensions.Interna
    */
   include?: Prisma.SaleInclude<ExtArgs> | null
   where?: Prisma.SaleWhereInput
+}
+
+/**
+ * Commission.deal
+ */
+export type Commission$dealArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Deal
+   */
+  select?: Prisma.DealSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Deal
+   */
+  omit?: Prisma.DealOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DealInclude<ExtArgs> | null
+  where?: Prisma.DealWhereInput
+}
+
+/**
+ * Commission.property
+ */
+export type Commission$propertyArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Property
+   */
+  select?: Prisma.PropertySelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Property
+   */
+  omit?: Prisma.PropertyOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PropertyInclude<ExtArgs> | null
+  where?: Prisma.PropertyWhereInput
+}
+
+/**
+ * Commission.milestoneInstallment
+ */
+export type Commission$milestoneInstallmentArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the DealInstallment
+   */
+  select?: Prisma.DealInstallmentSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the DealInstallment
+   */
+  omit?: Prisma.DealInstallmentOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.DealInstallmentInclude<ExtArgs> | null
+  where?: Prisma.DealInstallmentWhereInput
 }
 
 /**

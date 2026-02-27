@@ -31,6 +31,7 @@ export type DealInstallmentAvgAggregateOutputType = {
   amount: number | null
   paidAmount: number | null
   remaining: number | null
+  penalty: number | null
 }
 
 export type DealInstallmentSumAggregateOutputType = {
@@ -38,6 +39,7 @@ export type DealInstallmentSumAggregateOutputType = {
   amount: number | null
   paidAmount: number | null
   remaining: number | null
+  penalty: number | null
 }
 
 export type DealInstallmentMinAggregateOutputType = {
@@ -59,6 +61,7 @@ export type DealInstallmentMinAggregateOutputType = {
   updatedAt: Date | null
   remaining: number | null
   type: string | null
+  penalty: number | null
 }
 
 export type DealInstallmentMaxAggregateOutputType = {
@@ -80,6 +83,7 @@ export type DealInstallmentMaxAggregateOutputType = {
   updatedAt: Date | null
   remaining: number | null
   type: string | null
+  penalty: number | null
 }
 
 export type DealInstallmentCountAggregateOutputType = {
@@ -101,6 +105,7 @@ export type DealInstallmentCountAggregateOutputType = {
   updatedAt: number
   remaining: number
   type: number
+  penalty: number
   _all: number
 }
 
@@ -110,6 +115,7 @@ export type DealInstallmentAvgAggregateInputType = {
   amount?: true
   paidAmount?: true
   remaining?: true
+  penalty?: true
 }
 
 export type DealInstallmentSumAggregateInputType = {
@@ -117,6 +123,7 @@ export type DealInstallmentSumAggregateInputType = {
   amount?: true
   paidAmount?: true
   remaining?: true
+  penalty?: true
 }
 
 export type DealInstallmentMinAggregateInputType = {
@@ -138,6 +145,7 @@ export type DealInstallmentMinAggregateInputType = {
   updatedAt?: true
   remaining?: true
   type?: true
+  penalty?: true
 }
 
 export type DealInstallmentMaxAggregateInputType = {
@@ -159,6 +167,7 @@ export type DealInstallmentMaxAggregateInputType = {
   updatedAt?: true
   remaining?: true
   type?: true
+  penalty?: true
 }
 
 export type DealInstallmentCountAggregateInputType = {
@@ -180,6 +189,7 @@ export type DealInstallmentCountAggregateInputType = {
   updatedAt?: true
   remaining?: true
   type?: true
+  penalty?: true
   _all?: true
 }
 
@@ -288,6 +298,7 @@ export type DealInstallmentGroupByOutputType = {
   updatedAt: Date
   remaining: number
   type: string | null
+  penalty: number
   _count: DealInstallmentCountAggregateOutputType | null
   _avg: DealInstallmentAvgAggregateOutputType | null
   _sum: DealInstallmentSumAggregateOutputType | null
@@ -332,12 +343,15 @@ export type DealInstallmentWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"DealInstallment"> | Date | string
   remaining?: Prisma.FloatFilter<"DealInstallment"> | number
   type?: Prisma.StringNullableFilter<"DealInstallment"> | string | null
+  penalty?: Prisma.FloatFilter<"DealInstallment"> | number
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   deal?: Prisma.XOR<Prisma.DealScalarRelationFilter, Prisma.DealWhereInput>
   ledgerEntry?: Prisma.XOR<Prisma.LedgerEntryNullableScalarRelationFilter, Prisma.LedgerEntryWhereInput> | null
   paymentPlan?: Prisma.XOR<Prisma.PaymentPlanScalarRelationFilter, Prisma.PaymentPlanWhereInput>
   receiptAllocations?: Prisma.DealReceiptAllocationListRelationFilter
   payments?: Prisma.PaymentListRelationFilter
+  paymentAllocations?: Prisma.PaymentAllocationListRelationFilter
+  commissionMilestones?: Prisma.CommissionListRelationFilter
 }
 
 export type DealInstallmentOrderByWithRelationInput = {
@@ -359,12 +373,15 @@ export type DealInstallmentOrderByWithRelationInput = {
   updatedAt?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
+  penalty?: Prisma.SortOrder
   client?: Prisma.ClientOrderByWithRelationInput
   deal?: Prisma.DealOrderByWithRelationInput
   ledgerEntry?: Prisma.LedgerEntryOrderByWithRelationInput
   paymentPlan?: Prisma.PaymentPlanOrderByWithRelationInput
   receiptAllocations?: Prisma.DealReceiptAllocationOrderByRelationAggregateInput
   payments?: Prisma.PaymentOrderByRelationAggregateInput
+  paymentAllocations?: Prisma.PaymentAllocationOrderByRelationAggregateInput
+  commissionMilestones?: Prisma.CommissionOrderByRelationAggregateInput
 }
 
 export type DealInstallmentWhereUniqueInput = Prisma.AtLeast<{
@@ -389,12 +406,15 @@ export type DealInstallmentWhereUniqueInput = Prisma.AtLeast<{
   updatedAt?: Prisma.DateTimeFilter<"DealInstallment"> | Date | string
   remaining?: Prisma.FloatFilter<"DealInstallment"> | number
   type?: Prisma.StringNullableFilter<"DealInstallment"> | string | null
+  penalty?: Prisma.FloatFilter<"DealInstallment"> | number
   client?: Prisma.XOR<Prisma.ClientScalarRelationFilter, Prisma.ClientWhereInput>
   deal?: Prisma.XOR<Prisma.DealScalarRelationFilter, Prisma.DealWhereInput>
   ledgerEntry?: Prisma.XOR<Prisma.LedgerEntryNullableScalarRelationFilter, Prisma.LedgerEntryWhereInput> | null
   paymentPlan?: Prisma.XOR<Prisma.PaymentPlanScalarRelationFilter, Prisma.PaymentPlanWhereInput>
   receiptAllocations?: Prisma.DealReceiptAllocationListRelationFilter
   payments?: Prisma.PaymentListRelationFilter
+  paymentAllocations?: Prisma.PaymentAllocationListRelationFilter
+  commissionMilestones?: Prisma.CommissionListRelationFilter
 }, "id" | "ledgerEntryId">
 
 export type DealInstallmentOrderByWithAggregationInput = {
@@ -416,6 +436,7 @@ export type DealInstallmentOrderByWithAggregationInput = {
   updatedAt?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
   type?: Prisma.SortOrderInput | Prisma.SortOrder
+  penalty?: Prisma.SortOrder
   _count?: Prisma.DealInstallmentCountOrderByAggregateInput
   _avg?: Prisma.DealInstallmentAvgOrderByAggregateInput
   _max?: Prisma.DealInstallmentMaxOrderByAggregateInput
@@ -445,6 +466,7 @@ export type DealInstallmentScalarWhereWithAggregatesInput = {
   updatedAt?: Prisma.DateTimeWithAggregatesFilter<"DealInstallment"> | Date | string
   remaining?: Prisma.FloatWithAggregatesFilter<"DealInstallment"> | number
   type?: Prisma.StringNullableWithAggregatesFilter<"DealInstallment"> | string | null
+  penalty?: Prisma.FloatWithAggregatesFilter<"DealInstallment"> | number
 }
 
 export type DealInstallmentCreateInput = {
@@ -462,12 +484,15 @@ export type DealInstallmentCreateInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateInput = {
@@ -489,8 +514,11 @@ export type DealInstallmentUncheckedCreateInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUpdateInput = {
@@ -508,12 +536,15 @@ export type DealInstallmentUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateInput = {
@@ -535,8 +566,11 @@ export type DealInstallmentUncheckedUpdateInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentCreateManyInput = {
@@ -558,6 +592,7 @@ export type DealInstallmentCreateManyInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
 }
 
 export type DealInstallmentUpdateManyMutationInput = {
@@ -575,6 +610,7 @@ export type DealInstallmentUpdateManyMutationInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type DealInstallmentUncheckedUpdateManyInput = {
@@ -596,6 +632,7 @@ export type DealInstallmentUncheckedUpdateManyInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type DealInstallmentListRelationFilter = {
@@ -632,6 +669,7 @@ export type DealInstallmentCountOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  penalty?: Prisma.SortOrder
 }
 
 export type DealInstallmentAvgOrderByAggregateInput = {
@@ -639,6 +677,7 @@ export type DealInstallmentAvgOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   paidAmount?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
+  penalty?: Prisma.SortOrder
 }
 
 export type DealInstallmentMaxOrderByAggregateInput = {
@@ -660,6 +699,7 @@ export type DealInstallmentMaxOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  penalty?: Prisma.SortOrder
 }
 
 export type DealInstallmentMinOrderByAggregateInput = {
@@ -681,6 +721,7 @@ export type DealInstallmentMinOrderByAggregateInput = {
   updatedAt?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
   type?: Prisma.SortOrder
+  penalty?: Prisma.SortOrder
 }
 
 export type DealInstallmentSumOrderByAggregateInput = {
@@ -688,6 +729,7 @@ export type DealInstallmentSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
   paidAmount?: Prisma.SortOrder
   remaining?: Prisma.SortOrder
+  penalty?: Prisma.SortOrder
 }
 
 export type DealInstallmentScalarRelationFilter = {
@@ -795,6 +837,22 @@ export type DealInstallmentUpdateOneWithoutPaymentsNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DealInstallmentUpdateToOneWithWhereWithoutPaymentsInput, Prisma.DealInstallmentUpdateWithoutPaymentsInput>, Prisma.DealInstallmentUncheckedUpdateWithoutPaymentsInput>
 }
 
+export type DealInstallmentCreateNestedOneWithoutCommissionMilestonesInput = {
+  create?: Prisma.XOR<Prisma.DealInstallmentCreateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedCreateWithoutCommissionMilestonesInput>
+  connectOrCreate?: Prisma.DealInstallmentCreateOrConnectWithoutCommissionMilestonesInput
+  connect?: Prisma.DealInstallmentWhereUniqueInput
+}
+
+export type DealInstallmentUpdateOneWithoutCommissionMilestonesNestedInput = {
+  create?: Prisma.XOR<Prisma.DealInstallmentCreateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedCreateWithoutCommissionMilestonesInput>
+  connectOrCreate?: Prisma.DealInstallmentCreateOrConnectWithoutCommissionMilestonesInput
+  upsert?: Prisma.DealInstallmentUpsertWithoutCommissionMilestonesInput
+  disconnect?: Prisma.DealInstallmentWhereInput | boolean
+  delete?: Prisma.DealInstallmentWhereInput | boolean
+  connect?: Prisma.DealInstallmentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DealInstallmentUpdateToOneWithWhereWithoutCommissionMilestonesInput, Prisma.DealInstallmentUpdateWithoutCommissionMilestonesInput>, Prisma.DealInstallmentUncheckedUpdateWithoutCommissionMilestonesInput>
+}
+
 export type DealInstallmentCreateNestedOneWithoutLedgerEntryInput = {
   create?: Prisma.XOR<Prisma.DealInstallmentCreateWithoutLedgerEntryInput, Prisma.DealInstallmentUncheckedCreateWithoutLedgerEntryInput>
   connectOrCreate?: Prisma.DealInstallmentCreateOrConnectWithoutLedgerEntryInput
@@ -883,6 +941,22 @@ export type DealInstallmentUpdateOneRequiredWithoutReceiptAllocationsNestedInput
   update?: Prisma.XOR<Prisma.XOR<Prisma.DealInstallmentUpdateToOneWithWhereWithoutReceiptAllocationsInput, Prisma.DealInstallmentUpdateWithoutReceiptAllocationsInput>, Prisma.DealInstallmentUncheckedUpdateWithoutReceiptAllocationsInput>
 }
 
+export type DealInstallmentCreateNestedOneWithoutPaymentAllocationsInput = {
+  create?: Prisma.XOR<Prisma.DealInstallmentCreateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedCreateWithoutPaymentAllocationsInput>
+  connectOrCreate?: Prisma.DealInstallmentCreateOrConnectWithoutPaymentAllocationsInput
+  connect?: Prisma.DealInstallmentWhereUniqueInput
+}
+
+export type DealInstallmentUpdateOneWithoutPaymentAllocationsNestedInput = {
+  create?: Prisma.XOR<Prisma.DealInstallmentCreateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedCreateWithoutPaymentAllocationsInput>
+  connectOrCreate?: Prisma.DealInstallmentCreateOrConnectWithoutPaymentAllocationsInput
+  upsert?: Prisma.DealInstallmentUpsertWithoutPaymentAllocationsInput
+  disconnect?: Prisma.DealInstallmentWhereInput | boolean
+  delete?: Prisma.DealInstallmentWhereInput | boolean
+  connect?: Prisma.DealInstallmentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DealInstallmentUpdateToOneWithWhereWithoutPaymentAllocationsInput, Prisma.DealInstallmentUpdateWithoutPaymentAllocationsInput>, Prisma.DealInstallmentUncheckedUpdateWithoutPaymentAllocationsInput>
+}
+
 export type DealInstallmentCreateWithoutClientInput = {
   id?: string
   installmentNumber: number
@@ -898,11 +972,14 @@ export type DealInstallmentCreateWithoutClientInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutClientInput = {
@@ -923,8 +1000,11 @@ export type DealInstallmentUncheckedCreateWithoutClientInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutClientInput = {
@@ -975,6 +1055,7 @@ export type DealInstallmentScalarWhereInput = {
   updatedAt?: Prisma.DateTimeFilter<"DealInstallment"> | Date | string
   remaining?: Prisma.FloatFilter<"DealInstallment"> | number
   type?: Prisma.StringNullableFilter<"DealInstallment"> | string | null
+  penalty?: Prisma.FloatFilter<"DealInstallment"> | number
 }
 
 export type DealInstallmentCreateWithoutDealInput = {
@@ -992,11 +1073,14 @@ export type DealInstallmentCreateWithoutDealInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutDealInput = {
@@ -1017,8 +1101,11 @@ export type DealInstallmentUncheckedCreateWithoutDealInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutDealInput = {
@@ -1062,11 +1149,14 @@ export type DealInstallmentCreateWithoutPaymentsInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutPaymentsInput = {
@@ -1088,7 +1178,10 @@ export type DealInstallmentUncheckedCreateWithoutPaymentsInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutPaymentsInput = {
@@ -1122,11 +1215,14 @@ export type DealInstallmentUpdateWithoutPaymentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutPaymentsInput = {
@@ -1148,7 +1244,126 @@ export type DealInstallmentUncheckedUpdateWithoutPaymentsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
+}
+
+export type DealInstallmentCreateWithoutCommissionMilestonesInput = {
+  id?: string
+  installmentNumber: number
+  amount: number
+  dueDate: Date | string
+  paidDate?: Date | string | null
+  status?: string
+  paidAmount?: number
+  paymentMode?: string | null
+  notes?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  remaining?: number
+  type?: string | null
+  penalty?: number
+  client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
+  deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
+  ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
+  paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
+  receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
+  payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+}
+
+export type DealInstallmentUncheckedCreateWithoutCommissionMilestonesInput = {
+  id?: string
+  paymentPlanId: string
+  dealId: string
+  clientId: string
+  installmentNumber: number
+  amount: number
+  dueDate: Date | string
+  paidDate?: Date | string | null
+  status?: string
+  paidAmount?: number
+  paymentMode?: string | null
+  notes?: string | null
+  ledgerEntryId?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  remaining?: number
+  type?: string | null
+  penalty?: number
+  receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+}
+
+export type DealInstallmentCreateOrConnectWithoutCommissionMilestonesInput = {
+  where: Prisma.DealInstallmentWhereUniqueInput
+  create: Prisma.XOR<Prisma.DealInstallmentCreateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedCreateWithoutCommissionMilestonesInput>
+}
+
+export type DealInstallmentUpsertWithoutCommissionMilestonesInput = {
+  update: Prisma.XOR<Prisma.DealInstallmentUpdateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedUpdateWithoutCommissionMilestonesInput>
+  create: Prisma.XOR<Prisma.DealInstallmentCreateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedCreateWithoutCommissionMilestonesInput>
+  where?: Prisma.DealInstallmentWhereInput
+}
+
+export type DealInstallmentUpdateToOneWithWhereWithoutCommissionMilestonesInput = {
+  where?: Prisma.DealInstallmentWhereInput
+  data: Prisma.XOR<Prisma.DealInstallmentUpdateWithoutCommissionMilestonesInput, Prisma.DealInstallmentUncheckedUpdateWithoutCommissionMilestonesInput>
+}
+
+export type DealInstallmentUpdateWithoutCommissionMilestonesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  dueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  paidDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  paidAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remaining?: Prisma.FloatFieldUpdateOperationsInput | number
+  type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
+  client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
+  deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
+  ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
+  paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
+  receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
+  payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+}
+
+export type DealInstallmentUncheckedUpdateWithoutCommissionMilestonesInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentPlanId?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  dueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  paidDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  paidAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ledgerEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remaining?: Prisma.FloatFieldUpdateOperationsInput | number
+  type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
+  receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
 }
 
 export type DealInstallmentCreateWithoutLedgerEntryInput = {
@@ -1166,11 +1381,14 @@ export type DealInstallmentCreateWithoutLedgerEntryInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutLedgerEntryInput = {
@@ -1191,8 +1409,11 @@ export type DealInstallmentUncheckedCreateWithoutLedgerEntryInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutLedgerEntryInput = {
@@ -1226,11 +1447,14 @@ export type DealInstallmentUpdateWithoutLedgerEntryInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutLedgerEntryInput = {
@@ -1251,8 +1475,11 @@ export type DealInstallmentUncheckedUpdateWithoutLedgerEntryInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentCreateWithoutPaymentPlanInput = {
@@ -1270,11 +1497,14 @@ export type DealInstallmentCreateWithoutPaymentPlanInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutPaymentPlanInput = {
@@ -1295,8 +1525,11 @@ export type DealInstallmentUncheckedCreateWithoutPaymentPlanInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutPaymentPlanInput = {
@@ -1340,11 +1573,14 @@ export type DealInstallmentCreateWithoutReceiptAllocationsInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
   deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
   ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
   paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
   payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentUncheckedCreateWithoutReceiptAllocationsInput = {
@@ -1366,7 +1602,10 @@ export type DealInstallmentUncheckedCreateWithoutReceiptAllocationsInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
   payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
 }
 
 export type DealInstallmentCreateOrConnectWithoutReceiptAllocationsInput = {
@@ -1400,11 +1639,14 @@ export type DealInstallmentUpdateWithoutReceiptAllocationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutReceiptAllocationsInput = {
@@ -1426,7 +1668,126 @@ export type DealInstallmentUncheckedUpdateWithoutReceiptAllocationsInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
+}
+
+export type DealInstallmentCreateWithoutPaymentAllocationsInput = {
+  id?: string
+  installmentNumber: number
+  amount: number
+  dueDate: Date | string
+  paidDate?: Date | string | null
+  status?: string
+  paidAmount?: number
+  paymentMode?: string | null
+  notes?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  remaining?: number
+  type?: string | null
+  penalty?: number
+  client: Prisma.ClientCreateNestedOneWithoutInstallmentsInput
+  deal: Prisma.DealCreateNestedOneWithoutInstallmentsInput
+  ledgerEntry?: Prisma.LedgerEntryCreateNestedOneWithoutInstallmentInput
+  paymentPlan: Prisma.PaymentPlanCreateNestedOneWithoutInstallmentsInput
+  receiptAllocations?: Prisma.DealReceiptAllocationCreateNestedManyWithoutInstallmentInput
+  payments?: Prisma.PaymentCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionCreateNestedManyWithoutMilestoneInstallmentInput
+}
+
+export type DealInstallmentUncheckedCreateWithoutPaymentAllocationsInput = {
+  id?: string
+  paymentPlanId: string
+  dealId: string
+  clientId: string
+  installmentNumber: number
+  amount: number
+  dueDate: Date | string
+  paidDate?: Date | string | null
+  status?: string
+  paidAmount?: number
+  paymentMode?: string | null
+  notes?: string | null
+  ledgerEntryId?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  remaining?: number
+  type?: string | null
+  penalty?: number
+  receiptAllocations?: Prisma.DealReceiptAllocationUncheckedCreateNestedManyWithoutInstallmentInput
+  payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutInstallmentInput
+  commissionMilestones?: Prisma.CommissionUncheckedCreateNestedManyWithoutMilestoneInstallmentInput
+}
+
+export type DealInstallmentCreateOrConnectWithoutPaymentAllocationsInput = {
+  where: Prisma.DealInstallmentWhereUniqueInput
+  create: Prisma.XOR<Prisma.DealInstallmentCreateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedCreateWithoutPaymentAllocationsInput>
+}
+
+export type DealInstallmentUpsertWithoutPaymentAllocationsInput = {
+  update: Prisma.XOR<Prisma.DealInstallmentUpdateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedUpdateWithoutPaymentAllocationsInput>
+  create: Prisma.XOR<Prisma.DealInstallmentCreateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedCreateWithoutPaymentAllocationsInput>
+  where?: Prisma.DealInstallmentWhereInput
+}
+
+export type DealInstallmentUpdateToOneWithWhereWithoutPaymentAllocationsInput = {
+  where?: Prisma.DealInstallmentWhereInput
+  data: Prisma.XOR<Prisma.DealInstallmentUpdateWithoutPaymentAllocationsInput, Prisma.DealInstallmentUncheckedUpdateWithoutPaymentAllocationsInput>
+}
+
+export type DealInstallmentUpdateWithoutPaymentAllocationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  dueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  paidDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  paidAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remaining?: Prisma.FloatFieldUpdateOperationsInput | number
+  type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
+  client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
+  deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
+  ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
+  paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
+  receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
+  payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
+}
+
+export type DealInstallmentUncheckedUpdateWithoutPaymentAllocationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentPlanId?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.StringFieldUpdateOperationsInput | string
+  installmentNumber?: Prisma.IntFieldUpdateOperationsInput | number
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  dueDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  paidDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  paidAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentMode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ledgerEntryId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remaining?: Prisma.FloatFieldUpdateOperationsInput | number
+  type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
+  receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentCreateManyClientInput = {
@@ -1447,6 +1808,7 @@ export type DealInstallmentCreateManyClientInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
 }
 
 export type DealInstallmentUpdateWithoutClientInput = {
@@ -1464,11 +1826,14 @@ export type DealInstallmentUpdateWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutClientInput = {
@@ -1489,8 +1854,11 @@ export type DealInstallmentUncheckedUpdateWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateManyWithoutClientInput = {
@@ -1511,6 +1879,7 @@ export type DealInstallmentUncheckedUpdateManyWithoutClientInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type DealInstallmentCreateManyDealInput = {
@@ -1531,6 +1900,7 @@ export type DealInstallmentCreateManyDealInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
 }
 
 export type DealInstallmentUpdateWithoutDealInput = {
@@ -1548,11 +1918,14 @@ export type DealInstallmentUpdateWithoutDealInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   paymentPlan?: Prisma.PaymentPlanUpdateOneRequiredWithoutInstallmentsNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutDealInput = {
@@ -1573,8 +1946,11 @@ export type DealInstallmentUncheckedUpdateWithoutDealInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateManyWithoutDealInput = {
@@ -1595,6 +1971,7 @@ export type DealInstallmentUncheckedUpdateManyWithoutDealInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 export type DealInstallmentCreateManyPaymentPlanInput = {
@@ -1615,6 +1992,7 @@ export type DealInstallmentCreateManyPaymentPlanInput = {
   updatedAt?: Date | string
   remaining?: number
   type?: string | null
+  penalty?: number
 }
 
 export type DealInstallmentUpdateWithoutPaymentPlanInput = {
@@ -1632,11 +2010,14 @@ export type DealInstallmentUpdateWithoutPaymentPlanInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   client?: Prisma.ClientUpdateOneRequiredWithoutInstallmentsNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutInstallmentsNestedInput
   ledgerEntry?: Prisma.LedgerEntryUpdateOneWithoutInstallmentNestedInput
   receiptAllocations?: Prisma.DealReceiptAllocationUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateWithoutPaymentPlanInput = {
@@ -1657,8 +2038,11 @@ export type DealInstallmentUncheckedUpdateWithoutPaymentPlanInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
   receiptAllocations?: Prisma.DealReceiptAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutInstallmentNestedInput
+  paymentAllocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutInstallmentNestedInput
+  commissionMilestones?: Prisma.CommissionUncheckedUpdateManyWithoutMilestoneInstallmentNestedInput
 }
 
 export type DealInstallmentUncheckedUpdateManyWithoutPaymentPlanInput = {
@@ -1679,6 +2063,7 @@ export type DealInstallmentUncheckedUpdateManyWithoutPaymentPlanInput = {
   updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
   remaining?: Prisma.FloatFieldUpdateOperationsInput | number
   type?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  penalty?: Prisma.FloatFieldUpdateOperationsInput | number
 }
 
 
@@ -1689,11 +2074,15 @@ export type DealInstallmentUncheckedUpdateManyWithoutPaymentPlanInput = {
 export type DealInstallmentCountOutputType = {
   receiptAllocations: number
   payments: number
+  paymentAllocations: number
+  commissionMilestones: number
 }
 
 export type DealInstallmentCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   receiptAllocations?: boolean | DealInstallmentCountOutputTypeCountReceiptAllocationsArgs
   payments?: boolean | DealInstallmentCountOutputTypeCountPaymentsArgs
+  paymentAllocations?: boolean | DealInstallmentCountOutputTypeCountPaymentAllocationsArgs
+  commissionMilestones?: boolean | DealInstallmentCountOutputTypeCountCommissionMilestonesArgs
 }
 
 /**
@@ -1720,6 +2109,20 @@ export type DealInstallmentCountOutputTypeCountPaymentsArgs<ExtArgs extends runt
   where?: Prisma.PaymentWhereInput
 }
 
+/**
+ * DealInstallmentCountOutputType without action
+ */
+export type DealInstallmentCountOutputTypeCountPaymentAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PaymentAllocationWhereInput
+}
+
+/**
+ * DealInstallmentCountOutputType without action
+ */
+export type DealInstallmentCountOutputTypeCountCommissionMilestonesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CommissionWhereInput
+}
+
 
 export type DealInstallmentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -1740,12 +2143,15 @@ export type DealInstallmentSelect<ExtArgs extends runtime.Types.Extensions.Inter
   updatedAt?: boolean
   remaining?: boolean
   type?: boolean
+  penalty?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   ledgerEntry?: boolean | Prisma.DealInstallment$ledgerEntryArgs<ExtArgs>
   paymentPlan?: boolean | Prisma.PaymentPlanDefaultArgs<ExtArgs>
   receiptAllocations?: boolean | Prisma.DealInstallment$receiptAllocationsArgs<ExtArgs>
   payments?: boolean | Prisma.DealInstallment$paymentsArgs<ExtArgs>
+  paymentAllocations?: boolean | Prisma.DealInstallment$paymentAllocationsArgs<ExtArgs>
+  commissionMilestones?: boolean | Prisma.DealInstallment$commissionMilestonesArgs<ExtArgs>
   _count?: boolean | Prisma.DealInstallmentCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["dealInstallment"]>
 
@@ -1768,6 +2174,7 @@ export type DealInstallmentSelectCreateManyAndReturn<ExtArgs extends runtime.Typ
   updatedAt?: boolean
   remaining?: boolean
   type?: boolean
+  penalty?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   ledgerEntry?: boolean | Prisma.DealInstallment$ledgerEntryArgs<ExtArgs>
@@ -1793,6 +2200,7 @@ export type DealInstallmentSelectUpdateManyAndReturn<ExtArgs extends runtime.Typ
   updatedAt?: boolean
   remaining?: boolean
   type?: boolean
+  penalty?: boolean
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   ledgerEntry?: boolean | Prisma.DealInstallment$ledgerEntryArgs<ExtArgs>
@@ -1818,9 +2226,10 @@ export type DealInstallmentSelectScalar = {
   updatedAt?: boolean
   remaining?: boolean
   type?: boolean
+  penalty?: boolean
 }
 
-export type DealInstallmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "paymentPlanId" | "dealId" | "clientId" | "installmentNumber" | "amount" | "dueDate" | "paidDate" | "status" | "paidAmount" | "paymentMode" | "notes" | "ledgerEntryId" | "isDeleted" | "createdAt" | "updatedAt" | "remaining" | "type", ExtArgs["result"]["dealInstallment"]>
+export type DealInstallmentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "paymentPlanId" | "dealId" | "clientId" | "installmentNumber" | "amount" | "dueDate" | "paidDate" | "status" | "paidAmount" | "paymentMode" | "notes" | "ledgerEntryId" | "isDeleted" | "createdAt" | "updatedAt" | "remaining" | "type" | "penalty", ExtArgs["result"]["dealInstallment"]>
 export type DealInstallmentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   client?: boolean | Prisma.ClientDefaultArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
@@ -1828,6 +2237,8 @@ export type DealInstallmentInclude<ExtArgs extends runtime.Types.Extensions.Inte
   paymentPlan?: boolean | Prisma.PaymentPlanDefaultArgs<ExtArgs>
   receiptAllocations?: boolean | Prisma.DealInstallment$receiptAllocationsArgs<ExtArgs>
   payments?: boolean | Prisma.DealInstallment$paymentsArgs<ExtArgs>
+  paymentAllocations?: boolean | Prisma.DealInstallment$paymentAllocationsArgs<ExtArgs>
+  commissionMilestones?: boolean | Prisma.DealInstallment$commissionMilestonesArgs<ExtArgs>
   _count?: boolean | Prisma.DealInstallmentCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DealInstallmentIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -1852,6 +2263,8 @@ export type $DealInstallmentPayload<ExtArgs extends runtime.Types.Extensions.Int
     paymentPlan: Prisma.$PaymentPlanPayload<ExtArgs>
     receiptAllocations: Prisma.$DealReceiptAllocationPayload<ExtArgs>[]
     payments: Prisma.$PaymentPayload<ExtArgs>[]
+    paymentAllocations: Prisma.$PaymentAllocationPayload<ExtArgs>[]
+    commissionMilestones: Prisma.$CommissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -1872,6 +2285,7 @@ export type $DealInstallmentPayload<ExtArgs extends runtime.Types.Extensions.Int
     updatedAt: Date
     remaining: number
     type: string | null
+    penalty: number
   }, ExtArgs["result"]["dealInstallment"]>
   composites: {}
 }
@@ -2272,6 +2686,8 @@ export interface Prisma__DealInstallmentClient<T, Null = never, ExtArgs extends 
   paymentPlan<T extends Prisma.PaymentPlanDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.PaymentPlanDefaultArgs<ExtArgs>>): Prisma.Prisma__PaymentPlanClient<runtime.Types.Result.GetResult<Prisma.$PaymentPlanPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   receiptAllocations<T extends Prisma.DealInstallment$receiptAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DealInstallment$receiptAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$DealReceiptAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   payments<T extends Prisma.DealInstallment$paymentsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DealInstallment$paymentsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PaymentPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  paymentAllocations<T extends Prisma.DealInstallment$paymentAllocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DealInstallment$paymentAllocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PaymentAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  commissionMilestones<T extends Prisma.DealInstallment$commissionMilestonesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DealInstallment$commissionMilestonesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -2319,6 +2735,7 @@ export interface DealInstallmentFieldRefs {
   readonly updatedAt: Prisma.FieldRef<"DealInstallment", 'DateTime'>
   readonly remaining: Prisma.FieldRef<"DealInstallment", 'Float'>
   readonly type: Prisma.FieldRef<"DealInstallment", 'String'>
+  readonly penalty: Prisma.FieldRef<"DealInstallment", 'Float'>
 }
     
 
@@ -2779,6 +3196,54 @@ export type DealInstallment$paymentsArgs<ExtArgs extends runtime.Types.Extension
   take?: number
   skip?: number
   distinct?: Prisma.PaymentScalarFieldEnum | Prisma.PaymentScalarFieldEnum[]
+}
+
+/**
+ * DealInstallment.paymentAllocations
+ */
+export type DealInstallment$paymentAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PaymentAllocation
+   */
+  select?: Prisma.PaymentAllocationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PaymentAllocation
+   */
+  omit?: Prisma.PaymentAllocationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PaymentAllocationInclude<ExtArgs> | null
+  where?: Prisma.PaymentAllocationWhereInput
+  orderBy?: Prisma.PaymentAllocationOrderByWithRelationInput | Prisma.PaymentAllocationOrderByWithRelationInput[]
+  cursor?: Prisma.PaymentAllocationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PaymentAllocationScalarFieldEnum | Prisma.PaymentAllocationScalarFieldEnum[]
+}
+
+/**
+ * DealInstallment.commissionMilestones
+ */
+export type DealInstallment$commissionMilestonesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Commission
+   */
+  select?: Prisma.CommissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Commission
+   */
+  omit?: Prisma.CommissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CommissionInclude<ExtArgs> | null
+  where?: Prisma.CommissionWhereInput
+  orderBy?: Prisma.CommissionOrderByWithRelationInput | Prisma.CommissionOrderByWithRelationInput[]
+  cursor?: Prisma.CommissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CommissionScalarFieldEnum | Prisma.CommissionScalarFieldEnum[]
 }
 
 /**

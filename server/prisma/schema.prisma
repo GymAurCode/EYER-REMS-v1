@@ -1,10 +1,11 @@
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
@@ -246,7 +247,7 @@ model Property {
   transactions             Transaction[]
   units                    Unit[]
   constructionProjects     ConstructionProject[] @relation("ConstructionProjectProperty")
-
+  commissions              Commission[]
   @@index([status])
   @@index([isDeleted])
   @@index([type])
@@ -1200,7 +1201,7 @@ model Deal {
   stageHistory         StageHistory[]
   vouchers             Voucher[]         @relation("VoucherDeal")
   financialOperations  FinancialOperation[] @relation("FinancialOperationDeal")
-
+  commissions          Commission[]
   @@index([dealCode])
   @@index([clientId])
   @@index([dealerId])
@@ -1443,7 +1444,13 @@ model Payment {
   deletedAt         DateTime?
   deletedBy         String?
   manualUniqueId    String?          @unique
+  // Extended payment mode metadata (nullable, backward compatible)
+  bankName          String?          @map("bank_name")
+  chequeNumber      String?          @map("cheque_number")
+  clearingStatus    String?          @map("clearing_status")
+
   ledgerEntries     LedgerEntry[]
+  allocations       PaymentAllocation[]
   createdBy         User?            @relation("UserPaymentsCreated", fields: [createdByUserId], references: [id])
   deal              Deal             @relation(fields: [dealId], references: [id], onDelete: Cascade)
   installment       DealInstallment? @relation("InstallmentPayments", fields: [installmentId], references: [id])
@@ -1787,6 +1794,25 @@ model Commission {
   commissionType String   @default("percentage")
   dealer         Dealer?  @relation(fields: [dealerId], references: [id])
   sale           Sale?    @relation(fields: [saleId], references: [id])
+
+  // Extended commission structure for deal-based brokerage and reporting
+  dealId                String?
+  propertyId            String?
+  commissionBase        Float?
+  grossCommission       Float?
+  taxDeduction          Float?
+  netCommission         Float?
+  status                String?   @default("EARNED")
+  milestoneInstallmentId String?
+
+  deal                 Deal?           @relation(fields: [dealId], references: [id])
+  property             Property?       @relation(fields: [propertyId], references: [id])
+  milestoneInstallment DealInstallment? @relation("CommissionMilestoneInstallment", fields: [milestoneInstallmentId], references: [id])
+
+  @@index([dealerId])
+  @@index([dealId])
+  @@index([propertyId])
+  @@index([status])
 }
 
 model Account {
@@ -2167,12 +2193,15 @@ model DealInstallment {
   updatedAt          DateTime                @updatedAt
   remaining          Float                   @default(0)
   type               String?
+  penalty            Float                   @default(0)
   client             Client                  @relation(fields: [clientId], references: [id], onDelete: Cascade)
   deal               Deal                    @relation(fields: [dealId], references: [id], onDelete: Cascade)
   ledgerEntry        LedgerEntry?            @relation("InstallmentLedgerEntry", fields: [ledgerEntryId], references: [id])
   paymentPlan        PaymentPlan             @relation(fields: [paymentPlanId], references: [id], onDelete: Cascade)
   receiptAllocations DealReceiptAllocation[]
   payments           Payment[]               @relation("InstallmentPayments")
+  paymentAllocations PaymentAllocation[]
+  commissionMilestones Commission[]         @relation("CommissionMilestoneInstallment")
 
   @@index([paymentPlanId])
   @@index([dealId])
@@ -2289,6 +2318,23 @@ model DealReceiptAllocation {
   @@unique([receiptId, installmentId])
   @@index([receiptId])
   @@index([installmentId])
+}
+
+model PaymentAllocation {
+  id              String           @id @default(uuid())
+  paymentId       String
+  allocationType  String
+  installmentId   String?
+  allocatedAmount Float
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  payment         Payment          @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  installment     DealInstallment? @relation(fields: [installmentId], references: [id])
+
+  @@index([paymentId])
+  @@index([installmentId])
+  @@index([allocationType])
 }
 
 model RefreshToken {

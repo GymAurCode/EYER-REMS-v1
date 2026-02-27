@@ -53,6 +53,9 @@ export type PaymentMinAggregateOutputType = {
   deletedAt: Date | null
   deletedBy: string | null
   manualUniqueId: string | null
+  bankName: string | null
+  chequeNumber: string | null
+  clearingStatus: string | null
 }
 
 export type PaymentMaxAggregateOutputType = {
@@ -74,6 +77,9 @@ export type PaymentMaxAggregateOutputType = {
   deletedAt: Date | null
   deletedBy: string | null
   manualUniqueId: string | null
+  bankName: string | null
+  chequeNumber: string | null
+  clearingStatus: string | null
 }
 
 export type PaymentCountAggregateOutputType = {
@@ -95,6 +101,9 @@ export type PaymentCountAggregateOutputType = {
   deletedAt: number
   deletedBy: number
   manualUniqueId: number
+  bankName: number
+  chequeNumber: number
+  clearingStatus: number
   _all: number
 }
 
@@ -126,6 +135,9 @@ export type PaymentMinAggregateInputType = {
   deletedAt?: true
   deletedBy?: true
   manualUniqueId?: true
+  bankName?: true
+  chequeNumber?: true
+  clearingStatus?: true
 }
 
 export type PaymentMaxAggregateInputType = {
@@ -147,6 +159,9 @@ export type PaymentMaxAggregateInputType = {
   deletedAt?: true
   deletedBy?: true
   manualUniqueId?: true
+  bankName?: true
+  chequeNumber?: true
+  clearingStatus?: true
 }
 
 export type PaymentCountAggregateInputType = {
@@ -168,6 +183,9 @@ export type PaymentCountAggregateInputType = {
   deletedAt?: true
   deletedBy?: true
   manualUniqueId?: true
+  bankName?: true
+  chequeNumber?: true
+  clearingStatus?: true
   _all?: true
 }
 
@@ -276,6 +294,9 @@ export type PaymentGroupByOutputType = {
   deletedAt: Date | null
   deletedBy: string | null
   manualUniqueId: string | null
+  bankName: string | null
+  chequeNumber: string | null
+  clearingStatus: string | null
   _count: PaymentCountAggregateOutputType | null
   _avg: PaymentAvgAggregateOutputType | null
   _sum: PaymentSumAggregateOutputType | null
@@ -320,7 +341,11 @@ export type PaymentWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"Payment"> | Date | string | null
   deletedBy?: Prisma.StringNullableFilter<"Payment"> | string | null
   manualUniqueId?: Prisma.StringNullableFilter<"Payment"> | string | null
+  bankName?: Prisma.StringNullableFilter<"Payment"> | string | null
+  chequeNumber?: Prisma.StringNullableFilter<"Payment"> | string | null
+  clearingStatus?: Prisma.StringNullableFilter<"Payment"> | string | null
   ledgerEntries?: Prisma.LedgerEntryListRelationFilter
+  allocations?: Prisma.PaymentAllocationListRelationFilter
   createdBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   deal?: Prisma.XOR<Prisma.DealScalarRelationFilter, Prisma.DealWhereInput>
   installment?: Prisma.XOR<Prisma.DealInstallmentNullableScalarRelationFilter, Prisma.DealInstallmentWhereInput> | null
@@ -347,7 +372,11 @@ export type PaymentOrderByWithRelationInput = {
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   manualUniqueId?: Prisma.SortOrderInput | Prisma.SortOrder
+  bankName?: Prisma.SortOrderInput | Prisma.SortOrder
+  chequeNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  clearingStatus?: Prisma.SortOrderInput | Prisma.SortOrder
   ledgerEntries?: Prisma.LedgerEntryOrderByRelationAggregateInput
+  allocations?: Prisma.PaymentAllocationOrderByRelationAggregateInput
   createdBy?: Prisma.UserOrderByWithRelationInput
   deal?: Prisma.DealOrderByWithRelationInput
   installment?: Prisma.DealInstallmentOrderByWithRelationInput
@@ -377,7 +406,11 @@ export type PaymentWhereUniqueInput = Prisma.AtLeast<{
   refundOfPaymentId?: Prisma.StringNullableFilter<"Payment"> | string | null
   deletedAt?: Prisma.DateTimeNullableFilter<"Payment"> | Date | string | null
   deletedBy?: Prisma.StringNullableFilter<"Payment"> | string | null
+  bankName?: Prisma.StringNullableFilter<"Payment"> | string | null
+  chequeNumber?: Prisma.StringNullableFilter<"Payment"> | string | null
+  clearingStatus?: Prisma.StringNullableFilter<"Payment"> | string | null
   ledgerEntries?: Prisma.LedgerEntryListRelationFilter
+  allocations?: Prisma.PaymentAllocationListRelationFilter
   createdBy?: Prisma.XOR<Prisma.UserNullableScalarRelationFilter, Prisma.UserWhereInput> | null
   deal?: Prisma.XOR<Prisma.DealScalarRelationFilter, Prisma.DealWhereInput>
   installment?: Prisma.XOR<Prisma.DealInstallmentNullableScalarRelationFilter, Prisma.DealInstallmentWhereInput> | null
@@ -404,6 +437,9 @@ export type PaymentOrderByWithAggregationInput = {
   deletedAt?: Prisma.SortOrderInput | Prisma.SortOrder
   deletedBy?: Prisma.SortOrderInput | Prisma.SortOrder
   manualUniqueId?: Prisma.SortOrderInput | Prisma.SortOrder
+  bankName?: Prisma.SortOrderInput | Prisma.SortOrder
+  chequeNumber?: Prisma.SortOrderInput | Prisma.SortOrder
+  clearingStatus?: Prisma.SortOrderInput | Prisma.SortOrder
   _count?: Prisma.PaymentCountOrderByAggregateInput
   _avg?: Prisma.PaymentAvgOrderByAggregateInput
   _max?: Prisma.PaymentMaxOrderByAggregateInput
@@ -433,6 +469,9 @@ export type PaymentScalarWhereWithAggregatesInput = {
   deletedAt?: Prisma.DateTimeNullableWithAggregatesFilter<"Payment"> | Date | string | null
   deletedBy?: Prisma.StringNullableWithAggregatesFilter<"Payment"> | string | null
   manualUniqueId?: Prisma.StringNullableWithAggregatesFilter<"Payment"> | string | null
+  bankName?: Prisma.StringNullableWithAggregatesFilter<"Payment"> | string | null
+  chequeNumber?: Prisma.StringNullableWithAggregatesFilter<"Payment"> | string | null
+  clearingStatus?: Prisma.StringNullableWithAggregatesFilter<"Payment"> | string | null
 }
 
 export type PaymentCreateInput = {
@@ -450,7 +489,11 @@ export type PaymentCreateInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
@@ -477,7 +520,11 @@ export type PaymentUncheckedCreateInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -496,7 +543,11 @@ export type PaymentUpdateInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
@@ -523,7 +574,11 @@ export type PaymentUncheckedUpdateInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -546,6 +601,9 @@ export type PaymentCreateManyInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
 }
 
 export type PaymentUpdateManyMutationInput = {
@@ -563,6 +621,9 @@ export type PaymentUpdateManyMutationInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PaymentUncheckedUpdateManyInput = {
@@ -584,6 +645,9 @@ export type PaymentUncheckedUpdateManyInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PaymentListRelationFilter = {
@@ -620,6 +684,9 @@ export type PaymentCountOrderByAggregateInput = {
   deletedAt?: Prisma.SortOrder
   deletedBy?: Prisma.SortOrder
   manualUniqueId?: Prisma.SortOrder
+  bankName?: Prisma.SortOrder
+  chequeNumber?: Prisma.SortOrder
+  clearingStatus?: Prisma.SortOrder
 }
 
 export type PaymentAvgOrderByAggregateInput = {
@@ -645,6 +712,9 @@ export type PaymentMaxOrderByAggregateInput = {
   deletedAt?: Prisma.SortOrder
   deletedBy?: Prisma.SortOrder
   manualUniqueId?: Prisma.SortOrder
+  bankName?: Prisma.SortOrder
+  chequeNumber?: Prisma.SortOrder
+  clearingStatus?: Prisma.SortOrder
 }
 
 export type PaymentMinOrderByAggregateInput = {
@@ -666,10 +736,18 @@ export type PaymentMinOrderByAggregateInput = {
   deletedAt?: Prisma.SortOrder
   deletedBy?: Prisma.SortOrder
   manualUniqueId?: Prisma.SortOrder
+  bankName?: Prisma.SortOrder
+  chequeNumber?: Prisma.SortOrder
+  clearingStatus?: Prisma.SortOrder
 }
 
 export type PaymentSumOrderByAggregateInput = {
   amount?: Prisma.SortOrder
+}
+
+export type PaymentScalarRelationFilter = {
+  is?: Prisma.PaymentWhereInput
+  isNot?: Prisma.PaymentWhereInput
 }
 
 export type PaymentCreateNestedManyWithoutCreatedByInput = {
@@ -872,6 +950,20 @@ export type PaymentUncheckedUpdateManyWithoutInstallmentNestedInput = {
   deleteMany?: Prisma.PaymentScalarWhereInput | Prisma.PaymentScalarWhereInput[]
 }
 
+export type PaymentCreateNestedOneWithoutAllocationsInput = {
+  create?: Prisma.XOR<Prisma.PaymentCreateWithoutAllocationsInput, Prisma.PaymentUncheckedCreateWithoutAllocationsInput>
+  connectOrCreate?: Prisma.PaymentCreateOrConnectWithoutAllocationsInput
+  connect?: Prisma.PaymentWhereUniqueInput
+}
+
+export type PaymentUpdateOneRequiredWithoutAllocationsNestedInput = {
+  create?: Prisma.XOR<Prisma.PaymentCreateWithoutAllocationsInput, Prisma.PaymentUncheckedCreateWithoutAllocationsInput>
+  connectOrCreate?: Prisma.PaymentCreateOrConnectWithoutAllocationsInput
+  upsert?: Prisma.PaymentUpsertWithoutAllocationsInput
+  connect?: Prisma.PaymentWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PaymentUpdateToOneWithWhereWithoutAllocationsInput, Prisma.PaymentUpdateWithoutAllocationsInput>, Prisma.PaymentUncheckedUpdateWithoutAllocationsInput>
+}
+
 export type PaymentCreateWithoutCreatedByInput = {
   id?: string
   paymentId: string
@@ -887,7 +979,11 @@ export type PaymentCreateWithoutCreatedByInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
   refundOf?: Prisma.PaymentCreateNestedOneWithoutRefundsInput
@@ -912,7 +1008,11 @@ export type PaymentUncheckedCreateWithoutCreatedByInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -964,6 +1064,9 @@ export type PaymentScalarWhereInput = {
   deletedAt?: Prisma.DateTimeNullableFilter<"Payment"> | Date | string | null
   deletedBy?: Prisma.StringNullableFilter<"Payment"> | string | null
   manualUniqueId?: Prisma.StringNullableFilter<"Payment"> | string | null
+  bankName?: Prisma.StringNullableFilter<"Payment"> | string | null
+  chequeNumber?: Prisma.StringNullableFilter<"Payment"> | string | null
+  clearingStatus?: Prisma.StringNullableFilter<"Payment"> | string | null
 }
 
 export type PaymentCreateWithoutDealInput = {
@@ -981,7 +1084,11 @@ export type PaymentCreateWithoutDealInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
   refundOf?: Prisma.PaymentCreateNestedOneWithoutRefundsInput
@@ -1006,7 +1113,11 @@ export type PaymentUncheckedCreateWithoutDealInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -1051,7 +1162,11 @@ export type PaymentCreateWithoutRefundsInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
@@ -1077,7 +1192,11 @@ export type PaymentUncheckedCreateWithoutRefundsInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
 }
 
 export type PaymentCreateOrConnectWithoutRefundsInput = {
@@ -1100,7 +1219,11 @@ export type PaymentCreateWithoutRefundOfInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
@@ -1125,7 +1248,11 @@ export type PaymentUncheckedCreateWithoutRefundOfInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -1165,7 +1292,11 @@ export type PaymentUpdateWithoutRefundsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
@@ -1191,7 +1322,11 @@ export type PaymentUncheckedUpdateWithoutRefundsInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
 }
 
 export type PaymentUpsertWithWhereUniqueWithoutRefundOfInput = {
@@ -1225,6 +1360,10 @@ export type PaymentCreateWithoutLedgerEntriesInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
@@ -1251,6 +1390,10 @@ export type PaymentUncheckedCreateWithoutLedgerEntriesInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -1285,6 +1428,10 @@ export type PaymentUpdateWithoutLedgerEntriesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
@@ -1311,6 +1458,10 @@ export type PaymentUncheckedUpdateWithoutLedgerEntriesInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -1329,7 +1480,11 @@ export type PaymentCreateWithoutInstallmentInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationCreateNestedManyWithoutPaymentInput
   createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
   deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
   refundOf?: Prisma.PaymentCreateNestedOneWithoutRefundsInput
@@ -1354,7 +1509,11 @@ export type PaymentUncheckedCreateWithoutInstallmentInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  allocations?: Prisma.PaymentAllocationUncheckedCreateNestedManyWithoutPaymentInput
   refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
 }
 
@@ -1384,6 +1543,126 @@ export type PaymentUpdateManyWithWhereWithoutInstallmentInput = {
   data: Prisma.XOR<Prisma.PaymentUpdateManyMutationInput, Prisma.PaymentUncheckedUpdateManyWithoutInstallmentInput>
 }
 
+export type PaymentCreateWithoutAllocationsInput = {
+  id?: string
+  paymentId: string
+  amount: number
+  paymentType: string
+  paymentMode?: string
+  transactionId?: string | null
+  referenceNumber?: string | null
+  date: Date | string
+  remarks?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  deletedAt?: Date | string | null
+  deletedBy?: string | null
+  manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutPaymentInput
+  createdBy?: Prisma.UserCreateNestedOneWithoutPaymentsCreatedInput
+  deal: Prisma.DealCreateNestedOneWithoutPaymentsInput
+  installment?: Prisma.DealInstallmentCreateNestedOneWithoutPaymentsInput
+  refundOf?: Prisma.PaymentCreateNestedOneWithoutRefundsInput
+  refunds?: Prisma.PaymentCreateNestedManyWithoutRefundOfInput
+}
+
+export type PaymentUncheckedCreateWithoutAllocationsInput = {
+  id?: string
+  paymentId: string
+  dealId: string
+  amount: number
+  paymentType: string
+  paymentMode?: string
+  transactionId?: string | null
+  referenceNumber?: string | null
+  date: Date | string
+  remarks?: string | null
+  createdByUserId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  installmentId?: string | null
+  refundOfPaymentId?: string | null
+  deletedAt?: Date | string | null
+  deletedBy?: string | null
+  manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutPaymentInput
+  refunds?: Prisma.PaymentUncheckedCreateNestedManyWithoutRefundOfInput
+}
+
+export type PaymentCreateOrConnectWithoutAllocationsInput = {
+  where: Prisma.PaymentWhereUniqueInput
+  create: Prisma.XOR<Prisma.PaymentCreateWithoutAllocationsInput, Prisma.PaymentUncheckedCreateWithoutAllocationsInput>
+}
+
+export type PaymentUpsertWithoutAllocationsInput = {
+  update: Prisma.XOR<Prisma.PaymentUpdateWithoutAllocationsInput, Prisma.PaymentUncheckedUpdateWithoutAllocationsInput>
+  create: Prisma.XOR<Prisma.PaymentCreateWithoutAllocationsInput, Prisma.PaymentUncheckedCreateWithoutAllocationsInput>
+  where?: Prisma.PaymentWhereInput
+}
+
+export type PaymentUpdateToOneWithWhereWithoutAllocationsInput = {
+  where?: Prisma.PaymentWhereInput
+  data: Prisma.XOR<Prisma.PaymentUpdateWithoutAllocationsInput, Prisma.PaymentUncheckedUpdateWithoutAllocationsInput>
+}
+
+export type PaymentUpdateWithoutAllocationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentType?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentMode?: Prisma.StringFieldUpdateOperationsInput | string
+  transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remarks?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
+  deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
+  installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
+  refundOf?: Prisma.PaymentUpdateOneWithoutRefundsNestedInput
+  refunds?: Prisma.PaymentUpdateManyWithoutRefundOfNestedInput
+}
+
+export type PaymentUncheckedUpdateWithoutAllocationsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentId?: Prisma.StringFieldUpdateOperationsInput | string
+  dealId?: Prisma.StringFieldUpdateOperationsInput | string
+  amount?: Prisma.FloatFieldUpdateOperationsInput | number
+  paymentType?: Prisma.StringFieldUpdateOperationsInput | string
+  paymentMode?: Prisma.StringFieldUpdateOperationsInput | string
+  transactionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  referenceNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  date?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  remarks?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdByUserId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  installmentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  refundOfPaymentId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
+}
+
 export type PaymentCreateManyCreatedByInput = {
   id?: string
   paymentId: string
@@ -1402,6 +1681,9 @@ export type PaymentCreateManyCreatedByInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
 }
 
 export type PaymentUpdateWithoutCreatedByInput = {
@@ -1419,7 +1701,11 @@ export type PaymentUpdateWithoutCreatedByInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
   refundOf?: Prisma.PaymentUpdateOneWithoutRefundsNestedInput
@@ -1444,7 +1730,11 @@ export type PaymentUncheckedUpdateWithoutCreatedByInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -1466,6 +1756,9 @@ export type PaymentUncheckedUpdateManyWithoutCreatedByInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PaymentCreateManyDealInput = {
@@ -1486,6 +1779,9 @@ export type PaymentCreateManyDealInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
 }
 
 export type PaymentUpdateWithoutDealInput = {
@@ -1503,7 +1799,11 @@ export type PaymentUpdateWithoutDealInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
   refundOf?: Prisma.PaymentUpdateOneWithoutRefundsNestedInput
@@ -1528,7 +1828,11 @@ export type PaymentUncheckedUpdateWithoutDealInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -1550,6 +1854,9 @@ export type PaymentUncheckedUpdateManyWithoutDealInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PaymentCreateManyRefundOfInput = {
@@ -1570,6 +1877,9 @@ export type PaymentCreateManyRefundOfInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
 }
 
 export type PaymentUpdateWithoutRefundOfInput = {
@@ -1587,7 +1897,11 @@ export type PaymentUpdateWithoutRefundOfInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   installment?: Prisma.DealInstallmentUpdateOneWithoutPaymentsNestedInput
@@ -1612,7 +1926,11 @@ export type PaymentUncheckedUpdateWithoutRefundOfInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -1634,6 +1952,9 @@ export type PaymentUncheckedUpdateManyWithoutRefundOfInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 export type PaymentCreateManyInstallmentInput = {
@@ -1654,6 +1975,9 @@ export type PaymentCreateManyInstallmentInput = {
   deletedAt?: Date | string | null
   deletedBy?: string | null
   manualUniqueId?: string | null
+  bankName?: string | null
+  chequeNumber?: string | null
+  clearingStatus?: string | null
 }
 
 export type PaymentUpdateWithoutInstallmentInput = {
@@ -1671,7 +1995,11 @@ export type PaymentUpdateWithoutInstallmentInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUpdateManyWithoutPaymentNestedInput
   createdBy?: Prisma.UserUpdateOneWithoutPaymentsCreatedNestedInput
   deal?: Prisma.DealUpdateOneRequiredWithoutPaymentsNestedInput
   refundOf?: Prisma.PaymentUpdateOneWithoutRefundsNestedInput
@@ -1696,7 +2024,11 @@ export type PaymentUncheckedUpdateWithoutInstallmentInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutPaymentNestedInput
+  allocations?: Prisma.PaymentAllocationUncheckedUpdateManyWithoutPaymentNestedInput
   refunds?: Prisma.PaymentUncheckedUpdateManyWithoutRefundOfNestedInput
 }
 
@@ -1718,6 +2050,9 @@ export type PaymentUncheckedUpdateManyWithoutInstallmentInput = {
   deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
   deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
   manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  bankName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  chequeNumber?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  clearingStatus?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
 }
 
 
@@ -1727,11 +2062,13 @@ export type PaymentUncheckedUpdateManyWithoutInstallmentInput = {
 
 export type PaymentCountOutputType = {
   ledgerEntries: number
+  allocations: number
   refunds: number
 }
 
 export type PaymentCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ledgerEntries?: boolean | PaymentCountOutputTypeCountLedgerEntriesArgs
+  allocations?: boolean | PaymentCountOutputTypeCountAllocationsArgs
   refunds?: boolean | PaymentCountOutputTypeCountRefundsArgs
 }
 
@@ -1750,6 +2087,13 @@ export type PaymentCountOutputTypeDefaultArgs<ExtArgs extends runtime.Types.Exte
  */
 export type PaymentCountOutputTypeCountLedgerEntriesArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   where?: Prisma.LedgerEntryWhereInput
+}
+
+/**
+ * PaymentCountOutputType without action
+ */
+export type PaymentCountOutputTypeCountAllocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.PaymentAllocationWhereInput
 }
 
 /**
@@ -1779,7 +2123,11 @@ export type PaymentSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs 
   deletedAt?: boolean
   deletedBy?: boolean
   manualUniqueId?: boolean
+  bankName?: boolean
+  chequeNumber?: boolean
+  clearingStatus?: boolean
   ledgerEntries?: boolean | Prisma.Payment$ledgerEntriesArgs<ExtArgs>
+  allocations?: boolean | Prisma.Payment$allocationsArgs<ExtArgs>
   createdBy?: boolean | Prisma.Payment$createdByArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   installment?: boolean | Prisma.Payment$installmentArgs<ExtArgs>
@@ -1807,6 +2155,9 @@ export type PaymentSelectCreateManyAndReturn<ExtArgs extends runtime.Types.Exten
   deletedAt?: boolean
   deletedBy?: boolean
   manualUniqueId?: boolean
+  bankName?: boolean
+  chequeNumber?: boolean
+  clearingStatus?: boolean
   createdBy?: boolean | Prisma.Payment$createdByArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   installment?: boolean | Prisma.Payment$installmentArgs<ExtArgs>
@@ -1832,6 +2183,9 @@ export type PaymentSelectUpdateManyAndReturn<ExtArgs extends runtime.Types.Exten
   deletedAt?: boolean
   deletedBy?: boolean
   manualUniqueId?: boolean
+  bankName?: boolean
+  chequeNumber?: boolean
+  clearingStatus?: boolean
   createdBy?: boolean | Prisma.Payment$createdByArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   installment?: boolean | Prisma.Payment$installmentArgs<ExtArgs>
@@ -1857,11 +2211,15 @@ export type PaymentSelectScalar = {
   deletedAt?: boolean
   deletedBy?: boolean
   manualUniqueId?: boolean
+  bankName?: boolean
+  chequeNumber?: boolean
+  clearingStatus?: boolean
 }
 
-export type PaymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "paymentId" | "dealId" | "amount" | "paymentType" | "paymentMode" | "transactionId" | "referenceNumber" | "date" | "remarks" | "createdByUserId" | "createdAt" | "updatedAt" | "installmentId" | "refundOfPaymentId" | "deletedAt" | "deletedBy" | "manualUniqueId", ExtArgs["result"]["payment"]>
+export type PaymentOmit<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetOmit<"id" | "paymentId" | "dealId" | "amount" | "paymentType" | "paymentMode" | "transactionId" | "referenceNumber" | "date" | "remarks" | "createdByUserId" | "createdAt" | "updatedAt" | "installmentId" | "refundOfPaymentId" | "deletedAt" | "deletedBy" | "manualUniqueId" | "bankName" | "chequeNumber" | "clearingStatus", ExtArgs["result"]["payment"]>
 export type PaymentInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
   ledgerEntries?: boolean | Prisma.Payment$ledgerEntriesArgs<ExtArgs>
+  allocations?: boolean | Prisma.Payment$allocationsArgs<ExtArgs>
   createdBy?: boolean | Prisma.Payment$createdByArgs<ExtArgs>
   deal?: boolean | Prisma.DealDefaultArgs<ExtArgs>
   installment?: boolean | Prisma.Payment$installmentArgs<ExtArgs>
@@ -1886,6 +2244,7 @@ export type $PaymentPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
   name: "Payment"
   objects: {
     ledgerEntries: Prisma.$LedgerEntryPayload<ExtArgs>[]
+    allocations: Prisma.$PaymentAllocationPayload<ExtArgs>[]
     createdBy: Prisma.$UserPayload<ExtArgs> | null
     deal: Prisma.$DealPayload<ExtArgs>
     installment: Prisma.$DealInstallmentPayload<ExtArgs> | null
@@ -1911,6 +2270,9 @@ export type $PaymentPayload<ExtArgs extends runtime.Types.Extensions.InternalArg
     deletedAt: Date | null
     deletedBy: string | null
     manualUniqueId: string | null
+    bankName: string | null
+    chequeNumber: string | null
+    clearingStatus: string | null
   }, ExtArgs["result"]["payment"]>
   composites: {}
 }
@@ -2306,6 +2668,7 @@ readonly fields: PaymentFieldRefs;
 export interface Prisma__PaymentClient<T, Null = never, ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs, GlobalOmitOptions = {}> extends Prisma.PrismaPromise<T> {
   readonly [Symbol.toStringTag]: "PrismaPromise"
   ledgerEntries<T extends Prisma.Payment$ledgerEntriesArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Payment$ledgerEntriesArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$LedgerEntryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  allocations<T extends Prisma.Payment$allocationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Payment$allocationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$PaymentAllocationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   createdBy<T extends Prisma.Payment$createdByArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Payment$createdByArgs<ExtArgs>>): Prisma.Prisma__UserClient<runtime.Types.Result.GetResult<Prisma.$UserPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
   deal<T extends Prisma.DealDefaultArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.DealDefaultArgs<ExtArgs>>): Prisma.Prisma__DealClient<runtime.Types.Result.GetResult<Prisma.$DealPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | Null, Null, ExtArgs, GlobalOmitOptions>
   installment<T extends Prisma.Payment$installmentArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Payment$installmentArgs<ExtArgs>>): Prisma.Prisma__DealInstallmentClient<runtime.Types.Result.GetResult<Prisma.$DealInstallmentPayload<ExtArgs>, T, "findUniqueOrThrow", GlobalOmitOptions> | null, null, ExtArgs, GlobalOmitOptions>
@@ -2358,6 +2721,9 @@ export interface PaymentFieldRefs {
   readonly deletedAt: Prisma.FieldRef<"Payment", 'DateTime'>
   readonly deletedBy: Prisma.FieldRef<"Payment", 'String'>
   readonly manualUniqueId: Prisma.FieldRef<"Payment", 'String'>
+  readonly bankName: Prisma.FieldRef<"Payment", 'String'>
+  readonly chequeNumber: Prisma.FieldRef<"Payment", 'String'>
+  readonly clearingStatus: Prisma.FieldRef<"Payment", 'String'>
 }
     
 
@@ -2775,6 +3141,30 @@ export type Payment$ledgerEntriesArgs<ExtArgs extends runtime.Types.Extensions.I
   take?: number
   skip?: number
   distinct?: Prisma.LedgerEntryScalarFieldEnum | Prisma.LedgerEntryScalarFieldEnum[]
+}
+
+/**
+ * Payment.allocations
+ */
+export type Payment$allocationsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the PaymentAllocation
+   */
+  select?: Prisma.PaymentAllocationSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the PaymentAllocation
+   */
+  omit?: Prisma.PaymentAllocationOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.PaymentAllocationInclude<ExtArgs> | null
+  where?: Prisma.PaymentAllocationWhereInput
+  orderBy?: Prisma.PaymentAllocationOrderByWithRelationInput | Prisma.PaymentAllocationOrderByWithRelationInput[]
+  cursor?: Prisma.PaymentAllocationWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.PaymentAllocationScalarFieldEnum | Prisma.PaymentAllocationScalarFieldEnum[]
 }
 
 /**

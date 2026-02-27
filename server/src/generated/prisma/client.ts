@@ -463,6 +463,11 @@ export type DealReceipt = Prisma.DealReceiptModel
  */
 export type DealReceiptAllocation = Prisma.DealReceiptAllocationModel
 /**
+ * Model PaymentAllocation
+ * 
+ */
+export type PaymentAllocation = Prisma.PaymentAllocationModel
+/**
  * Model RefreshToken
  * 
  */

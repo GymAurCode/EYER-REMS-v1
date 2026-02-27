@@ -21,6 +21,10 @@ export interface CreatePaymentPayload {
   paymentId?: string;
   createdBy: string;
   installmentId?: string; // Link to specific installment if provided
+  // Extended payment mode metadata (optional)
+  bankName?: string;
+  chequeNumber?: string;
+  clearingStatus?: 'PENDING' | 'CLEARED' | 'BOUNCED';
 }
 
 export interface RefundPaymentPayload {
@@ -216,6 +220,9 @@ export class PaymentService {
           remarks: payload.remarks || null,
           createdByUserId: payload.createdBy,
           manualUniqueId: manualUniqueId?.trim() || null,
+          bankName: payload.bankName || null,
+          chequeNumber: payload.chequeNumber || null,
+          clearingStatus: payload.clearingStatus || 'PENDING',
         },
       });
 

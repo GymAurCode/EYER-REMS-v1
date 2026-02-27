@@ -7,6 +7,7 @@
 import { Prisma } from '../prisma/client';
 import prisma from '../prisma/client';
 import { LedgerService } from './ledger-service';
+import { writeLedgerEntry } from './ledger-engine-service';
 import { getLegacyDealerLedgerProjection } from './legacy-dealer-ledger-projection-service';
 
 export interface CreateDealerLedgerEntryPayload {
@@ -180,6 +181,22 @@ export class DealerLedgerService {
         );
 
         ledgerEntryId = payableEntry.id; // Use payable entry as reference
+
+        // Mirror into Ledger Engine for dealer entity (Commission Payable)
+        await writeLedgerEntry(
+          {
+            transactionUuid: payableEntry.id,
+            entryDate,
+            accountId: accounts.dealerPayableAccountId,
+            entityType: 'dealer',
+            entityId: payload.dealerId,
+            debitAmount: 0,
+            creditAmount: payload.amount,
+            narration: payload.description || 'Commission payable to dealer',
+            sourceType: 'payment',
+          },
+          client
+        );
       } else if (payload.entryType === 'payment') {
         // Payment entry: Debit Dealer Payable, Credit Cash/Bank
         const paymentAccountId = payload.referenceType === 'cash' ? accounts.cashAccountId : accounts.bankAccountId;
@@ -207,6 +224,22 @@ export class DealerLedgerService {
         );
 
         ledgerEntryId = payableEntry.id;
+
+        // Mirror into Ledger Engine for dealer entity (Payment made)
+        await writeLedgerEntry(
+          {
+            transactionUuid: payableEntry.id,
+            entryDate,
+            accountId: accounts.dealerPayableAccountId,
+            entityType: 'dealer',
+            entityId: payload.dealerId,
+            debitAmount: payload.amount,
+            creditAmount: 0,
+            narration: payload.description || 'Payment to dealer',
+            sourceType: 'payment',
+          },
+          client
+        );
     }
 
     // Create dealer ledger entry

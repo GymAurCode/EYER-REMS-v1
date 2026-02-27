@@ -485,6 +485,7 @@ export type PropertyWhereInput = {
   transactions?: Prisma.TransactionListRelationFilter
   units?: Prisma.UnitListRelationFilter
   constructionProjects?: Prisma.ConstructionProjectListRelationFilter
+  commissions?: Prisma.CommissionListRelationFilter
 }
 
 export type PropertyOrderByWithRelationInput = {
@@ -543,6 +544,7 @@ export type PropertyOrderByWithRelationInput = {
   transactions?: Prisma.TransactionOrderByRelationAggregateInput
   units?: Prisma.UnitOrderByRelationAggregateInput
   constructionProjects?: Prisma.ConstructionProjectOrderByRelationAggregateInput
+  commissions?: Prisma.CommissionOrderByRelationAggregateInput
 }
 
 export type PropertyWhereUniqueInput = Prisma.AtLeast<{
@@ -604,6 +606,7 @@ export type PropertyWhereUniqueInput = Prisma.AtLeast<{
   transactions?: Prisma.TransactionListRelationFilter
   units?: Prisma.UnitListRelationFilter
   constructionProjects?: Prisma.ConstructionProjectListRelationFilter
+  commissions?: Prisma.CommissionListRelationFilter
 }, "id" | "propertyCode" | "manualUniqueId" | "tid">
 
 export type PropertyOrderByWithAggregationInput = {
@@ -742,6 +745,7 @@ export type PropertyCreateInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateInput = {
@@ -798,6 +802,7 @@ export type PropertyUncheckedCreateInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUpdateInput = {
@@ -854,6 +859,7 @@ export type PropertyUpdateInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateInput = {
@@ -910,6 +916,7 @@ export type PropertyUncheckedUpdateInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateManyInput = {
@@ -1491,6 +1498,22 @@ export type PropertyUpdateOneWithoutVoucherLinesNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.PropertyUpdateToOneWithWhereWithoutVoucherLinesInput, Prisma.PropertyUpdateWithoutVoucherLinesInput>, Prisma.PropertyUncheckedUpdateWithoutVoucherLinesInput>
 }
 
+export type PropertyCreateNestedOneWithoutCommissionsInput = {
+  create?: Prisma.XOR<Prisma.PropertyCreateWithoutCommissionsInput, Prisma.PropertyUncheckedCreateWithoutCommissionsInput>
+  connectOrCreate?: Prisma.PropertyCreateOrConnectWithoutCommissionsInput
+  connect?: Prisma.PropertyWhereUniqueInput
+}
+
+export type PropertyUpdateOneWithoutCommissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.PropertyCreateWithoutCommissionsInput, Prisma.PropertyUncheckedCreateWithoutCommissionsInput>
+  connectOrCreate?: Prisma.PropertyCreateOrConnectWithoutCommissionsInput
+  upsert?: Prisma.PropertyUpsertWithoutCommissionsInput
+  disconnect?: Prisma.PropertyWhereInput | boolean
+  delete?: Prisma.PropertyWhereInput | boolean
+  connect?: Prisma.PropertyWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.PropertyUpdateToOneWithWhereWithoutCommissionsInput, Prisma.PropertyUpdateWithoutCommissionsInput>, Prisma.PropertyUncheckedUpdateWithoutCommissionsInput>
+}
+
 export type PropertyCreateNestedOneWithoutPropertyExpensesInput = {
   create?: Prisma.XOR<Prisma.PropertyCreateWithoutPropertyExpensesInput, Prisma.PropertyUncheckedCreateWithoutPropertyExpensesInput>
   connectOrCreate?: Prisma.PropertyCreateOrConnectWithoutPropertyExpensesInput
@@ -1634,6 +1657,7 @@ export type PropertyCreateWithoutLocationNodeInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutLocationNodeInput = {
@@ -1689,6 +1713,7 @@ export type PropertyUncheckedCreateWithoutLocationNodeInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutLocationNodeInput = {
@@ -1810,6 +1835,7 @@ export type PropertyCreateWithoutSubsidiaryOptionInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutSubsidiaryOptionInput = {
@@ -1865,6 +1891,7 @@ export type PropertyUncheckedCreateWithoutSubsidiaryOptionInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutSubsidiaryOptionInput = {
@@ -1946,6 +1973,7 @@ export type PropertyCreateWithoutBlocksInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutBlocksInput = {
@@ -2001,6 +2029,7 @@ export type PropertyUncheckedCreateWithoutBlocksInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutBlocksInput = {
@@ -2072,6 +2101,7 @@ export type PropertyUpdateWithoutBlocksInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutBlocksInput = {
@@ -2127,6 +2157,7 @@ export type PropertyUncheckedUpdateWithoutBlocksInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutFloorsInput = {
@@ -2182,6 +2213,7 @@ export type PropertyCreateWithoutFloorsInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutFloorsInput = {
@@ -2237,6 +2269,7 @@ export type PropertyUncheckedCreateWithoutFloorsInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutFloorsInput = {
@@ -2308,6 +2341,7 @@ export type PropertyUpdateWithoutFloorsInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutFloorsInput = {
@@ -2363,6 +2397,7 @@ export type PropertyUncheckedUpdateWithoutFloorsInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutUnitsInput = {
@@ -2418,6 +2453,7 @@ export type PropertyCreateWithoutUnitsInput = {
   tenancies?: Prisma.TenancyCreateNestedManyWithoutPropertyInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutUnitsInput = {
@@ -2473,6 +2509,7 @@ export type PropertyUncheckedCreateWithoutUnitsInput = {
   tenancies?: Prisma.TenancyUncheckedCreateNestedManyWithoutPropertyInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutUnitsInput = {
@@ -2544,6 +2581,7 @@ export type PropertyUpdateWithoutUnitsInput = {
   tenancies?: Prisma.TenancyUpdateManyWithoutPropertyNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutUnitsInput = {
@@ -2599,6 +2637,7 @@ export type PropertyUncheckedUpdateWithoutUnitsInput = {
   tenancies?: Prisma.TenancyUncheckedUpdateManyWithoutPropertyNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutSalesInput = {
@@ -2654,6 +2693,7 @@ export type PropertyCreateWithoutSalesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutSalesInput = {
@@ -2709,6 +2749,7 @@ export type PropertyUncheckedCreateWithoutSalesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutSalesInput = {
@@ -2780,6 +2821,7 @@ export type PropertyUpdateWithoutSalesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutSalesInput = {
@@ -2835,6 +2877,7 @@ export type PropertyUncheckedUpdateWithoutSalesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutBuyersInput = {
@@ -2890,6 +2933,7 @@ export type PropertyCreateWithoutBuyersInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutBuyersInput = {
@@ -2945,6 +2989,7 @@ export type PropertyUncheckedCreateWithoutBuyersInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutBuyersInput = {
@@ -3016,6 +3061,7 @@ export type PropertyUpdateWithoutBuyersInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutBuyersInput = {
@@ -3071,6 +3117,7 @@ export type PropertyUncheckedUpdateWithoutBuyersInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutDealsInput = {
@@ -3126,6 +3173,7 @@ export type PropertyCreateWithoutDealsInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutDealsInput = {
@@ -3181,6 +3229,7 @@ export type PropertyUncheckedCreateWithoutDealsInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutDealsInput = {
@@ -3252,6 +3301,7 @@ export type PropertyUpdateWithoutDealsInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutDealsInput = {
@@ -3307,6 +3357,7 @@ export type PropertyUncheckedUpdateWithoutDealsInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutDealPropertiesInput = {
@@ -3362,6 +3413,7 @@ export type PropertyCreateWithoutDealPropertiesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutDealPropertiesInput = {
@@ -3417,6 +3469,7 @@ export type PropertyUncheckedCreateWithoutDealPropertiesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutDealPropertiesInput = {
@@ -3488,6 +3541,7 @@ export type PropertyUpdateWithoutDealPropertiesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutDealPropertiesInput = {
@@ -3543,6 +3597,7 @@ export type PropertyUncheckedUpdateWithoutDealPropertiesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutTransactionsInput = {
@@ -3598,6 +3653,7 @@ export type PropertyCreateWithoutTransactionsInput = {
   tenancies?: Prisma.TenancyCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutTransactionsInput = {
@@ -3653,6 +3709,7 @@ export type PropertyUncheckedCreateWithoutTransactionsInput = {
   tenancies?: Prisma.TenancyUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutTransactionsInput = {
@@ -3724,6 +3781,7 @@ export type PropertyUpdateWithoutTransactionsInput = {
   tenancies?: Prisma.TenancyUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutTransactionsInput = {
@@ -3779,6 +3837,7 @@ export type PropertyUncheckedUpdateWithoutTransactionsInput = {
   tenancies?: Prisma.TenancyUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutInvoicesInput = {
@@ -3834,6 +3893,7 @@ export type PropertyCreateWithoutInvoicesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutInvoicesInput = {
@@ -3889,6 +3949,7 @@ export type PropertyUncheckedCreateWithoutInvoicesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutInvoicesInput = {
@@ -3960,6 +4021,7 @@ export type PropertyUpdateWithoutInvoicesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutInvoicesInput = {
@@ -4015,6 +4077,7 @@ export type PropertyUncheckedUpdateWithoutInvoicesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutRevenueSummariesInput = {
@@ -4070,6 +4133,7 @@ export type PropertyCreateWithoutRevenueSummariesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutRevenueSummariesInput = {
@@ -4125,6 +4189,7 @@ export type PropertyUncheckedCreateWithoutRevenueSummariesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutRevenueSummariesInput = {
@@ -4196,6 +4261,7 @@ export type PropertyUpdateWithoutRevenueSummariesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutRevenueSummariesInput = {
@@ -4251,6 +4317,7 @@ export type PropertyUncheckedUpdateWithoutRevenueSummariesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutExpenseSummariesInput = {
@@ -4306,6 +4373,7 @@ export type PropertyCreateWithoutExpenseSummariesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutExpenseSummariesInput = {
@@ -4361,6 +4429,7 @@ export type PropertyUncheckedCreateWithoutExpenseSummariesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutExpenseSummariesInput = {
@@ -4432,6 +4501,7 @@ export type PropertyUpdateWithoutExpenseSummariesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutExpenseSummariesInput = {
@@ -4487,6 +4557,7 @@ export type PropertyUncheckedUpdateWithoutExpenseSummariesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutVouchersInput = {
@@ -4542,6 +4613,7 @@ export type PropertyCreateWithoutVouchersInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutVouchersInput = {
@@ -4597,6 +4669,7 @@ export type PropertyUncheckedCreateWithoutVouchersInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutVouchersInput = {
@@ -4668,6 +4741,7 @@ export type PropertyUpdateWithoutVouchersInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutVouchersInput = {
@@ -4723,6 +4797,7 @@ export type PropertyUncheckedUpdateWithoutVouchersInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutVoucherLinesInput = {
@@ -4778,6 +4853,7 @@ export type PropertyCreateWithoutVoucherLinesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutVoucherLinesInput = {
@@ -4833,6 +4909,7 @@ export type PropertyUncheckedCreateWithoutVoucherLinesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutVoucherLinesInput = {
@@ -4904,6 +4981,7 @@ export type PropertyUpdateWithoutVoucherLinesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutVoucherLinesInput = {
@@ -4955,6 +5033,247 @@ export type PropertyUncheckedUpdateWithoutVoucherLinesInput = {
   revenueSummaries?: Prisma.RevenueSummaryUncheckedUpdateManyWithoutPropertyNestedInput
   sales?: Prisma.SaleUncheckedUpdateManyWithoutPropertyNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutPropertyNestedInput
+  tenancies?: Prisma.TenancyUncheckedUpdateManyWithoutPropertyNestedInput
+  transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
+  units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
+  constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
+}
+
+export type PropertyCreateWithoutCommissionsInput = {
+  id?: string
+  name: string
+  type: string
+  address: string
+  location?: string | null
+  status?: string
+  imageUrl?: string | null
+  description?: string | null
+  yearBuilt?: number | null
+  totalArea?: number | null
+  totalUnits?: number
+  dealerId?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  propertyCode?: string | null
+  city?: string | null
+  documents?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ownerName?: string | null
+  ownerPhone?: string | null
+  previousTenants?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  rentAmount?: number | null
+  rentEscalationPercentage?: number | null
+  securityDeposit?: number | null
+  size?: number | null
+  title?: string | null
+  manualUniqueId?: string | null
+  propertySubsidiary?: string | null
+  amenities?: Prisma.PropertyCreateamenitiesInput | string[]
+  salePrice?: number | null
+  tid?: string | null
+  category?: string | null
+  attachments?: Prisma.AttachmentCreateNestedManyWithoutPropertyInput
+  blocks?: Prisma.BlockCreateNestedManyWithoutPropertyInput
+  buyers?: Prisma.BuyerCreateNestedManyWithoutPropertyInput
+  deals?: Prisma.DealCreateNestedManyWithoutPropertyInput
+  dealProperties?: Prisma.DealPropertyCreateNestedManyWithoutPropertyInput
+  expenseSummaries?: Prisma.ExpenseSummaryCreateNestedManyWithoutPropertyInput
+  FinanceLedger?: Prisma.FinanceLedgerCreateNestedManyWithoutPropertyInput
+  floors?: Prisma.FloorCreateNestedManyWithoutPropertyInput
+  invoices?: Prisma.InvoiceCreateNestedManyWithoutPropertyInput
+  maintenanceRequests?: Prisma.MaintenanceRequestCreateNestedManyWithoutPropertyInput
+  locationNode?: Prisma.LocationCreateNestedOneWithoutPropertiesInput
+  subsidiaryOption?: Prisma.SubsidiaryOptionCreateNestedOneWithoutPropertiesInput
+  propertyExpenses?: Prisma.PropertyExpenseCreateNestedManyWithoutPropertyInput
+  revenueSummaries?: Prisma.RevenueSummaryCreateNestedManyWithoutPropertyInput
+  sales?: Prisma.SaleCreateNestedManyWithoutPropertyInput
+  vouchers?: Prisma.VoucherCreateNestedManyWithoutPropertyInput
+  voucherLines?: Prisma.VoucherLineCreateNestedManyWithoutPropertyInput
+  tenancies?: Prisma.TenancyCreateNestedManyWithoutPropertyInput
+  transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
+  units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
+  constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+}
+
+export type PropertyUncheckedCreateWithoutCommissionsInput = {
+  id?: string
+  name: string
+  type: string
+  address: string
+  location?: string | null
+  status?: string
+  imageUrl?: string | null
+  description?: string | null
+  yearBuilt?: number | null
+  totalArea?: number | null
+  totalUnits?: number
+  dealerId?: string | null
+  isDeleted?: boolean
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  propertyCode?: string | null
+  city?: string | null
+  documents?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ownerName?: string | null
+  ownerPhone?: string | null
+  previousTenants?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  rentAmount?: number | null
+  rentEscalationPercentage?: number | null
+  securityDeposit?: number | null
+  size?: number | null
+  title?: string | null
+  locationId?: string | null
+  manualUniqueId?: string | null
+  propertySubsidiary?: string | null
+  amenities?: Prisma.PropertyCreateamenitiesInput | string[]
+  salePrice?: number | null
+  subsidiaryOptionId?: string | null
+  tid?: string | null
+  category?: string | null
+  attachments?: Prisma.AttachmentUncheckedCreateNestedManyWithoutPropertyInput
+  blocks?: Prisma.BlockUncheckedCreateNestedManyWithoutPropertyInput
+  buyers?: Prisma.BuyerUncheckedCreateNestedManyWithoutPropertyInput
+  deals?: Prisma.DealUncheckedCreateNestedManyWithoutPropertyInput
+  dealProperties?: Prisma.DealPropertyUncheckedCreateNestedManyWithoutPropertyInput
+  expenseSummaries?: Prisma.ExpenseSummaryUncheckedCreateNestedManyWithoutPropertyInput
+  FinanceLedger?: Prisma.FinanceLedgerUncheckedCreateNestedManyWithoutPropertyInput
+  floors?: Prisma.FloorUncheckedCreateNestedManyWithoutPropertyInput
+  invoices?: Prisma.InvoiceUncheckedCreateNestedManyWithoutPropertyInput
+  maintenanceRequests?: Prisma.MaintenanceRequestUncheckedCreateNestedManyWithoutPropertyInput
+  propertyExpenses?: Prisma.PropertyExpenseUncheckedCreateNestedManyWithoutPropertyInput
+  revenueSummaries?: Prisma.RevenueSummaryUncheckedCreateNestedManyWithoutPropertyInput
+  sales?: Prisma.SaleUncheckedCreateNestedManyWithoutPropertyInput
+  vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutPropertyInput
+  voucherLines?: Prisma.VoucherLineUncheckedCreateNestedManyWithoutPropertyInput
+  tenancies?: Prisma.TenancyUncheckedCreateNestedManyWithoutPropertyInput
+  transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
+  units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
+  constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+}
+
+export type PropertyCreateOrConnectWithoutCommissionsInput = {
+  where: Prisma.PropertyWhereUniqueInput
+  create: Prisma.XOR<Prisma.PropertyCreateWithoutCommissionsInput, Prisma.PropertyUncheckedCreateWithoutCommissionsInput>
+}
+
+export type PropertyUpsertWithoutCommissionsInput = {
+  update: Prisma.XOR<Prisma.PropertyUpdateWithoutCommissionsInput, Prisma.PropertyUncheckedUpdateWithoutCommissionsInput>
+  create: Prisma.XOR<Prisma.PropertyCreateWithoutCommissionsInput, Prisma.PropertyUncheckedCreateWithoutCommissionsInput>
+  where?: Prisma.PropertyWhereInput
+}
+
+export type PropertyUpdateToOneWithWhereWithoutCommissionsInput = {
+  where?: Prisma.PropertyWhereInput
+  data: Prisma.XOR<Prisma.PropertyUpdateWithoutCommissionsInput, Prisma.PropertyUncheckedUpdateWithoutCommissionsInput>
+}
+
+export type PropertyUpdateWithoutCommissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  address?: Prisma.StringFieldUpdateOperationsInput | string
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  yearBuilt?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  totalArea?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalUnits?: Prisma.IntFieldUpdateOperationsInput | number
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  propertyCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  city?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documents?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ownerName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ownerPhone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  previousTenants?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  rentAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rentEscalationPercentage?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  securityDeposit?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  size?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertySubsidiary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amenities?: Prisma.PropertyUpdateamenitiesInput | string[]
+  salePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  tid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachments?: Prisma.AttachmentUpdateManyWithoutPropertyNestedInput
+  blocks?: Prisma.BlockUpdateManyWithoutPropertyNestedInput
+  buyers?: Prisma.BuyerUpdateManyWithoutPropertyNestedInput
+  deals?: Prisma.DealUpdateManyWithoutPropertyNestedInput
+  dealProperties?: Prisma.DealPropertyUpdateManyWithoutPropertyNestedInput
+  expenseSummaries?: Prisma.ExpenseSummaryUpdateManyWithoutPropertyNestedInput
+  FinanceLedger?: Prisma.FinanceLedgerUpdateManyWithoutPropertyNestedInput
+  floors?: Prisma.FloorUpdateManyWithoutPropertyNestedInput
+  invoices?: Prisma.InvoiceUpdateManyWithoutPropertyNestedInput
+  maintenanceRequests?: Prisma.MaintenanceRequestUpdateManyWithoutPropertyNestedInput
+  locationNode?: Prisma.LocationUpdateOneWithoutPropertiesNestedInput
+  subsidiaryOption?: Prisma.SubsidiaryOptionUpdateOneWithoutPropertiesNestedInput
+  propertyExpenses?: Prisma.PropertyExpenseUpdateManyWithoutPropertyNestedInput
+  revenueSummaries?: Prisma.RevenueSummaryUpdateManyWithoutPropertyNestedInput
+  sales?: Prisma.SaleUpdateManyWithoutPropertyNestedInput
+  vouchers?: Prisma.VoucherUpdateManyWithoutPropertyNestedInput
+  voucherLines?: Prisma.VoucherLineUpdateManyWithoutPropertyNestedInput
+  tenancies?: Prisma.TenancyUpdateManyWithoutPropertyNestedInput
+  transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
+  units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
+  constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+}
+
+export type PropertyUncheckedUpdateWithoutCommissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  name?: Prisma.StringFieldUpdateOperationsInput | string
+  type?: Prisma.StringFieldUpdateOperationsInput | string
+  address?: Prisma.StringFieldUpdateOperationsInput | string
+  location?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  imageUrl?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  description?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  yearBuilt?: Prisma.NullableIntFieldUpdateOperationsInput | number | null
+  totalArea?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  totalUnits?: Prisma.IntFieldUpdateOperationsInput | number
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  propertyCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  city?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  documents?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  ownerName?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  ownerPhone?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  previousTenants?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  rentAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  rentEscalationPercentage?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  securityDeposit?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  size?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  title?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  propertySubsidiary?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  amenities?: Prisma.PropertyUpdateamenitiesInput | string[]
+  salePrice?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  subsidiaryOptionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  category?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachments?: Prisma.AttachmentUncheckedUpdateManyWithoutPropertyNestedInput
+  blocks?: Prisma.BlockUncheckedUpdateManyWithoutPropertyNestedInput
+  buyers?: Prisma.BuyerUncheckedUpdateManyWithoutPropertyNestedInput
+  deals?: Prisma.DealUncheckedUpdateManyWithoutPropertyNestedInput
+  dealProperties?: Prisma.DealPropertyUncheckedUpdateManyWithoutPropertyNestedInput
+  expenseSummaries?: Prisma.ExpenseSummaryUncheckedUpdateManyWithoutPropertyNestedInput
+  FinanceLedger?: Prisma.FinanceLedgerUncheckedUpdateManyWithoutPropertyNestedInput
+  floors?: Prisma.FloorUncheckedUpdateManyWithoutPropertyNestedInput
+  invoices?: Prisma.InvoiceUncheckedUpdateManyWithoutPropertyNestedInput
+  maintenanceRequests?: Prisma.MaintenanceRequestUncheckedUpdateManyWithoutPropertyNestedInput
+  propertyExpenses?: Prisma.PropertyExpenseUncheckedUpdateManyWithoutPropertyNestedInput
+  revenueSummaries?: Prisma.RevenueSummaryUncheckedUpdateManyWithoutPropertyNestedInput
+  sales?: Prisma.SaleUncheckedUpdateManyWithoutPropertyNestedInput
+  vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutPropertyNestedInput
+  voucherLines?: Prisma.VoucherLineUncheckedUpdateManyWithoutPropertyNestedInput
   tenancies?: Prisma.TenancyUncheckedUpdateManyWithoutPropertyNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
@@ -5014,6 +5333,7 @@ export type PropertyCreateWithoutPropertyExpensesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutPropertyExpensesInput = {
@@ -5069,6 +5389,7 @@ export type PropertyUncheckedCreateWithoutPropertyExpensesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutPropertyExpensesInput = {
@@ -5140,6 +5461,7 @@ export type PropertyUpdateWithoutPropertyExpensesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutPropertyExpensesInput = {
@@ -5195,6 +5517,7 @@ export type PropertyUncheckedUpdateWithoutPropertyExpensesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutTenanciesInput = {
@@ -5250,6 +5573,7 @@ export type PropertyCreateWithoutTenanciesInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutTenanciesInput = {
@@ -5305,6 +5629,7 @@ export type PropertyUncheckedCreateWithoutTenanciesInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutTenanciesInput = {
@@ -5376,6 +5701,7 @@ export type PropertyUpdateWithoutTenanciesInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutTenanciesInput = {
@@ -5431,6 +5757,7 @@ export type PropertyUncheckedUpdateWithoutTenanciesInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutMaintenanceRequestsInput = {
@@ -5486,6 +5813,7 @@ export type PropertyCreateWithoutMaintenanceRequestsInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutMaintenanceRequestsInput = {
@@ -5541,6 +5869,7 @@ export type PropertyUncheckedCreateWithoutMaintenanceRequestsInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutMaintenanceRequestsInput = {
@@ -5612,6 +5941,7 @@ export type PropertyUpdateWithoutMaintenanceRequestsInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutMaintenanceRequestsInput = {
@@ -5667,6 +5997,7 @@ export type PropertyUncheckedUpdateWithoutMaintenanceRequestsInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutFinanceLedgerInput = {
@@ -5722,6 +6053,7 @@ export type PropertyCreateWithoutFinanceLedgerInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutFinanceLedgerInput = {
@@ -5777,6 +6109,7 @@ export type PropertyUncheckedCreateWithoutFinanceLedgerInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutFinanceLedgerInput = {
@@ -5848,6 +6181,7 @@ export type PropertyUpdateWithoutFinanceLedgerInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutFinanceLedgerInput = {
@@ -5903,6 +6237,7 @@ export type PropertyUncheckedUpdateWithoutFinanceLedgerInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutAttachmentsInput = {
@@ -5958,6 +6293,7 @@ export type PropertyCreateWithoutAttachmentsInput = {
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutAttachmentsInput = {
@@ -6013,6 +6349,7 @@ export type PropertyUncheckedCreateWithoutAttachmentsInput = {
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutAttachmentsInput = {
@@ -6084,6 +6421,7 @@ export type PropertyUpdateWithoutAttachmentsInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutAttachmentsInput = {
@@ -6139,6 +6477,7 @@ export type PropertyUncheckedUpdateWithoutAttachmentsInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateWithoutConstructionProjectsInput = {
@@ -6194,6 +6533,7 @@ export type PropertyCreateWithoutConstructionProjectsInput = {
   tenancies?: Prisma.TenancyCreateNestedManyWithoutPropertyInput
   transactions?: Prisma.TransactionCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyUncheckedCreateWithoutConstructionProjectsInput = {
@@ -6249,6 +6589,7 @@ export type PropertyUncheckedCreateWithoutConstructionProjectsInput = {
   tenancies?: Prisma.TenancyUncheckedCreateNestedManyWithoutPropertyInput
   transactions?: Prisma.TransactionUncheckedCreateNestedManyWithoutPropertyInput
   units?: Prisma.UnitUncheckedCreateNestedManyWithoutPropertyInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutPropertyInput
 }
 
 export type PropertyCreateOrConnectWithoutConstructionProjectsInput = {
@@ -6320,6 +6661,7 @@ export type PropertyUpdateWithoutConstructionProjectsInput = {
   tenancies?: Prisma.TenancyUpdateManyWithoutPropertyNestedInput
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutConstructionProjectsInput = {
@@ -6375,6 +6717,7 @@ export type PropertyUncheckedUpdateWithoutConstructionProjectsInput = {
   tenancies?: Prisma.TenancyUncheckedUpdateManyWithoutPropertyNestedInput
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyCreateManyLocationNodeInput = {
@@ -6466,6 +6809,7 @@ export type PropertyUpdateWithoutLocationNodeInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutLocationNodeInput = {
@@ -6521,6 +6865,7 @@ export type PropertyUncheckedUpdateWithoutLocationNodeInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateManyWithoutLocationNodeInput = {
@@ -6648,6 +6993,7 @@ export type PropertyUpdateWithoutSubsidiaryOptionInput = {
   transactions?: Prisma.TransactionUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateWithoutSubsidiaryOptionInput = {
@@ -6703,6 +7049,7 @@ export type PropertyUncheckedUpdateWithoutSubsidiaryOptionInput = {
   transactions?: Prisma.TransactionUncheckedUpdateManyWithoutPropertyNestedInput
   units?: Prisma.UnitUncheckedUpdateManyWithoutPropertyNestedInput
   constructionProjects?: Prisma.ConstructionProjectUncheckedUpdateManyWithoutPropertyNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutPropertyNestedInput
 }
 
 export type PropertyUncheckedUpdateManyWithoutSubsidiaryOptionInput = {
@@ -6766,6 +7113,7 @@ export type PropertyCountOutputType = {
   transactions: number
   units: number
   constructionProjects: number
+  commissions: number
 }
 
 export type PropertyCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -6788,6 +7136,7 @@ export type PropertyCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensio
   transactions?: boolean | PropertyCountOutputTypeCountTransactionsArgs
   units?: boolean | PropertyCountOutputTypeCountUnitsArgs
   constructionProjects?: boolean | PropertyCountOutputTypeCountConstructionProjectsArgs
+  commissions?: boolean | PropertyCountOutputTypeCountCommissionsArgs
 }
 
 /**
@@ -6933,6 +7282,13 @@ export type PropertyCountOutputTypeCountConstructionProjectsArgs<ExtArgs extends
   where?: Prisma.ConstructionProjectWhereInput
 }
 
+/**
+ * PropertyCountOutputType without action
+ */
+export type PropertyCountOutputTypeCountCommissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CommissionWhereInput
+}
+
 
 export type PropertySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -6990,6 +7346,7 @@ export type PropertySelect<ExtArgs extends runtime.Types.Extensions.InternalArgs
   transactions?: boolean | Prisma.Property$transactionsArgs<ExtArgs>
   units?: boolean | Prisma.Property$unitsArgs<ExtArgs>
   constructionProjects?: boolean | Prisma.Property$constructionProjectsArgs<ExtArgs>
+  commissions?: boolean | Prisma.Property$commissionsArgs<ExtArgs>
   _count?: boolean | Prisma.PropertyCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["property"]>
 
@@ -7131,6 +7488,7 @@ export type PropertyInclude<ExtArgs extends runtime.Types.Extensions.InternalArg
   transactions?: boolean | Prisma.Property$transactionsArgs<ExtArgs>
   units?: boolean | Prisma.Property$unitsArgs<ExtArgs>
   constructionProjects?: boolean | Prisma.Property$constructionProjectsArgs<ExtArgs>
+  commissions?: boolean | Prisma.Property$commissionsArgs<ExtArgs>
   _count?: boolean | Prisma.PropertyCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type PropertyIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -7166,6 +7524,7 @@ export type $PropertyPayload<ExtArgs extends runtime.Types.Extensions.InternalAr
     transactions: Prisma.$TransactionPayload<ExtArgs>[]
     units: Prisma.$UnitPayload<ExtArgs>[]
     constructionProjects: Prisma.$ConstructionProjectPayload<ExtArgs>[]
+    commissions: Prisma.$CommissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -7617,6 +7976,7 @@ export interface Prisma__PropertyClient<T, Null = never, ExtArgs extends runtime
   transactions<T extends Prisma.Property$transactionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Property$transactionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$TransactionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   units<T extends Prisma.Property$unitsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Property$unitsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$UnitPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   constructionProjects<T extends Prisma.Property$constructionProjectsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Property$constructionProjectsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$ConstructionProjectPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  commissions<T extends Prisma.Property$commissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Property$commissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -8567,6 +8927,30 @@ export type Property$constructionProjectsArgs<ExtArgs extends runtime.Types.Exte
   take?: number
   skip?: number
   distinct?: Prisma.ConstructionProjectScalarFieldEnum | Prisma.ConstructionProjectScalarFieldEnum[]
+}
+
+/**
+ * Property.commissions
+ */
+export type Property$commissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Commission
+   */
+  select?: Prisma.CommissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Commission
+   */
+  omit?: Prisma.CommissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CommissionInclude<ExtArgs> | null
+  where?: Prisma.CommissionWhereInput
+  orderBy?: Prisma.CommissionOrderByWithRelationInput | Prisma.CommissionOrderByWithRelationInput[]
+  cursor?: Prisma.CommissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CommissionScalarFieldEnum | Prisma.CommissionScalarFieldEnum[]
 }
 
 /**

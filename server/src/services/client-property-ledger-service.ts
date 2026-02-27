@@ -28,6 +28,12 @@ export interface LedgerSummary {
   dealValue: number;
   received: number;
   outstanding: number;
+  aging?: {
+    '0_30': number;
+    '31_60': number;
+    '61_90': number;
+    '90_plus': number;
+  };
 }
 
 export interface LedgerApiResponse {
@@ -57,6 +63,49 @@ function mapSourceToStatus(sourceType: LedgerSourceType): LedgerEntryStatus {
   if (sourceType === 'Payment') return 'Payment';
   if (sourceType === 'Adjustment') return 'Adjustment';
   return 'Derived';
+}
+
+async function calculateClientAgingBuckets(clientId: string): Promise<{
+  '0_30': number;
+  '31_60': number;
+  '61_90': number;
+  '90_plus': number;
+}> {
+  const installments = await prisma.dealInstallment.findMany({
+    where: { clientId, isDeleted: false },
+    select: {
+      amount: true,
+      paidAmount: true,
+      dueDate: true,
+    },
+  });
+
+  const today = new Date();
+  let bucket0_30 = 0;
+  let bucket31_60 = 0;
+  let bucket61_90 = 0;
+  let bucket90_plus = 0;
+
+  for (const inst of installments) {
+    const unpaid = Math.max(0, inst.amount - inst.paidAmount);
+    if (unpaid <= 0) continue;
+
+    const days = Math.floor(
+      (today.getTime() - inst.dueDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (days <= 30) bucket0_30 += unpaid;
+    else if (days <= 60) bucket31_60 += unpaid;
+    else if (days <= 90) bucket61_90 += unpaid;
+    else bucket90_plus += unpaid;
+  }
+
+  return {
+    '0_30': Number(bucket0_30.toFixed(2)),
+    '31_60': Number(bucket31_60.toFixed(2)),
+    '61_90': Number(bucket61_90.toFixed(2)),
+    '90_plus': Number(bucket90_plus.toFixed(2)),
+  };
 }
 
 /**
@@ -217,6 +266,8 @@ export async function getClientLedger(
         }
       : undefined;
 
+  const aging = await calculateClientAgingBuckets(client.id);
+
   return {
     entityName: client.name || client.clientCode || 'Unknown Client',
     entityId: client.id,
@@ -225,6 +276,7 @@ export async function getClientLedger(
       dealValue: Number(dealValue.toFixed(2)),
       received: Number(received.toFixed(2)),
       outstanding: Number(outstanding.toFixed(2)),
+      aging,
     },
     openingBalanceRow,
   };

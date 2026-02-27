@@ -469,6 +469,7 @@ export const ModelName = {
   AuditLog: 'AuditLog',
   DealReceipt: 'DealReceipt',
   DealReceiptAllocation: 'DealReceiptAllocation',
+  PaymentAllocation: 'PaymentAllocation',
   RefreshToken: 'RefreshToken',
   CsrfToken: 'CsrfToken',
   DeletedRecord: 'DeletedRecord',
@@ -515,7 +516,7 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
     omit: GlobalOmitOptions
   }
   meta: {
-    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset" | "financialOperation" | "financialOperationLine" | "financialOperationReference" | "financeOperationLedgerEntry" | "ledgerEngineEntry"
+    modelProps: "user" | "role" | "rolePermission" | "permissionAuditLog" | "actionAuditLog" | "roleLifecycleAuditLog" | "roleInviteLink" | "deviceApproval" | "notification" | "property" | "location" | "propertySubsidiary" | "subsidiaryOption" | "block" | "floor" | "unit" | "tenant" | "lease" | "sale" | "saleInstallment" | "buyer" | "activity" | "message" | "department" | "employee" | "attendance" | "attendanceCorrection" | "payroll" | "payrollAllowance" | "payrollDeduction" | "payrollPayment" | "salaryHistory" | "leaveRequest" | "leaveBalance" | "publicHoliday" | "lead" | "leadImportBatch" | "leadImportRow" | "client" | "contactPerson" | "dealer" | "dealerReview" | "deal" | "dealAgent" | "dealProperty" | "stageHistory" | "communication" | "cRMActivity" | "transactionCategory" | "transaction" | "invoice" | "payment" | "tenantPayment" | "maintenanceTicket" | "maintenanceActivity" | "noticeToVacate" | "rentReminder" | "tenantLedger" | "receipt" | "announcement" | "revenueSummary" | "expenseSummary" | "voucher" | "voucherLine" | "commission" | "account" | "journalEntry" | "journalLine" | "ledgerEntry" | "propertyExpense" | "tenancy" | "maintenanceRequest" | "financeLedger" | "attachment" | "dropdownCategory" | "dropdownOption" | "amenity" | "dealerPayment" | "paymentPlan" | "dealInstallment" | "dealerLedger" | "accountAlias" | "auditLog" | "dealReceipt" | "dealReceiptAllocation" | "paymentAllocation" | "refreshToken" | "csrfToken" | "deletedRecord" | "sequence" | "entityAccountBinding" | "entityMetadata" | "constructionProject" | "costCode" | "constructionDailyLog" | "constructionCrew" | "constructionLabor" | "constructionEquipment" | "constructionEquipmentUsage" | "constructionInventoryItem" | "constructionWarehouse" | "constructionStockBalance" | "constructionGRN" | "constructionGRNItem" | "constructionIssue" | "constructionIssueItem" | "constructionConsumption" | "constructionBudget" | "constructionMilestone" | "constructionPostingRule" | "exportJob" | "filterPreset" | "financialOperation" | "financialOperationLine" | "financialOperationReference" | "financeOperationLedgerEntry" | "ledgerEngineEntry"
     txIsolationLevel: TransactionIsolationLevel
   }
   model: {
@@ -6809,6 +6810,80 @@ export type TypeMap<ExtArgs extends runtime.Types.Extensions.InternalArgs = runt
         }
       }
     }
+    PaymentAllocation: {
+      payload: Prisma.$PaymentAllocationPayload<ExtArgs>
+      fields: Prisma.PaymentAllocationFieldRefs
+      operations: {
+        findUnique: {
+          args: Prisma.PaymentAllocationFindUniqueArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload> | null
+        }
+        findUniqueOrThrow: {
+          args: Prisma.PaymentAllocationFindUniqueOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        findFirst: {
+          args: Prisma.PaymentAllocationFindFirstArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload> | null
+        }
+        findFirstOrThrow: {
+          args: Prisma.PaymentAllocationFindFirstOrThrowArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        findMany: {
+          args: Prisma.PaymentAllocationFindManyArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>[]
+        }
+        create: {
+          args: Prisma.PaymentAllocationCreateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        createMany: {
+          args: Prisma.PaymentAllocationCreateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        createManyAndReturn: {
+          args: Prisma.PaymentAllocationCreateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>[]
+        }
+        delete: {
+          args: Prisma.PaymentAllocationDeleteArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        update: {
+          args: Prisma.PaymentAllocationUpdateArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        deleteMany: {
+          args: Prisma.PaymentAllocationDeleteManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateMany: {
+          args: Prisma.PaymentAllocationUpdateManyArgs<ExtArgs>
+          result: BatchPayload
+        }
+        updateManyAndReturn: {
+          args: Prisma.PaymentAllocationUpdateManyAndReturnArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>[]
+        }
+        upsert: {
+          args: Prisma.PaymentAllocationUpsertArgs<ExtArgs>
+          result: runtime.Types.Utils.PayloadToResult<Prisma.$PaymentAllocationPayload>
+        }
+        aggregate: {
+          args: Prisma.PaymentAllocationAggregateArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.AggregatePaymentAllocation>
+        }
+        groupBy: {
+          args: Prisma.PaymentAllocationGroupByArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PaymentAllocationGroupByOutputType>[]
+        }
+        count: {
+          args: Prisma.PaymentAllocationCountArgs<ExtArgs>
+          result: runtime.Types.Utils.Optional<Prisma.PaymentAllocationCountAggregateOutputType> | number
+        }
+      }
+    }
     RefreshToken: {
       payload: Prisma.$RefreshTokenPayload<ExtArgs>
       fields: Prisma.RefreshTokenFieldRefs
@@ -10255,7 +10330,10 @@ export const PaymentScalarFieldEnum = {
   refundOfPaymentId: 'refundOfPaymentId',
   deletedAt: 'deletedAt',
   deletedBy: 'deletedBy',
-  manualUniqueId: 'manualUniqueId'
+  manualUniqueId: 'manualUniqueId',
+  bankName: 'bankName',
+  chequeNumber: 'chequeNumber',
+  clearingStatus: 'clearingStatus'
 } as const
 
 export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum]
@@ -10516,7 +10594,15 @@ export const CommissionScalarFieldEnum = {
   amount: 'amount',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  commissionType: 'commissionType'
+  commissionType: 'commissionType',
+  dealId: 'dealId',
+  propertyId: 'propertyId',
+  commissionBase: 'commissionBase',
+  grossCommission: 'grossCommission',
+  taxDeduction: 'taxDeduction',
+  netCommission: 'netCommission',
+  status: 'status',
+  milestoneInstallmentId: 'milestoneInstallmentId'
 } as const
 
 export type CommissionScalarFieldEnum = (typeof CommissionScalarFieldEnum)[keyof typeof CommissionScalarFieldEnum]
@@ -10801,7 +10887,8 @@ export const DealInstallmentScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   remaining: 'remaining',
-  type: 'type'
+  type: 'type',
+  penalty: 'penalty'
 } as const
 
 export type DealInstallmentScalarFieldEnum = (typeof DealInstallmentScalarFieldEnum)[keyof typeof DealInstallmentScalarFieldEnum]
@@ -10889,6 +10976,19 @@ export const DealReceiptAllocationScalarFieldEnum = {
 } as const
 
 export type DealReceiptAllocationScalarFieldEnum = (typeof DealReceiptAllocationScalarFieldEnum)[keyof typeof DealReceiptAllocationScalarFieldEnum]
+
+
+export const PaymentAllocationScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  allocationType: 'allocationType',
+  installmentId: 'installmentId',
+  allocatedAmount: 'allocatedAmount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PaymentAllocationScalarFieldEnum = (typeof PaymentAllocationScalarFieldEnum)[keyof typeof PaymentAllocationScalarFieldEnum]
 
 
 export const RefreshTokenScalarFieldEnum = {
@@ -11749,6 +11849,7 @@ export type GlobalOmitConfig = {
   auditLog?: Prisma.AuditLogOmit
   dealReceipt?: Prisma.DealReceiptOmit
   dealReceiptAllocation?: Prisma.DealReceiptAllocationOmit
+  paymentAllocation?: Prisma.PaymentAllocationOmit
   refreshToken?: Prisma.RefreshTokenOmit
   csrfToken?: Prisma.CsrfTokenOmit
   deletedRecord?: Prisma.DeletedRecordOmit

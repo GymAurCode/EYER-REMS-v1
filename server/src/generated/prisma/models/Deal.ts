@@ -540,6 +540,7 @@ export type DealWhereInput = {
   stageHistory?: Prisma.StageHistoryListRelationFilter
   vouchers?: Prisma.VoucherListRelationFilter
   financialOperations?: Prisma.FinancialOperationListRelationFilter
+  commissions?: Prisma.CommissionListRelationFilter
 }
 
 export type DealOrderByWithRelationInput = {
@@ -604,6 +605,7 @@ export type DealOrderByWithRelationInput = {
   stageHistory?: Prisma.StageHistoryOrderByRelationAggregateInput
   vouchers?: Prisma.VoucherOrderByRelationAggregateInput
   financialOperations?: Prisma.FinancialOperationOrderByRelationAggregateInput
+  commissions?: Prisma.CommissionOrderByRelationAggregateInput
 }
 
 export type DealWhereUniqueInput = Prisma.AtLeast<{
@@ -671,6 +673,7 @@ export type DealWhereUniqueInput = Prisma.AtLeast<{
   stageHistory?: Prisma.StageHistoryListRelationFilter
   vouchers?: Prisma.VoucherListRelationFilter
   financialOperations?: Prisma.FinancialOperationListRelationFilter
+  commissions?: Prisma.CommissionListRelationFilter
 }, "id" | "dealCode" | "manualUniqueId" | "tid">
 
 export type DealOrderByWithAggregationInput = {
@@ -825,6 +828,7 @@ export type DealCreateInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateInput = {
@@ -883,6 +887,7 @@ export type DealUncheckedCreateInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealUpdateInput = {
@@ -941,6 +946,7 @@ export type DealUpdateInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateInput = {
@@ -999,6 +1005,7 @@ export type DealUncheckedUpdateInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateManyInput = {
@@ -1651,6 +1658,22 @@ export type DealUpdateOneWithoutVouchersNestedInput = {
   update?: Prisma.XOR<Prisma.XOR<Prisma.DealUpdateToOneWithWhereWithoutVouchersInput, Prisma.DealUpdateWithoutVouchersInput>, Prisma.DealUncheckedUpdateWithoutVouchersInput>
 }
 
+export type DealCreateNestedOneWithoutCommissionsInput = {
+  create?: Prisma.XOR<Prisma.DealCreateWithoutCommissionsInput, Prisma.DealUncheckedCreateWithoutCommissionsInput>
+  connectOrCreate?: Prisma.DealCreateOrConnectWithoutCommissionsInput
+  connect?: Prisma.DealWhereUniqueInput
+}
+
+export type DealUpdateOneWithoutCommissionsNestedInput = {
+  create?: Prisma.XOR<Prisma.DealCreateWithoutCommissionsInput, Prisma.DealUncheckedCreateWithoutCommissionsInput>
+  connectOrCreate?: Prisma.DealCreateOrConnectWithoutCommissionsInput
+  upsert?: Prisma.DealUpsertWithoutCommissionsInput
+  disconnect?: Prisma.DealWhereInput | boolean
+  delete?: Prisma.DealWhereInput | boolean
+  connect?: Prisma.DealWhereUniqueInput
+  update?: Prisma.XOR<Prisma.XOR<Prisma.DealUpdateToOneWithWhereWithoutCommissionsInput, Prisma.DealUpdateWithoutCommissionsInput>, Prisma.DealUncheckedUpdateWithoutCommissionsInput>
+}
+
 export type DealCreateNestedOneWithoutLedgerEntriesInput = {
   create?: Prisma.XOR<Prisma.DealCreateWithoutLedgerEntriesInput, Prisma.DealUncheckedCreateWithoutLedgerEntriesInput>
   connectOrCreate?: Prisma.DealCreateOrConnectWithoutLedgerEntriesInput
@@ -1810,6 +1833,7 @@ export type DealCreateWithoutPropertyInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutPropertyInput = {
@@ -1867,6 +1891,7 @@ export type DealUncheckedCreateWithoutPropertyInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutPropertyInput = {
@@ -1997,6 +2022,7 @@ export type DealCreateWithoutLocationInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutLocationInput = {
@@ -2054,6 +2080,7 @@ export type DealUncheckedCreateWithoutLocationInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutLocationInput = {
@@ -2137,6 +2164,7 @@ export type DealCreateWithoutSubsidiaryOptionInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutSubsidiaryOptionInput = {
@@ -2194,6 +2222,7 @@ export type DealUncheckedCreateWithoutSubsidiaryOptionInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutSubsidiaryOptionInput = {
@@ -2277,6 +2306,7 @@ export type DealCreateWithoutUnitInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutUnitInput = {
@@ -2334,6 +2364,7 @@ export type DealUncheckedCreateWithoutUnitInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutUnitInput = {
@@ -2417,6 +2448,7 @@ export type DealCreateWithoutClientInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutClientInput = {
@@ -2474,6 +2506,7 @@ export type DealUncheckedCreateWithoutClientInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutClientInput = {
@@ -2557,6 +2590,7 @@ export type DealCreateWithoutDealerInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutDealerInput = {
@@ -2614,6 +2648,7 @@ export type DealUncheckedCreateWithoutDealerInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutDealerInput = {
@@ -2697,6 +2732,7 @@ export type DealCreateWithoutDealAgentsInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutDealAgentsInput = {
@@ -2754,6 +2790,7 @@ export type DealUncheckedCreateWithoutDealAgentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutDealAgentsInput = {
@@ -2827,6 +2864,7 @@ export type DealUpdateWithoutDealAgentsInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutDealAgentsInput = {
@@ -2884,6 +2922,7 @@ export type DealUncheckedUpdateWithoutDealAgentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutDealPropertiesInput = {
@@ -2941,6 +2980,7 @@ export type DealCreateWithoutDealPropertiesInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutDealPropertiesInput = {
@@ -2998,6 +3038,7 @@ export type DealUncheckedCreateWithoutDealPropertiesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutDealPropertiesInput = {
@@ -3071,6 +3112,7 @@ export type DealUpdateWithoutDealPropertiesInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutDealPropertiesInput = {
@@ -3128,6 +3170,7 @@ export type DealUncheckedUpdateWithoutDealPropertiesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutStageHistoryInput = {
@@ -3185,6 +3228,7 @@ export type DealCreateWithoutStageHistoryInput = {
   paymentPlan?: Prisma.PaymentPlanCreateNestedOneWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutStageHistoryInput = {
@@ -3242,6 +3286,7 @@ export type DealUncheckedCreateWithoutStageHistoryInput = {
   paymentPlan?: Prisma.PaymentPlanUncheckedCreateNestedOneWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutStageHistoryInput = {
@@ -3315,6 +3360,7 @@ export type DealUpdateWithoutStageHistoryInput = {
   paymentPlan?: Prisma.PaymentPlanUpdateOneWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutStageHistoryInput = {
@@ -3372,6 +3418,7 @@ export type DealUncheckedUpdateWithoutStageHistoryInput = {
   paymentPlan?: Prisma.PaymentPlanUncheckedUpdateOneWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutCommunicationsInput = {
@@ -3429,6 +3476,7 @@ export type DealCreateWithoutCommunicationsInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutCommunicationsInput = {
@@ -3486,6 +3534,7 @@ export type DealUncheckedCreateWithoutCommunicationsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutCommunicationsInput = {
@@ -3559,6 +3608,7 @@ export type DealUpdateWithoutCommunicationsInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutCommunicationsInput = {
@@ -3616,6 +3666,7 @@ export type DealUncheckedUpdateWithoutCommunicationsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutActivitiesInput = {
@@ -3673,6 +3724,7 @@ export type DealCreateWithoutActivitiesInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutActivitiesInput = {
@@ -3730,6 +3782,7 @@ export type DealUncheckedCreateWithoutActivitiesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutActivitiesInput = {
@@ -3803,6 +3856,7 @@ export type DealUpdateWithoutActivitiesInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutActivitiesInput = {
@@ -3860,6 +3914,7 @@ export type DealUncheckedUpdateWithoutActivitiesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutPaymentsInput = {
@@ -3917,6 +3972,7 @@ export type DealCreateWithoutPaymentsInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutPaymentsInput = {
@@ -3974,6 +4030,7 @@ export type DealUncheckedCreateWithoutPaymentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutPaymentsInput = {
@@ -4047,6 +4104,7 @@ export type DealUpdateWithoutPaymentsInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutPaymentsInput = {
@@ -4104,6 +4162,7 @@ export type DealUncheckedUpdateWithoutPaymentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutVouchersInput = {
@@ -4161,6 +4220,7 @@ export type DealCreateWithoutVouchersInput = {
   paymentPlan?: Prisma.PaymentPlanCreateNestedOneWithoutDealInput
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutVouchersInput = {
@@ -4218,6 +4278,7 @@ export type DealUncheckedCreateWithoutVouchersInput = {
   paymentPlan?: Prisma.PaymentPlanUncheckedCreateNestedOneWithoutDealInput
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutVouchersInput = {
@@ -4291,6 +4352,7 @@ export type DealUpdateWithoutVouchersInput = {
   paymentPlan?: Prisma.PaymentPlanUpdateOneWithoutDealNestedInput
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutVouchersInput = {
@@ -4347,6 +4409,255 @@ export type DealUncheckedUpdateWithoutVouchersInput = {
   payments?: Prisma.PaymentUncheckedUpdateManyWithoutDealNestedInput
   paymentPlan?: Prisma.PaymentPlanUncheckedUpdateOneWithoutDealNestedInput
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
+  financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
+}
+
+export type DealCreateWithoutCommissionsInput = {
+  id?: string
+  title: string
+  dealAmount?: number
+  listingPriceSnapshot?: number | null
+  varianceAmount?: number | null
+  varianceType?: string | null
+  stage?: string
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  actualClosingDate?: Date | string | null
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  commissionAmount?: number
+  commissionRate?: number
+  createdBy?: string | null
+  dealCode?: string | null
+  dealType?: string | null
+  expectedClosingDate?: Date | string | null
+  expectedRevenue?: number | null
+  isDeleted?: boolean
+  notes?: string | null
+  probability?: number
+  requiresApproval?: boolean
+  tags?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  updatedBy?: string | null
+  valueBreakdown?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  role?: string | null
+  dealDate?: Date | string
+  status?: string
+  totalPaid?: number
+  deletedAt?: Date | string | null
+  deletedBy?: string | null
+  manualUniqueId?: string | null
+  tid?: string | null
+  activities?: Prisma.CRMActivityCreateNestedManyWithoutDealInput
+  communications?: Prisma.CommunicationCreateNestedManyWithoutDealInput
+  client?: Prisma.ClientCreateNestedOneWithoutDealsInput
+  dealer?: Prisma.DealerCreateNestedOneWithoutDealsInput
+  location?: Prisma.LocationCreateNestedOneWithoutDealsInput
+  property?: Prisma.PropertyCreateNestedOneWithoutDealsInput
+  subsidiaryOption?: Prisma.SubsidiaryOptionCreateNestedOneWithoutDealsInput
+  unit?: Prisma.UnitCreateNestedOneWithoutDealsInput
+  dealAgents?: Prisma.DealAgentCreateNestedManyWithoutDealInput
+  installments?: Prisma.DealInstallmentCreateNestedManyWithoutDealInput
+  dealProperties?: Prisma.DealPropertyCreateNestedManyWithoutDealInput
+  dealReceipts?: Prisma.DealReceiptCreateNestedManyWithoutDealInput
+  dealerLedgers?: Prisma.DealerLedgerCreateNestedManyWithoutDealInput
+  financeLedgers?: Prisma.FinanceLedgerCreateNestedManyWithoutDealInput
+  ledgerEntries?: Prisma.LedgerEntryCreateNestedManyWithoutDealInput
+  payments?: Prisma.PaymentCreateNestedManyWithoutDealInput
+  paymentPlan?: Prisma.PaymentPlanCreateNestedOneWithoutDealInput
+  stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
+  vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
+  financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+}
+
+export type DealUncheckedCreateWithoutCommissionsInput = {
+  id?: string
+  title: string
+  dealAmount?: number
+  listingPriceSnapshot?: number | null
+  varianceAmount?: number | null
+  varianceType?: string | null
+  stage?: string
+  clientId?: string | null
+  dealerId?: string | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+  actualClosingDate?: Date | string | null
+  approvedAt?: Date | string | null
+  approvedBy?: string | null
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  commissionAmount?: number
+  commissionRate?: number
+  createdBy?: string | null
+  dealCode?: string | null
+  dealType?: string | null
+  expectedClosingDate?: Date | string | null
+  expectedRevenue?: number | null
+  isDeleted?: boolean
+  notes?: string | null
+  probability?: number
+  propertyId?: string | null
+  requiresApproval?: boolean
+  tags?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  updatedBy?: string | null
+  valueBreakdown?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  role?: string | null
+  dealDate?: Date | string
+  status?: string
+  totalPaid?: number
+  unitId?: string | null
+  deletedAt?: Date | string | null
+  deletedBy?: string | null
+  manualUniqueId?: string | null
+  locationId?: string | null
+  subsidiaryOptionId?: string | null
+  tid?: string | null
+  activities?: Prisma.CRMActivityUncheckedCreateNestedManyWithoutDealInput
+  communications?: Prisma.CommunicationUncheckedCreateNestedManyWithoutDealInput
+  dealAgents?: Prisma.DealAgentUncheckedCreateNestedManyWithoutDealInput
+  installments?: Prisma.DealInstallmentUncheckedCreateNestedManyWithoutDealInput
+  dealProperties?: Prisma.DealPropertyUncheckedCreateNestedManyWithoutDealInput
+  dealReceipts?: Prisma.DealReceiptUncheckedCreateNestedManyWithoutDealInput
+  dealerLedgers?: Prisma.DealerLedgerUncheckedCreateNestedManyWithoutDealInput
+  financeLedgers?: Prisma.FinanceLedgerUncheckedCreateNestedManyWithoutDealInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedCreateNestedManyWithoutDealInput
+  payments?: Prisma.PaymentUncheckedCreateNestedManyWithoutDealInput
+  paymentPlan?: Prisma.PaymentPlanUncheckedCreateNestedOneWithoutDealInput
+  stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
+  vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
+  financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+}
+
+export type DealCreateOrConnectWithoutCommissionsInput = {
+  where: Prisma.DealWhereUniqueInput
+  create: Prisma.XOR<Prisma.DealCreateWithoutCommissionsInput, Prisma.DealUncheckedCreateWithoutCommissionsInput>
+}
+
+export type DealUpsertWithoutCommissionsInput = {
+  update: Prisma.XOR<Prisma.DealUpdateWithoutCommissionsInput, Prisma.DealUncheckedUpdateWithoutCommissionsInput>
+  create: Prisma.XOR<Prisma.DealCreateWithoutCommissionsInput, Prisma.DealUncheckedCreateWithoutCommissionsInput>
+  where?: Prisma.DealWhereInput
+}
+
+export type DealUpdateToOneWithWhereWithoutCommissionsInput = {
+  where?: Prisma.DealWhereInput
+  data: Prisma.XOR<Prisma.DealUpdateWithoutCommissionsInput, Prisma.DealUncheckedUpdateWithoutCommissionsInput>
+}
+
+export type DealUpdateWithoutCommissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  dealAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  listingPriceSnapshot?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  varianceAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  varianceType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.StringFieldUpdateOperationsInput | string
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actualClosingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  commissionAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  commissionRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedClosingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  expectedRevenue?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  probability?: Prisma.IntFieldUpdateOperationsInput | number
+  requiresApproval?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  valueBreakdown?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  totalPaid?: Prisma.FloatFieldUpdateOperationsInput | number
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  activities?: Prisma.CRMActivityUpdateManyWithoutDealNestedInput
+  communications?: Prisma.CommunicationUpdateManyWithoutDealNestedInput
+  client?: Prisma.ClientUpdateOneWithoutDealsNestedInput
+  dealer?: Prisma.DealerUpdateOneWithoutDealsNestedInput
+  location?: Prisma.LocationUpdateOneWithoutDealsNestedInput
+  property?: Prisma.PropertyUpdateOneWithoutDealsNestedInput
+  subsidiaryOption?: Prisma.SubsidiaryOptionUpdateOneWithoutDealsNestedInput
+  unit?: Prisma.UnitUpdateOneWithoutDealsNestedInput
+  dealAgents?: Prisma.DealAgentUpdateManyWithoutDealNestedInput
+  installments?: Prisma.DealInstallmentUpdateManyWithoutDealNestedInput
+  dealProperties?: Prisma.DealPropertyUpdateManyWithoutDealNestedInput
+  dealReceipts?: Prisma.DealReceiptUpdateManyWithoutDealNestedInput
+  dealerLedgers?: Prisma.DealerLedgerUpdateManyWithoutDealNestedInput
+  financeLedgers?: Prisma.FinanceLedgerUpdateManyWithoutDealNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUpdateManyWithoutDealNestedInput
+  payments?: Prisma.PaymentUpdateManyWithoutDealNestedInput
+  paymentPlan?: Prisma.PaymentPlanUpdateOneWithoutDealNestedInput
+  stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
+  vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
+  financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+}
+
+export type DealUncheckedUpdateWithoutCommissionsInput = {
+  id?: Prisma.StringFieldUpdateOperationsInput | string
+  title?: Prisma.StringFieldUpdateOperationsInput | string
+  dealAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  listingPriceSnapshot?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  varianceAmount?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  varianceType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  stage?: Prisma.StringFieldUpdateOperationsInput | string
+  clientId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealerId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  createdAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  updatedAt?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  actualClosingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  approvedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  attachments?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  commissionAmount?: Prisma.FloatFieldUpdateOperationsInput | number
+  commissionRate?: Prisma.FloatFieldUpdateOperationsInput | number
+  createdBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealCode?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealType?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  expectedClosingDate?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  expectedRevenue?: Prisma.NullableFloatFieldUpdateOperationsInput | number | null
+  isDeleted?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  notes?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  probability?: Prisma.IntFieldUpdateOperationsInput | number
+  propertyId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  requiresApproval?: Prisma.BoolFieldUpdateOperationsInput | boolean
+  tags?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  updatedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  valueBreakdown?: Prisma.NullableJsonNullValueInput | runtime.InputJsonValue
+  role?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  dealDate?: Prisma.DateTimeFieldUpdateOperationsInput | Date | string
+  status?: Prisma.StringFieldUpdateOperationsInput | string
+  totalPaid?: Prisma.FloatFieldUpdateOperationsInput | number
+  unitId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  deletedAt?: Prisma.NullableDateTimeFieldUpdateOperationsInput | Date | string | null
+  deletedBy?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  manualUniqueId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  locationId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  subsidiaryOptionId?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  tid?: Prisma.NullableStringFieldUpdateOperationsInput | string | null
+  activities?: Prisma.CRMActivityUncheckedUpdateManyWithoutDealNestedInput
+  communications?: Prisma.CommunicationUncheckedUpdateManyWithoutDealNestedInput
+  dealAgents?: Prisma.DealAgentUncheckedUpdateManyWithoutDealNestedInput
+  installments?: Prisma.DealInstallmentUncheckedUpdateManyWithoutDealNestedInput
+  dealProperties?: Prisma.DealPropertyUncheckedUpdateManyWithoutDealNestedInput
+  dealReceipts?: Prisma.DealReceiptUncheckedUpdateManyWithoutDealNestedInput
+  dealerLedgers?: Prisma.DealerLedgerUncheckedUpdateManyWithoutDealNestedInput
+  financeLedgers?: Prisma.FinanceLedgerUncheckedUpdateManyWithoutDealNestedInput
+  ledgerEntries?: Prisma.LedgerEntryUncheckedUpdateManyWithoutDealNestedInput
+  payments?: Prisma.PaymentUncheckedUpdateManyWithoutDealNestedInput
+  paymentPlan?: Prisma.PaymentPlanUncheckedUpdateOneWithoutDealNestedInput
+  stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
+  vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
 }
 
@@ -4405,6 +4716,7 @@ export type DealCreateWithoutLedgerEntriesInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutLedgerEntriesInput = {
@@ -4462,6 +4774,7 @@ export type DealUncheckedCreateWithoutLedgerEntriesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutLedgerEntriesInput = {
@@ -4535,6 +4848,7 @@ export type DealUpdateWithoutLedgerEntriesInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutLedgerEntriesInput = {
@@ -4592,6 +4906,7 @@ export type DealUncheckedUpdateWithoutLedgerEntriesInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutFinanceLedgersInput = {
@@ -4649,6 +4964,7 @@ export type DealCreateWithoutFinanceLedgersInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutFinanceLedgersInput = {
@@ -4706,6 +5022,7 @@ export type DealUncheckedCreateWithoutFinanceLedgersInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutFinanceLedgersInput = {
@@ -4779,6 +5096,7 @@ export type DealUpdateWithoutFinanceLedgersInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutFinanceLedgersInput = {
@@ -4836,6 +5154,7 @@ export type DealUncheckedUpdateWithoutFinanceLedgersInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutPaymentPlanInput = {
@@ -4893,6 +5212,7 @@ export type DealCreateWithoutPaymentPlanInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutPaymentPlanInput = {
@@ -4950,6 +5270,7 @@ export type DealUncheckedCreateWithoutPaymentPlanInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutPaymentPlanInput = {
@@ -5023,6 +5344,7 @@ export type DealUpdateWithoutPaymentPlanInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutPaymentPlanInput = {
@@ -5080,6 +5402,7 @@ export type DealUncheckedUpdateWithoutPaymentPlanInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutInstallmentsInput = {
@@ -5137,6 +5460,7 @@ export type DealCreateWithoutInstallmentsInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutInstallmentsInput = {
@@ -5194,6 +5518,7 @@ export type DealUncheckedCreateWithoutInstallmentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutInstallmentsInput = {
@@ -5267,6 +5592,7 @@ export type DealUpdateWithoutInstallmentsInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutInstallmentsInput = {
@@ -5324,6 +5650,7 @@ export type DealUncheckedUpdateWithoutInstallmentsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutDealerLedgersInput = {
@@ -5381,6 +5708,7 @@ export type DealCreateWithoutDealerLedgersInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutDealerLedgersInput = {
@@ -5438,6 +5766,7 @@ export type DealUncheckedCreateWithoutDealerLedgersInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutDealerLedgersInput = {
@@ -5511,6 +5840,7 @@ export type DealUpdateWithoutDealerLedgersInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutDealerLedgersInput = {
@@ -5568,6 +5898,7 @@ export type DealUncheckedUpdateWithoutDealerLedgersInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutDealReceiptsInput = {
@@ -5625,6 +5956,7 @@ export type DealCreateWithoutDealReceiptsInput = {
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutDealReceiptsInput = {
@@ -5682,6 +6014,7 @@ export type DealUncheckedCreateWithoutDealReceiptsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
   financialOperations?: Prisma.FinancialOperationUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutDealReceiptsInput = {
@@ -5755,6 +6088,7 @@ export type DealUpdateWithoutDealReceiptsInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutDealReceiptsInput = {
@@ -5812,6 +6146,7 @@ export type DealUncheckedUpdateWithoutDealReceiptsInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateWithoutFinancialOperationsInput = {
@@ -5869,6 +6204,7 @@ export type DealCreateWithoutFinancialOperationsInput = {
   paymentPlan?: Prisma.PaymentPlanCreateNestedOneWithoutDealInput
   stageHistory?: Prisma.StageHistoryCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionCreateNestedManyWithoutDealInput
 }
 
 export type DealUncheckedCreateWithoutFinancialOperationsInput = {
@@ -5926,6 +6262,7 @@ export type DealUncheckedCreateWithoutFinancialOperationsInput = {
   paymentPlan?: Prisma.PaymentPlanUncheckedCreateNestedOneWithoutDealInput
   stageHistory?: Prisma.StageHistoryUncheckedCreateNestedManyWithoutDealInput
   vouchers?: Prisma.VoucherUncheckedCreateNestedManyWithoutDealInput
+  commissions?: Prisma.CommissionUncheckedCreateNestedManyWithoutDealInput
 }
 
 export type DealCreateOrConnectWithoutFinancialOperationsInput = {
@@ -5999,6 +6336,7 @@ export type DealUpdateWithoutFinancialOperationsInput = {
   paymentPlan?: Prisma.PaymentPlanUpdateOneWithoutDealNestedInput
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutFinancialOperationsInput = {
@@ -6056,6 +6394,7 @@ export type DealUncheckedUpdateWithoutFinancialOperationsInput = {
   paymentPlan?: Prisma.PaymentPlanUncheckedUpdateOneWithoutDealNestedInput
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealCreateManyPropertyInput = {
@@ -6156,6 +6495,7 @@ export type DealUpdateWithoutPropertyInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutPropertyInput = {
@@ -6213,6 +6553,7 @@ export type DealUncheckedUpdateWithoutPropertyInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutPropertyInput = {
@@ -6356,6 +6697,7 @@ export type DealUpdateWithoutLocationInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutLocationInput = {
@@ -6413,6 +6755,7 @@ export type DealUncheckedUpdateWithoutLocationInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutLocationInput = {
@@ -6556,6 +6899,7 @@ export type DealUpdateWithoutSubsidiaryOptionInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutSubsidiaryOptionInput = {
@@ -6613,6 +6957,7 @@ export type DealUncheckedUpdateWithoutSubsidiaryOptionInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutSubsidiaryOptionInput = {
@@ -6756,6 +7101,7 @@ export type DealUpdateWithoutUnitInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutUnitInput = {
@@ -6813,6 +7159,7 @@ export type DealUncheckedUpdateWithoutUnitInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutUnitInput = {
@@ -6956,6 +7303,7 @@ export type DealUpdateWithoutClientInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutClientInput = {
@@ -7013,6 +7361,7 @@ export type DealUncheckedUpdateWithoutClientInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutClientInput = {
@@ -7156,6 +7505,7 @@ export type DealUpdateWithoutDealerInput = {
   stageHistory?: Prisma.StageHistoryUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateWithoutDealerInput = {
@@ -7213,6 +7563,7 @@ export type DealUncheckedUpdateWithoutDealerInput = {
   stageHistory?: Prisma.StageHistoryUncheckedUpdateManyWithoutDealNestedInput
   vouchers?: Prisma.VoucherUncheckedUpdateManyWithoutDealNestedInput
   financialOperations?: Prisma.FinancialOperationUncheckedUpdateManyWithoutDealNestedInput
+  commissions?: Prisma.CommissionUncheckedUpdateManyWithoutDealNestedInput
 }
 
 export type DealUncheckedUpdateManyWithoutDealerInput = {
@@ -7277,6 +7628,7 @@ export type DealCountOutputType = {
   stageHistory: number
   vouchers: number
   financialOperations: number
+  commissions: number
 }
 
 export type DealCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -7293,6 +7645,7 @@ export type DealCountOutputTypeSelect<ExtArgs extends runtime.Types.Extensions.I
   stageHistory?: boolean | DealCountOutputTypeCountStageHistoryArgs
   vouchers?: boolean | DealCountOutputTypeCountVouchersArgs
   financialOperations?: boolean | DealCountOutputTypeCountFinancialOperationsArgs
+  commissions?: boolean | DealCountOutputTypeCountCommissionsArgs
 }
 
 /**
@@ -7396,6 +7749,13 @@ export type DealCountOutputTypeCountFinancialOperationsArgs<ExtArgs extends runt
   where?: Prisma.FinancialOperationWhereInput
 }
 
+/**
+ * DealCountOutputType without action
+ */
+export type DealCountOutputTypeCountCommissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  where?: Prisma.CommissionWhereInput
+}
+
 
 export type DealSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = runtime.Types.Extensions.GetSelect<{
   id?: boolean
@@ -7459,6 +7819,7 @@ export type DealSelect<ExtArgs extends runtime.Types.Extensions.InternalArgs = r
   stageHistory?: boolean | Prisma.Deal$stageHistoryArgs<ExtArgs>
   vouchers?: boolean | Prisma.Deal$vouchersArgs<ExtArgs>
   financialOperations?: boolean | Prisma.Deal$financialOperationsArgs<ExtArgs>
+  commissions?: boolean | Prisma.Deal$commissionsArgs<ExtArgs>
   _count?: boolean | Prisma.DealCountOutputTypeDefaultArgs<ExtArgs>
 }, ExtArgs["result"]["deal"]>
 
@@ -7628,6 +7989,7 @@ export type DealInclude<ExtArgs extends runtime.Types.Extensions.InternalArgs = 
   stageHistory?: boolean | Prisma.Deal$stageHistoryArgs<ExtArgs>
   vouchers?: boolean | Prisma.Deal$vouchersArgs<ExtArgs>
   financialOperations?: boolean | Prisma.Deal$financialOperationsArgs<ExtArgs>
+  commissions?: boolean | Prisma.Deal$commissionsArgs<ExtArgs>
   _count?: boolean | Prisma.DealCountOutputTypeDefaultArgs<ExtArgs>
 }
 export type DealIncludeCreateManyAndReturn<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
@@ -7670,6 +8032,7 @@ export type $DealPayload<ExtArgs extends runtime.Types.Extensions.InternalArgs =
     stageHistory: Prisma.$StageHistoryPayload<ExtArgs>[]
     vouchers: Prisma.$VoucherPayload<ExtArgs>[]
     financialOperations: Prisma.$FinancialOperationPayload<ExtArgs>[]
+    commissions: Prisma.$CommissionPayload<ExtArgs>[]
   }
   scalars: runtime.Types.Extensions.GetPayloadResult<{
     id: string
@@ -8127,6 +8490,7 @@ export interface Prisma__DealClient<T, Null = never, ExtArgs extends runtime.Typ
   stageHistory<T extends Prisma.Deal$stageHistoryArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deal$stageHistoryArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$StageHistoryPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   vouchers<T extends Prisma.Deal$vouchersArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deal$vouchersArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$VoucherPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   financialOperations<T extends Prisma.Deal$financialOperationsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deal$financialOperationsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$FinancialOperationPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
+  commissions<T extends Prisma.Deal$commissionsArgs<ExtArgs> = {}>(args?: Prisma.Subset<T, Prisma.Deal$commissionsArgs<ExtArgs>>): Prisma.PrismaPromise<runtime.Types.Result.GetResult<Prisma.$CommissionPayload<ExtArgs>, T, "findMany", GlobalOmitOptions> | Null>
   /**
    * Attaches callbacks for the resolution and/or rejection of the Promise.
    * @param onfulfilled The callback to execute when the Promise is resolved.
@@ -9035,6 +9399,30 @@ export type Deal$financialOperationsArgs<ExtArgs extends runtime.Types.Extension
   take?: number
   skip?: number
   distinct?: Prisma.FinancialOperationScalarFieldEnum | Prisma.FinancialOperationScalarFieldEnum[]
+}
+
+/**
+ * Deal.commissions
+ */
+export type Deal$commissionsArgs<ExtArgs extends runtime.Types.Extensions.InternalArgs = runtime.Types.Extensions.DefaultArgs> = {
+  /**
+   * Select specific fields to fetch from the Commission
+   */
+  select?: Prisma.CommissionSelect<ExtArgs> | null
+  /**
+   * Omit specific fields from the Commission
+   */
+  omit?: Prisma.CommissionOmit<ExtArgs> | null
+  /**
+   * Choose, which related nodes to fetch as well
+   */
+  include?: Prisma.CommissionInclude<ExtArgs> | null
+  where?: Prisma.CommissionWhereInput
+  orderBy?: Prisma.CommissionOrderByWithRelationInput | Prisma.CommissionOrderByWithRelationInput[]
+  cursor?: Prisma.CommissionWhereUniqueInput
+  take?: number
+  skip?: number
+  distinct?: Prisma.CommissionScalarFieldEnum | Prisma.CommissionScalarFieldEnum[]
 }
 
 /**

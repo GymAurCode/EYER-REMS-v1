@@ -136,6 +136,7 @@ export const ModelName = {
   AuditLog: 'AuditLog',
   DealReceipt: 'DealReceipt',
   DealReceiptAllocation: 'DealReceiptAllocation',
+  PaymentAllocation: 'PaymentAllocation',
   RefreshToken: 'RefreshToken',
   CsrfToken: 'CsrfToken',
   DeletedRecord: 'DeletedRecord',
@@ -1298,7 +1299,10 @@ export const PaymentScalarFieldEnum = {
   refundOfPaymentId: 'refundOfPaymentId',
   deletedAt: 'deletedAt',
   deletedBy: 'deletedBy',
-  manualUniqueId: 'manualUniqueId'
+  manualUniqueId: 'manualUniqueId',
+  bankName: 'bankName',
+  chequeNumber: 'chequeNumber',
+  clearingStatus: 'clearingStatus'
 } as const
 
 export type PaymentScalarFieldEnum = (typeof PaymentScalarFieldEnum)[keyof typeof PaymentScalarFieldEnum]
@@ -1559,7 +1563,15 @@ export const CommissionScalarFieldEnum = {
   amount: 'amount',
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
-  commissionType: 'commissionType'
+  commissionType: 'commissionType',
+  dealId: 'dealId',
+  propertyId: 'propertyId',
+  commissionBase: 'commissionBase',
+  grossCommission: 'grossCommission',
+  taxDeduction: 'taxDeduction',
+  netCommission: 'netCommission',
+  status: 'status',
+  milestoneInstallmentId: 'milestoneInstallmentId'
 } as const
 
 export type CommissionScalarFieldEnum = (typeof CommissionScalarFieldEnum)[keyof typeof CommissionScalarFieldEnum]
@@ -1844,7 +1856,8 @@ export const DealInstallmentScalarFieldEnum = {
   createdAt: 'createdAt',
   updatedAt: 'updatedAt',
   remaining: 'remaining',
-  type: 'type'
+  type: 'type',
+  penalty: 'penalty'
 } as const
 
 export type DealInstallmentScalarFieldEnum = (typeof DealInstallmentScalarFieldEnum)[keyof typeof DealInstallmentScalarFieldEnum]
@@ -1932,6 +1945,19 @@ export const DealReceiptAllocationScalarFieldEnum = {
 } as const
 
 export type DealReceiptAllocationScalarFieldEnum = (typeof DealReceiptAllocationScalarFieldEnum)[keyof typeof DealReceiptAllocationScalarFieldEnum]
+
+
+export const PaymentAllocationScalarFieldEnum = {
+  id: 'id',
+  paymentId: 'paymentId',
+  allocationType: 'allocationType',
+  installmentId: 'installmentId',
+  allocatedAmount: 'allocatedAmount',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+} as const
+
+export type PaymentAllocationScalarFieldEnum = (typeof PaymentAllocationScalarFieldEnum)[keyof typeof PaymentAllocationScalarFieldEnum]
 
 
 export const RefreshTokenScalarFieldEnum = {
