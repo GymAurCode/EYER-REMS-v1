@@ -1,18 +1,16 @@
-FROM node:18-alpine
-
-# Install OpenSSL for Prisma compatibility
-RUN apk -U upgrade && apk add --no-cache openssl
+FROM node:22-alpine
 
 WORKDIR /app
 
 COPY package*.json ./
 COPY prisma ./prisma
+
 RUN npm install
 
 COPY . .
 
 RUN npm run build
 
+EXPOSE 3000
 
-EXPOSE 5000
-CMD ["npm", "run", "start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && node dist/index.js"]
