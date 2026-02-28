@@ -100,16 +100,7 @@ app.use(cookieParser());
 
 // SECURITY: Helmet for security headers
 app.use(helmet({
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"], // Allow inline styles for React
-      scriptSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
-    },
-  },
-  crossOriginEmbedderPolicy: false, // Allow embedding for development
-  crossOriginResourcePolicy: { policy: "cross-origin" }, // Allow cross-origin requests
+  contentSecurityPolicy: false
 }));
 
 // SECURITY: Rate limiting - More lenient in development
