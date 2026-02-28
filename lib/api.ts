@@ -13,7 +13,9 @@ import axios from 'axios'
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
 const isDevelopment = process.env.NODE_ENV === 'development';
-let normalizedBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
+let normalizedBaseUrl = isDevelopment
+  ? 'http://localhost:3001/api'
+  : 'https://eyer-rems-v1-production-ee31.up.railway.app/api'
 export const API_BASE_URL = normalizedBaseUrl
 
 // Log API configuration in development
@@ -50,6 +52,10 @@ const api = axios.create({
   baseURL: normalizedBaseUrl,
   timeout: 30000, // Increased to 30 seconds for slow queries
   withCredentials: true, // Required for CORS with credentials
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
 })
 
 // Request interceptor to add auth token, deviceId, CSRF token, and throttling
@@ -667,7 +673,7 @@ export const apiService = {
     getAll: (params?: { filter?: any; filters?: any; search?: string }, config?: any) => {
       // Support both new global filter format (filter) and legacy (filters)
       const filter = params?.filter || params?.filters
-      
+
       if (filter) {
         // POST with filter in body for complex filter objects
         return api.post('/crm-enhanced/leads', { filter }, config)

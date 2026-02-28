@@ -84,6 +84,7 @@ const allowedOrigins = [
   'https://eyer-rems-v1-p3c3.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'http://localhost:5173',
   'https://eyer-rems-v1-production-ee31.up.railway.app'
 ];
 
@@ -97,11 +98,11 @@ app.use(cors({
     }
   },
   methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'X-CSRF-Token', 'X-Device-Id', 'X-Session-Id'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'x-csrf-token', 'X-CSRF-Token', 'X-Device-Id', 'X-Session-Id'],
   credentials: true,
 }));
 
-// Remove this duplicate app.options('*', ...)
+app.options('*', cors());
 
 // Cookie parser - MUST be before CSRF middleware to read cookies
 app.use(cookieParser());
