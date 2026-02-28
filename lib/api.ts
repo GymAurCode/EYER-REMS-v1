@@ -15,7 +15,7 @@ import axios from 'axios'
 const isDevelopment = process.env.NODE_ENV === 'development';
 let normalizedBaseUrl = isDevelopment
   ? 'http://localhost:3001/api'
-  : 'https://eyer-rems-v1-production-ee31.up.railway.app/api'
+  : 'https://eyer-rems-v1-production-ee31.up.railway.app'
 export const API_BASE_URL = normalizedBaseUrl
 
 // Log API configuration in development
