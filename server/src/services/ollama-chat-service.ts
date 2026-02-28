@@ -15,8 +15,11 @@
  * - Returns "information not available" for unknown queries
  */
 
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import logger from '../utils/logger';
+
+/** Shape of axios error used for handling (avoids relying on axios type exports). */
+type AxiosLikeError = { code?: string; message?: string; response?: { status?: number } };
 
 // Ollama configuration
 const OLLAMA_BASE_URL = process.env.OLLAMA_URL || 'http://localhost:11434';
@@ -110,12 +113,12 @@ class OllamaChatService {
    */
   async isModelAvailable(): Promise<boolean> {
     try {
-      const response = await axios.get(`${this.baseUrl}/api/tags`, {
+      const response = await axios.get<{ models?: Array<{ name: string }> }>(`${this.baseUrl}/api/tags`, {
         timeout: 5000,
       });
       
       if (response.data?.models) {
-        const models = response.data.models as Array<{ name: string }>;
+        const models = response.data.models;
         return models.some(m => m.name.includes(this.model));
       }
       return false;
@@ -204,7 +207,7 @@ class OllamaChatService {
       };
       
     } catch (error) {
-      const axiosError = error as AxiosError;
+      const axiosError = error as AxiosLikeError;
       
       // Handle specific error cases
       if (axiosError.code === 'ECONNREFUSED') {
