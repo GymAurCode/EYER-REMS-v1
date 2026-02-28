@@ -12,7 +12,7 @@ import axios from 'axios'
  * For development:
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
-const isDevelopment = process.env.NODE_ENV === 'development';
+const isDevelopment = process.env.NODE_ENV !== 'production';
 const API_URL = process.env.NEXT_PUBLIC_API_URL || (isDevelopment
   ? 'http://localhost:3001'
   : 'https://eyer-rems-v1-production-ee31.up.railway.app');
