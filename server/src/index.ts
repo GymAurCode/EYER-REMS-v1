@@ -292,8 +292,7 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   errorResponse(res, err, (err as { statusCode?: number })?.statusCode || 500);
 });
 
-// Start server with proper error handling
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🚀 Server running on port ${PORT}`);
   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🌐 Server accessible at http://localhost:${PORT}`);
