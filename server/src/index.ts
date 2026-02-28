@@ -223,7 +223,11 @@ app.use('/api/files', filesRoutes);
 app.use('/uploads', (express as any).static(path.join(process.cwd(), 'public', 'uploads')));
 
 // Routes
+// Primary API auth routes (recommended)
 app.use('/api/auth', authRoutes);
+// Backward-compatible alias so calls to /auth/* also work in production
+// (useful if frontend is configured without the /api prefix)
+app.use('/auth', authRoutes);
 app.use('/api/roles', roleRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/notifications', notificationRoutes);
