@@ -7,15 +7,12 @@
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
     "start": "node dist/index.js",
-
-    
     "migrate:deploy": "prisma migrate deploy",
     "seed:coa": "npx tsx prisma/seeds/chart-of-accounts.ts && npx tsx prisma/seeds/chart-of-accounts-expanded.ts && npx tsx prisma/seeds/chart-of-accounts-comprehensive.ts",
     "seed:app": "npx tsx src/prisma/seed.ts",
     "seed:all": "npm run seed:coa && npm run seed:app",
     "prisma:seed": "npm run seed:all",
     "start:railway": "npm run migrate:deploy && npm run prisma:seed && npm start",
-
     "postinstall": "prisma generate",
     "railway:deploy": "npm run build && npm run start:railway",
     "test": "jest",
@@ -55,7 +52,7 @@
     "axios": "^1.13.6",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
-    "cors": "^2.8.5",
+    "cors": "^2.8.6",
     "csv-parse": "^6.1.0",
     "dotenv": "^16.4.5",
     "exceljs": "^4.4.0",

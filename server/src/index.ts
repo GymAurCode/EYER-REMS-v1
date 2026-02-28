@@ -1,7 +1,7 @@
 import 'dotenv/config';
 import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'http';
-import cors, { CorsOptions } from 'cors';
+import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -80,33 +80,20 @@ const PORT = parseInt(process.env.PORT || '3001', 10); // default to 3001 to mat
 app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
-// Allow the deployed frontend plus local dev origins
 const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN || 'https://eyer-rems-v1-p3c3.vercel.app',
+  'https://eyer-rems-v1-p3c3.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
-].filter(Boolean) as string[];
+];
 
-const corsOptions: CorsOptions = {
-  // Let the cors library handle origin matching against the allowedOrigins list
+app.use(cors({
   origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  allowedHeaders: [
-    'Content-Type',
-    'Authorization',
-    'x-csrf-token',
-    'X-CSRF-Token',
-    'X-Device-Id',
-    'X-Session-Id',
-  ],
-  credentials: true, // allow cookies & auth headers
-  optionsSuccessStatus: 200,
-  maxAge: 86400,
-};
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'X-CSRF-Token', 'X-Device-Id', 'X-Session-Id'],
+}));
 
-app.use(cors(corsOptions));
-// Ensure preflight responds for all routes
-app.options('*', cors(corsOptions));
+app.options('*', cors({ origin: allowedOrigins, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], credentials: true }));
 
 // Cookie parser - MUST be before CSRF middleware to read cookies
 app.use(cookieParser());
