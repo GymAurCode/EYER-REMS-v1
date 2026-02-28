@@ -6,9 +6,18 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "prisma generate && tsc",
-    "start": "npx prisma migrate deploy && node dist/index.js",
+    "start": "node dist/index.js",
+
+    // Runtime DB setup for Railway / production
+    "migrate:deploy": "prisma migrate deploy",
+    "seed:coa": "npx tsx prisma/seeds/chart-of-accounts.ts && npx tsx prisma/seeds/chart-of-accounts-expanded.ts && npx tsx prisma/seeds/chart-of-accounts-comprehensive.ts",
+    "seed:app": "npx tsx src/prisma/seed.ts",
+    "seed:all": "npm run seed:coa && npm run seed:app",
+    "prisma:seed": "npm run seed:all",
+    "start:railway": "npm run migrate:deploy && npm run prisma:seed && npm start",
+
     "postinstall": "prisma generate",
-    "railway:deploy": "prisma generate && prisma migrate deploy && npm run build && npm start",
+    "railway:deploy": "npm run build && npm run start:railway",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -30,7 +39,6 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "npx tsx prisma/seeds/chart-of-accounts.ts && npx tsx prisma/seeds/chart-of-accounts-expanded.ts && npx tsx prisma/seeds/chart-of-accounts-comprehensive.ts && npx tsx src/prisma/seed.ts",
     "apply-tid-migration": "tsx scripts/apply-tid-migration.ts",
     "fix-properties-error": "tsx scripts/fix-properties-error.ts",
     "check-migration": "tsx scripts/check-and-fix-migration.ts",
