@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool, type PoolConfig } from 'pg';
 
@@ -63,4 +63,4 @@ process.on('beforeExit', async () => {
 });
 
 export default prisma;
-export { Prisma, PrismaClient } from '../generated/prisma/client';
+export { Prisma, PrismaClient };
