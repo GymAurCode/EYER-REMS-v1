@@ -196,7 +196,7 @@ export function SubsidiaryManager() {
 
         // Use FormData for file upload with CSRF headers
         // Normalize baseURL to prevent duplicate /api prefix
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL!.replace(/\/api\/?$/, '')
         const response = await fetch(`${baseUrl}/api/subsidiaries`, {
           method: 'POST',
           headers: {
@@ -257,7 +257,7 @@ export function SubsidiaryManager() {
     setEditingId(subsidiary.id)
     setEditingOptions(subsidiary.options.map((opt) => opt.name))
     // Normalize baseURL to prevent duplicate /api prefix
-    const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL!.replace(/\/api\/?$/, '')
     setEditingLogoPreview(subsidiary.logoPath ? `${baseUrl}/api/secure-files?path=${encodeURIComponent(subsidiary.logoPath)}` : null)
     setEditingLogoFile(null)
   }
@@ -317,7 +317,7 @@ export function SubsidiaryManager() {
         }
 
         // Normalize baseURL to prevent duplicate /api prefix
-        const baseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api').replace(/\/api\/?$/, '')
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL!.replace(/\/api\/?$/, '')
         const response = await fetch(`${baseUrl}/api/subsidiaries/${editingId}`, {
           method: 'PUT',
           headers: {
