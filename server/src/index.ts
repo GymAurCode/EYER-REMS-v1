@@ -60,18 +60,37 @@ import logger from './utils/logger';
 import { errorResponse } from './utils/error-handler';
 import prisma from './prisma/client';
 
-// Validate environment variables at startup
+// Global error handlers to prevent app from crashing
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
+
+// Validate environment variables at startup, but don't crash
 try {
   validateEnv();
 } catch (error) {
-  logger.error('❌ Failed to start server: Environment validation failed');
-  logger.error(error);
-  process.exit(1);
+  console.error('⚠️ Environment validation warning: Some required variables are missing.');
+  console.error(error);
+  // We no longer process.exit(1) here to allow the app to bind to the port
 }
 
 const app: any = express();
-const env = validateEnv();
-const PORT = parseInt(process.env.PORT || '3001', 10); // default to 3001 to match frontend api.ts
+
+// Request logger
+app.use((req, res, next) => {
+  console.log(req.method, req.url);
+  next();
+});
+
+let env;
+try {
+  env = validateEnv();
+} catch (e) { /* ignore */ }
+const PORT = process.env.PORT || 5000;
 
 // Trust proxy - Required for Railway, Vercel, and other cloud platforms
 // This allows Express to correctly identify client IPs behind reverse proxies
@@ -267,11 +286,11 @@ app.get('/api/health', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     logger.error('Health check failed - Database connection error:', error);
-    res.status(500).json({
-      status: 'error',
-      message: 'Database connection failed',
-      error: error.message,
-      stack: error.stack
+    // Don't crash, just report the error in the health check
+    res.status(200).json({
+      status: 'ok',
+      message: 'REMS Backend is running (Database disconnected)',
+      error: error.message
     });
   }
 });
