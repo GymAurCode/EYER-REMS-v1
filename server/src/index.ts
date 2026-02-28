@@ -80,41 +80,16 @@ const PORT = parseInt(process.env.PORT || '3001', 10); // default to 3001 to mat
 app.set('trust proxy', 1);
 
 // CORS configuration - MUST be before other middleware
-// Allow the deployed frontend plus common local dev origins and Vercel previews
+// Allow the deployed frontend plus local dev origins
 const allowedOrigins = [
-  process.env.FRONTEND_ORIGIN,
-  'https://eyer-rems-v1-p3c3.vercel.app',
+  process.env.FRONTEND_ORIGIN || 'https://eyer-rems-v1-p3c3.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
 ].filter(Boolean) as string[];
 
-const corsOrigin: CorsOptions['origin'] = (origin, callback) => {
-  // Allow same-origin / server-to-server calls
-  if (!origin) {
-    return callback(null, true);
-  }
-
-  // Allow explicit origins
-  if (allowedOrigins.includes(origin)) {
-    return callback(null, true);
-  }
-
-  // Allow any Vercel deployment of this project (preview/staging)
-  try {
-    const url = new URL(origin);
-    if (url.hostname.endsWith('vercel.app')) {
-      return callback(null, true);
-    }
-  } catch {
-    // fall through to reject below
-  }
-
-  // Reject unexpected origins
-  return callback(new Error(`Origin ${origin} not allowed by CORS`));
-};
-
 const corsOptions: CorsOptions = {
-  origin: corsOrigin,
+  // Let the cors library handle origin matching against the allowedOrigins list
+  origin: allowedOrigins,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: [
     'Content-Type',
