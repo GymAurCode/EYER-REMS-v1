@@ -311,10 +311,14 @@ app.use((err: unknown, req: Request, res: Response, next: NextFunction) => {
   errorResponse(res, err, (err as { statusCode?: number })?.statusCode || 500);
 });
 
+// const server = app.listen(PORT, '0.0.0.0', () => {
+//   logger.info(`🚀 Server running on port ${PORT}`);
+//   logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+//   logger.info(`🌐 Server accessible at http://localhost:${PORT}`);
+// });
+
 const server = app.listen(PORT, '0.0.0.0', () => {
-  logger.info(`🚀 Server running on port ${PORT}`);
-  logger.info(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  logger.info(`🌐 Server accessible at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
 
 // Handle server errors
