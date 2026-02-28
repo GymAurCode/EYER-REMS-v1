@@ -70,11 +70,11 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           },
         },
       } as any,
-    });
+    }) as RoleListRow[];
 
     // Resolve permissions for each role (with backward compatibility)
     const rolesWithPermissions = await Promise.all(
-      roles.map(async (role: RoleListRow) => {
+      roles.map(async (role) => {
         try {
           // Safely extract legacy permissions from JSON
           let legacyPermissions: string[] = [];
