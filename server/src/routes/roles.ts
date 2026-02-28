@@ -37,6 +37,18 @@ const generateInviteLinkSchema = z.object({
   expiresInDays: z.number().optional().default(7),
 });
 
+/** Shape of a role returned by GET / with select (id, name, status, permissions, _count, etc.) */
+type RoleListRow = {
+  id: string;
+  name: string;
+  status: string;
+  permissions: unknown;
+  defaultPassword: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+  _count: { users: number; inviteLinks: number; rolePermissions: number };
+};
+
 // Get all roles
 router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
   try {
@@ -62,7 +74,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
 
     // Resolve permissions for each role (with backward compatibility)
     const rolesWithPermissions = await Promise.all(
-      roles.map(async (role) => {
+      roles.map(async (role: RoleListRow) => {
         try {
           // Safely extract legacy permissions from JSON
           let legacyPermissions: string[] = [];
@@ -272,13 +284,6 @@ router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthReque
 
     const role = await prisma.role.findUnique({
       where: { id: req.params.id },
-      // Avoid selecting category column to prevent P2022 on legacy DBs
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        permissions: true,
-      },
     });
 
     if (!role) {
@@ -377,12 +382,7 @@ router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthReque
     try {
       updatedPermissions = await getRolePermissions(req.params.id);
     } catch (fetchError: any) {
-      logger.warn(`Failed to fetch updated permissions for role ${req.params.id} after update:`, {
-        message: fetchError?.message,
-        code: fetchError?.code,
-        roleId: req.params.id,
-        userId: req.user?.id,
-      });
+      console.error(`Failed to fetch updated permissions for role ${req.params.id}: ${fetchError?.message}`);
       // Return the permissions that were sent (assuming they were updated successfully)
       // This is not ideal but better than returning an error after successful update
       updatedPermissions = permissions.map(perm => ({
@@ -397,17 +397,8 @@ router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthReque
     res.json(updatedPermissions);
   } catch (error: any) {
     if (error instanceof z.ZodError) {
-      logger.error('Permission validation error:', {
-        roleId: req.params.id,
-        userId: req.user?.id,
-        errors: error.errors,
-      });
-      return res.status(400).json({ 
-        error: 'Validation error', 
-        details: error.errors 
-      });
+      return res.status(400).json({ error: 'Validation error', details: error.errors });
     }
-    
     const errorInfo = {
       message: error?.message,
       stack: error?.stack,
@@ -416,36 +407,17 @@ router.put('/:id/permissions', authenticate, requireAdmin, async (req: AuthReque
       meta: error?.meta,
       roleId: req.params.id,
       userId: req.user?.id,
-      permissionsCount: req.body?.permissions?.length || 0,
     };
-    
-    logger.error('Update role permissions error:', errorInfo);
-    
-    // Check for specific database errors
-    let errorMessage = 'Failed to update permissions';
-    let statusCode = 500;
-    
-    if (error?.code === 'P2002' || error?.code === '23505') {
-      // Unique constraint violation
-      errorMessage = 'A permission with these values already exists. This may be due to a race condition. Please try again.';
-      statusCode = 409; // Conflict
-    } else if (error?.code === 'P2025') {
-      // Record not found
-      errorMessage = 'One or more permissions could not be found or updated.';
-      statusCode = 404;
-    } else if (error?.message) {
-      errorMessage = error.message;
-    }
+    console.error('Update role permissions error:', errorInfo);
     
     const isDev = process.env.NODE_ENV === 'development';
-    res.status(statusCode).json({ 
-      error: errorMessage,
+    res.status(500).json({ 
+      error: 'Failed to update permissions',
       ...(isDev && {
         details: error?.message,
         code: error?.code,
         stack: error?.stack,
         errorType: error?.name,
-        meta: error?.meta,
       }),
     });
   }
@@ -521,40 +493,47 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
       // Default permissions if not provided
       const defaultPermissions = permissions || [];
       
-      // PART 1: Determine role category (immutable after creation)
-      const category = determineRoleCategory(name);
+      // Try to create role with category if supported, fallback without
+      try {
+        // PART 1: Determine role category (immutable after creation)
+        const category = determineRoleCategory(name);
 
-      role = await prisma.role.create({
-        data: {
-          name,
-          status: 'ACTIVE', // PART 1: New roles default to ACTIVE
-          category, // PART 1: Set category on creation
-          permissions: defaultPermissions,
-          defaultPassword: hashedPassword, // Store the password with the role
-          createdBy: req.user!.id,
-        } as any, // Type assertion until Prisma client is regenerated
-      });
-    } else {
-      // If role exists, ensure it has a category (backfill if missing)
-      const existingRole = role as any;
-      if (!existingRole.category) {
-        const category = determineRoleCategory(name, existingRole.status);
-        role = await prisma.role.update({
-          where: { id: role.id },
+        role = await prisma.role.create({
           data: {
-            category, // Backfill category if missing
-            defaultPassword: hashedPassword, // Update the default password
-          } as any,
-        });
-      } else {
-        // Just update the default password
-        role = await prisma.role.update({
-          where: { id: role.id },
-          data: {
-            defaultPassword: hashedPassword, // Update the default password
+            name,
+            status: 'ACTIVE', // PART 1: New roles default to ACTIVE
+            category, // PART 1: Set category on creation
+            permissions: defaultPermissions,
+            defaultPassword: hashedPassword, // Store the password with the role
+            createdBy: req.user!.id,
           } as any, // Type assertion until Prisma client is regenerated
         });
+      } catch (createError: any) {
+        // If category column doesn't exist, create without it
+        if (createError.code === 'P2022' && createError.meta?.column?.includes('category')) {
+          logger.warn('Category column not found, creating role without category');
+          role = await prisma.role.create({
+            data: {
+              name,
+              status: 'ACTIVE',
+              permissions: defaultPermissions,
+              defaultPassword: hashedPassword,
+              createdBy: req.user!.id,
+            } as any,
+          });
+        } else {
+          throw createError;
+        }
       }
+    } else {
+      // If role exists, just update the default password
+      // Skip category backfill to avoid errors if column doesn't exist
+      role = await prisma.role.update({
+        where: { id: role.id },
+        data: {
+          defaultPassword: hashedPassword, // Update the default password
+        } as any, // Type assertion until Prisma client is regenerated
+      });
     }
 
     // Create user
@@ -566,14 +545,7 @@ router.post('/', authenticate, requireAdmin, async (req: AuthRequest, res: Respo
         roleId: role.id,
       },
       include: {
-        // Avoid selecting non-existent columns (e.g., category) on legacy databases
-        role: {
-          select: {
-            id: true,
-            name: true,
-            status: true,
-          },
-        },
+        role: true,
       },
     });
 
@@ -639,13 +611,6 @@ router.put('/:id', authenticate, requireAdmin, async (req: AuthRequest, res: Res
       data: {
         ...(permissions && { permissions }),
       },
-      // Avoid selecting non-existent columns like category on legacy databases
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        permissions: true,
-      },
     });
 
     res.json(updatedRole);
@@ -677,15 +642,10 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
       email: z.string().email('Invalid email format'),
       password: z.string().min(6, 'Password must be at least 6 characters').optional(),
       message: z.string().optional(),
-      expiresInDays: z.union([z.number(), z.string()]).optional().transform((val) => {
-        if (val === undefined || val === null) return 7;
-        const num = typeof val === 'string' ? parseInt(val, 10) : val;
-        return isNaN(num) ? 7 : num;
-      }),
+      expiresInDays: z.number().optional().default(7),
     });
     
-    const parsed = schema.parse(processedBody);
-    const { roleId, username, email, password: providedPassword, message, expiresInDays = 7 } = parsed;
+    const { roleId, username, email, password: providedPassword, message, expiresInDays } = schema.parse(processedBody);
 
     // Check if role exists
     const role = await prisma.role.findUnique({
@@ -695,6 +655,7 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
         name: true,
         status: true,
         defaultPassword: true,
+        // Don't select category - may not exist yet
       },
     }) as any; // Type assertion until Prisma client is regenerated
 
@@ -743,10 +704,7 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
           where: { id: role.id },
           data: {
             defaultPassword: hashedPassword,
-          },
-          select: {
-            id: true,
-          },
+          } as any,
         });
       } else {
         return res.status(400).json({ 
@@ -780,14 +738,7 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
           expiresAt,
         },
         include: {
-          // Select only safe fields to avoid schema drift issues (missing category column)
-          role: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-            },
-          },
+          role: true,
         },
       });
     } else {
@@ -803,14 +754,7 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
           expiresAt,
         },
         include: {
-          // Select only known-safe columns; avoid category to prevent P2022 when column is absent
-          role: {
-            select: {
-              id: true,
-              name: true,
-              status: true,
-            },
-          },
+          role: true,
         },
       });
     }
@@ -871,60 +815,19 @@ router.post('/generate-invite', authenticate, requireAdmin, async (req: AuthRequ
       // Note: This is only sent when link is generated, frontend should store it temporarily
       tempPassword: plainPasswordForAutoFill || undefined, // Only include if password was provided
     });
-  } catch (error: any) {
+  } catch (error) {
     if (error instanceof z.ZodError) {
-      logger.error('Generate invite link validation error:', {
-        errors: error.errors,
-        requestBody: req.body,
-        userId: req.user?.id,
-      });
+      console.error('Validation error:', error.errors);
+      console.error('Request body:', req.body);
       return res.status(400).json({ 
         error: 'Validation error', 
         details: error.errors,
         message: error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ')
       });
     }
-    
-    const errorInfo = {
-      message: error?.message,
-      stack: error?.stack,
-      name: error?.name,
-      code: error?.code,
-      meta: error?.meta,
-      roleId: req.body?.roleId,
-      email: req.body?.email,
-      userId: req.user?.id,
-    };
-    
-    logger.error('Generate invite link error:', errorInfo);
-    
-    // Check for specific database errors
-    let errorMessage = 'Failed to generate invite link';
-    let statusCode = 500;
-    
-    if (error?.code === 'P2002' || error?.code === '23505') {
-      // Unique constraint violation (likely duplicate email or token)
-      errorMessage = 'An invite link with this email already exists. Please use the existing invite or delete it first.';
-      statusCode = 409; // Conflict
-    } else if (error?.code === 'P2025') {
-      // Record not found
-      errorMessage = 'The role or invite link could not be found.';
-      statusCode = 404;
-    } else if (error?.message) {
-      errorMessage = error.message;
-    }
-    
-    const isDev = process.env.NODE_ENV === 'development';
-    res.status(statusCode).json({ 
-      error: errorMessage,
-      ...(isDev && {
-        details: error?.message,
-        code: error?.code,
-        stack: error?.stack,
-        errorType: error?.name,
-        meta: error?.meta,
-      }),
-    });
+    console.error('Generate invite link error:', error);
+    console.error('Error details:', error);
+    res.status(500).json({ error: 'Failed to generate invite link' });
   }
 });
 
@@ -1094,11 +997,6 @@ router.post('/:id/deactivate', authenticate, requireAdmin, async (req: AuthReque
       data: {
         status: 'DEACTIVATED',
       } as any,
-      select: {
-        id: true,
-        name: true,
-        status: true,
-      },
     });
 
     // PART 1: Mandatory Audit Logging
@@ -1130,10 +1028,7 @@ router.post('/:id/deactivate', authenticate, requireAdmin, async (req: AuthReque
       // Rollback role status if audit logging fails
       await prisma.role.update({ 
         where: { id: roleId }, 
-        data: { status: roleStatus } as any,
-        select: {
-          id: true,
-        },
+        data: { status: roleStatus } as any 
       });
       return res.status(500).json({ 
         error: 'Audit logging failed',
@@ -1219,9 +1114,6 @@ async function ensureAdminRoleLocked() {
       await prisma.role.update({
         where: { id: adminRole.id },
         data: { status: 'SYSTEM_LOCKED' } as any,
-        select: {
-          id: true,
-        },
       });
       logger.info('Admin role locked as SYSTEM_LOCKED');
     }
@@ -1248,9 +1140,6 @@ async function ensureAdminRoleLocked() {
           await prisma.role.update({
             where: { id: adminRole.id },
             data: { status: 'SYSTEM_LOCKED' } as any,
-            select: {
-              id: true,
-            },
           });
           logger.info('Admin role locked as SYSTEM_LOCKED (category migration pending)');
         }
