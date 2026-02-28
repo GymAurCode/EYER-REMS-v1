@@ -84,16 +84,12 @@ const allowedOrigins = [
   'https://eyer-rems-v1-p3c3.vercel.app',
   'http://localhost:3000',
   'http://127.0.0.1:3000',
+  'https://eyer-rems-v1-production-ee31.up.railway.app'
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true); // allow non-browser requests like Postman
-    const allowedOrigins = [
-      'https://eyer-rems-v1-p3c3.vercel.app',
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-    ];
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
