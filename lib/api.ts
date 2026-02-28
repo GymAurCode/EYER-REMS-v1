@@ -13,10 +13,13 @@ import axios from 'axios'
  * NEXT_PUBLIC_API_URL=http://localhost:3001/api
  */
 const isDevelopment = process.env.NODE_ENV === 'development';
-let normalizedBaseUrl = isDevelopment
-  ? 'http://localhost:3001/api'
-  : 'https://eyer-rems-v1-production-ee31.up.railway.app'
-export const API_BASE_URL = normalizedBaseUrl
+const API_URL = process.env.NEXT_PUBLIC_API_URL || (isDevelopment
+  ? 'http://localhost:3001'
+  : 'https://eyer-rems-v1-production-ee31.up.railway.app');
+
+// Clean up trailing slashes and /api suffixes to establish a pure base URL
+let normalizedBaseUrl = API_URL.replace(/\/+$/, '').replace(/\/api$/, '') + '/api';
+export const API_BASE_URL = normalizedBaseUrl;
 
 // Log API configuration in development
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
