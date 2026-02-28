@@ -88,8 +88,8 @@ const allowedOrigins = [
   'https://eyer-rems-v1-production-ee31.up.railway.app'
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
+const corsOptions = {
+  origin: (origin: any, callback: any) => {
     if (!origin) return callback(null, true);
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
@@ -97,12 +97,13 @@ app.use(cors({
       callback(new Error('Not allowed by CORS'));
     }
   },
-  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'x-csrf-token', 'X-CSRF-Token', 'X-Device-Id', 'X-Session-Id'],
   credentials: true,
-}));
+};
 
-app.options('*', cors());
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions));
 
 // Cookie parser - MUST be before CSRF middleware to read cookies
 app.use(cookieParser());
