@@ -70,7 +70,7 @@ router.get('/', authenticate, async (req: AuthRequest, res: Response) => {
           },
         },
       } as any,
-    }) as RoleListRow[];
+    }) as unknown as RoleListRow[];
 
     // Resolve permissions for each role (with backward compatibility)
     const rolesWithPermissions = await Promise.all(
