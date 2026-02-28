@@ -87,13 +87,25 @@ const allowedOrigins = [
 ];
 
 app.use(cors({
-  origin: allowedOrigins,
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-  credentials: true,
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true); // allow non-browser requests like Postman
+    const allowedOrigins = [
+      'https://eyer-rems-v1-p3c3.vercel.app',
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+    ];
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  methods: ['GET','POST','PUT','PATCH','DELETE','OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'x-csrf-token', 'X-CSRF-Token', 'X-Device-Id', 'X-Session-Id'],
+  credentials: true,
 }));
 
-app.options('*', cors({ origin: allowedOrigins, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'], credentials: true }));
+// Remove this duplicate app.options('*', ...)
 
 // Cookie parser - MUST be before CSRF middleware to read cookies
 app.use(cookieParser());
