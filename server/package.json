@@ -30,7 +30,7 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "prisma:seed": "tsx src/prisma/seed.ts",
+    "prisma:seed": "npx tsx prisma/seeds/chart-of-accounts.ts && npx tsx prisma/seeds/chart-of-accounts-expanded.ts && npx tsx prisma/seeds/chart-of-accounts-comprehensive.ts && npx tsx src/prisma/seed.ts",
     "apply-tid-migration": "tsx scripts/apply-tid-migration.ts",
     "fix-properties-error": "tsx scripts/fix-properties-error.ts",
     "check-migration": "tsx scripts/check-and-fix-migration.ts",
