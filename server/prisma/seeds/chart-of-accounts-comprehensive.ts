@@ -4,9 +4,8 @@
  * Based on user specification with exact account codes and structure
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Use the app's centralized Prisma client (with adapter) so engine options are valid.
+import prisma from '../../src/prisma/client';
 
 interface AccountData {
   code: string;

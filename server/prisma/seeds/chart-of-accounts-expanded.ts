@@ -1,14 +1,13 @@
 /**
  * Expanded Chart of Accounts Seed Data
  * Real Estate ERP - Comprehensive COA with Hierarchy and Cash Flow Mapping
- * 
+ *
  * IMPORTANT: This seed adds NEW accounts only. Existing accounts (1000, 1010, 1100, 2000, 3000, 4000, 5000, 5100)
  * are preserved and updated to be parent (non-postable) accounts.
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Reuse the shared Prisma client (with adapter) instead of constructing a new one.
+import prisma from '../../src/prisma/client';
 
 export async function seedExpandedChartOfAccounts() {
   console.log('Seeding Expanded Chart of Accounts...');

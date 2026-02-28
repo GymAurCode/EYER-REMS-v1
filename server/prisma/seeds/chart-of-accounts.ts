@@ -3,9 +3,9 @@
  * Real Estate ERP Standard COA
  */
 
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+// Reuse the shared Prisma client configuration (with adapter) used by the app.
+// This avoids constructor/engine-type issues in Prisma 7.
+import prisma from '../../src/prisma/client';
 
 export async function seedChartOfAccounts() {
   console.log('Seeding Chart of Accounts...');
