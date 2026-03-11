@@ -1,0 +1,76 @@
+{
+  "timestamp": "2025-12-24T11:15:18.186Z",
+  "summary": {
+    "totalSuites": 6,
+    "totalTests": 0,
+    "totalPassed": 0,
+    "totalFailed": 0,
+    "totalDuration": 4316,
+    "results": [
+      {
+        "testSuite": "auth",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 728,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\auth.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_13_669Z-debug-0.log\n"
+        ]
+      },
+      {
+        "testSuite": "crm",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 723,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\crm.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_14_415Z-debug-0.log\n"
+        ]
+      },
+      {
+        "testSuite": "employees",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 683,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\employees.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_15_105Z-debug-0.log\n"
+        ]
+      },
+      {
+        "testSuite": "finance",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 684,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\finance.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_15_776Z-debug-0.log\n"
+        ]
+      },
+      {
+        "testSuite": "properties",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 829,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\properties.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_16_615Z-debug-0.log\n"
+        ]
+      },
+      {
+        "testSuite": "tenants",
+        "passed": 0,
+        "failed": 0,
+        "total": 0,
+        "duration": 669,
+        "errors": [
+          "Command failed: npm test -- F:\\realestateerp-final\\server\\src\\__tests__\\api\\tenants.test.ts --verbose --no-coverage\nnpm error Missing script: \"test\"\nnpm error\nnpm error To see a list of scripts, run:\nnpm error   npm run\nnpm error A complete log of this run can be found in: C:\\Users\\umerm\\AppData\\Local\\npm-cache\\_logs\\2025-12-24T11_15_17_295Z-debug-0.log\n"
+        ]
+      }
+    ]
+  },
+  "environment": {
+    "nodeVersion": "v22.18.0",
+    "platform": "win32"
+  }
+}

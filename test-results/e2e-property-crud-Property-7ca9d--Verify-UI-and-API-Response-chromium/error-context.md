@@ -1,0 +1,78 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - generic [ref=e8]: A
+          - generic [ref=e9]: EYERCALL
+        - paragraph [ref=e10]: Connecting the world through secure communication and digital innovation.
+      - generic [ref=e11]:
+        - generic [ref=e12]:
+          - img [ref=e14]
+          - generic [ref=e17]:
+            - heading "Secure Video Meetings" [level=3] [ref=e18]
+            - paragraph [ref=e19]: Seamless and secure video meetings for various purposes—online classes, business conferences, personal discussions. A reliable, user-friendly platform for crystal-clear communication.
+        - generic [ref=e20]:
+          - img [ref=e22]
+          - generic [ref=e24]:
+            - heading "Messaging & Courses" [level=3] [ref=e25]
+            - paragraph [ref=e26]: Built-in messaging for students and teachers, and exploring academic and professional courses.
+        - generic [ref=e27]:
+          - img [ref=e29]
+          - generic [ref=e32]:
+            - heading "Custom Website & More" [level=3] [ref=e33]
+            - paragraph [ref=e34]: Powerful, customized digital solutions, from modern websites to advanced software development, to help businesses grow and scale.
+      - generic [ref=e35]:
+        - link "Explore our ecosystem" [ref=e36] [cursor=pointer]:
+          - /url: "#"
+          - text: Explore our ecosystem
+          - img [ref=e37]
+        - generic [ref=e39]:
+          - generic [ref=e40]: © 2024 EYERCALL INC.
+          - generic [ref=e41]:
+            - link "PRIVACY POLICY" [ref=e42] [cursor=pointer]:
+              - /url: "#"
+            - generic [ref=e43]: •
+            - link "TERMS" [ref=e44] [cursor=pointer]:
+              - /url: "#"
+    - generic [ref=e46]:
+      - generic [ref=e48]:
+        - img [ref=e49]
+        - img [ref=e51]
+        - generic [ref=e54]: SECURE ACCESS PORTAL
+      - generic [ref=e55]:
+        - heading "Welcome Back" [level=1] [ref=e56]
+        - paragraph [ref=e57]: Access your digital dashboard.
+      - generic [ref=e58]:
+        - generic [ref=e59]:
+          - generic [ref=e60]: EMAIL
+          - generic [ref=e61]:
+            - img [ref=e62]
+            - textbox "EMAIL" [ref=e65]:
+              - /placeholder: user@eyercall.com
+              - text: admin@realestate.com
+        - generic [ref=e66]:
+          - generic [ref=e67]:
+            - generic [ref=e68]: PASSWORD
+            - link "Forgot Password?" [ref=e69] [cursor=pointer]:
+              - /url: /reset-password
+          - generic [ref=e70]:
+            - img [ref=e71]
+            - textbox "PASSWORD" [ref=e74]:
+              - /placeholder: ••••••••
+            - button [ref=e75]:
+              - img [ref=e76]
+        - button "Sign In" [ref=e79]:
+          - text: Sign In
+          - img
+      - generic [ref=e80]:
+        - text: New to Eyercall?
+        - link "Start Free Trial" [ref=e81] [cursor=pointer]:
+          - /url: /signup
+  - region "Notifications (F8)":
+    - list
+  - alert [ref=e82]
+```

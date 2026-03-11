@@ -1,0 +1,494 @@
+[
+  {
+    "id": "TC001",
+    "title": "User Login with Correct Credentials",
+    "description": "Verify that the user can log in successfully using valid credentials and receive a valid JWT token.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter valid username/email and password."
+      },
+      {
+        "type": "action",
+        "description": "Click on the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login is successful and a JWT token is received."
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "User Login with Incorrect Credentials",
+    "description": "Verify that login fails when the user enters incorrect username or password.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to the login page."
+      },
+      {
+        "type": "action",
+        "description": "Enter invalid username/email and/or password."
+      },
+      {
+        "type": "action",
+        "description": "Click on the login button."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that login fails with appropriate error message."
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "JWT Token Validation and Device Approval",
+    "description": "Verify that after login, the JWT token is valid and the device approval process is enforced correctly.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in successfully with valid credentials."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify JWT token signature and expiration."
+      },
+      {
+        "type": "assertion",
+        "description": "Check if new device requires approval before granting access."
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Dashboard Loads Real-Time Metrics Correctly",
+    "description": "Verify that the dashboard loads with real-time statistics, metrics, and charts for properties, HR, CRM, and finance modules.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a valid user with dashboard access."
+      },
+      {
+        "type": "action",
+        "description": "Navigate to the main dashboard page."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify that all real-time metrics and charts are displayed correctly."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that data is consistent with backend API responses."
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "CRUD Operations in Property Management",
+    "description": "Verify create, read, update, and delete operations for properties, units, blocks, floors, and leases with correct data linkage and code generation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a new property with all required fields."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the property is listed correctly in the properties view."
+      },
+      {
+        "type": "action",
+        "description": "Add units, blocks, and floors related to the property."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the hierarchical data structure and correct code generation for units."
+      },
+      {
+        "type": "action",
+        "description": "Create a lease associated with a unit."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that lease status updates and data are correct."
+      },
+      {
+        "type": "action",
+        "description": "Update and delete property and related entities."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure data integrity is maintained after updates and deletions."
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "Tenant Portal Access and Payment Workflow",
+    "description": "Verify tenants can log in to the portal, view their dashboard, invoices, ledger, and successfully submit payments and maintenance requests.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a tenant via tenant portal."
+      },
+      {
+        "type": "assertion",
+        "description": "Check tenant dashboard displays accurate information."
+      },
+      {
+        "type": "action",
+        "description": "View and verify invoices and ledger entries."
+      },
+      {
+        "type": "action",
+        "description": "Make a payment using supported payment methods."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payment is recorded and reflected in tenant ledger."
+      },
+      {
+        "type": "action",
+        "description": "Submit a maintenance request through the portal."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify maintenance request is logged and status updates are visible."
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "Financial Transactions and Accounting Rules Enforcement",
+    "description": "Validate that financial transactions, invoices, payments, and commissions adhere to accounting rules including debit-credit balance, tax calculation, and payment allocation.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a financial transaction with debit and credit entries."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the transaction maintains balanced debits and credits."
+      },
+      {
+        "type": "action",
+        "description": "Generate an invoice with applicable taxes."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that tax amounts are correctly calculated and displayed."
+      },
+      {
+        "type": "action",
+        "description": "Make payments against the invoice partially and fully."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payments are allocated correctly and invoice status updates."
+      },
+      {
+        "type": "action",
+        "description": "Calculate and apply commissions as per defined rules."
+      },
+      {
+        "type": "assertion",
+        "description": "Ensure commission calculations are accurate."
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "CRM Leads and Deals Pipeline Management",
+    "description": "Verify that CRM users can create, update, and track leads, convert leads to clients, manage deals, and communications with correct stage updates and permission enforcement.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create new lead with required details."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify lead appears correctly in leads view."
+      },
+      {
+        "type": "action",
+        "description": "Update lead status and convert lead to client."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that client record is created and lead is removed or updated appropriately."
+      },
+      {
+        "type": "action",
+        "description": "Create and update deals linked to clients with pipeline stage changes."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify pipeline stages reflect the correct status and data consistency."
+      },
+      {
+        "type": "action",
+        "description": "Add communications related to leads or deals."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify communications are tracked and visible with correct permissions."
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "HR Employee Records and Attendance Tracking",
+    "description": "Verify HR module supports CRUD operations for employee records, real-time attendance tracking, leave management, and payroll calculation accuracy.",
+    "category": "functional",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Add a new employee with all required details."
+      },
+      {
+        "type": "assertion",
+        "description": "Employee appears correctly in employees view."
+      },
+      {
+        "type": "action",
+        "description": "Record employee attendance through real-time portal."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify attendance records update accurately and reflect in reports."
+      },
+      {
+        "type": "action",
+        "description": "Apply for leave and approve or reject leave requests."
+      },
+      {
+        "type": "assertion",
+        "description": "Check leave balances and approvals are updated correctly."
+      },
+      {
+        "type": "action",
+        "description": "Process payroll for employees based on attendance and leaves."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify payroll calculations comply with specified rules and are accurate."
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "AI Intelligence Data Analysis and Recommendations",
+    "description": "Verify AI intelligence module generates credible forecasts and actionable recommendations based on available system data.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to AI Intelligence page."
+      },
+      {
+        "type": "action",
+        "description": "Request forecast or recommendation reports."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify outputs are generated and data is consistent with system inputs."
+      },
+      {
+        "type": "assertion",
+        "description": "Check recommendations are reasonable and actionable."
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "Notification Delivery and Read Status",
+    "description": "Validate that notifications are delivered in real-time to users with correct unread counts and read status updates.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Trigger system events that generate notifications (e.g. lease expiry, payment due)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify notifications appear promptly in user notification list."
+      },
+      {
+        "type": "action",
+        "description": "Mark notifications as read."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that unread counts decrement accordingly and read status persists after refresh."
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "Role-Based Access Control Enforcement",
+    "description": "Verify that users' access rights are restricted according to their roles and permissions, preventing unauthorized data access or actions.",
+    "category": "security",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Log in as a user with limited permissions."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to access restricted modules or perform unauthorized CRUD operations."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied and proper error messages or redirections occur."
+      },
+      {
+        "type": "action",
+        "description": "Log in as an admin user."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify full access to all authorized modules and management features."
+      }
+    ]
+  },
+  {
+    "id": "TC013",
+    "title": "API Endpoint Response and Error Handling",
+    "description": "Verify that all REST API endpoints respond with correct data formats, handle errors gracefully, and validate inputs properly.",
+    "category": "error handling",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Send valid requests to all major API endpoints."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify responses have correct data and status codes."
+      },
+      {
+        "type": "action",
+        "description": "Send invalid or malformed requests with missing or incorrect parameters."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that proper validation errors are returned with meaningful messages."
+      },
+      {
+        "type": "action",
+        "description": "Send unauthorized requests without valid JWT tokens."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify access is denied with appropriate status codes (e.g., 401 Unauthorized)."
+      }
+    ]
+  },
+  {
+    "id": "TC014",
+    "title": "Support Ticket Creation and Resolution Workflow",
+    "description": "Validate the support system allowing users to create tickets, support staff to resolve them, and audit logs track all activities.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Create a new support ticket with complete details."
+      },
+      {
+        "type": "assertion",
+        "description": "Ticket appears in the support ticket list and is visible to support staff."
+      },
+      {
+        "type": "action",
+        "description": "Update ticket status to 'In Progress' and add resolution comments."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify ticket status updates and comments are recorded correctly."
+      },
+      {
+        "type": "action",
+        "description": "Close the support ticket."
+      },
+      {
+        "type": "assertion",
+        "description": "Check audit logs reflect the full ticket lifecycle accurately."
+      }
+    ]
+  },
+  {
+    "id": "TC015",
+    "title": "File Upload and Validation",
+    "description": "Ensure files and images can be uploaded successfully with validation on file types and sizes, and errors handled properly.",
+    "category": "functional",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Attempt to upload supported file types within size limits."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify files upload successfully and are accessible."
+      },
+      {
+        "type": "action",
+        "description": "Attempt to upload unsupported file types or files exceeding size limits."
+      },
+      {
+        "type": "assertion",
+        "description": "Check that errors are displayed and upload is rejected."
+      }
+    ]
+  },
+  {
+    "id": "TC016",
+    "title": "System Performance Under Load",
+    "description": "Validate system response times and scalability targets under realistic user workloads and data volumes.",
+    "category": "performance",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Simulate concurrent users performing key operations (e.g., login, property management updates, tenant portal access)."
+      },
+      {
+        "type": "assertion",
+        "description": "Measure response times and verify they meet defined performance criteria."
+      },
+      {
+        "type": "action",
+        "description": "Scale data volume to large datasets (thousands of properties, tenants, transactions)."
+      },
+      {
+        "type": "assertion",
+        "description": "Verify system maintains responsiveness and correctness of data retrieval and updates."
+      }
+    ]
+  }
+]

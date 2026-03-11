@@ -1,0 +1,2257 @@
+{
+  "config": {
+    "configFile": "F:\\realestateerp final\\frontend_tests\\playwright.config.ts",
+    "rootDir": "F:/realestateerp final/frontend_tests/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 2
+    },
+    "preserveOutput": "always",
+    "reporter": [
+      [
+        "html",
+        {
+          "outputFolder": "playwright-report"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "test-results.json"
+        }
+      ],
+      [
+        "list",
+        null
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "quiet": false,
+    "projects": [
+      {
+        "outputDir": "F:/realestateerp final/frontend_tests/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 2
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "F:/realestateerp final/frontend_tests/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "shard": null,
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.56.1",
+    "workers": 2,
+    "webServer": {
+      "command": "npm run dev",
+      "url": "http://localhost:3000",
+      "reuseExistingServer": true,
+      "timeout": 120000,
+      "cwd": "F:\\realestateerp final"
+    }
+  },
+  "suites": [
+    {
+      "title": "auth.test.ts",
+      "file": "auth.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Authentication Module",
+          "file": "auth.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Login Page - Form Elements Visible",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2534,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:11.723Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-a188dd5c13708e395be6",
+              "file": "auth.test.ts",
+              "line": 14,
+              "column": 7
+            },
+            {
+              "title": "Login - Success with Valid Credentials",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 25645,
+                      "error": {
+                        "message": "TimeoutError: page.waitForURL: Timeout 20000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================",
+                        "stack": "TimeoutError: page.waitForURL: Timeout 20000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n    at F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts:37:16",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts",
+                          "column": 16,
+                          "line": 37
+                        },
+                        "snippet": "\u001b[0m \u001b[90m 35 |\u001b[39m     \n \u001b[90m 36 |\u001b[39m     \u001b[90m// Wait for navigation\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 37 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForURL(\u001b[35m/\\/(dashboard|properties|\\/)$/\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m20000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 38 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 39 |\u001b[39m     \n \u001b[90m 40 |\u001b[39m     \u001b[90m// Verify toast notification\u001b[39m\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts",
+                            "column": 16,
+                            "line": 37
+                          },
+                          "message": "TimeoutError: page.waitForURL: Timeout 20000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n============================================================\n\n\u001b[0m \u001b[90m 35 |\u001b[39m     \n \u001b[90m 36 |\u001b[39m     \u001b[90m// Wait for navigation\u001b[39m\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 37 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForURL(\u001b[35m/\\/(dashboard|properties|\\/)$/\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m20000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m                \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 38 |\u001b[39m     \u001b[36mawait\u001b[39m page\u001b[33m.\u001b[39mwaitForLoadState(\u001b[32m'networkidle'\u001b[39m\u001b[33m,\u001b[39m { timeout\u001b[33m:\u001b[39m \u001b[35m10000\u001b[39m })\u001b[33m;\u001b[39m\n \u001b[90m 39 |\u001b[39m     \n \u001b[90m 40 |\u001b[39m     \u001b[90m// Verify toast notification\u001b[39m\u001b[0m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts:37:16\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:11.736Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-08f10-cess-with-Valid-Credentials-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-08f10-cess-with-Valid-Credentials-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-08f10-cess-with-Valid-Credentials-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts",
+                        "column": 16,
+                        "line": 37
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-a23a0510e1a5f9f11238",
+              "file": "auth.test.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "Login - Error with Invalid Credentials",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 27100,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [
+                        {
+                          "text": "Toast may have already been dismissed\n"
+                        }
+                      ],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:16.253Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-cc359fabc30f526fd276",
+              "file": "auth.test.ts",
+              "line": 47,
+              "column": 7
+            },
+            {
+              "title": "Login - Form Validation - Empty Fields",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 2656,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:43.841Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-6a5dfade11a98d94243c",
+              "file": "auth.test.ts",
+              "line": 60,
+              "column": 7
+            },
+            {
+              "title": "Login - Form Validation - Invalid Email Format",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 932,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:43.428Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-2d3216d0b2742c28f7c7",
+              "file": "auth.test.ts",
+              "line": 76,
+              "column": 7
+            },
+            {
+              "title": "Logout - Success",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 2488,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts:89:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\auth.test.ts:89:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:44.406Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-Logout---Success-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-Logout---Success-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\auth-Authentication-Module-Logout---Success-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "f0c50cfc8142f74e2e08-3b8d11bd62bb247ed634",
+              "file": "auth.test.ts",
+              "line": 87,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "calculations.test.ts",
+      "file": "calculations.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Calculations Verification",
+          "file": "calculations.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Calculations - Occupancy Rate Display",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1660,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:46.998Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--e84ae-ns---Occupancy-Rate-Display-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--e84ae-ns---Occupancy-Rate-Display-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--e84ae-ns---Occupancy-Rate-Display-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4299a39660dbe5d013b9-0e56d569e41b3432af3f",
+              "file": "calculations.test.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "Calculations - Revenue Display",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1649,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:51.026Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--10b9f-culations---Revenue-Display-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--10b9f-culations---Revenue-Display-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--10b9f-culations---Revenue-Display-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4299a39660dbe5d013b9-f2aa4c90977e21d04bb4",
+              "file": "calculations.test.ts",
+              "line": 34,
+              "column": 7
+            },
+            {
+              "title": "Calculations - Invoice Tax Calculation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1712,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:53.577Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--740bd-s---Invoice-Tax-Calculation-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--740bd-s---Invoice-Tax-Calculation-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--740bd-s---Invoice-Tax-Calculation-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4299a39660dbe5d013b9-5ed846dce8d16a073d58",
+              "file": "calculations.test.ts",
+              "line": 48,
+              "column": 7
+            },
+            {
+              "title": "Calculations - Payroll Net Pay Calculation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 5,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1596,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:56.930Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--fc010-Payroll-Net-Pay-Calculation-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--fc010-Payroll-Net-Pay-Calculation-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--fc010-Payroll-Net-Pay-Calculation-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4299a39660dbe5d013b9-9d02acb4a3ca93cd25b5",
+              "file": "calculations.test.ts",
+              "line": 84,
+              "column": 7
+            },
+            {
+              "title": "Calculations - Commission Calculation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 6,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1744,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\calculations.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:11:59.623Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--78113-ns---Commission-Calculation-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--78113-ns---Commission-Calculation-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\calculations-Calculations--78113-ns---Commission-Calculation-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "4299a39660dbe5d013b9-59516b28389885c55288",
+              "file": "calculations.test.ts",
+              "line": 132,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "crm.test.ts",
+      "file": "crm.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "CRM Module",
+          "file": "crm.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "CRM Page - Loads Successfully",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 7,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1513,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:12:03.272Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM-Page---Loads-Successfully-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM-Page---Loads-Successfully-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM-Page---Loads-Successfully-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-0ed53c6bd1f4ff31a6cd",
+              "file": "crm.test.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "CRM - Add Lead - Form Validation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 8,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1647,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:12:05.658Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Form-Validation-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Form-Validation-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Form-Validation-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-b6a2983222e3d115f854",
+              "file": "crm.test.ts",
+              "line": 24,
+              "column": 7
+            },
+            {
+              "title": "CRM - Add Lead - Success",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 9,
+                      "parallelIndex": 0,
+                      "status": "failed",
+                      "duration": 1239,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:12:08.882Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Success-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Success-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Lead---Success-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-2963c22142451503cd37",
+              "file": "crm.test.ts",
+              "line": 49,
+              "column": 7
+            },
+            {
+              "title": "CRM - Add Deal - Commission Calculation",
+              "ok": false,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 10,
+                      "parallelIndex": 1,
+                      "status": "failed",
+                      "duration": 1258,
+                      "error": {
+                        "message": "Error: Login failed - still on login page after timeout",
+                        "stack": "Error: Login failed - still on login page after timeout\n    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\n    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5",
+                        "location": {
+                          "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                          "column": 13,
+                          "line": 67
+                        },
+                        "snippet": "\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m"
+                      },
+                      "errors": [
+                        {
+                          "location": {
+                            "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                            "column": 13,
+                            "line": 67
+                          },
+                          "message": "Error: Login failed - still on login page after timeout\n\n\u001b[90m   at \u001b[39mhelpers\\test-helpers.ts:67\n\n\u001b[0m \u001b[90m 65 |\u001b[39m         \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m`Login failed: ${errorText || 'Authentication error'}`\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m 66 |\u001b[39m       }\n\u001b[31m\u001b[1m>\u001b[22m\u001b[39m\u001b[90m 67 |\u001b[39m       \u001b[36mthrow\u001b[39m \u001b[36mnew\u001b[39m \u001b[33mError\u001b[39m(\u001b[32m'Login failed - still on login page after timeout'\u001b[39m)\u001b[33m;\u001b[39m\n \u001b[90m    |\u001b[39m             \u001b[31m\u001b[1m^\u001b[22m\u001b[39m\n \u001b[90m 68 |\u001b[39m     }\n \u001b[90m 69 |\u001b[39m     \u001b[36mthrow\u001b[39m error\u001b[33m;\u001b[39m\n \u001b[90m 70 |\u001b[39m   }\u001b[0m\n\u001b[2m    at loginAsAdmin (F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts:67:13)\u001b[22m\n\u001b[2m    at F:\\realestateerp final\\frontend_tests\\tests\\crm.test.ts:11:5\u001b[22m"
+                        }
+                      ],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:12:10.931Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Deal---Commission-Calculation-chromium\\test-failed-1.png"
+                        },
+                        {
+                          "name": "video",
+                          "contentType": "video/webm",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Deal---Commission-Calculation-chromium\\video.webm"
+                        },
+                        {
+                          "name": "error-context",
+                          "contentType": "text/markdown",
+                          "path": "F:\\realestateerp final\\frontend_tests\\test-results\\crm-CRM-Module-CRM---Add-Deal---Commission-Calculation-chromium\\error-context.md"
+                        }
+                      ],
+                      "errorLocation": {
+                        "file": "F:\\realestateerp final\\frontend_tests\\tests\\helpers\\test-helpers.ts",
+                        "column": 13,
+                        "line": 67
+                      }
+                    }
+                  ],
+                  "status": "unexpected"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-ef16d7334937dc1fe579",
+              "file": "crm.test.ts",
+              "line": 71,
+              "column": 7
+            },
+            {
+              "title": "CRM - Add Deal - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 11,
+                      "parallelIndex": 0,
+                      "status": "skipped",
+                      "duration": 1,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2025-11-25T09:12:13.600Z",
+                      "annotations": [],
+                      "attachments": []
+                    }
+                  ],
+                  "status": "skipped"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-7eda855ff9e443bb5dfe",
+              "file": "crm.test.ts",
+              "line": 98,
+              "column": 7
+            },
+            {
+              "title": "CRM - Convert Lead to Client",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "caa77ee371d40bbf79cc-cec05c59aaf53f354eeb",
+              "file": "crm.test.ts",
+              "line": 120,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "edge-cases.test.ts",
+      "file": "edge-cases.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Edge Cases",
+          "file": "edge-cases.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Edge Cases - Empty State - No Properties",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "895ff476cbfe377a5e09-a682bfac71b7d79e37c2",
+              "file": "edge-cases.test.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "Edge Cases - Form Max Length Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "895ff476cbfe377a5e09-90adc60476d09756555a",
+              "file": "edge-cases.test.ts",
+              "line": 29,
+              "column": 7
+            },
+            {
+              "title": "Edge Cases - Overlapping Date Ranges",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "895ff476cbfe377a5e09-f1c35e139225579c8981",
+              "file": "edge-cases.test.ts",
+              "line": 56,
+              "column": 7
+            },
+            {
+              "title": "Edge Cases - Negative Values Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "895ff476cbfe377a5e09-f54c07082c1df2ee5c02",
+              "file": "edge-cases.test.ts",
+              "line": 93,
+              "column": 7
+            },
+            {
+              "title": "Edge Cases - Network Error Handling",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "895ff476cbfe377a5e09-1e1775715d3637b32575",
+              "file": "edge-cases.test.ts",
+              "line": 128,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "finance.test.ts",
+      "file": "finance.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Finance Module",
+          "file": "finance.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Finance Page - Loads Successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-ab84ee56e91a5d7e2b0d",
+              "file": "finance.test.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Finance - Create Invoice - Form Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-d99b43b31e38f30f29f3",
+              "file": "finance.test.ts",
+              "line": 24,
+              "column": 7
+            },
+            {
+              "title": "Finance - Create Invoice - Tax Calculation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-200dbed0d9447889a029",
+              "file": "finance.test.ts",
+              "line": 42,
+              "column": 7
+            },
+            {
+              "title": "Finance - Create Invoice - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-bbdcd8b80367874bc9c4",
+              "file": "finance.test.ts",
+              "line": 61,
+              "column": 7
+            },
+            {
+              "title": "Finance - Receive Payment - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-cb04cd6388ca1c4a4733",
+              "file": "finance.test.ts",
+              "line": 77,
+              "column": 7
+            },
+            {
+              "title": "Finance - Finance Summary - Calculations Display",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-61a58409e7143e59ae41",
+              "file": "finance.test.ts",
+              "line": 92,
+              "column": 7
+            },
+            {
+              "title": "Finance - Auto-Sync - Payment Updates Invoice",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "4eab6ef61b145f6a6c56-174936644dd14f43f2ff",
+              "file": "finance.test.ts",
+              "line": 104,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "hr.test.ts",
+      "file": "hr.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "HR Module",
+          "file": "hr.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "HR Page - Loads Successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-6ab97b8f7abfb3d4ed3e",
+              "file": "hr.test.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "HR - Add Employee - Form Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-2e526249016f11f6bd74",
+              "file": "hr.test.ts",
+              "line": 24,
+              "column": 7
+            },
+            {
+              "title": "HR - Add Employee - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-54afee560d703e14e7e3",
+              "file": "hr.test.ts",
+              "line": 49,
+              "column": 7
+            },
+            {
+              "title": "HR - Create Payroll - Calculations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-2b491536a02b16dd1f8b",
+              "file": "hr.test.ts",
+              "line": 72,
+              "column": 7
+            },
+            {
+              "title": "HR - Create Payroll - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-211527fd4b7fd1f6b406",
+              "file": "hr.test.ts",
+              "line": 100,
+              "column": 7
+            },
+            {
+              "title": "HR - Attendance Portal - Loads",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "20cd32af93fdaed5f97f-34f5c73c577af14490ba",
+              "file": "hr.test.ts",
+              "line": 122,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "navigation.test.ts",
+      "file": "navigation.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Navigation Module",
+          "file": "navigation.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Navigation - Dashboard Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-b6d221eb4a4aad1dcec8",
+              "file": "navigation.test.ts",
+              "line": 14,
+              "column": 7
+            },
+            {
+              "title": "Navigation - Properties Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-e43ac59597a6e215cd8c",
+              "file": "navigation.test.ts",
+              "line": 21,
+              "column": 7
+            },
+            {
+              "title": "Navigation - Finance Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-9d5fcec2ab14bcc0fbcb",
+              "file": "navigation.test.ts",
+              "line": 29,
+              "column": 7
+            },
+            {
+              "title": "Navigation - HR Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-76a7de5b4f22b219b35a",
+              "file": "navigation.test.ts",
+              "line": 36,
+              "column": 7
+            },
+            {
+              "title": "Navigation - CRM Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-312a7000881b3614bb7d",
+              "file": "navigation.test.ts",
+              "line": 43,
+              "column": 7
+            },
+            {
+              "title": "Navigation - Tenant Portal Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-1eddf5e30e2f181ef35f",
+              "file": "navigation.test.ts",
+              "line": 50,
+              "column": 7
+            },
+            {
+              "title": "Navigation - Settings Link",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-f408b7f7984b054bbf15",
+              "file": "navigation.test.ts",
+              "line": 55,
+              "column": 7
+            },
+            {
+              "title": "Navigation - No Errors on Page Load",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "be476ad5ad86aa9d4908-b267fa622cfccbc09bb3",
+              "file": "navigation.test.ts",
+              "line": 61,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "properties.test.ts",
+      "file": "properties.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Properties Module",
+          "file": "properties.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Properties Page - Loads Successfully",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-396f53357fb7d1621ae8",
+              "file": "properties.test.ts",
+              "line": 20,
+              "column": 7
+            },
+            {
+              "title": "Properties - Add Property Dialog Opens",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-513a4b3f70868bb502d6",
+              "file": "properties.test.ts",
+              "line": 27,
+              "column": 7
+            },
+            {
+              "title": "Properties - Add Property - Form Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-eb867f8959e9de5b2bea",
+              "file": "properties.test.ts",
+              "line": 33,
+              "column": 7
+            },
+            {
+              "title": "Properties - Add Property - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-0457102e6b454e29d615",
+              "file": "properties.test.ts",
+              "line": 52,
+              "column": 7
+            },
+            {
+              "title": "Properties - Edit Property",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-3b106f4c994eba7b356d",
+              "file": "properties.test.ts",
+              "line": 77,
+              "column": 7
+            },
+            {
+              "title": "Properties - Delete Property - Confirmation Dialog",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-e813d763644b03a616e3",
+              "file": "properties.test.ts",
+              "line": 100,
+              "column": 7
+            },
+            {
+              "title": "Properties - Property Dashboard - Calculations Display",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-63b7c387f0ef3eb211a3",
+              "file": "properties.test.ts",
+              "line": 117,
+              "column": 7
+            },
+            {
+              "title": "Properties - Auto-Sync - Property Status Updates",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "0cd26e03f7b131e43e4f-66bbd2bf49670af33197",
+              "file": "properties.test.ts",
+              "line": 136,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "tenant-portal.test.ts",
+      "file": "tenant-portal.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Tenant Portal Module",
+          "file": "tenant-portal.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Tenant Portal - Page Loads",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e54ff7952f1191e817ed-6cb25610bb1379415870",
+              "file": "tenant-portal.test.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "Tenant Portal - Dashboard Displays Data",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e54ff7952f1191e817ed-91d26cf4c56ed0e6e1d6",
+              "file": "tenant-portal.test.ts",
+              "line": 25,
+              "column": 7
+            },
+            {
+              "title": "Tenant Portal - Ledger Displays",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e54ff7952f1191e817ed-3adf83104e105721c12e",
+              "file": "tenant-portal.test.ts",
+              "line": 33,
+              "column": 7
+            },
+            {
+              "title": "Tenant Portal - Auto-Sync - Payment Updates Ledger",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "e54ff7952f1191e817ed-95d97069dffef18fda10",
+              "file": "tenant-portal.test.ts",
+              "line": 48,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "toast-notifications.test.ts",
+      "file": "toast-notifications.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Toast Notifications",
+          "file": "toast-notifications.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Toast - Login Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-dd1f98e9a12080a508a9",
+              "file": "toast-notifications.test.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "Toast - Property Created",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-665849a40ef720c94412",
+              "file": "toast-notifications.test.ts",
+              "line": 28,
+              "column": 7
+            },
+            {
+              "title": "Toast - Property Updated",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-9b0c72e68ef4b6b6d849",
+              "file": "toast-notifications.test.ts",
+              "line": 44,
+              "column": 7
+            },
+            {
+              "title": "Toast - Form Validation Error",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-6d3b09f1426097466faa",
+              "file": "toast-notifications.test.ts",
+              "line": 68,
+              "column": 7
+            },
+            {
+              "title": "Toast - API Error Handling",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-c9809e8afd1d5f436009",
+              "file": "toast-notifications.test.ts",
+              "line": 89,
+              "column": 7
+            },
+            {
+              "title": "Toast - Multiple Toasts Stack",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-1323579579c42b524516",
+              "file": "toast-notifications.test.ts",
+              "line": 107,
+              "column": 7
+            },
+            {
+              "title": "Toast - Auto-Dismiss",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "7d66c04fa317ac614b69-754f7f52190296fbc9a5",
+              "file": "toast-notifications.test.ts",
+              "line": 126,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "units.test.ts",
+      "file": "units.test.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Units Module",
+          "file": "units.test.ts",
+          "line": 9,
+          "column": 6,
+          "specs": [
+            {
+              "title": "Units - Add Unit Dialog Opens",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "78ca7216d29eedf1e096-e58887afe10d73db9889",
+              "file": "units.test.ts",
+              "line": 18,
+              "column": 7
+            },
+            {
+              "title": "Units - Add Unit - Form Validation",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "78ca7216d29eedf1e096-9601091aa20d8dff79e6",
+              "file": "units.test.ts",
+              "line": 31,
+              "column": 7
+            },
+            {
+              "title": "Units - Add Unit - Success",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "78ca7216d29eedf1e096-ceee5a94311f1b57fa80",
+              "file": "units.test.ts",
+              "line": 56,
+              "column": 7
+            },
+            {
+              "title": "Units - Floor Mapping Display",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [],
+                  "status": "skipped"
+                }
+              ],
+              "id": "78ca7216d29eedf1e096-4763798139df262eb3d6",
+              "file": "units.test.ts",
+              "line": 77,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2025-11-25T09:11:09.122Z",
+    "duration": 64576.832,
+    "expected": 4,
+    "skipped": 51,
+    "unexpected": 11,
+    "flaky": 0
+  }
+}
